@@ -1,0 +1,250 @@
+// Class Models — nieuw platform (PostgreSQL)
+// Uitbreidbaar; migraties: npm run db:migrate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Portal {
+  guest
+  model
+  client
+}
+
+enum UserStatus {
+  active
+  suspended
+  pending
+}
+
+enum BriefStatus {
+  open
+  closed
+  archived
+}
+
+enum BriefResponseStatus {
+  submitted
+  withdrawn
+  accepted
+  declined
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  label       String
+  description String?
+  permissions Json     @default("[]")
+  users       UserRole[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  phone           String?
+  bio             String?    @db.Text
+  companyName     String?
+  status          UserStatus @default(active)
+  defaultPortal   Portal?
+  isPremium       Boolean    @default(false)
+  premiumUntil    DateTime?
+  premiumOverride Boolean    @default(false)
+  mollieCustomerId String?
+  roles           UserRole[]
+  contentEdits    ContentString[]
+  mediaAssets     MediaAsset[]
+  auditLogs       AuditLog[]
+  subscriptions   Subscription[]
+  clientBriefs    ClientBrief[]       @relation("ClientBriefs")
+  briefResponses  ModelBriefResponse[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model ClientBrief {
+  id        String      @id @default(uuid())
+  clientId  String
+  client    User        @relation("ClientBriefs", fields: [clientId], references: [id], onDelete: Cascade)
+  title     String
+  body      String      @db.Text
+  status    BriefStatus @default(open)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  responses ModelBriefResponse[]
+}
+
+model ModelBriefResponse {
+  id          String              @id @default(uuid())
+  briefId     String
+  brief       ClientBrief         @relation(fields: [briefId], references: [id], onDelete: Cascade)
+  modelUserId String
+  model       User                @relation(fields: [modelUserId], references: [id], onDelete: Cascade)
+  message     String              @db.Text
+  status      BriefResponseStatus @default(submitted)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@unique([briefId, modelUserId])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+/// Inline bewerkbare teksten (key = stabiele sleutel per scherm/blok)
+model ContentString {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  locale    String   @default("nl")
+  value     String   @db.Text
+  portal    Portal?
+  updatedById String?
+  updatedBy User?    @relation(fields: [updatedById], references: [id])
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+model Menu {
+  id        String     @id @default(uuid())
+  slug      String     @unique
+  label     String
+  portal    Portal
+  placement String     // left | top | middle | hidden
+  items     MenuItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model MenuItem {
+  id        String   @id @default(uuid())
+  menuId    String
+  menu      Menu     @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  label     String
+  href      String
+  sortOrder Int      @default(0)
+  visibleWeb Boolean @default(true)
+  visibleApp Boolean @default(true)
+  requiresPremium Boolean @default(false)
+  roleSlugs Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MediaFolder {
+  id        String        @id @default(uuid())
+  slug      String        @unique
+  label     String
+  parentId  String?
+  parent    MediaFolder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children  MediaFolder[] @relation("FolderTree")
+  assets    MediaAsset[]
+  createdAt DateTime      @default(now())
+}
+
+model MediaAsset {
+  id           String       @id @default(uuid())
+  folderId     String?
+  folder       MediaFolder? @relation(fields: [folderId], references: [id])
+  originalName String
+  storageKey   String       @unique
+  mimeType     String
+  sizeBytes    Int
+  width        Int?
+  height       Int?
+  webpKey      String?
+  thumbKey     String?
+  hardDeleted  Boolean      @default(false)
+  uploadedById String?
+  uploadedBy   User?        @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime     @default(now())
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  title       String
+  body        String   @db.Text
+  authorName  String?
+  rating      Int?
+  sortOrder   Int      @default(0)
+  approved    Boolean  @default(false)
+  visible     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PushCampaign {
+  id          String    @id @default(uuid())
+  title       String
+  body        String    @db.Text
+  audience    Json
+  scheduledFor DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model MollieSettings {
+  id           Int      @id @default(1)
+  apiKeyTest   String?
+  apiKeyLive   String?
+  webhookUrl   String?
+  premiumPrice Decimal  @default(48) @db.Decimal(10, 2)
+  updatedAt    DateTime @updatedAt
+}
+
+model Subscription {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  molliePaymentId      String?  @unique
+  mollieSubscriptionId String?
+  status               String
+  amount               Decimal  @db.Decimal(10, 2)
+  currency             String   @default("EUR")
+  isRecurring          Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+/// Extensies / snippets (metadata; uitvoering later sandboxed)
+model PluginSnippet {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  version     String
+  enabled     Boolean  @default(false)
+  manifest    Json
+  bundlePath  String
+  createdAt   DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  meta      Json?
+  createdAt DateTime @default(now())
+}
+
+model MigrationBatch {
+  id        String   @id @default(uuid())
+  source    String   @default("wordpress")
+  status    String
+  report    Json?
+  createdAt DateTime @default(now())
+}

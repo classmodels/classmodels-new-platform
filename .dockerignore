@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+.git
+**/.env
+**/.env.*
+apps/api/uploads
+*.log
+coverage
+.turbo

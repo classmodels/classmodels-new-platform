@@ -1,0 +1,10 @@
+{
+  "name": "Class-Models",
+  "short_name": "Class-Models",
+  "description": "Class Models modellenplatform",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#6f121b",
+  "lang": "nl"
+}
