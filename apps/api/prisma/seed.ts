@@ -114,6 +114,17 @@ async function main() {
     },
   });
 
+  const guestHomeLeft = await prisma.menu.upsert({
+    where: { slug: 'guest-home-left' },
+    update: { placement: 'left', label: 'Zijbalk home (gast)' },
+    create: {
+      slug: 'guest-home-left',
+      label: 'Zijbalk home (gast)',
+      portal: 'guest',
+      placement: 'left',
+    },
+  });
+
   const modelMain = await prisma.menu.upsert({
     where: { slug: 'model-main' },
     update: {},
@@ -169,6 +180,30 @@ async function main() {
       sortOrder: 4,
       requiresPremium: false,
       roleSlugs: ['client', 'admin'],
+    },
+    {
+      menuId: guestHomeLeft.id,
+      label: 'Modellenplatform home',
+      href: '/home',
+      sortOrder: 0,
+      requiresPremium: false,
+      roleSlugs: [],
+    },
+    {
+      menuId: guestHomeLeft.id,
+      label: 'Voor bezoekers',
+      href: '/portal/guest',
+      sortOrder: 1,
+      requiresPremium: false,
+      roleSlugs: [],
+    },
+    {
+      menuId: guestHomeLeft.id,
+      label: 'Veelgestelde vragen',
+      href: '/login',
+      sortOrder: 2,
+      requiresPremium: false,
+      roleSlugs: [],
     },
     {
       menuId: modelMain.id,

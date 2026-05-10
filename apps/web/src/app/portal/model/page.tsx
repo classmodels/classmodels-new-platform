@@ -77,7 +77,7 @@ function ModelPortalPageInner() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) router.replace('/login');
+    if (!user) router.replace('/');
     else if (
       !user.roles.includes('model') &&
       !user.permissions?.includes('*') &&
@@ -219,6 +219,13 @@ function ModelPortalPageInner() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-10">
+      <section className="rounded-cm border border-burgundy/25 bg-gradient-to-br from-burgundy/10 to-panel px-5 py-5 shadow-sm">
+        <h2 className="font-serif text-xl text-burgundy">Welkom in je modellenportaal</h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink/90">
+          Dit is jouw thuisbasis op het platform: profiel, portfolio en opdrachten. Ontbrekende gegevens vul je
+          gericht aan in het profielblok hieronder.
+        </p>
+      </section>
       <CmText
         contentKey="portal.model.title"
         as="h1"

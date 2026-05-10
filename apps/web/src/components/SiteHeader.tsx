@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { DynamicNav } from '@/components/DynamicNav';
 
 export function SiteHeader() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const onAdmin = pathname?.startsWith('/admin');
 
   if (onAdmin) return null;
@@ -30,7 +31,10 @@ export function SiteHeader() {
         </div>
         <nav className="flex flex-wrap items-center gap-4">
           <Link href="/" className="text-white/90 hover:text-white">
-            Home
+            Beginpagina
+          </Link>
+          <Link href="/home" className="text-white/90 hover:text-white">
+            Modellenplatform
           </Link>
           {!user && (
             <Link href="/login" className="rounded-md bg-white/10 px-3 py-1 text-white hover:bg-white/20">
@@ -54,7 +58,11 @@ export function SiteHeader() {
           {user && (
             <button
               type="button"
-              onClick={() => logout()}
+              onClick={() => {
+                logout();
+                router.push('/');
+                router.refresh();
+              }}
               className="text-white/80 hover:text-white"
             >
               Uitloggen

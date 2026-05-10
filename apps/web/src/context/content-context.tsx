@@ -40,13 +40,15 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       const m: Record<string, string> = {};
       for (const r of rows) m[r.key] = r.value;
       setByKey(m);
+    } catch {
+      setByKey({});
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refresh().catch(() => setLoading(false));
+    void refresh();
   }, [refresh]);
 
   const patchKey = useCallback(
@@ -54,16 +56,22 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       if (!token || !can('content.strings.write')) return;
       setByKey((prev) => ({ ...prev, [key]: value }));
       window.clearTimeout(pending.current[key]);
-      pending.current[key] = window.setTimeout(async () => {
-        try {
-          await apiFetch('/content/strings', {
-            method: 'PATCH',
-            token,
-            body: JSON.stringify({ key, value }),
-          });
-        } catch {
-          await refresh();
-        }
+      pending.current[key] = window.setTimeout(() => {
+        void (async () => {
+          try {
+            await apiFetch('/content/strings', {
+              method: 'PATCH',
+              token,
+              body: JSON.stringify({ key, value }),
+            });
+          } catch {
+            try {
+              await refresh();
+            } catch {
+              /* refresh mag niet naar buiten rejecten */
+            }
+          }
+        })();
       }, 450);
     },
     [token, can, refresh],

@@ -32,8 +32,19 @@ type AuthState = {
   loading: boolean;
 };
 
+export type RegisterInput = {
+  role: 'model' | 'client';
+  email: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  companyName?: string;
+};
+
 type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<AuthUser>;
+  register: (input: RegisterInput) => Promise<AuthUser>;
   logout: () => void;
   refreshMe: () => Promise<void>;
   /** Heeft minstens één `admin.*` permissie of `*`. */
@@ -99,6 +110,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return u;
   }, []);
 
+  const register = useCallback(async (input: RegisterInput) => {
+    const res = await apiFetch<{ access_token: string; user: AuthUser }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    setStoredToken(res.access_token);
+    setToken(res.access_token);
+    const u = {
+      ...res.user,
+      permissions: res.user.permissions ?? [],
+      roles: res.user.roles ?? [],
+    };
+    setUser(u);
+    return u;
+  }, []);
+
   const logout = useCallback(() => {
     setStoredToken(null);
     setToken(null);
@@ -135,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      register,
       logout,
       refreshMe: () => refreshMe(),
       hasBackofficeAccess,
@@ -147,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      register,
       logout,
       refreshMe,
       hasBackofficeAccess,

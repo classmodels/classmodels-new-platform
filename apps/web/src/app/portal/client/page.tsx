@@ -49,7 +49,7 @@ export default function ClientPortalPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) router.replace('/login');
+    if (!user) router.replace('/');
     else if (
       !user.roles.includes('client') &&
       !user.permissions?.includes('*') &&
@@ -134,6 +134,13 @@ export default function ClientPortalPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-10">
+      <section className="rounded-cm border border-burgundy/25 bg-gradient-to-br from-slate-50 to-panel px-5 py-5 shadow-sm">
+        <h2 className="font-serif text-xl text-burgundy">Welkom in je klantenportaal</h2>
+        <p className="mt-2 text-sm leading-relaxed text-ink/90">
+          Vanuit dit portaal beheer je casting-aanvragen en je bedrijfsgegevens. Vul je profiel hieronder aan
+          waar nodig.
+        </p>
+      </section>
       <CmText
         contentKey="portal.client.title"
         as="h1"
