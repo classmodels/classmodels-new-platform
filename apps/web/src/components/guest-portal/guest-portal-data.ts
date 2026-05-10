@@ -21,6 +21,11 @@ export const GUEST_MENU: { id: GuestMenuId; label: string }[] = [
   { id: 'testshoot', label: 'Testshoot' },
 ];
 
+/** Linkermenu — zonder Contact (die staat in de site-header). */
+export const GUEST_SIDEBAR_MENU: { id: GuestMenuId; label: string }[] = GUEST_MENU.filter(
+  (m) => m.id !== 'contact',
+);
+
 export const CARD_MODEL_WORDEN = [
   {
     kicker: 'GRATIS TESTSHOOT',
@@ -60,11 +65,13 @@ export const CARD_MODEL_WORDEN = [
   },
 ] as const;
 
-export const MODEL_WORDEN_EXTRA_CHECKLIST = [
-  'Diversiteit centraal: alle leeftijden, maten en achtergronden zijn welkom.',
-  'Flexibiliteit: jij beslist welke opdrachten je aanneemt en wanneer je werkt.',
-  'Persoonlijke begeleiding: wij helpen je stap voor stap op weg.',
-  'Extra inkomsten: modellenwerk is perfect te combineren met studie of werk.',
+/** Onder de drie kolommen — twee regels per item, zoals het ontwerp. */
+export const MODEL_WORDEN_TRUST_BAR = [
+  { icon: 'star' as const, line1: 'Professionele', line2: 'begeleiding' },
+  { icon: 'heart' as const, line1: 'Eerlijke kansen', line2: 'voor iedereen' },
+  { icon: 'circle' as const, line1: 'Hoogwaardige', line2: "portfolio's" },
+  { icon: 'diamond' as const, line1: 'Veelzijdige', line2: 'opdrachten' },
+  { icon: 'check' as const, line1: 'Betrouwbaar &', line2: 'persoonlijk' },
 ] as const;
 
 export const MODEL_WORDEN_STATS = [
@@ -85,6 +92,7 @@ export const WAAROM_CHECKLIST = [
   'Diversiteit centraal: alle leeftijden, maten en achtergronden zijn welkom.',
   'Flexibiliteit: jij beslist welke opdrachten je aanneemt en wanneer je werkt.',
   'Persoonlijke begeleiding: wij helpen je stap voor stap op weg.',
+  'Extra inkomsten: modellenwerk is perfect te combineren met studie of werk.',
 ] as const;
 
 export const DOELGROEPEN_INTRO =
@@ -98,3 +106,91 @@ export const DOELGROEPEN_CARDS = [
   { title: '60+', body: 'Voor campagnes gericht op een volwassen doelgroep' },
   { title: 'Mannen', body: 'Voor campagnes gericht op een mannelijke doelgroep' },
 ] as const;
+
+/** Veelgestelde vragen — gastenportaal. */
+export const GUEST_FAQ = [
+  {
+    q: 'Moet ik ervaring hebben?',
+    a: 'Nee. Wij zoeken echte mensen van alle leeftijden, maten en achtergronden. Ervaring is niet nodig.',
+  },
+  {
+    q: 'Wie zoeken jullie precies?',
+    a: 'Mannen, vrouwen, tieners, kinderen, 60-plussers en mensen met een maatje meer. Uitstraling, motivatie en authenticiteit zijn belangrijker dan perfecte maten.',
+  },
+  {
+    q: 'Wat kan ik verwachten tijdens een intake of casting?',
+    a: 'Je wordt vriendelijk ontvangen, krijgt uitleg over mogelijke opdrachten en samen bekijken we welke kansen het best bij jou passen.',
+  },
+  {
+    q: 'Kan ik iemand meenemen?',
+    a: 'Ja. Voor minderjarigen, thuiswonenden of studenten is een ouder of voogd verplicht aanwezig.',
+  },
+  {
+    q: 'Kan ik modellenwerk combineren met mijn studie of job?',
+    a: 'Zeker. Jij beheert je eigen agenda en kiest de opdrachten die in jouw planning passen.',
+  },
+] as const;
+
+/** Pagina “Intake gesprek” — twee kolommen + CTA. */
+export const INTAKE_GESPREK_PAGE = {
+  howTitle: 'Hoe werkt het?',
+  whyTitle: 'Waarom kiezen voor Class-Models?',
+  bookingSubject: 'Afspraak intakegesprek',
+  ctaButton: 'Online afspraak maken intake gesprek',
+  steps: [
+    'Boek eenvoudig online een afspraak via de knop hieronder.',
+    'We leren jou en jouw uitstraling beter kennen.',
+    'Je krijgt eerlijk en professioneel advies over jouw kansen.',
+    'Daarna kies jij zelf of je verder wil gaan.',
+  ],
+} as const;
+
+/** Pagina “Gratis fotoshoot” / “Testshoot” — inhoud + doelgroepen-kolom + CTA. */
+export const GRATIS_FOTOSHOOT_PAGE = {
+  expectTitle: 'Wat mag je verwachten?',
+  expectBullets: [
+    'Volledig gratis en zonder verplichtingen.',
+    "Je ontvangt je foto's zonder kosten.",
+    'Geschikt voor kinderen, tieners, volwassenen, 60-plussers en maatje meer.',
+    'Perfect om te ontdekken of modellenwerk iets voor jou is.',
+    'Na de shoot kunnen we, indien jij dat wil, een vrijblijvend intakegesprek plannen.',
+  ],
+  whyTitle: 'Waarom deelnemen?',
+  whyParagraph:
+    'Bij Class-Models draait het om jouw uitstraling, jouw verhaal en jouw potentieel. We zoeken geen perfectie, wel authenticiteit, spontaniteit en charisma.',
+  bookingSubject: 'Afspraak gratis fotoshoot',
+  ctaButton: 'Online afspraak maken gratis fotoshoot',
+} as const;
+
+/** Pagina “Casting” — inhoud + doelgroepen-kolom + CTA. */
+export const CASTING_PAGE = {
+  expectTitle: 'Wat mag je verwachten?',
+  expectBullets: [
+    'Geen ervaring nodig: iedereen met de juiste uitstraling kan meedoen.',
+    'We zoeken natuurlijke, spontane profielen — perfectie is niet nodig.',
+    'De casting sluit aan bij uiteenlopende campagnes, fotoshoots en events.',
+    'Je ontdekt of jouw look past bij opdrachten voor merken en klanten.',
+    'Bij een match word je opgenomen in ons bestand voor toekomstige boekingen.',
+  ],
+  whyTitle: 'Waarom deelnemen?',
+  whyParagraph:
+    'Bij Class-Models focussen we op charisma en authenticiteit in plaats van perfecte maten. We geloven dat jouw persoonlijkheid en spontaniteit het verschil maken.',
+  bookingSubject: 'Inschrijving casting',
+  ctaButton: 'Online afspraak maken casting',
+} as const;
+
+/** Publieke contactgegevens (gastenportaal). */
+export const GUEST_CONTACT_INFO = {
+  company: 'Class-Models',
+  street: 'Provinciebaan 3',
+  cityLine: '2235 Hulshout',
+  email: 'info@class-models.be',
+  phoneDisplay: '0032 (0) 485 322 307',
+  phoneTel: '+32485322307',
+  bankLabel: 'Argenta',
+  iban: 'BE85 9734 6507 0706',
+  vat: 'BE 0504.801.460',
+  mapsEmbedUrl:
+    'https://maps.google.com/maps?q=Provinciebaan+3,+2235+Hulshout,+België&hl=nl&z=16&output=embed',
+  mapsOpenUrl: 'https://www.google.com/maps/search/?api=1&query=Provinciebaan+3,+2235+Hulshout,+Belgium',
+} as const;

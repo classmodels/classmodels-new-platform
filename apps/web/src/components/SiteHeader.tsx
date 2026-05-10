@@ -22,7 +22,7 @@ export function SiteHeader() {
 
   return (
     <header className="border-b border-line bg-burgundy text-white">
-      <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between">
+      <div className="mx-auto flex w-full max-w-page flex-col gap-2 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between md:px-6">
         <div className="flex items-center gap-4">
           <Link href="/" className="font-serif text-lg tracking-tight text-white">
             Class-Models
@@ -35,6 +35,9 @@ export function SiteHeader() {
           </Link>
           <Link href="/home" className="text-white/90 hover:text-white">
             Modellenplatform
+          </Link>
+          <Link href="/portal/guest?p=contact" className="text-white/90 hover:text-white">
+            Contact
           </Link>
           {!user && (
             <Link href="/login" className="rounded-md bg-white/10 px-3 py-1 text-white hover:bg-white/20">

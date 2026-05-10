@@ -157,7 +157,7 @@ export function ModellenHomePage() {
     <div className="min-h-[100dvh] bg-panel text-ink">
       {/* Bovenblok / hero — sitekleuren */}
       <div className="border-b border-line bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white">
-        <div className="mx-auto max-w-6xl px-4 py-10 md:px-6 md:py-12">
+        <div className="mx-auto w-full max-w-page px-4 py-10 md:px-6 md:py-12">
           <div className="grid gap-8 md:grid-cols-[1fr_min(280px,36%)] md:items-center">
             <div>
               <h1 className="font-serif text-3xl font-semibold tracking-tight md:text-4xl">Model worden begint hier</h1>
@@ -209,8 +209,8 @@ export function ModellenHomePage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-10">
-        <div className="grid gap-6 lg:grid-cols-[min(260px,32%)_1fr] lg:items-start">
+      <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
           {/* Linkerkolom: balk + menu */}
           <aside className="overflow-hidden rounded-cm border border-line bg-white shadow-sm">
             <div className="border-b border-line bg-burgundy px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white">

@@ -7,8 +7,9 @@ export const cmDesign = {
     burgundy: '#6f121b',
     burgundyDeep: '#851018',
     muted: '#667085',
-    line: '#d8dee7',
-    panel: '#f7f8fb',
+    /** Iets warmere neutrale rand / vlakken (burgundy-tint i.p.v. koud grijs-blauw). */
+    line: '#e0d6d9',
+    panel: '#f9f5f6',
     white: '#ffffff',
     success: '#15934a',
     danger: '#b42318',

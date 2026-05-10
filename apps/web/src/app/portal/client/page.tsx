@@ -133,8 +133,8 @@ export default function ClientPortalPage() {
   if (loading || !user) return <div className="p-8 text-sm text-muted">Laden…</div>;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-10">
-      <section className="rounded-cm border border-burgundy/25 bg-gradient-to-br from-slate-50 to-panel px-5 py-5 shadow-sm">
+    <div className="mx-auto w-full max-w-page space-y-8 px-4 py-10 md:px-6">
+      <section className="rounded-cm border border-burgundy/25 bg-gradient-to-br from-burgundy/[0.07] to-panel px-5 py-5 shadow-sm">
         <h2 className="font-serif text-xl text-burgundy">Welkom in je klantenportaal</h2>
         <p className="mt-2 text-sm leading-relaxed text-ink/90">
           Vanuit dit portaal beheer je casting-aanvragen en je bedrijfsgegevens. Vul je profiel hieronder aan

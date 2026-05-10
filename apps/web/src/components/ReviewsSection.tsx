@@ -40,7 +40,7 @@ export function ReviewsSection() {
   if (!items.length) return null;
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-14">
+    <section className="mx-auto w-full max-w-page px-4 py-14 md:px-6">
       <CmText
         contentKey="home.reviews.title"
         as="h2"

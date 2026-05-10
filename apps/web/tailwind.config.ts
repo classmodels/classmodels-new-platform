@@ -22,6 +22,10 @@ const config: Config = {
       borderRadius: {
         cm: cmDesign.radius.md,
       },
+      maxWidth: {
+        /** Site-breedte: header + hoofdcontent (~1200px). */
+        page: '1200px',
+      },
     },
   },
   plugins: [],

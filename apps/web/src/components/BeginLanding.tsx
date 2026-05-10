@@ -24,14 +24,7 @@ function redirectAfterAuth(u: AuthUser, router: ReturnType<typeof useRouter>) {
     router.replace('/admin/content');
     return;
   }
-  if (u.defaultPortal === 'model' && u.roles.includes('model')) {
-    router.replace('/portal/model');
-    return;
-  }
-  if (u.defaultPortal === 'client' && u.roles.includes('client')) {
-    router.replace('/portal/client');
-    return;
-  }
+  /* Model/klant: altijd naar enterpagina (`/`) na inloggen of registreren. */
   router.replace('/');
 }
 
@@ -193,13 +186,13 @@ export function BeginLanding() {
     'w-full rounded-xl border border-white/25 bg-black/25 px-3.5 py-2.5 text-sm text-white placeholder:text-white/45 outline-none ring-0 focus:border-white/50';
 
   return (
-    <div className="relative min-h-[100dvh] overflow-hidden bg-slate-950 text-white">
+    <div className="relative min-h-[100dvh] overflow-hidden bg-ink text-white">
       <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-burgundy/35 via-slate-900/70 to-slate-950"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-burgundy/40 via-burgundy/12 to-ink"
         aria-hidden
       />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-6xl flex-col gap-10 px-5 py-12 md:flex-row md:items-stretch md:gap-14 md:px-8 md:py-16 lg:gap-20">
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-page flex-col gap-10 px-5 py-12 md:flex-row md:items-stretch md:gap-14 md:px-8 md:py-16 lg:gap-20">
         <div className="flex flex-1 flex-col justify-center md:max-w-md lg:max-w-lg">
           <h1 className="font-serif text-4xl font-semibold tracking-tight text-white md:text-5xl">{LEFT_TITLE}</h1>
           <p className="mt-2 text-xs font-semibold uppercase tracking-[0.28em] text-white/70">{LEFT_SUB}</p>

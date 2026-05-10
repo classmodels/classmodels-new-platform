@@ -19,14 +19,6 @@ function redirectAfterAuth(u: AuthUser, router: ReturnType<typeof useRouter>) {
     router.replace('/admin/content');
     return;
   }
-  if (u.defaultPortal === 'model' && u.roles.includes('model')) {
-    router.replace('/portal/model');
-    return;
-  }
-  if (u.defaultPortal === 'client' && u.roles.includes('client')) {
-    router.replace('/portal/client');
-    return;
-  }
   router.replace('/');
 }
 
