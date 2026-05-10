@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run build -w @cm/shared && concurrently -n api,web -c blue,green \"npm run dev -w @cm/api\" \"npm run dev -w @cm/web\"",
+    "dev:fresh": "npm run ports:free && npm run dev",
     "rundev": "npm run dev",
     "dev:web": "npm run build -w @cm/shared && npm run dev -w @cm/web",
     "ports:free": "bash scripts/free-dev-ports.sh",

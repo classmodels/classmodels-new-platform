@@ -11,6 +11,7 @@ import { AdminModule } from './admin/admin.module';
 import { MenusModule } from './menus/menus.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { PortalModule } from './portal/portal.module';
+import { AgendaModule } from './agenda/agenda.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PortalModule } from './portal/portal.module';
     MenusModule,
     ReviewsModule,
     PortalModule,
+    AgendaModule,
   ],
 })
 export class AppModule {}

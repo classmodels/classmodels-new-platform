@@ -68,6 +68,7 @@ model User {
   subscriptions   Subscription[]
   clientBriefs    ClientBrief[]       @relation("ClientBriefs")
   briefResponses  ModelBriefResponse[]
+  agendaBookings  AgendaBooking[]
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }
@@ -247,4 +248,120 @@ model MigrationBatch {
   status    String
   report    Json?
   createdAt DateTime @default(now())
+}
+
+// --- Agenda (Class Models Agenda Pro — equivalent in PostgreSQL) ---
+
+model AgendaCalendar {
+  id              String           @id @default(uuid())
+  slug            String           @unique
+  title           String
+  description     String?          @db.Text
+  color           String           @default("#6f121b")
+  durationMinutes Int              @default(30)
+  capacity        Int              @default(1)
+  active          Boolean          @default(true)
+  publicBooking   Boolean          @default(true)
+  /// Alleen dagen in AgendaOpenDay tonen (Agenda Pro: oranje = geopend voor publiek).
+  restrictToOpenDays Boolean       @default(false)
+  /// Standaardvenster voor automatische sloten bij open dagen (HH:mm:ss).
+  defaultDayStartTime String       @default("08:00:00")
+  defaultDayEndTime   String         @default("18:00:00")
+  /// Pauze (optioneel): geen sloten die dit interval kruisen.
+  breakStart          String?
+  breakEnd            String?
+  sortOrder       Int              @default(100)
+  slots           AgendaSlot[]
+  fields          AgendaField[]
+  bookings        AgendaBooking[]
+  closedDays      AgendaClosedDay[]
+  openDays        AgendaOpenDay[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model AgendaOpenDay {
+  id           String         @id @default(uuid())
+  calendarId   String
+  calendar     AgendaCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  openDate     DateTime       @db.Date
+  repeatYearly Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+
+  @@unique([calendarId, openDate])
+  @@index([calendarId, openDate])
+}
+
+model AgendaSlot {
+  id         String           @id @default(uuid())
+  calendarId String
+  calendar   AgendaCalendar   @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  slotDate   DateTime         @db.Date
+  startTime  String
+  endTime    String
+  capacity   Int              @default(1)
+  status     String           @default("open")
+  notes      String?          @db.Text
+  bookings   AgendaBooking[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@index([calendarId, slotDate])
+}
+
+model AgendaField {
+  id            String         @id @default(uuid())
+  calendarId    String
+  calendar      AgendaCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  fieldKey      String
+  label         String
+  type          String         @default("text")
+  required      Boolean        @default(false)
+  width         String         @default("2")
+  placeholder   String?
+  titlePosition String         @default("above")
+  sortOrder     Int            @default(100)
+  active        Boolean        @default(true)
+  options       String?        @db.Text
+
+  @@unique([calendarId, fieldKey])
+  @@index([calendarId])
+}
+
+model AgendaClosedDay {
+  id         String         @id @default(uuid())
+  calendarId String
+  calendar   AgendaCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  closedDate DateTime       @db.Date
+  reason     String?
+  createdAt  DateTime       @default(now())
+
+  @@unique([calendarId, closedDate])
+}
+
+model AgendaBooking {
+  id          String           @id @default(uuid())
+  calendarId  String
+  calendar    AgendaCalendar   @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  slotId      String
+  slot        AgendaSlot       @relation(fields: [slotId], references: [id], onDelete: Restrict)
+  userId      String?
+  user        User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  startAt     DateTime
+  endAt       DateTime
+  status      String           @default("confirmed")
+  name        String?
+  firstname   String?
+  lastname    String?
+  email       String?
+  phone       String?
+  fieldsJson  Json             @default("{}")
+  source      String           @default("web")
+  /// Uniek token voor annuleren via link in bevestigingsmail
+  cancelToken String?          @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([calendarId, startAt])
+  @@index([slotId])
 }

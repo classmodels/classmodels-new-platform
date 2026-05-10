@@ -9,3 +9,5 @@ coverage
 .DS_Store
 apps/api/uploads
 apps/web/.vercel
+# Grote leveranciers-zips niet per ongeluk committen (map wél gebruiken voor import)
+_import/**/*.zip

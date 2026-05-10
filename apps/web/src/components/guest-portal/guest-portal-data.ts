@@ -133,6 +133,8 @@ export const GUEST_FAQ = [
 
 /** Pagina “Intake gesprek” — twee kolommen + CTA. */
 export const INTAKE_GESPREK_PAGE = {
+  /** Agenda slug (Agenda Pro equivalent) voor online boeking in het nieuwe platform. */
+  agendaSlug: 'intake-gesprek',
   howTitle: 'Hoe werkt het?',
   whyTitle: 'Waarom kiezen voor Class-Models?',
   bookingSubject: 'Afspraak intakegesprek',
@@ -147,6 +149,7 @@ export const INTAKE_GESPREK_PAGE = {
 
 /** Pagina “Gratis fotoshoot” / “Testshoot” — inhoud + doelgroepen-kolom + CTA. */
 export const GRATIS_FOTOSHOOT_PAGE = {
+  agendaSlug: 'gratis-fotoshoot',
   expectTitle: 'Wat mag je verwachten?',
   expectBullets: [
     'Volledig gratis en zonder verplichtingen.',
@@ -164,6 +167,7 @@ export const GRATIS_FOTOSHOOT_PAGE = {
 
 /** Pagina “Casting” — inhoud + doelgroepen-kolom + CTA. */
 export const CASTING_PAGE = {
+  agendaSlug: 'casting',
   expectTitle: 'Wat mag je verwachten?',
   expectBullets: [
     'Geen ervaring nodig: iedereen met de juiste uitstraling kan meedoen.',

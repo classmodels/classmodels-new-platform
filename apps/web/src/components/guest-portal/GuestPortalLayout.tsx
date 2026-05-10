@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Fragment, useCallback, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { GuestContactSection } from '@/components/guest-portal/GuestContactSection';
 import {
   CARD_MODEL_WORDEN,
@@ -74,6 +75,9 @@ function useGuestPortalSearchString(fallbackFromNext: string) {
 function guestMailtoHref(bookingSubject: string) {
   return `mailto:${GUEST_CONTACT_INFO.email}?subject=${encodeURIComponent(bookingSubject)}`;
 }
+
+/** Agenda Pro-stijl: kalender links + kolommen rechts (intake, casting, gratis fotoshoot). */
+const GUEST_AGENDA_PRO_SLUGS = new Set(['intake-gesprek', 'casting', 'gratis-fotoshoot']);
 
 function CheckDisc() {
   return (
@@ -277,6 +281,7 @@ function GuestPortalCtaRow({ onSelect }: { onSelect: (id: GuestMenuId) => void }
 }
 
 type GuestOfferPageDef = {
+  agendaSlug?: string;
   expectTitle: string;
   expectBullets: readonly string[];
   whyTitle: string;
@@ -288,9 +293,11 @@ type GuestOfferPageDef = {
 function GuestOfferWithDoelgroepenPage({
   page,
   onMenuSelect,
+  onStartBooking,
 }: {
   page: GuestOfferPageDef;
   onMenuSelect: (id: GuestMenuId) => void;
+  onStartBooking?: (calendarSlug: string, title: string) => void;
 }) {
   const mailHref = guestMailtoHref(page.bookingSubject);
   return (
@@ -308,12 +315,30 @@ function GuestOfferWithDoelgroepenPage({
           </ul>
           <h3 className="mt-6 font-serif text-xl font-semibold text-ink">{page.whyTitle}</h3>
           <p className="mt-3 text-sm leading-relaxed text-muted">{page.whyParagraph}</p>
-          <a
-            href={mailHref}
-            className="mt-5 block w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
-          >
-            {page.ctaButton}
-          </a>
+          {page.agendaSlug && onStartBooking ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onStartBooking(page.agendaSlug!, page.ctaButton)}
+                className="mt-5 w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
+              >
+                {page.ctaButton}
+              </button>
+              <p className="mt-3 text-center text-xs text-muted">
+                Liever mailen?{' '}
+                <a href={mailHref} className="font-medium text-burgundy underline underline-offset-2 hover:text-burgundyDeep">
+                  Stuur een bericht
+                </a>
+              </p>
+            </>
+          ) : (
+            <a
+              href={mailHref}
+              className="mt-5 block w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
+            >
+              {page.ctaButton}
+            </a>
+          )}
         </SectionBlock>
         <div className="min-w-0 space-y-3 lg:sticky lg:top-4">
           <h3 className="font-serif text-lg font-semibold text-ink">Doelgroepen</h3>
@@ -336,6 +361,7 @@ function GuestOfferWithDoelgroepenPage({
 }
 
 type GuestServicePageDef = {
+  agendaSlug?: string;
   howTitle: string;
   whyTitle: string;
   bookingSubject: string;
@@ -346,9 +372,11 @@ type GuestServicePageDef = {
 function GuestServiceTwoColumnPage({
   page,
   onMenuSelect,
+  onStartBooking,
 }: {
   page: GuestServicePageDef;
   onMenuSelect: (id: GuestMenuId) => void;
+  onStartBooking?: (calendarSlug: string, title: string) => void;
 }) {
   const mailHref = guestMailtoHref(page.bookingSubject);
   return (
@@ -364,12 +392,30 @@ function GuestServiceTwoColumnPage({
               </li>
             ))}
           </ol>
-          <a
-            href={mailHref}
-            className="mt-5 block w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
-          >
-            {page.ctaButton}
-          </a>
+          {page.agendaSlug && onStartBooking ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onStartBooking(page.agendaSlug!, page.ctaButton)}
+                className="mt-5 w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
+              >
+                {page.ctaButton}
+              </button>
+              <p className="mt-3 text-center text-xs text-muted">
+                Liever mailen?{' '}
+                <a href={mailHref} className="font-medium text-burgundy underline underline-offset-2 hover:text-burgundyDeep">
+                  Stuur een bericht
+                </a>
+              </p>
+            </>
+          ) : (
+            <a
+              href={mailHref}
+              className="mt-5 block w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
+            >
+              {page.ctaButton}
+            </a>
+          )}
         </SectionBlock>
         <SectionBlock>
           <h3 className="font-serif text-xl font-semibold text-ink">{page.whyTitle}</h3>
@@ -392,11 +438,26 @@ export function GuestPortalLayout() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchString = useGuestPortalSearchString(searchParams.toString());
-  const active: GuestMenuId =
+  const urlActive: GuestMenuId =
     parseGuestMenuParam(new URLSearchParams(searchString).get('p')) ?? 'model-worden';
+
+  const [bookingFlow, setBookingFlow] = useState<null | { calendarSlug: string; title: string }>(null);
+
+  /** Direct na klik: URL/history-sync loopt soms achter; highlight mag niet op “Model worden” blijven hangen. */
+  const [menuHighlight, setMenuHighlight] = useState<GuestMenuId | null>(null);
+
+  useEffect(() => {
+    const fromUrl =
+      parseGuestMenuParam(new URLSearchParams(searchString).get('p')) ?? 'model-worden';
+    setMenuHighlight((prev) => (prev !== null && prev === fromUrl ? null : prev));
+  }, [searchString]);
+
+  const active: GuestMenuId = menuHighlight ?? urlActive;
 
   const goMenu = useCallback(
     (id: GuestMenuId) => {
+      setBookingFlow(null);
+      setMenuHighlight(id);
       if (id === 'model-worden') {
         router.replace('/portal/guest', { scroll: false });
       } else {
@@ -407,7 +468,12 @@ export function GuestPortalLayout() {
     [router],
   );
 
+  const startBooking = useCallback((calendarSlug: string, title: string) => {
+    setBookingFlow({ calendarSlug, title });
+  }, []);
+
   const menuLabel = GUEST_MENU.find((m) => m.id === active)?.label ?? '';
+  const rightPanelTitle = bookingFlow ? 'Online afspraak' : menuLabel;
 
   const ctaFor = (target: GuestMenuId) => () => goMenu(target);
 
@@ -537,15 +603,23 @@ export function GuestPortalLayout() {
   const renderContact = () => <GuestContactSection />;
 
   const renderIntakeGesprek = () => (
-    <GuestServiceTwoColumnPage page={INTAKE_GESPREK_PAGE} onMenuSelect={goMenu} />
+    <GuestServiceTwoColumnPage
+      page={INTAKE_GESPREK_PAGE}
+      onMenuSelect={goMenu}
+      onStartBooking={startBooking}
+    />
   );
 
   const renderGratisFotoshoot = () => (
-    <GuestOfferWithDoelgroepenPage page={GRATIS_FOTOSHOOT_PAGE} onMenuSelect={goMenu} />
+    <GuestOfferWithDoelgroepenPage
+      page={GRATIS_FOTOSHOOT_PAGE}
+      onMenuSelect={goMenu}
+      onStartBooking={startBooking}
+    />
   );
 
   const renderCasting = () => (
-    <GuestOfferWithDoelgroepenPage page={CASTING_PAGE} onMenuSelect={goMenu} />
+    <GuestOfferWithDoelgroepenPage page={CASTING_PAGE} onMenuSelect={goMenu} onStartBooking={startBooking} />
   );
 
   const mainContent = () => {
@@ -589,18 +663,20 @@ export function GuestPortalLayout() {
               Gast menu
             </div>
             <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Gastenmenu">
-              <div className="shrink-0 divide-y divide-line">
-                {GUEST_SIDEBAR_MENU.map((item) => {
+              <div className="shrink-0">
+                {GUEST_SIDEBAR_MENU.map((item, index) => {
                   const isActive = item.id === active;
                   return (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => goMenu(item.id)}
-                      className={`flex w-full items-center justify-between gap-2 border-l-[3px] py-3 pl-3 pr-3 text-left text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0 ${
+                      className={`flex w-full items-center justify-between gap-2 py-3 pl-3 pr-3 text-left text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0 ${
+                        index > 0 ? 'border-t border-line' : ''
+                      } ${
                         isActive
-                          ? 'border-l-burgundy bg-panel text-ink'
-                          : 'border-l-transparent text-ink hover:bg-panel/70'
+                          ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+                          : 'text-ink hover:bg-panel/70'
                       }`}
                     >
                       <span>{item.label}</span>
@@ -617,9 +693,20 @@ export function GuestPortalLayout() {
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm">
             <div className="shrink-0 border-b border-line bg-burgundy px-4 py-2.5 text-sm font-semibold text-white">
-              {menuLabel}
+              {rightPanelTitle}
             </div>
-            <div className="min-h-0 flex-1 p-4 md:p-6">{mainContent()}</div>
+            <div className="min-h-0 flex-1 p-4 md:p-6">
+              {bookingFlow ? (
+                <GuestBookingPanel
+                  calendarSlug={bookingFlow.calendarSlug}
+                  heading={bookingFlow.title}
+                  variant={GUEST_AGENDA_PRO_SLUGS.has(bookingFlow.calendarSlug) ? 'pro' : 'default'}
+                  onClose={() => setBookingFlow(null)}
+                />
+              ) : (
+                mainContent()
+              )}
+            </div>
           </div>
         </div>
       </div>

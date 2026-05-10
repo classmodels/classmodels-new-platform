@@ -18,6 +18,7 @@ export const ADMIN_MODULES = [
   { slug: 'menus', label: "Menu's", permission: 'admin.menus.read' as const },
   { slug: 'content', label: 'Content', permission: 'content.strings.write' as const },
   { slug: 'reviews', label: 'Reviews', permission: 'admin.reviews.read' as const },
+  { slug: 'agenda', label: 'Agenda / afspraken', permission: 'admin.agenda.read' as const },
   { slug: 'media', label: 'Media Library', permission: 'admin.media.read' as const },
   { slug: 'historiek', label: 'Historiek', permission: 'admin.audit.read' as const },
   { slug: 'snippets', label: 'Snippets / Plugins', permission: 'admin.snippets.read' as const },

@@ -3,6 +3,199 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+type FieldSeed = readonly [
+  string,
+  string,
+  string,
+  boolean,
+  string,
+  string,
+  string,
+  number,
+  string,
+];
+
+const GENERIC_FIELDS: FieldSeed[] = [
+  ['voornaam', 'Voornaam', 'text', true, '2', 'Voornaam', 'above', 10, ''],
+  ['familienaam', 'Familienaam', 'text', true, '2', 'Familienaam', 'above', 20, ''],
+  ['geboortedatum', 'Geboortedatum', 'date', false, '2', 'Geboortedatum', 'above', 25, ''],
+  ['straat', 'Straat', 'text', false, '2', 'Straat', 'above', 30, ''],
+  ['nr', 'Nr.', 'text', false, '3', 'Nr.', 'above', 35, ''],
+  ['postcode', 'Postcode', 'text', false, '3', 'Postcode', 'above', 40, ''],
+  ['gemeente', 'Gemeente', 'text', false, '2', 'Gemeente', 'above', 45, ''],
+  ['email', 'E-mail', 'email', true, '2', 'E-mail', 'above', 50, ''],
+  ['telefoon', 'Telefoon', 'tel', false, '2', 'Telefoon', 'above', 55, ''],
+  [
+    'hoe_terecht',
+    'Hoe bent u bij ons terecht gekomen?',
+    'select',
+    false,
+    '2',
+    'Kies',
+    'above',
+    60,
+    'Google\nFacebook\nInstagram\nTikTok\nAndere',
+  ],
+  ['bericht', 'Opmerkingen', 'textarea', false, '1', 'Eventuele opmerking', 'above', 65, ''],
+  ['foto', 'Foto', 'file', false, '2', 'Upload een foto', 'above', 70, ''],
+];
+
+const MODEL_FIELDS: FieldSeed[] = [
+  ['naam', 'Naam', 'text', false, '1', 'Naam', 'above', 10, ''],
+  ['geboortedatum', 'Geboortedatum', 'date', false, '2', 'Geboortedatum', 'above', 15, ''],
+  ['straat', 'Straat', 'text', false, '2', 'Straat', 'above', 20, ''],
+  ['nr', 'Nr.', 'text', false, '3', 'Nr.', 'above', 25, ''],
+  ['postcode', 'Postcode', 'text', false, '3', 'Postcode', 'above', 30, ''],
+  ['gemeente', 'Gemeente', 'text', false, '2', 'Gemeente', 'above', 35, ''],
+  ['email', 'E-mail', 'email', false, '2', 'E-mail', 'above', 40, ''],
+  ['telefoon', 'Telefoon', 'tel', false, '2', 'Telefoon', 'above', 45, ''],
+  [
+    'hoe_terecht',
+    'Hoe bent u bij ons terecht gekomen?',
+    'select',
+    false,
+    '2',
+    'Kies',
+    'above',
+    50,
+    'Google\nFacebook\nInstagram\nTikTok\nAndere',
+  ],
+  ['bericht', 'Opmerkingen', 'textarea', false, '1', 'Eventuele opmerking', 'above', 55, ''],
+  ['foto', 'Foto', 'file', false, '2', 'Upload een foto', 'above', 60, ''],
+];
+
+/** Gast-agenda’s: alleen dagen uit “open dagen” + automatische slotgeneratie. */
+const AGENDA_RESTRICT_OPEN_DAYS = new Set(['intake-gesprek', 'casting', 'gratis-fotoshoot']);
+
+/** Agenda Pro-equivalent — zelfde slugs/colors als WP-plugin defaults. Geen demo-sloten meer: open dagen + API genereren momenten. */
+async function seedAgenda(p: PrismaClient) {
+  const defs: {
+    slug: string;
+    title: string;
+    color: string;
+    durationMinutes: number;
+    capacity: number;
+    legacyType: string;
+    sortOrder: number;
+  }[] = [
+    {
+      slug: 'portfolio',
+      title: 'Portfolio afspraak',
+      color: '#070414',
+      durationMinutes: 30,
+      capacity: 1,
+      legacyType: 'portfolio',
+      sortOrder: 10,
+    },
+    {
+      slug: 'opleiding',
+      title: 'Opleiding afspraak',
+      color: '#45525f',
+      durationMinutes: 60,
+      capacity: 1,
+      legacyType: 'opleiding',
+      sortOrder: 20,
+    },
+    {
+      slug: 'intake-gesprek',
+      title: 'Intake-Gesprek',
+      color: '#2f6f55',
+      durationMinutes: 60,
+      capacity: 1,
+      legacyType: 'generic',
+      sortOrder: 30,
+    },
+    {
+      slug: 'casting',
+      title: 'Casting',
+      color: '#2e66c7',
+      durationMinutes: 60,
+      capacity: 1,
+      legacyType: 'generic',
+      sortOrder: 40,
+    },
+    {
+      slug: 'gratis-fotoshoot',
+      title: 'Gratis Fotoshoot',
+      color: '#b7cae8',
+      durationMinutes: 90,
+      capacity: 1,
+      legacyType: 'generic',
+      sortOrder: 50,
+    },
+  ];
+
+  for (const d of defs) {
+    const restrict = AGENDA_RESTRICT_OPEN_DAYS.has(d.slug);
+    const cal = await p.agendaCalendar.upsert({
+      where: { slug: d.slug },
+      update: {
+        title: d.title,
+        color: d.color,
+        durationMinutes: d.durationMinutes,
+        capacity: d.capacity,
+        sortOrder: d.sortOrder,
+        active: true,
+        publicBooking: true,
+        restrictToOpenDays: restrict,
+      },
+      create: {
+        slug: d.slug,
+        title: d.title,
+        description: '',
+        color: d.color,
+        durationMinutes: d.durationMinutes,
+        capacity: d.capacity,
+        active: true,
+        publicBooking: true,
+        sortOrder: d.sortOrder,
+        restrictToOpenDays: restrict,
+      },
+    });
+
+    const fieldCount = await p.agendaField.count({ where: { calendarId: cal.id } });
+    if (fieldCount === 0) {
+      const rows = ['portfolio', 'opleiding'].includes(d.legacyType) ? MODEL_FIELDS : GENERIC_FIELDS;
+      await p.agendaField.createMany({
+        data: rows.map((r) => ({
+          calendarId: cal.id,
+          fieldKey: r[0],
+          label: r[1],
+          type: r[2],
+          required: r[3],
+          width: r[4],
+          placeholder: r[5],
+          titlePosition: r[6],
+          sortOrder: r[7],
+          options: r[8] || null,
+          active: true,
+        })),
+      });
+    }
+  }
+
+  for (const c of await p.agendaCalendar.findMany({ select: { id: true } })) {
+    const hasFoto = await p.agendaField.findFirst({ where: { calendarId: c.id, fieldKey: 'foto' } });
+    if (hasFoto) continue;
+    await p.agendaField.create({
+      data: {
+        calendarId: c.id,
+        fieldKey: 'foto',
+        label: 'Foto',
+        type: 'file',
+        required: false,
+        width: '2',
+        placeholder: 'Upload een foto',
+        titlePosition: 'above',
+        sortOrder: 200,
+        active: true,
+      },
+    });
+  }
+
+  console.log('Agenda seed: agendas + formuliervelden (geen voorbeeldsloten).');
+}
+
 async function main() {
   const roles: { slug: string; label: string; permissions: string[] }[] = [
     { slug: 'admin', label: 'Administrator', permissions: ['*'] },
@@ -326,6 +519,8 @@ async function main() {
       create: { key: c.key, value: c.value, locale: 'nl', portal: c.portal ?? undefined },
     });
   }
+
+  await seedAgenda(prisma);
 
   console.log('Seed OK. Demo login (alle drie wachtwoord): Demo123!');
   console.log('  admin@class-models.local');
