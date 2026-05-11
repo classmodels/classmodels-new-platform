@@ -10,6 +10,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
+    "agenda:reset": "ts-node -r tsconfig-paths/register prisma/reset-agenda.ts",
     "migrate:wp": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/migrate-wordpress.ts"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.8",
     "@prisma/client": "^5.22.0",
+    "archiver": "^7.0.1",
     "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
@@ -42,6 +44,7 @@
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.2.3",
+    "@types/archiver": "^6.0.2",
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.21",
     "@types/multer": "^1.4.12",

@@ -66,9 +66,18 @@ export function ContentProvider({ children }: { children: ReactNode }) {
             });
           } catch {
             try {
-              await refresh();
+              // Nieuwe key? Maak die automatisch aan i.p.v. edit te verliezen.
+              await apiFetch('/content/strings', {
+                method: 'POST',
+                token,
+                body: JSON.stringify({ key, value }),
+              });
             } catch {
-              /* refresh mag niet naar buiten rejecten */
+              try {
+                await refresh();
+              } catch {
+                /* refresh mag niet naar buiten rejecten */
+              }
             }
           }
         })();

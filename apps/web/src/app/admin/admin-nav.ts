@@ -4,8 +4,13 @@ export const ADMIN_MODULES = [
   { slug: 'portalen', label: 'Portalen' },
   {
     slug: 'briefs',
-    label: 'Casting-aanvragen',
+    label: 'Opdrachten',
     permission: 'admin.briefs.read' as const,
+  },
+  {
+    slug: 'modellen-profielen',
+    label: 'Modellenprofielen',
+    permission: 'admin.users.read' as const,
   },
   {
     slug: 'gebruikers',
@@ -17,6 +22,11 @@ export const ADMIN_MODULES = [
   { slug: 'mollie', label: 'Mollie instellingen', permission: 'admin.billing.read' as const },
   { slug: 'menus', label: "Menu's", permission: 'admin.menus.read' as const },
   { slug: 'content', label: 'Content', permission: 'content.strings.write' as const },
+  {
+    slug: 'testshoot',
+    label: 'Testshoot',
+    permission: 'admin.testshoot.read' as const,
+  },
   { slug: 'reviews', label: 'Reviews', permission: 'admin.reviews.read' as const },
   { slug: 'agenda', label: 'Agenda / afspraken', permission: 'admin.agenda.read' as const },
   { slug: 'media', label: 'Media Library', permission: 'admin.media.read' as const },

@@ -21,6 +21,8 @@ export type AuthUser = {
   bio?: string | null;
   companyName?: string | null;
   defaultPortal?: string | null;
+  /** Modellenfiche (WP cm_* velden in camelCase), server: Json */
+  modelSheet?: Record<string, unknown> | null;
   roles: string[];
   isPremium: boolean;
   permissions: string[];

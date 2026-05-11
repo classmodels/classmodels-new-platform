@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, type AuthUser } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context';
+import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
 
 type Tab = 'model' | 'guest' | 'client';
 type SubMode = 'login' | 'register';
@@ -11,22 +12,6 @@ const LEFT_TITLE = 'Class-Models';
 const LEFT_SUB = 'Modeling Agency';
 const LEFT_BODY =
   'Dit platform is jouw persoonlijke omgeving binnen Class-Models, waar je op een stijlvolle en overzichtelijke manier alles beheert wat bij jouw carrière als model komt kijken. Raadpleeg je profiel, houd je portfolio up-to-date, bekijk opdrachten en blijf verbonden met het bureau.';
-
-function redirectAfterAuth(u: AuthUser, router: ReturnType<typeof useRouter>) {
-  const p = u.permissions ?? [];
-  const toBackoffice = p.includes('*') || p.some((x) => x.startsWith('admin.'));
-  const contentOnly = p.includes('content.strings.write') && !toBackoffice;
-  if (toBackoffice) {
-    router.replace('/admin/dashboard');
-    return;
-  }
-  if (contentOnly) {
-    router.replace('/admin/content');
-    return;
-  }
-  /* Model/klant: altijd naar enterpagina (`/`) na inloggen of registreren. */
-  router.replace('/');
-}
 
 function parseApiError(err: unknown): string {
   if (!(err instanceof Error)) return 'Er ging iets mis.';
@@ -76,7 +61,7 @@ export function BeginLanding() {
     setBusy(true);
     try {
       const u = await login(mEmail.trim(), mPass);
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router);
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
@@ -105,7 +90,7 @@ export function BeginLanding() {
         lastName: mLast.trim(),
         phone: mPhone.trim() || undefined,
       });
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router, { fromRegister: true });
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
@@ -119,7 +104,7 @@ export function BeginLanding() {
     setBusy(true);
     try {
       const u = await login(cEmail.trim(), cPass);
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router);
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
@@ -149,7 +134,7 @@ export function BeginLanding() {
         phone: cPhone.trim() || undefined,
         companyName: cCompany.trim(),
       });
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router);
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
@@ -201,10 +186,10 @@ export function BeginLanding() {
             Meer info over model worden?{' '}
             <button
               type="button"
-              onClick={() => router.push('/home')}
+              onClick={() => router.push('/portal/guest')}
               className="text-white underline underline-offset-2 hover:text-white/90"
             >
-              Bekijk het modellenplatform
+              Bekijk het gastenportaal
             </button>
             .
           </p>

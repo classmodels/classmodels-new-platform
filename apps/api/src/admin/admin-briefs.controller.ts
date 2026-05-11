@@ -5,20 +5,15 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
-import { BriefStatus } from '@prisma/client';
-import { IsEnum, IsIn, IsOptional } from 'class-validator';
+import { IsIn } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { BriefsService } from '../portal/briefs.service';
-
-class AdminPatchBriefDto {
-  @IsOptional()
-  @IsEnum(BriefStatus)
-  status?: BriefStatus;
-}
+import { AdminCreateBriefDto, AdminUpdateBriefDto } from './dto/admin-brief.dto';
 
 class AdminPatchResponseDto {
   @IsIn(['accepted', 'declined'])
@@ -34,6 +29,13 @@ export class AdminBriefsController {
   @Permissions('admin.briefs.read')
   list() {
     return this.briefs.adminList();
+  }
+
+  @Post()
+  @Permissions('admin.briefs.write')
+  create(@Body() dto: AdminCreateBriefDto) {
+    const { clientId, ...rest } = dto;
+    return this.briefs.adminCreate(clientId, rest);
   }
 
   @Patch('model-responses/:responseId')
@@ -53,7 +55,7 @@ export class AdminBriefsController {
 
   @Patch(':id')
   @Permissions('admin.briefs.write')
-  patch(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AdminPatchBriefDto) {
-    return this.briefs.adminPatch(id, dto);
+  patch(@Param('id', ParseUUIDPipe) id: string, @Body() dto: AdminUpdateBriefDto) {
+    return this.briefs.adminPatch(id, { ...dto } as Record<string, unknown>);
   }
 }

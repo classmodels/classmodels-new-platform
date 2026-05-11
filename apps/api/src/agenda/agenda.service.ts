@@ -244,6 +244,40 @@ export class AgendaService {
     });
   }
 
+  /** Vervangt verkeerde opleidingssloten (bijv. oude 1-uurs blokken) door één 14:00–17:00 slot zolang er geen boeking is. */
+  private async reconcileOpleidingDaySlots(
+    calendarId: string,
+    slotDate: Date,
+    cal: {
+      durationMinutes: number;
+      capacity: number;
+      defaultDayStartTime: string;
+      defaultDayEndTime: string;
+      breakStart: string | null;
+      breakEnd: string | null;
+    },
+  ) {
+    const dateOnly = new Date(`${slotDate.toISOString().slice(0, 10)}T12:00:00.000Z`);
+    const rows = await this.prisma.agendaSlot.findMany({
+      where: { calendarId, slotDate: dateOnly },
+    });
+    const expectStart = normTime('14:00');
+    const expectEnd = normTime('17:00');
+    const ok =
+      rows.length === 1 &&
+      normTime(rows[0].startTime) === expectStart &&
+      normTime(rows[0].endTime) === expectEnd;
+    if (ok) return;
+    for (const s of rows) {
+      const bc = await this.prisma.agendaBooking.count({
+        where: { slotId: s.id, ...activeBookingFilter },
+      });
+      if (bc > 0) return;
+    }
+    await this.prisma.agendaSlot.deleteMany({ where: { calendarId, slotDate: dateOnly } });
+    await this.ensureSlotsForCalendarDate(calendarId, dateOnly, cal);
+  }
+
   async listActiveCalendars() {
     return this.prisma.agendaCalendar.findMany({
       where: { active: true, publicBooking: true },
@@ -315,11 +349,15 @@ export class AgendaService {
         const ymd = cursor.toISOString().slice(0, 10);
         if (openDaySet.has(ymd) && !closedSet.has(ymd)) {
           const dateOnly = parseYmd(ymd);
-          const n = await this.prisma.agendaSlot.count({
-            where: { calendarId: cal.id, slotDate: dateOnly },
-          });
-          if (n === 0) {
-            await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
+          if (cal.slug === 'opleiding') {
+            await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
+          } else {
+            const n = await this.prisma.agendaSlot.count({
+              where: { calendarId: cal.id, slotDate: dateOnly },
+            });
+            if (n === 0) {
+              await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
+            }
           }
         }
         cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -408,11 +446,19 @@ export class AgendaService {
       }
     }
 
+    const myActiveBookings = userId
+      ? await this.prisma.agendaBooking.findMany({
+          where: { userId, calendarId: cal.id, ...activeBookingFilter },
+          select: { slotId: true },
+        })
+      : [];
+    const mineOnThisSlot = myActiveBookings.filter((b) => b.slotId === slot.id).length;
     const booked = await this.prisma.agendaBooking.count({
       where: { slotId: slot.id, ...activeBookingFilter },
     });
     const cap = effectiveSlotCapacity(slot.capacity, cal.capacity);
-    if (booked >= cap) throw new ConflictException('Dit moment is niet meer beschikbaar');
+    const room = cap - booked + mineOnThisSlot;
+    if (room <= 0) throw new ConflictException('Dit moment is niet meer beschikbaar');
 
     const fieldsDef = await this.prisma.agendaField.findMany({
       where: { calendarId: cal.id, active: true },
@@ -446,29 +492,57 @@ export class AgendaService {
 
     let name = nameParts.filter(Boolean).join(' ').trim();
 
+    if (userId && (!firstname || !lastname || !email || !phone || !name)) {
+      const u = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { firstName: true, lastName: true, email: true, phone: true },
+      });
+      if (u) {
+        if (!firstname && u.firstName) firstname = u.firstName;
+        if (!lastname && u.lastName) lastname = u.lastName;
+        if (!email && u.email) email = u.email;
+        if (!phone && u.phone) phone = u.phone;
+        if (!name) name = [firstname, lastname].filter(Boolean).join(' ').trim();
+      }
+    }
+
     const startNorm = normTime(slot.startTime);
     const endNorm = normTime(slot.endTime);
     const startAt = combineUtc(slot.slotDate, startNorm);
     const endAt = combineUtc(slot.slotDate, endNorm);
     const cancelToken = randomUUID();
 
-    const booking = await this.prisma.agendaBooking.create({
-      data: {
-        calendarId: cal.id,
-        slotId: slot.id,
-        userId: userId ?? undefined,
-        startAt,
-        endAt,
-        status: 'confirmed',
-        name: name || null,
-        firstname: firstname || null,
-        lastname: lastname || null,
-        email: email || null,
-        phone: phone || null,
-        fieldsJson: fieldsJson as object,
-        source: 'web',
-        cancelToken,
-      },
+    const booking = await this.prisma.$transaction(async (tx) => {
+      if (userId) {
+        await tx.agendaBooking.updateMany({
+          where: { userId, calendarId: cal.id, ...activeBookingFilter },
+          data: { status: 'cancelled' },
+        });
+      }
+      const bookedAfter = await tx.agendaBooking.count({
+        where: { slotId: slot.id, ...activeBookingFilter },
+      });
+      if (bookedAfter >= cap) {
+        throw new ConflictException('Dit moment is niet meer beschikbaar');
+      }
+      return tx.agendaBooking.create({
+        data: {
+          calendarId: cal.id,
+          slotId: slot.id,
+          userId: userId ?? undefined,
+          startAt,
+          endAt,
+          status: 'confirmed',
+          name: name || null,
+          firstname: firstname || null,
+          lastname: lastname || null,
+          email: email || null,
+          phone: phone || null,
+          fieldsJson: fieldsJson as object,
+          source: userId ? 'portal-model' : 'web',
+          cancelToken,
+        },
+      });
     });
 
     const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
@@ -501,6 +575,46 @@ export class AgendaService {
       out.cancelUrl = cancelUrl;
     }
     return out;
+  }
+
+  async getMyBooking(userId: string, slug: string) {
+    const cal = await this.prisma.agendaCalendar.findFirst({
+      where: { slug, active: true },
+    });
+    if (!cal) throw new NotFoundException('Agenda niet gevonden');
+    const booking = await this.prisma.agendaBooking.findFirst({
+      where: { userId, calendarId: cal.id, ...activeBookingFilter },
+      include: { slot: true },
+      orderBy: { startAt: 'desc' },
+    });
+    if (!booking) return { booking: null };
+    const ymd = booking.slot.slotDate.toISOString().slice(0, 10);
+    return {
+      booking: {
+        id: booking.id,
+        slotId: booking.slotId,
+        slotDate: ymd,
+        startTime: booking.slot.startTime.slice(0, 5),
+        endTime: booking.slot.endTime.slice(0, 5),
+        status: booking.status,
+      },
+    };
+  }
+
+  async cancelMyBooking(userId: string, slug: string) {
+    const cal = await this.prisma.agendaCalendar.findFirst({
+      where: { slug, active: true },
+    });
+    if (!cal) throw new NotFoundException('Agenda niet gevonden');
+    const booking = await this.prisma.agendaBooking.findFirst({
+      where: { userId, calendarId: cal.id, ...activeBookingFilter },
+    });
+    if (!booking) throw new NotFoundException('Geen actieve afspraak.');
+    await this.prisma.agendaBooking.update({
+      where: { id: booking.id },
+      data: { status: 'cancelled' },
+    });
+    return { ok: true as const };
   }
 
   async cancelByToken(raw: string) {

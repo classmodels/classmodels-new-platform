@@ -26,6 +26,16 @@ export function AdminBar() {
     if (p === 'client') router.push('/portal/client');
   };
 
+  const toggleInlineEdit = () => {
+    const next = !editMode;
+    setEditMode(next);
+    if (!next) return;
+    window.requestAnimationFrame(() => {
+      const first = document.querySelector<HTMLElement>('[contenteditable="true"]');
+      if (first) first.focus();
+    });
+  };
+
   return (
     <div className="fixed inset-x-0 top-0 z-[100] flex h-10 items-center gap-4 border-b border-white/10 bg-ink px-4 text-[13px] text-white shadow-sm">
       <span className="font-medium text-white/90">Admin</span>
@@ -33,9 +43,9 @@ export function AdminBar() {
         <button
           type="button"
           className="rounded px-2 py-0.5 hover:bg-white/10"
-          onClick={() => setEditMode(!editMode)}
+          onClick={toggleInlineEdit}
         >
-          {editMode ? 'Tekst aanpassen (aan)' : 'Tekst aanpassen'}
+          {editMode ? 'Tekst bewerken (aan)' : 'Tekst bewerken'}
         </button>
       ) : null}
       {hasBackofficeAccess ? (

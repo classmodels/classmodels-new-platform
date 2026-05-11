@@ -25,6 +25,8 @@ export const PERMISSION_CATALOG: {
       { id: 'admin.snippets.read', label: 'Snippets bekijken' },
       { id: 'admin.briefs.read', label: 'Casting-aanvragen bekijken' },
       { id: 'admin.briefs.write', label: 'Casting-aanvragen beheren' },
+      { id: 'admin.testshoot.read', label: 'Testshoot bekijken' },
+      { id: 'admin.testshoot.write', label: 'Testshoot beheren (foto’s, modellen, feedback)' },
     ],
   },
   {
@@ -42,6 +44,8 @@ export const PERMISSION_CATALOG: {
       { id: 'portal.model.briefs.respond', label: 'Interesse tonen bij aanvraag' },
       { id: 'portal.model.media.read', label: 'Eigen media bekijken' },
       { id: 'portal.model.media.upload', label: 'Eigen media uploaden' },
+      { id: 'portal.model.agenda.read', label: 'Eigen opleidingsafspraak bekijken' },
+      { id: 'portal.model.agenda.book', label: 'Opleidingsafspraak boeken of wijzigen' },
     ],
   },
   {

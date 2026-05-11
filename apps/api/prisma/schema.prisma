@@ -69,6 +69,8 @@ model User {
   clientBriefs    ClientBrief[]       @relation("ClientBriefs")
   briefResponses  ModelBriefResponse[]
   agendaBookings  AgendaBooking[]
+  /// WordPress-achtige modellenfiche (velden uit registratie-modellen-2 / cm_* meta)
+  modelSheet      Json?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }
@@ -78,7 +80,23 @@ model ClientBrief {
   clientId  String
   client    User        @relation("ClientBriefs", fields: [clientId], references: [id], onDelete: Cascade)
   title     String
+  /// Omschrijving (WP: omschrijving)
   body      String      @db.Text
+  /// Extra info-blok (WP: extra_info)
+  extraInfo String?     @db.Text
+  /// Opdrachtdatum / start (WP: datum + begin_uur)
+  eventDate DateTime?
+  startTime String?
+  endTime   String?
+  wantedMen       Int?
+  wantedWomen     Int?
+  wantedChildren  Int?
+  ageManFrom      Int?
+  ageManTo        Int?
+  ageWomanFrom    Int?
+  ageWomanTo      Int?
+  ageChildFrom    Int?
+  ageChildTo      Int?
   status    BriefStatus @default(open)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -174,6 +192,43 @@ model MediaAsset {
   uploadedById String?
   uploadedBy   User?        @relation(fields: [uploadedById], references: [id])
   createdAt    DateTime     @default(now())
+  testshootPhotos TestshootPhoto[]
+}
+
+/// Testshoot-galerij per “slot” (zoals WP Code Snippet): backstage-foto’s + feedback vóór download.
+model TestshootModel {
+  id               String              @id @default(uuid())
+  name             String              @default("Model")
+  sortOrder        Int                 @default(0)
+  archived         Boolean             @default(false)
+  /// Na eerste geslaagde feedback+download: volgende bezoekers mogen direct zip (zoals WP option).
+  downloadUnlocked Boolean             @default(false)
+  unlockedAt       DateTime?
+  photos           TestshootPhoto[]
+  feedbacks        TestshootFeedback[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+}
+
+model TestshootPhoto {
+  id        String         @id @default(uuid())
+  modelId   String
+  model     TestshootModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  assetId   String
+  asset     MediaAsset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now())
+
+  @@unique([modelId, assetId])
+}
+
+model TestshootFeedback {
+  id        String         @id @default(uuid())
+  modelId   String
+  model     TestshootModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  payload   Json
+  ip        String?
+  createdAt DateTime       @default(now())
 }
 
 model Review {

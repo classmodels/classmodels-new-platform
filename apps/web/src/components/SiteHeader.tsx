@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
-import { DynamicNav } from '@/components/DynamicNav';
+import { CmText } from '@/components/CmText';
 
 export function SiteHeader() {
   const { user, logout } = useAuth();
@@ -13,52 +13,34 @@ export function SiteHeader() {
 
   if (onAdmin) return null;
 
-  const portal: 'guest' | 'model' | 'client' =
-    pathname?.startsWith('/portal/model')
-      ? 'model'
-      : pathname?.startsWith('/portal/client')
-        ? 'client'
-        : 'guest';
-
   return (
-    <header className="border-b border-line bg-burgundy text-white">
-      <div className="mx-auto flex w-full max-w-page flex-col gap-2 px-4 py-3 text-sm md:flex-row md:items-center md:justify-between md:px-6">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="font-serif text-lg tracking-tight text-white">
-            Class-Models
+    <header className="border-b border-white/10 bg-ink text-white">
+      <div className="mx-auto flex w-full max-w-page items-center justify-between px-4 py-2.5 text-sm md:px-6">
+        <div>
+          <Link href="/" className="block font-serif text-xl font-semibold tracking-tight text-white">
+            <CmText contentKey="site.header.logo" as="span" className="text-white" fallback="Class-Models" />
           </Link>
-          <DynamicNav portal={portal} placement="top" />
+          <CmText
+            contentKey="site.header.tagline"
+            as="p"
+            className="text-[11px] leading-tight text-white/70"
+            fallback="Modeling Agency"
+          />
         </div>
         <nav className="flex flex-wrap items-center gap-4">
-          <Link href="/" className="text-white/90 hover:text-white">
-            Beginpagina
+          <Link href="/portal/guest" className="text-white/90 hover:text-white">
+            <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
           </Link>
-          <Link href="/home" className="text-white/90 hover:text-white">
-            Modellenplatform
+          <Link href="/portal/model" className="text-white/90 hover:text-white">
+            <CmText contentKey="site.header.nav.model" as="span" className="text-white/90" fallback="Modellenportaal" />
+          </Link>
+          <Link href="/portal/client" className="text-white/90 hover:text-white">
+            <CmText contentKey="site.header.nav.client" as="span" className="text-white/90" fallback="Klantenportaal" />
           </Link>
           <Link href="/portal/guest?p=contact" className="text-white/90 hover:text-white">
-            Contact
+            <CmText contentKey="site.header.nav.contact" as="span" className="text-white/90" fallback="Contact" />
           </Link>
-          {!user && (
-            <Link href="/login" className="rounded-md bg-white/10 px-3 py-1 text-white hover:bg-white/20">
-              Inloggen
-            </Link>
-          )}
           {user ? (
-            <>
-              {user.roles.includes('model') ? (
-                <Link href="/portal/model" className="text-white/90 hover:text-white">
-                  Mijn portaal
-                </Link>
-              ) : null}
-              {user.roles.includes('client') ? (
-                <Link href="/portal/client" className="text-white/90 hover:text-white">
-                  Klantenportaal
-                </Link>
-              ) : null}
-            </>
-          ) : null}
-          {user && (
             <button
               type="button"
               onClick={() => {
@@ -68,8 +50,12 @@ export function SiteHeader() {
               }}
               className="text-white/80 hover:text-white"
             >
-              Uitloggen
+              <CmText contentKey="site.header.nav.logout" as="span" className="text-white/80" fallback="Uitloggen" />
             </button>
+          ) : (
+            <Link href="/login" className="text-white/90 hover:text-white">
+              <CmText contentKey="site.header.nav.login" as="span" className="text-white/90" fallback="Inloggen" />
+            </Link>
           )}
         </nav>
       </div>

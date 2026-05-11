@@ -147,7 +147,15 @@ export const INTAKE_GESPREK_PAGE = {
   ],
 } as const;
 
-/** Pagina “Gratis fotoshoot” / “Testshoot” — inhoud + doelgroepen-kolom + CTA. */
+/** Pagina “Testshoot” — galerij + feedback vóór download (los van gratis-fotoshoot boeking). */
+export const TESTSHOOT_PAGE = {
+  kicker: 'Testshoot',
+  title: 'Jouw testshoot-foto’s',
+  intro:
+    'Hier vind je de foto’s van je testshoot. Download ze als zip nadat je kort feedback hebt gegeven — zoals op de vorige site. Na de eerste download kun je hierna zonder formulier opnieuw downloaden.',
+} as const;
+
+/** Pagina “Gratis fotoshoot” — inhoud + doelgroepen-kolom + CTA. */
 export const GRATIS_FOTOSHOOT_PAGE = {
   agendaSlug: 'gratis-fotoshoot',
   expectTitle: 'Wat mag je verwachten?',

@@ -58,11 +58,25 @@ export function GuestBookingPanel({
   heading,
   onClose,
   variant = 'default',
+  authToken,
+  bookUrl,
+  onBookingSuccess,
+  hideLeftCalendar = false,
+  autoBookOnPick = false,
 }: {
   calendarSlug: string;
   heading: string;
   onClose: () => void;
   variant?: 'default' | 'pro';
+  /** JWT: boeking wordt aan account gekoppeld (modellenportaal). */
+  authToken?: string | null;
+  /** Relatief pad, bv. `/portal/model/agenda/book-form` */
+  bookUrl?: string;
+  onBookingSuccess?: () => void | Promise<void>;
+  /** Alleen dagkolommen (geen maand-raster), bv. opleiding. */
+  hideLeftCalendar?: boolean;
+  /** Eén klik boeken zonder formulier (opleiding). */
+  autoBookOnPick?: boolean;
 }) {
   const [step, setStep] = useState<Step>('slots');
   const [loading, setLoading] = useState(true);
@@ -118,9 +132,10 @@ export function GuestBookingPanel({
 
   useEffect(() => {
     if (step !== 'success') return;
+    if (onBookingSuccess) return;
     const t = window.setTimeout(() => onClose(), 14000);
     return () => window.clearTimeout(t);
-  }, [step, onClose]);
+  }, [step, onClose, onBookingSuccess]);
 
   const datesWithSlots = useMemo(() => {
     const s = new Set<string>();
@@ -159,6 +174,46 @@ export function GuestBookingPanel({
   const setFileField = (key: string, file: File | undefined) =>
     setFiles((prev) => ({ ...prev, [key]: file }));
 
+  const quickBook = useCallback(
+    async (pickedSlotId: string) => {
+      setBusy(true);
+      setErr(null);
+      try {
+        const fd = new FormData();
+        fd.append('slotId', pickedSlotId);
+        fd.append('fields', '{}');
+        const path = bookUrl ?? '/agenda/book-form';
+        const url = `${getApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
+        const headers: HeadersInit = {};
+        if (authToken) headers.Authorization = `Bearer ${authToken}`;
+        const res = await fetch(url, { method: 'POST', headers, body: fd });
+        const text = await res.text();
+        if (!res.ok) {
+          let msg = text || res.statusText;
+          try {
+            const j = JSON.parse(text) as { message?: string | string[] };
+            if (Array.isArray(j.message)) msg = j.message.join(', ');
+            else if (j.message) msg = String(j.message);
+          } catch {
+            /**/
+          }
+          throw new Error(msg);
+        }
+        if (onBookingSuccess) {
+          await Promise.resolve(onBookingSuccess());
+          await loadData();
+          return;
+        }
+        setStep('success');
+      } catch (e: unknown) {
+        setErr(e instanceof Error ? e.message : 'Boeken mislukt');
+      } finally {
+        setBusy(false);
+      }
+    },
+    [authToken, bookUrl, loadData, onBookingSuccess],
+  );
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!slotId) return;
@@ -175,8 +230,13 @@ export function GuestBookingPanel({
         const fl = files[k];
         if (fl) fd.append(k, fl);
       }
-      const res = await fetch(`${getApiBase()}/agenda/book-form`, {
+      const path = bookUrl ?? '/agenda/book-form';
+      const url = `${getApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
+      const headers: HeadersInit = {};
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+      const res = await fetch(url, {
         method: 'POST',
+        headers,
         body: fd,
       });
       const text = await res.text();
@@ -196,6 +256,15 @@ export function GuestBookingPanel({
         setCancelUrl(j.cancelUrl ?? null);
       } catch {
         setCancelUrl(null);
+      }
+      if (onBookingSuccess) {
+        await Promise.resolve(onBookingSuccess());
+        setStep('slots');
+        setSlotId(null);
+        setForm({});
+        setFiles({});
+        await loadData();
+        return;
       }
       setStep('success');
     } catch (e: unknown) {
@@ -535,6 +604,10 @@ export function GuestBookingPanel({
                         key={s.id}
                         type="button"
                         onClick={() => {
+                          if (autoBookOnPick) {
+                            void quickBook(s.id);
+                            return;
+                          }
                           setSlotId(s.id);
                           setStep('form');
                           setErr(null);
@@ -554,7 +627,7 @@ export function GuestBookingPanel({
                           aria-hidden
                         />
                         <span className="tabular-nums text-zinc-900">
-                          {s.startTime}
+                          {s.startTime} – {s.endTime}
                           {typeof s.remaining === 'number' && s.remaining > 1 ? (
                             <span className="ml-1 text-[10px] font-normal text-zinc-500"> ({s.remaining})</span>
                           ) : null}
@@ -577,7 +650,7 @@ export function GuestBookingPanel({
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
           <span className="font-medium">Gekozen:</span>
           <span className="tabular-nums">
-            {picked?.slotDate} om {picked?.startTime}
+            {picked?.slotDate} {picked ? `${picked.startTime} – ${picked.endTime}` : ''}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{fields.map(renderField)}</div>
@@ -631,8 +704,8 @@ export function GuestBookingPanel({
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
-        {calendarBlock}
+      <div className={`flex min-h-0 flex-1 flex-col gap-4 ${hideLeftCalendar ? '' : 'lg:flex-row'}`}>
+        {!hideLeftCalendar ? calendarBlock : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">{slotsBlock}</div>
       </div>
 

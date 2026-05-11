@@ -21,6 +21,7 @@ export class MediaService {
       ['opdrachten', 'Opdrachten'],
       ['reviews', 'Reviews'],
       ['models', 'Modellen'],
+      ['testshoot', 'Testshoot'],
     ];
     for (const [slug, label] of defs) {
       await this.prisma.mediaFolder.upsert({

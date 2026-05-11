@@ -22,6 +22,7 @@ export class UsersController {
       bio: u.bio,
       companyName: u.companyName,
       defaultPortal: u.defaultPortal,
+      modelSheet: u.modelSheet ?? null,
       isPremium: req.user.isPremium,
       roles: req.user.roles,
       permissions: req.user.permissions,

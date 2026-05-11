@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -14,6 +15,7 @@ type UserRow = {
   phone?: string | null;
   bio?: string | null;
   companyName?: string | null;
+  modelSheet?: Record<string, unknown> | null;
   status: string;
   isPremium: boolean;
   premiumOverride: boolean;
@@ -22,8 +24,11 @@ type UserRow = {
   roles: { role: { slug: string; label: string } }[];
 };
 
-export default function AdminGebruikersPage() {
+function AdminGebruikersPageContent() {
   const { token, can } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const openedFromQuery = useRef(false);
   const [rows, setRows] = useState<UserRow[]>([]);
   const [roleOpts, setRoleOpts] = useState<RoleOpt[]>([]);
   const [msg, setMsg] = useState('');
@@ -49,6 +54,7 @@ export default function AdminGebruikersPage() {
     isPremium: false,
     premiumOverride: false,
     premiumUntil: '',
+    modelSheetJson: '',
   });
 
   const load = useCallback(async () => {
@@ -67,32 +73,48 @@ export default function AdminGebruikersPage() {
     load().catch(() => setRows([]));
   }, [load]);
 
-  const openEdit = async (id: string) => {
-    if (!token) return;
-    const [u, roles] = await Promise.all([
-      adminFetch<UserRow>(`/admin/users/${id}`, token),
-      can('admin.roles.read')
-        ? adminFetch<RoleOpt[]>('/admin/roles', token)
-        : Promise.resolve(roleOpts),
-    ]);
-    if (roles.length && can('admin.roles.read')) setRoleOpts(roles);
-    setEditId(id);
-    setEdit({
-      email: u.email,
-      firstName: u.firstName ?? '',
-      lastName: u.lastName ?? '',
-      phone: u.phone ?? '',
-      bio: u.bio ?? '',
-      companyName: u.companyName ?? '',
-      status: u.status,
-      defaultPortal: (u.defaultPortal as typeof edit.defaultPortal) ?? '',
-      roleSlugs: u.roles.map((r) => r.role.slug),
-      password: '',
-      isPremium: u.isPremium,
-      premiumOverride: u.premiumOverride,
-      premiumUntil: u.premiumUntil ? u.premiumUntil.slice(0, 10) : '',
-    });
-  };
+  useEffect(() => {
+    if (!editId) openedFromQuery.current = false;
+  }, [editId]);
+
+  const openEdit = useCallback(
+    async (id: string) => {
+      if (!token) return;
+      const [u, roles] = await Promise.all([
+        adminFetch<UserRow & { modelSheet?: Record<string, unknown> | null }>(`/admin/users/${id}`, token),
+        can('admin.roles.read')
+          ? adminFetch<RoleOpt[]>('/admin/roles', token)
+          : Promise.resolve(roleOpts),
+      ]);
+      if (roles.length && can('admin.roles.read')) setRoleOpts(roles);
+      setEditId(id);
+      setEdit({
+        email: u.email,
+        firstName: u.firstName ?? '',
+        lastName: u.lastName ?? '',
+        phone: u.phone ?? '',
+        bio: u.bio ?? '',
+        companyName: u.companyName ?? '',
+        status: u.status,
+        defaultPortal: (u.defaultPortal as '' | 'guest' | 'model' | 'client') ?? '',
+        roleSlugs: u.roles.map((r) => r.role.slug),
+        password: '',
+        isPremium: u.isPremium,
+        premiumOverride: u.premiumOverride,
+        premiumUntil: u.premiumUntil ? u.premiumUntil.slice(0, 10) : '',
+        modelSheetJson: JSON.stringify(u.modelSheet ?? {}, null, 2),
+      });
+    },
+    [token, can, roleOpts],
+  );
+
+  useEffect(() => {
+    const e = searchParams.get('edit');
+    if (!e || openedFromQuery.current || !rows.length || !token) return;
+    if (!rows.some((r) => r.id === e)) return;
+    openedFromQuery.current = true;
+    openEdit(e).catch(() => undefined);
+  }, [searchParams, rows, token, openEdit]);
 
   const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,11 +135,20 @@ export default function AdminGebruikersPage() {
       premiumUntil: edit.premiumUntil || null,
     };
     if (edit.password.length >= 8) body.password = edit.password;
+    if (edit.roleSlugs.includes('model') && edit.modelSheetJson.trim()) {
+      try {
+        body.modelSheet = JSON.parse(edit.modelSheetJson) as Record<string, unknown>;
+      } catch {
+        setMsg('Modellenfiche (JSON) is ongeldig.');
+        return;
+      }
+    }
     await adminFetch(`/admin/users/${editId}`, token, {
       method: 'PATCH',
       body: JSON.stringify(body),
     });
     setEditId(null);
+    router.replace('/admin/gebruikers');
     await load();
     setMsg('Gebruiker bijgewerkt.');
   };
@@ -278,7 +309,14 @@ export default function AdminGebruikersPage() {
           >
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-medium text-ink">Gebruiker bewerken</h2>
-              <button type="button" className="text-muted hover:text-ink" onClick={() => setEditId(null)}>
+              <button
+                type="button"
+                className="text-muted hover:text-ink"
+                onClick={() => {
+                  setEditId(null);
+                  router.replace('/admin/gebruikers');
+                }}
+              >
                 ✕
               </button>
             </div>
@@ -376,6 +414,20 @@ export default function AdminGebruikersPage() {
                 onChange={(e) => setEdit({ ...edit, password: e.target.value })}
               />
             </div>
+            {edit.roleSlugs.includes('model') ? (
+              <label className="sm:col-span-2">
+                <span className="text-[11px] font-bold uppercase text-burgundy">Modellenfiche (JSON)</span>
+                <textarea
+                  className="mt-1 min-h-[140px] w-full border border-line px-2 py-1 font-mono text-[11px]"
+                  value={edit.modelSheetJson}
+                  onChange={(e) => setEdit({ ...edit, modelSheetJson: e.target.value })}
+                  spellCheck={false}
+                />
+                <span className="mt-0.5 block text-[10px] text-muted">
+                  Velden zoals beschikbaar, lengte, … — merge met bestaande data op de server.
+                </span>
+              </label>
+            ) : null}
             <p className="mt-3 text-[11px] font-medium text-ink">Rollen</p>
             <div className="mt-1 grid gap-1 sm:grid-cols-2">
               {roleOpts.map((r) => (
@@ -405,7 +457,14 @@ export default function AdminGebruikersPage() {
               >
                 Opslaan
               </button>
-              <button type="button" className="text-xs text-muted hover:text-ink" onClick={() => setEditId(null)}>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-ink"
+                onClick={() => {
+                  setEditId(null);
+                  router.replace('/admin/gebruikers');
+                }}
+              >
                 Annuleren
               </button>
             </div>
@@ -413,5 +472,13 @@ export default function AdminGebruikersPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function AdminGebruikersPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted">Laden…</p>}>
+      <AdminGebruikersPageContent />
+    </Suspense>
   );
 }

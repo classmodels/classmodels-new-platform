@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PatchProfileDto } from './dto/patch-profile.dto';
+import { sanitizeModelSheetMerge } from './model-sheet.util';
 
 @Injectable()
 export class UsersService {
@@ -59,6 +60,15 @@ export class UsersService {
     if (dto.phone !== undefined) data.phone = dto.phone || null;
     if (dto.bio !== undefined) data.bio = dto.bio || null;
     if (dto.companyName !== undefined) data.companyName = dto.companyName || null;
+
+    if (dto.modelSheet !== undefined) {
+      const cur = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { modelSheet: true },
+      });
+      data.modelSheet = sanitizeModelSheetMerge(cur?.modelSheet ?? null, dto.modelSheet);
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
       data: data as never,
@@ -71,6 +81,7 @@ export class UsersService {
         bio: true,
         companyName: true,
         defaultPortal: true,
+        modelSheet: true,
       },
     });
   }

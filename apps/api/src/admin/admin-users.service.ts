@@ -7,6 +7,7 @@ import type { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAdminUserDto, UpdateAdminUserDto } from './dto/admin-user.dto';
+import { sanitizeModelSheetMerge } from '../users/model-sheet.util';
 
 const userPublicSelect = {
   id: true,
@@ -25,6 +26,7 @@ const userPublicSelect = {
   createdAt: true,
   updatedAt: true,
   roles: { include: { role: true } },
+  modelSheet: true,
 } satisfies Prisma.UserSelect;
 
 @Injectable()
@@ -100,6 +102,13 @@ export class AdminUsersService {
     if (dto.companyName !== undefined) data.companyName = dto.companyName || null;
     if (dto.password) {
       data.passwordHash = await bcrypt.hash(dto.password, 10);
+    }
+    if (dto.modelSheet !== undefined) {
+      const cur = await this.prisma.user.findUnique({
+        where: { id },
+        select: { modelSheet: true },
+      });
+      data.modelSheet = sanitizeModelSheetMerge(cur?.modelSheet ?? null, dto.modelSheet);
     }
 
     await this.prisma.user.update({ where: { id }, data: data as never });

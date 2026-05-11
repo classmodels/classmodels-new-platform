@@ -2,10 +2,13 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Fragment, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Fragment, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { GuestContactSection } from '@/components/guest-portal/GuestContactSection';
+import { CmContainer } from '@/components/CmContainer';
+import { CmText } from '@/components/CmText';
 import {
   CARD_MODEL_WORDEN,
   DOELGROEPEN_CARDS,
@@ -23,8 +26,79 @@ import {
   WAAROM_PARAGRAPHS,
   type GuestMenuId,
 } from '@/components/guest-portal/guest-portal-data';
+import { GuestTestshootSection } from '@/components/guest-portal/GuestTestshootSection';
 
 const GUEST_MENU_IDS = GUEST_MENU.map((m) => m.id) as readonly GuestMenuId[];
+
+type ApiGuestLeftMenu = {
+  slug: string;
+  items: { id: string; label: string; href: string; sortOrder: number }[];
+};
+
+/** `/content/x` in het gastenportaal = zelfde als `?content=x` (zijbalk blijft). */
+function portalGuestHrefForMenuItem(href: string): string {
+  const t = href.trim();
+  const m = /^\/content\/([^/?#]+)\/?$/.exec(t);
+  if (m) return `/portal/guest?content=${encodeURIComponent(m[1])}`;
+  return t;
+}
+
+function guestPortalNavIdentity(href: string): string {
+  const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+  try {
+    const linked = portalGuestHrefForMenuItem(href);
+    const u = new URL(linked, base);
+    if (u.pathname !== '/portal/guest') return `path:${u.pathname}${u.search}`;
+    if (u.searchParams.has('content')) return `guest-content:${u.searchParams.get('content') || ''}`;
+    const p = u.searchParams.get('p') ?? 'model-worden';
+    return `guest-p:${p}`;
+  } catch {
+    return `invalid:${href}`;
+  }
+}
+
+/** Actieve staat in het linkermenu (ook voor `?content=`). */
+function guestLeftHrefIsActive(href: string, pathname: string, searchRaw: string): boolean {
+  const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+  const curQ = searchRaw && !searchRaw.startsWith('?') ? `?${searchRaw}` : searchRaw || '';
+  try {
+    const cur = new URL(`${pathname || '/'}${curQ}`, base);
+    return guestPortalNavIdentity(href) === guestPortalNavIdentity(cur.href);
+  } catch {
+    return false;
+  }
+}
+
+function flattenGuestLeftMenus(menus: ApiGuestLeftMenu[]) {
+  const sortedMenus = [...menus].sort((a, b) => {
+    if (a.slug === 'guest-home-left') return -1;
+    if (b.slug === 'guest-home-left') return 1;
+    return a.slug.localeCompare(b.slug);
+  });
+  const out: { id: string; label: string; href: string }[] = [];
+  for (const m of sortedMenus) {
+    const items = [...m.items].sort((a, b) => a.sortOrder - b.sortOrder);
+    for (const it of items) {
+      out.push({ id: it.id, label: it.label, href: it.href });
+    }
+  }
+  return out;
+}
+
+/** Alleen echte “container”-pagina’s in het zijmenu (geen dubbele tabs of oude /home-links). */
+function isGuestContainerPageHref(href: string): boolean {
+  const t = href.trim();
+  if (/^\/content\/[a-zA-Z0-9-]+\/?$/.test(t)) return true;
+  try {
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const u = new URL(t, base);
+    if (u.pathname !== '/portal/guest') return false;
+    const c = u.searchParams.get('content')?.trim();
+    return !!c && /^[a-zA-Z0-9-]+$/.test(c);
+  } catch {
+    return false;
+  }
+}
 
 function parseGuestMenuParam(raw: string | null): GuestMenuId | null {
   if (!raw) return null;
@@ -155,12 +229,24 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_min(260px,34%)] md:items-center md:gap-8">
       <div>
-        <h2 className="font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl">
-          Model worden begint hier
-        </h2>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/90">
-          Kies hieronder hoe je wilt starten: gratis test-fotoshoot, casting of een vrijblijvend intakegesprek.
-        </p>
+        <CmText
+          contentKey="portal.guest.hero.kicker"
+          as="p"
+          className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
+          fallback="Gastenportaal"
+        />
+        <CmText
+          contentKey="portal.guest.hero.welcome"
+          as="h2"
+          className="mt-2 font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl"
+          fallback="Welkom"
+        />
+        <CmText
+          contentKey="portal.guest.hero.body"
+          as="p"
+          className="mt-3 max-w-xl text-sm leading-relaxed text-white/90"
+          fallback="Kies hieronder hoe je wilt starten: gratis test-fotoshoot, casting of een vrijblijvend intakegesprek."
+        />
         <div className="mt-5 flex flex-wrap gap-2">
           <button
             type="button"
@@ -186,11 +272,18 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
         </div>
       </div>
       <div className="rounded-cm border border-white/25 bg-black/20 p-4 text-xs leading-relaxed text-white/90 md:text-sm">
-        <p className="font-medium text-white">Class-Models — gastenportaal</p>
-        <p className="mt-2">
-          Hier lees je hoe je start als model: van gratis testshoot tot casting en intake. Gebruik het menu links voor
-          alle onderwerpen; hieronder vind je een overzicht in drie stappen.
-        </p>
+        <CmText
+          contentKey="portal.guest.hero.box.title"
+          as="p"
+          className="font-medium text-white"
+          fallback="Class-Models — gastenportaal"
+        />
+        <CmText
+          contentKey="portal.guest.hero.box.body"
+          as="p"
+          className="mt-2"
+          fallback="Hier lees je hoe je start als model: van gratis testshoot tot casting en intake. Gebruik het menu links voor alle onderwerpen; hieronder vind je een overzicht in drie stappen."
+        />
       </div>
     </div>
   );
@@ -436,8 +529,46 @@ function GuestServiceTwoColumnPage({
 
 export function GuestPortalLayout() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchString = useGuestPortalSearchString(searchParams.toString());
+  const [leftNavFromDb, setLeftNavFromDb] = useState<{ id: string; label: string; href: string }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void apiFetch<ApiGuestLeftMenu[]>('/menus/for/guest?placement=left')
+      .then((menus) => {
+        if (cancelled) return;
+        setLeftNavFromDb(flattenGuestLeftMenus(menus));
+      })
+      .catch(() => {
+        if (!cancelled) setLeftNavFromDb([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const extraLeftNavFromDb = useMemo(() => {
+    const filtered = leftNavFromDb.filter((it) => isGuestContainerPageHref(it.href));
+    const seen = new Set<string>();
+    const out: { id: string; label: string; href: string }[] = [];
+    for (const it of filtered) {
+      const key = guestPortalNavIdentity(it.href);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(it);
+    }
+    return out;
+  }, [leftNavFromDb]);
+
+  const contentSlug = useMemo(() => {
+    const sp = new URLSearchParams(searchString);
+    const c = sp.get('content')?.trim();
+    if (!c || !/^[a-zA-Z0-9-]+$/.test(c)) return null;
+    return c;
+  }, [searchString]);
+
   const urlActive: GuestMenuId =
     parseGuestMenuParam(new URLSearchParams(searchString).get('p')) ?? 'model-worden';
 
@@ -453,6 +584,8 @@ export function GuestPortalLayout() {
   }, [searchString]);
 
   const active: GuestMenuId = menuHighlight ?? urlActive;
+
+  const isBuiltInRowActive = (id: GuestMenuId) => !contentSlug && active === id;
 
   const goMenu = useCallback(
     (id: GuestMenuId) => {
@@ -473,7 +606,7 @@ export function GuestPortalLayout() {
   }, []);
 
   const menuLabel = GUEST_MENU.find((m) => m.id === active)?.label ?? '';
-  const rightPanelTitle = bookingFlow ? 'Online afspraak' : menuLabel;
+  const rightPanelTitle = bookingFlow ? 'Online afspraak' : contentSlug ? 'Pagina' : menuLabel;
 
   const ctaFor = (target: GuestMenuId) => () => goMenu(target);
 
@@ -623,12 +756,21 @@ export function GuestPortalLayout() {
   );
 
   const mainContent = () => {
+    if (contentSlug) {
+      const containerKey = `container.${contentSlug}`;
+      return (
+        <div className="border border-line bg-white p-4 md:p-6">
+          <CmContainer contentKey={containerKey} />
+        </div>
+      );
+    }
     switch (active) {
       case 'model-worden':
         return renderModelWorden();
       case 'gratis-fotoshoot':
-      case 'testshoot':
         return renderGratisFotoshoot();
+      case 'testshoot':
+        return <GuestTestshootSection />;
       case 'casting':
         return renderCasting();
       case 'intake-gesprek':
@@ -646,9 +788,6 @@ export function GuestPortalLayout() {
 
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
-      {/* Witte ruimte onder de site-header (zelfde breedte als scherm) */}
-      <div className="w-full bg-white py-3 md:py-4" aria-hidden />
-
       {/* Rode hero — op elke pagina van het gastenportaal */}
       <div className="w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
         <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
@@ -659,13 +798,20 @@ export function GuestPortalLayout() {
       <div className="mx-auto w-full max-w-page px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-8">
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
           <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm lg:sticky lg:top-4">
-            <div className="shrink-0 border-b border-line bg-burgundy px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-white">
-              Gast menu
+            <div className="cm-red-titlebar shrink-0 border-b border-line">
+              <div className="cm-red-titlebar-inner">
+                <CmText
+                  contentKey="portal.guest.sidebar.title"
+                  as="p"
+                  className="text-xs font-semibold uppercase tracking-wide text-white"
+                  fallback="Gast menu"
+                />
+              </div>
             </div>
             <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Gastenmenu">
               <div className="shrink-0">
                 {GUEST_SIDEBAR_MENU.map((item, index) => {
-                  const isActive = item.id === active;
+                  const isActive = isBuiltInRowActive(item.id);
                   return (
                     <button
                       key={item.id}
@@ -679,11 +825,37 @@ export function GuestPortalLayout() {
                           : 'text-ink hover:bg-panel/70'
                       }`}
                     >
-                      <span>{item.label}</span>
+                      <CmText
+                        contentKey={`portal.guest.nav.${item.id}.label`}
+                        as="span"
+                        className="text-ink"
+                        fallback={item.label}
+                      />
                       <span className="text-muted" aria-hidden>
                         ›
                       </span>
                     </button>
+                  );
+                })}
+                {extraLeftNavFromDb.map((item) => {
+                  const resolvedHref = portalGuestHrefForMenuItem(item.href);
+                  const isActive = guestLeftHrefIsActive(item.href, pathname, searchString);
+                  const rowClass = `flex w-full items-center justify-between gap-2 py-3 pl-3 pr-3 text-left text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0 border-t border-line ${
+                    isActive ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]' : 'text-ink hover:bg-panel/70'
+                  }`;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={resolvedHref}
+                      onClick={() => setBookingFlow(null)}
+                      className={rowClass}
+                      scroll={false}
+                    >
+                      <span className="text-ink">{item.label}</span>
+                      <span className="text-muted" aria-hidden>
+                        ›
+                      </span>
+                    </Link>
                   );
                 })}
               </div>
@@ -692,8 +864,17 @@ export function GuestPortalLayout() {
           </aside>
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm">
-            <div className="shrink-0 border-b border-line bg-burgundy px-4 py-2.5 text-sm font-semibold text-white">
-              {rightPanelTitle}
+            <div className="cm-red-titlebar shrink-0 border-b border-line">
+              <div className="cm-red-titlebar-inner">
+                <CmText
+                  contentKey={
+                    contentSlug ? `container.${contentSlug}.hero.title` : `portal.guest.panel.title.${active}`
+                  }
+                  as="h2"
+                  className="cm-red-titlebar-title"
+                  fallback={rightPanelTitle}
+                />
+              </div>
             </div>
             <div className="min-h-0 flex-1 p-4 md:p-6">
               {bookingFlow ? (

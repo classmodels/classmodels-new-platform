@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class PatchProfileDto {
   @IsOptional()
@@ -25,4 +25,9 @@ export class PatchProfileDto {
   @IsString()
   @MaxLength(200)
   companyName?: string;
+
+  /** Modellenfiche (WordPress cm_* velden, camelCase). */
+  @IsOptional()
+  @IsObject()
+  modelSheet?: Record<string, unknown>;
 }

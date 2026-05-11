@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -19,18 +20,7 @@ export default function LoginPage() {
     setBusy(true);
     try {
       const u = await login(email, password);
-      const p = u.permissions ?? [];
-      const toBackoffice = p.includes('*') || p.some((x) => x.startsWith('admin.'));
-      const contentOnly = p.includes('content.strings.write') && !toBackoffice;
-      if (toBackoffice) {
-        router.replace('/admin/dashboard');
-        return;
-      }
-      if (contentOnly) {
-        router.replace('/admin/content');
-        return;
-      }
-      router.replace('/');
+      redirectAfterPortalAuth(u, router);
     } catch (err) {
       let msg = 'Inloggen mislukt. Controleer e-mail en wachtwoord.';
       if (err instanceof Error) {

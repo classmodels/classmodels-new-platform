@@ -9,3 +9,26 @@
 body {
   @apply bg-white text-ink antialiased;
 }
+
+@layer base {
+  /* Geen afrondingen overal (strak/zakelijk). */
+  *,
+  *::before,
+  *::after {
+    border-radius: 0 !important;
+  }
+}
+
+@layer components {
+  /* Standaard hoogte voor alle grote rode titelbalken (links + rechts). */
+  .cm-red-titlebar {
+    @apply bg-burgundy text-white;
+    height: 44px;
+  }
+  .cm-red-titlebar-inner {
+    @apply flex h-full items-center justify-between gap-3 px-4;
+  }
+  .cm-red-titlebar-title {
+    @apply min-w-0 text-sm font-semibold;
+  }
+}

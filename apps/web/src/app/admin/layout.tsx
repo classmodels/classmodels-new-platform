@@ -39,7 +39,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             const active =
               pathname === href ||
               (m.slug === 'dashboard' && (pathname === '/admin' || pathname === '/admin/dashboard')) ||
-              (m.slug === 'agenda' && pathname.startsWith('/admin/agenda'));
+              (m.slug === 'agenda' && pathname.startsWith('/admin/agenda')) ||
+              (m.slug === 'modellen-profielen' && pathname.startsWith('/admin/modellen-profielen')) ||
+              (m.slug === 'testshoot' && pathname.startsWith('/admin/testshoot'));
             return (
               <Link
                 key={m.slug}

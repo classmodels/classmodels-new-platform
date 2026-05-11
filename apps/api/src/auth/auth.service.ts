@@ -40,6 +40,7 @@ export class AuthService {
         bio: user.bio,
         companyName: user.companyName,
         defaultPortal: user.defaultPortal,
+        modelSheet: user.modelSheet ?? null,
         roles: roleSlugs,
         isPremium: premiumActive,
         permissions,

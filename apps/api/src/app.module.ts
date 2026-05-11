@@ -12,6 +12,7 @@ import { MenusModule } from './menus/menus.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { PortalModule } from './portal/portal.module';
 import { AgendaModule } from './agenda/agenda.module';
+import { TestshootModule } from './testshoot/testshoot.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AgendaModule } from './agenda/agenda.module';
     ReviewsModule,
     PortalModule,
     AgendaModule,
+    TestshootModule,
   ],
 })
 export class AppModule {}

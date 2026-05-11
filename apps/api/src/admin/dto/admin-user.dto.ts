@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsObject,
   IsOptional,
   IsString,
   MinLength,
@@ -91,4 +92,8 @@ export class UpdateAdminUserDto {
   @IsOptional()
   @IsString()
   companyName?: string;
+
+  @IsOptional()
+  @IsObject()
+  modelSheet?: Record<string, unknown>;
 }

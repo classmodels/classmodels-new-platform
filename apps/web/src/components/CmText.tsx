@@ -15,12 +15,14 @@ type CmTextProps = {
   contentKey: string;
   as?: keyof JSX.IntrinsicElements;
   className?: string;
+  fallback?: string;
 } & Omit<HTMLAttributes<HTMLElement>, 'children'>;
 
-export function CmText({ contentKey, as = 'span', className, ...rest }: CmTextProps) {
+export function CmText({ contentKey, as = 'span', className, fallback = '', ...rest }: CmTextProps) {
   const { byKey, editMode, patchKey } = useContent();
   const { can } = useAuth();
-  const val = byKey[contentKey] ?? '';
+  const hasKey = Object.prototype.hasOwnProperty.call(byKey, contentKey);
+  const val = hasKey ? (byKey[contentKey] ?? '') : fallback;
   const ref = useRef<HTMLElement | null>(null);
 
   useEffect(() => {

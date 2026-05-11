@@ -1,6 +1,6 @@
-import { ModellenHomePage } from '@/components/ModellenHomePage';
+import { redirect } from 'next/navigation';
 
-/** Licht modellenplatform (menu + inhoud); enterpagina met inloggen blijft op `/`. */
+/** Oud modellenplatform vervangen door gastenportaal. */
 export default function ModellenPlatformHomePage() {
-  return <ModellenHomePage />;
+  redirect('/portal/guest');
 }

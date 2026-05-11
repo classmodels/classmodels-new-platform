@@ -35,6 +35,7 @@ type BriefDetail = BriefRow & {
 export default function ClientPortalPage() {
   const { user, loading, token, refreshMe, can } = useAuth();
   const router = useRouter();
+  const [tab, setTab] = useState<'overzicht' | 'profiel' | 'nieuw' | 'aanvragen'>('overzicht');
   const [profile, setProfile] = useState({
     firstName: '',
     lastName: '',
@@ -133,33 +134,138 @@ export default function ClientPortalPage() {
   if (loading || !user) return <div className="p-8 text-sm text-muted">Laden…</div>;
 
   return (
-    <div className="mx-auto w-full max-w-page space-y-8 px-4 py-10 md:px-6">
-      <section className="rounded-cm border border-burgundy/25 bg-gradient-to-br from-burgundy/[0.07] to-panel px-5 py-5 shadow-sm">
-        <h2 className="font-serif text-xl text-burgundy">Welkom in je klantenportaal</h2>
-        <p className="mt-2 text-sm leading-relaxed text-ink/90">
-          Vanuit dit portaal beheer je casting-aanvragen en je bedrijfsgegevens. Vul je profiel hieronder aan
-          waar nodig.
-        </p>
-      </section>
-      <CmText
-        contentKey="portal.client.title"
-        as="h1"
-        className="font-serif text-2xl text-burgundy"
-      />
-      <CmText
-        contentKey="portal.client.intro"
-        as="p"
-        className="text-sm leading-relaxed text-muted"
-      />
-      <CmText
-        contentKey="portal.client.section2"
-        as="p"
-        className="text-sm leading-relaxed text-ink/90"
-      />
-      <p className="text-xs text-muted">Ingelogd als {user.email}.</p>
+    <div className="min-h-[100dvh] bg-panel text-ink">
+      <div className="w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+        <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
+          <CmText
+            contentKey="portal.client.hero.kicker"
+            as="p"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
+            fallback="Klantenportaal"
+          />
+          <h2 className="mt-2 font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl">
+            <CmText contentKey="portal.client.hero.welcome" as="span" className="text-white" fallback="Welkom" />
+            {user.firstName ? `, ${user.firstName}` : ', klant'}
+          </h2>
+          <CmText
+            contentKey="portal.client.hero.body"
+            as="p"
+            className="mt-3 max-w-xl text-sm leading-relaxed text-white/90"
+            fallback="Beheer hier uw aanvragen en bedrijfsgegevens vanuit een overzichtelijke portaalomgeving."
+          />
+        </div>
+      </div>
 
-      <section className="rounded-md border border-line bg-white p-4 text-sm shadow-sm">
-        <h2 className="font-medium text-ink">Bedrijf & contact</h2>
+      <div className="mx-auto w-full max-w-page px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-8">
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden border border-line bg-white shadow-sm lg:sticky lg:top-4">
+            <div className="cm-red-titlebar shrink-0 border-b border-line">
+              <div className="cm-red-titlebar-inner">
+                <CmText
+                  contentKey="portal.client.sidebar.title"
+                  as="p"
+                  className="text-xs font-semibold uppercase tracking-wide text-white"
+                  fallback="Snelle actie"
+                />
+              </div>
+            </div>
+            <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Klantenportaal">
+              <button
+                type="button"
+                onClick={() => setTab('overzicht')}
+                className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+                  tab === 'overzicht'
+                    ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+                    : 'text-ink hover:bg-panel/70'
+                }`}
+              >
+                <CmText contentKey="portal.client.nav.overzicht" as="span" className="text-ink" fallback="Overzicht" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('profiel')}
+                className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+                  tab === 'profiel'
+                    ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+                    : 'text-ink hover:bg-panel/70'
+                }`}
+              >
+                <CmText
+                  contentKey="portal.client.nav.profiel"
+                  as="span"
+                  className="text-ink"
+                  fallback="Bedrijf & contact"
+                />
+              </button>
+              {can('portal.client.briefs.write') ? (
+                <button
+                  type="button"
+                  onClick={() => setTab('nieuw')}
+                  className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+                    tab === 'nieuw'
+                      ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+                      : 'text-ink hover:bg-panel/70'
+                  }`}
+                >
+                  <CmText
+                    contentKey="portal.client.nav.nieuw"
+                    as="span"
+                    className="text-ink"
+                    fallback="Nieuwe aanvraag"
+                  />
+                </button>
+              ) : null}
+              {can('portal.client.briefs.read') ? (
+                <button
+                  type="button"
+                  onClick={() => setTab('aanvragen')}
+                  className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+                    tab === 'aanvragen'
+                      ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+                      : 'text-ink hover:bg-panel/70'
+                  }`}
+                >
+                  <CmText
+                    contentKey="portal.client.nav.aanvragen"
+                    as="span"
+                    className="text-ink"
+                    fallback="Mijn aanvragen"
+                  />
+                </button>
+              ) : null}
+              <div className="min-h-8 flex-1 bg-white" aria-hidden />
+            </nav>
+          </aside>
+
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border border-line bg-white shadow-sm">
+            <div className="cm-red-titlebar shrink-0 border-b border-line">
+              <div className="cm-red-titlebar-inner">
+                <CmText
+                  contentKey="portal.client.panel.title"
+                  as="h2"
+                  className="cm-red-titlebar-title"
+                  fallback="Klantenportaal"
+                />
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 space-y-6 p-4 md:p-6">
+              {tab === 'overzicht' ? (
+                <section className="space-y-3">
+                  <CmText contentKey="portal.client.title" as="h1" className="font-serif text-2xl text-burgundy" />
+                  <CmText contentKey="portal.client.intro" as="p" className="text-sm leading-relaxed text-muted" />
+                  <CmText contentKey="portal.client.section2" as="p" className="text-sm leading-relaxed text-ink/90" />
+                  <p className="text-xs text-muted">Ingelogd als {user.email}.</p>
+                </section>
+              ) : null}
+
+              {tab === 'profiel' ? (
+                <section className="border border-line bg-white p-4 text-sm">
+        <CmText
+          contentKey="portal.client.profile.title"
+          as="h2"
+          className="font-medium text-ink"
+          fallback="Bedrijf & contact"
+        />
         <form onSubmit={saveProfile} className="mt-3 grid gap-2 sm:grid-cols-2">
           <input
             className="rounded border border-line px-2 py-1"
@@ -189,15 +295,21 @@ export default function ClientPortalPage() {
             type="submit"
             className="rounded bg-burgundy px-3 py-1.5 text-white hover:bg-burgundyDeep sm:col-span-2"
           >
-            Opslaan
+            <CmText contentKey="portal.client.profile.save" as="span" className="text-white" fallback="Opslaan" />
           </button>
         </form>
         {profileMsg ? <p className="mt-2 text-xs text-muted">{profileMsg}</p> : null}
-      </section>
+                </section>
+              ) : null}
 
-      {can('portal.client.briefs.write') ? (
-        <section className="rounded-md border border-line bg-white p-4 text-sm shadow-sm">
-          <h2 className="font-medium text-ink">Nieuwe casting-aanvraag</h2>
+      {can('portal.client.briefs.write') && tab === 'nieuw' ? (
+        <section className="border border-line bg-white p-4 text-sm">
+          <CmText
+            contentKey="portal.client.brief.new.title"
+            as="h2"
+            className="font-medium text-ink"
+            fallback="Nieuwe casting-aanvraag"
+          />
           <form onSubmit={createBrief} className="mt-3 space-y-2">
             <input
               className="w-full rounded border border-line px-2 py-1"
@@ -220,15 +332,20 @@ export default function ClientPortalPage() {
               type="submit"
               className="rounded bg-burgundy px-3 py-1.5 text-white hover:bg-burgundyDeep"
             >
-              Indienen
+              <CmText contentKey="portal.client.brief.new.submit" as="span" className="text-white" fallback="Indienen" />
             </button>
           </form>
         </section>
       ) : null}
 
-      {can('portal.client.briefs.read') ? (
-        <section className="rounded-md border border-line bg-white p-4 text-sm shadow-sm">
-          <h2 className="font-medium text-ink">Mijn aanvragen</h2>
+      {can('portal.client.briefs.read') && tab === 'aanvragen' ? (
+        <section className="border border-line bg-white p-4 text-sm">
+          <CmText
+            contentKey="portal.client.brief.list.title"
+            as="h2"
+            className="font-medium text-ink"
+            fallback="Mijn aanvragen"
+          />
           <ul className="mt-3 divide-y divide-line">
             {briefs.map((b) => (
               <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -243,13 +360,18 @@ export default function ClientPortalPage() {
                   className="text-xs text-burgundy hover:underline"
                   onClick={() => openDetail(b.id)}
                 >
-                  Details
+                  <CmText contentKey="portal.client.brief.list.details" as="span" className="text-burgundy" fallback="Details" />
                 </button>
               </li>
             ))}
           </ul>
           {briefs.length === 0 ? (
-            <p className="mt-2 text-xs text-muted">Nog geen aanvragen.</p>
+            <CmText
+              contentKey="portal.client.brief.list.empty"
+              as="p"
+              className="mt-2 text-xs text-muted"
+              fallback="Nog geen aanvragen."
+            />
           ) : null}
         </section>
       ) : null}
@@ -294,10 +416,10 @@ export default function ClientPortalPage() {
           </div>
         </div>
       ) : null}
-
-      <Link href="/" className="inline-block text-sm text-burgundy hover:underline">
-        ← Naar home
-      </Link>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

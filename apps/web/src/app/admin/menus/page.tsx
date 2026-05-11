@@ -3,6 +3,35 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { apiFetch } from '@/lib/api';
+
+type ContentRow = { key: string; value: string; locale: string };
+
+/** Hoofd-sleutels `container.slug` waarvan de waarde geldige container-JSON is. */
+function parseContainerSlugs(rows: ContentRow[]): string[] {
+  const slugs = new Set<string>();
+  for (const r of rows) {
+    const m = /^container\.([^.]+)$/.exec(r.key);
+    if (!m) continue;
+    try {
+      const j = JSON.parse(r.value) as { type?: string; columns?: unknown };
+      if (j?.type === 'container' && Array.isArray(j.columns)) slugs.add(m[1]);
+    } catch {
+      /* geen container-JSON */
+    }
+  }
+  return [...slugs].sort((a, b) => a.localeCompare(b, 'nl'));
+}
+
+function mergeItemFormWithContainerHref(raw: string, slug: string): string {
+  const href = `/content/${slug}`;
+  const p = raw.split('|').map((s) => s.trim());
+  const label = p[0] || slug;
+  const sortOrder = p[2] !== '' && p[2] != null ? p[2] : '0';
+  const roles = p[3] ?? '';
+  if (roles) return `${label} | ${href} | ${sortOrder} | ${roles}`;
+  return `${label} | ${href} | ${sortOrder}`;
+}
 
 type Item = {
   id: string;
@@ -37,6 +66,20 @@ export default function AdminMenusPage() {
   });
   const [itemForms, setItemForms] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState('');
+  const [containerSlugs, setContainerSlugs] = useState<string[]>([]);
+
+  const loadContainerSlugs = useCallback(async () => {
+    try {
+      const rows = await apiFetch<ContentRow[]>('/content/strings');
+      setContainerSlugs(parseContainerSlugs(rows));
+    } catch {
+      setContainerSlugs([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadContainerSlugs();
+  }, [loadContainerSlugs]);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.menus.read')) return;
@@ -96,6 +139,7 @@ export default function AdminMenusPage() {
     });
     setItemForms((f) => ({ ...f, [menuId]: '' }));
     await load();
+    await loadContainerSlugs();
     setMsg('Item toegevoegd.');
   };
 
@@ -135,6 +179,15 @@ export default function AdminMenusPage() {
         <p className="mt-1 text-sm text-muted">
           Beheer navigatie per portaal. Items: optioneel rolfilter als komma-gescheiden slugs (model, client,
           admin).
+        </p>
+        <p className="mt-2 text-xs text-muted">
+          Containerpagina&apos;s (Admin → Content, container opslaan) verschijnen hieronder als keuzelijst; je hoeft
+          de link <code>/content/…</code> niet meer te typen.
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          <strong>Gastenportaal:</strong> het vaste zijmenu blijft zoals het is. Onderaan komen alleen links die naar een
+          <strong> container</strong> gaan: <code>/content/jouw-slug</code> of <code>/portal/guest?content=jouw-slug</code>.
+          Andere links (home, FAQ, …) in een menu met placement <code>left</code> worden in het gastenportaal <strong>niet</strong> meer in de zijbalk getoond — gebruik daarvoor het vaste menu of placement <code>top</code>. Dubbele container-links op dezelfde URL worden samengevoegd.
         </p>
       </div>
       {msg ? <p className="text-xs text-muted">{msg}</p> : null}
@@ -255,13 +308,35 @@ export default function AdminMenusPage() {
                         if (e.target.value !== it.label) patchItem(it, { label: e.target.value });
                       }}
                     />
-                    <input
-                      className="rounded border border-line px-1 py-0.5 text-xs md:col-span-2"
-                      defaultValue={it.href}
-                      onBlur={(e) => {
-                        if (e.target.value !== it.href) patchItem(it, { href: e.target.value });
-                      }}
-                    />
+                    <div className="flex flex-col gap-1 md:col-span-2">
+                      <input
+                        className="rounded border border-line px-1 py-0.5 text-xs"
+                        defaultValue={it.href}
+                        key={`href-${it.id}-${it.href}`}
+                        onBlur={(e) => {
+                          if (e.target.value !== it.href) patchItem(it, { href: e.target.value });
+                        }}
+                      />
+                      {containerSlugs.length ? (
+                        <select
+                          className="rounded border border-line px-1 py-0.5 text-[11px] text-muted"
+                          defaultValue=""
+                          onChange={(e) => {
+                            const slug = e.target.value;
+                            if (!slug) return;
+                            void patchItem(it, { href: `/content/${slug}` });
+                            e.target.value = '';
+                          }}
+                        >
+                          <option value="">Kies container als link…</option>
+                          {containerSlugs.map((s) => (
+                            <option key={s} value={s}>
+                              {s} → /content/{s}
+                            </option>
+                          ))}
+                        </select>
+                      ) : null}
+                    </div>
                     <input
                       type="number"
                       className="rounded border border-line px-1 py-0.5 text-xs"
@@ -319,13 +394,48 @@ export default function AdminMenusPage() {
                   Nieuw item:{' '}
                   <code className="text-[10px]">label | href | sortOrder | rollen,komma</code>
                 </p>
-                <div className="flex flex-wrap gap-2">
+                {containerSlugs.length ? (
+                  <label className="flex max-w-md flex-col gap-0.5 text-[11px] text-muted">
+                    Container kiezen (vult href in; label blijft of wordt slug als leeg)
+                    <select
+                      className="rounded border border-line bg-white px-2 py-1 text-xs text-ink"
+                      defaultValue=""
+                      onChange={(e) => {
+                        const slug = e.target.value;
+                        if (!slug) return;
+                        const cur = itemForms[m.id] ?? '';
+                        setItemForms((f) => ({ ...f, [m.id]: mergeItemFormWithContainerHref(cur, slug) }));
+                        e.target.value = '';
+                      }}
+                    >
+                      <option value="">— kies een opgeslagen container —</option>
+                      {containerSlugs.map((s) => (
+                        <option key={s} value={s}>
+                          {s} → /content/{s}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : (
+                  <p className="text-[11px] text-muted">
+                    Nog geen containers: maak er een in Admin → Content (&quot;Container opslaan&quot;), ververs deze
+                    pagina of voeg hierboven handmatig <code>label | /content/jouw-slug | 0</code> in.
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     className="min-w-[240px] flex-1 rounded border border-line px-2 py-1"
                     placeholder="Home | / | 0 | "
                     value={itemForms[m.id] ?? ''}
                     onChange={(e) => setItemForms((f) => ({ ...f, [m.id]: e.target.value }))}
                   />
+                  <button
+                    type="button"
+                    className="rounded border border-line px-2 py-1 text-xs hover:bg-panel"
+                    onClick={() => void loadContainerSlugs()}
+                  >
+                    Containers verversen
+                  </button>
                   <button
                     type="button"
                     className="rounded bg-burgundy px-2 py-1 text-white hover:bg-burgundyDeep"

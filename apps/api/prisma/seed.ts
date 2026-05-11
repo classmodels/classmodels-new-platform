@@ -65,7 +65,7 @@ const MODEL_FIELDS: FieldSeed[] = [
 ];
 
 /** Gast-agenda’s: alleen dagen uit “open dagen” + automatische slotgeneratie. */
-const AGENDA_RESTRICT_OPEN_DAYS = new Set(['intake-gesprek', 'casting', 'gratis-fotoshoot']);
+const AGENDA_RESTRICT_OPEN_DAYS = new Set(['opleiding', 'intake-gesprek', 'casting', 'gratis-fotoshoot']);
 
 /** Agenda Pro-equivalent — zelfde slugs/colors als WP-plugin defaults. Geen demo-sloten meer: open dagen + API genereren momenten. */
 async function seedAgenda(p: PrismaClient) {
@@ -77,6 +77,8 @@ async function seedAgenda(p: PrismaClient) {
     capacity: number;
     legacyType: string;
     sortOrder: number;
+    defaultDayStartTime?: string;
+    defaultDayEndTime?: string;
   }[] = [
     {
       slug: 'portfolio',
@@ -91,10 +93,12 @@ async function seedAgenda(p: PrismaClient) {
       slug: 'opleiding',
       title: 'Opleiding afspraak',
       color: '#45525f',
-      durationMinutes: 60,
+      durationMinutes: 180,
       capacity: 1,
       legacyType: 'opleiding',
       sortOrder: 20,
+      defaultDayStartTime: '14:00:00',
+      defaultDayEndTime: '17:00:00',
     },
     {
       slug: 'intake-gesprek',
@@ -127,6 +131,8 @@ async function seedAgenda(p: PrismaClient) {
 
   for (const d of defs) {
     const restrict = AGENDA_RESTRICT_OPEN_DAYS.has(d.slug);
+    const dayStart = d.defaultDayStartTime ?? '08:00:00';
+    const dayEnd = d.defaultDayEndTime ?? '18:00:00';
     const cal = await p.agendaCalendar.upsert({
       where: { slug: d.slug },
       update: {
@@ -138,6 +144,8 @@ async function seedAgenda(p: PrismaClient) {
         active: true,
         publicBooking: true,
         restrictToOpenDays: restrict,
+        defaultDayStartTime: dayStart,
+        defaultDayEndTime: dayEnd,
       },
       create: {
         slug: d.slug,
@@ -150,6 +158,8 @@ async function seedAgenda(p: PrismaClient) {
         publicBooking: true,
         sortOrder: d.sortOrder,
         restrictToOpenDays: restrict,
+        defaultDayStartTime: dayStart,
+        defaultDayEndTime: dayEnd,
       },
     });
 
@@ -193,7 +203,35 @@ async function seedAgenda(p: PrismaClient) {
     });
   }
 
+  // Belangrijk: geen “hardcoded” opleidingsdagen tenzij expliciet gewenst.
+  if (process.env.SEED_AGENDA_OPEN_DAYS === '1') {
+    await seedOpleidingOpenDays(p);
+  }
+
   console.log('Agenda seed: agendas + formuliervelden (geen voorbeeldsloten).');
+}
+
+/** Weekdagen vooruit als open opleidingsdagen (één blok 14–17 per dag via slotgeneratie). */
+async function seedOpleidingOpenDays(p: PrismaClient) {
+  const cal = await p.agendaCalendar.findUnique({ where: { slug: 'opleiding' } });
+  if (!cal) return;
+  const existing = await p.agendaOpenDay.count({ where: { calendarId: cal.id } });
+  if (existing > 0) return;
+  const start = new Date();
+  let added = 0;
+  const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()));
+  const limitDays = 120;
+  for (let i = 0; i < limitDays && added < 45; i++) {
+    const dow = d.getUTCDay();
+    if (dow !== 0 && dow !== 6) {
+      const openDate = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      await p.agendaOpenDay.create({
+        data: { calendarId: cal.id, openDate, repeatYearly: false },
+      });
+      added++;
+    }
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
 }
 
 async function main() {
@@ -207,6 +245,8 @@ async function main() {
         'portal.model.briefs.respond',
         'portal.model.media.read',
         'portal.model.media.upload',
+        'portal.model.agenda.read',
+        'portal.model.agenda.book',
         'payments.checkout',
       ],
     },
@@ -376,25 +416,57 @@ async function main() {
     },
     {
       menuId: guestHomeLeft.id,
-      label: 'Modellenplatform home',
-      href: '/home',
+      label: 'Model worden',
+      href: '/portal/guest',
       sortOrder: 0,
       requiresPremium: false,
       roleSlugs: [],
     },
     {
       menuId: guestHomeLeft.id,
-      label: 'Voor bezoekers',
-      href: '/portal/guest',
-      sortOrder: 1,
+      label: 'Gratis fotoshoot',
+      href: '/portal/guest?p=gratis-fotoshoot',
+      sortOrder: 10,
+      requiresPremium: false,
+      roleSlugs: [],
+    },
+    {
+      menuId: guestHomeLeft.id,
+      label: 'Casting',
+      href: '/portal/guest?p=casting',
+      sortOrder: 20,
+      requiresPremium: false,
+      roleSlugs: [],
+    },
+    {
+      menuId: guestHomeLeft.id,
+      label: 'Intake gesprek',
+      href: '/portal/guest?p=intake-gesprek',
+      sortOrder: 30,
+      requiresPremium: false,
+      roleSlugs: [],
+    },
+    {
+      menuId: guestHomeLeft.id,
+      label: 'Doelgroepen',
+      href: '/portal/guest?p=doelgroepen',
+      sortOrder: 40,
       requiresPremium: false,
       roleSlugs: [],
     },
     {
       menuId: guestHomeLeft.id,
       label: 'Veelgestelde vragen',
-      href: '/login',
-      sortOrder: 2,
+      href: '/portal/guest?p=veelgestelde-vragen',
+      sortOrder: 50,
+      requiresPremium: false,
+      roleSlugs: [],
+    },
+    {
+      menuId: guestHomeLeft.id,
+      label: 'Testshoot',
+      href: '/portal/guest?p=testshoot',
+      sortOrder: 60,
       requiresPremium: false,
       roleSlugs: [],
     },
@@ -415,6 +487,9 @@ async function main() {
       roleSlugs: [],
     },
   ];
+
+  /** Gastenportaal links: vervang oude items zodat ze overeenkomen met de zijbalk (anders blijven verkeerde hrefs staan). */
+  await prisma.menuItem.deleteMany({ where: { menuId: guestHomeLeft.id } });
 
   for (const it of menuItems) {
     const existing = await prisma.menuItem.findFirst({
@@ -443,6 +518,7 @@ async function main() {
     ['opdrachten', 'Opdrachten'],
     ['reviews', 'Reviews'],
     ['models', 'Modellen'],
+    ['testshoot', 'Testshoot'],
   ];
   for (const [slug, label] of folders) {
     await prisma.mediaFolder.upsert({
@@ -517,6 +593,13 @@ async function main() {
       where: { key: c.key },
       update: { value: c.value, portal: c.portal ?? null },
       create: { key: c.key, value: c.value, locale: 'nl', portal: c.portal ?? undefined },
+    });
+  }
+
+  const tsCount = await prisma.testshootModel.count();
+  if (tsCount === 0) {
+    await prisma.testshootModel.create({
+      data: { name: 'Model 1', sortOrder: 0 },
     });
   }
 

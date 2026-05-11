@@ -2,25 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth, type AuthUser } from '@/context/auth-context';
+import { useAuth } from '@/context/auth-context';
+import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
 
 export type EntryAuthTab = 'model' | 'guest' | 'client';
 type SubMode = 'login' | 'register';
-
-function redirectAfterAuth(u: AuthUser, router: ReturnType<typeof useRouter>) {
-  const p = u.permissions ?? [];
-  const toBackoffice = p.includes('*') || p.some((x) => x.startsWith('admin.'));
-  const contentOnly = p.includes('content.strings.write') && !toBackoffice;
-  if (toBackoffice) {
-    router.replace('/admin/dashboard');
-    return;
-  }
-  if (contentOnly) {
-    router.replace('/admin/content');
-    return;
-  }
-  router.replace('/');
-}
 
 function parseApiError(err: unknown): string {
   if (!(err instanceof Error)) return 'Er ging iets mis.';
@@ -94,7 +80,7 @@ export function EntryAuthPanel({
     setBusy(true);
     try {
       const u = await login(mEmail.trim(), mPass);
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router);
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
@@ -123,7 +109,7 @@ export function EntryAuthPanel({
         lastName: mLast.trim(),
         phone: mPhone.trim() || undefined,
       });
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router, { fromRegister: true });
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
@@ -137,7 +123,7 @@ export function EntryAuthPanel({
     setBusy(true);
     try {
       const u = await login(cEmail.trim(), cPass);
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router);
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
@@ -167,7 +153,7 @@ export function EntryAuthPanel({
         phone: cPhone.trim() || undefined,
         companyName: cCompany.trim(),
       });
-      redirectAfterAuth(u, router);
+      redirectAfterPortalAuth(u, router);
     } catch (er) {
       setErr(parseApiError(er));
     } finally {
