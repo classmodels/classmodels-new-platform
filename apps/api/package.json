@@ -11,7 +11,11 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "agenda:reset": "ts-node -r tsconfig-paths/register prisma/reset-agenda.ts",
-    "migrate:wp": "ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/migrate-wordpress.ts"
+    "migrate:wp": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/migrate-wordpress.ts",
+    "import:wp-models": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-wp-models-json.ts",
+    "import:wp-model-photos": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-wp-model-photos.ts",
+    "tool:set-password": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/set-user-password.ts",
+    "import:profile-photos-manifest": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-profile-photos-manifest.ts"
   },
   "dependencies": {
     "@cm/shared": "*",
@@ -36,7 +40,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.33.5",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "web-push": "^3.6.7"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -51,6 +56,7 @@
     "@types/node": "^22.9.0",
     "@types/nodemailer": "^8.0.0",
     "@types/passport-jwt": "^4.0.1",
+    "@types/web-push": "^3.6.4",
     "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",

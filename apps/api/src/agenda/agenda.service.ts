@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 import { AgendaNotificationService } from './agenda-notifications.service';
 import {
   AdminBookingsRangeQueryDto,
@@ -145,6 +146,7 @@ export class AgendaService {
   constructor(
     private prisma: PrismaService,
     private notifications: AgendaNotificationService,
+    private modelHistory: ModelPortalHistoryService,
   ) {}
 
   previewBookingConfirmationHtml(): string {
@@ -574,6 +576,18 @@ export class AgendaService {
     if (process.env.AGENDA_HIDE_CANCEL_LINK !== '1') {
       out.cancelUrl = cancelUrl;
     }
+    if (userId) {
+      const ymd = slot.slotDate.toISOString().slice(0, 10);
+      void this.modelHistory.log(userId, 'agenda_booked', {
+        calendarSlug: cal.slug,
+        calendarTitle: cal.title,
+        slotDate: ymd,
+        startTime: slot.startTime.slice(0, 5),
+        endTime: slot.endTime.slice(0, 5),
+        bookingId: booking.id,
+        source: 'portal-model',
+      });
+    }
     return out;
   }
 
@@ -608,11 +622,21 @@ export class AgendaService {
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     const booking = await this.prisma.agendaBooking.findFirst({
       where: { userId, calendarId: cal.id, ...activeBookingFilter },
+      include: { slot: true },
     });
     if (!booking) throw new NotFoundException('Geen actieve afspraak.');
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
       data: { status: 'cancelled' },
+    });
+    const ymd = booking.slot.slotDate.toISOString().slice(0, 10);
+    void this.modelHistory.log(userId, 'agenda_cancelled', {
+      calendarSlug: cal.slug,
+      calendarTitle: cal.title,
+      slotDate: ymd,
+      startTime: booking.slot.startTime.slice(0, 5),
+      endTime: booking.slot.endTime.slice(0, 5),
+      bookingId: booking.id,
     });
     return { ok: true as const };
   }
@@ -623,7 +647,7 @@ export class AgendaService {
 
     const booking = await this.prisma.agendaBooking.findUnique({
       where: { cancelToken: token },
-      include: { calendar: { select: { title: true } } },
+      include: { calendar: { select: { title: true, slug: true } }, slot: true },
     });
     if (!booking) throw new NotFoundException('Afspraak niet gevonden of link verlopen.');
 
@@ -635,6 +659,18 @@ export class AgendaService {
       where: { id: booking.id },
       data: { status: 'cancelled' },
     });
+
+    if (booking.userId && booking.slot) {
+      const ymd = booking.slot.slotDate.toISOString().slice(0, 10);
+      void this.modelHistory.log(booking.userId, 'agenda_cancelled_via_link', {
+        calendarSlug: booking.calendar.slug,
+        calendarTitle: booking.calendar.title,
+        slotDate: ymd,
+        startTime: booking.slot.startTime.slice(0, 5),
+        endTime: booking.slot.endTime.slice(0, 5),
+        bookingId: booking.id,
+      });
+    }
 
     return { ok: true, alreadyCancelled: false as const, title: booking.calendar.title };
   }
@@ -649,7 +685,7 @@ export class AgendaService {
 
     const booking = await this.prisma.agendaBooking.findUnique({
       where: { cancelToken: token },
-      include: { calendar: { select: { title: true } }, slot: true },
+      include: { calendar: { select: { title: true, slug: true } }, slot: true },
     });
     if (!booking) throw new NotFoundException('Afspraak niet gevonden of link ongeldig.');
 
@@ -674,6 +710,18 @@ export class AgendaService {
       where: { id: booking.id },
       data: { status: 'acknowledged' },
     });
+
+    if (booking.userId) {
+      const ymd = booking.slot.slotDate.toISOString().slice(0, 10);
+      void this.modelHistory.log(booking.userId, 'agenda_attendance_confirmed', {
+        calendarSlug: booking.calendar.slug,
+        calendarTitle: booking.calendar.title,
+        slotDate: ymd,
+        startTime: booking.slot.startTime.slice(0, 5),
+        endTime: booking.slot.endTime.slice(0, 5),
+        bookingId: booking.id,
+      });
+    }
 
     return { ok: true, alreadyAcknowledged: false as const, title: booking.calendar.title };
   }

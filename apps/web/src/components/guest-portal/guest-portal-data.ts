@@ -152,7 +152,7 @@ export const TESTSHOOT_PAGE = {
   kicker: 'Testshoot',
   title: 'Jouw testshoot-foto’s',
   intro:
-    'Hier vind je de foto’s van je testshoot. Download ze als zip nadat je kort feedback hebt gegeven — zoals op de vorige site. Na de eerste download kun je hierna zonder formulier opnieuw downloaden.',
+    'Hier vind je de foto’s van je testshoot. Geef eerst kort feedback; daarna kun je alle foto’s in volle kwaliteit als zip downloaden. Na een geslaagde download verdwijnen ze van deze pagina (ze worden van de publieke site gehaald).',
 } as const;
 
 /** Pagina “Gratis fotoshoot” — inhoud + doelgroepen-kolom + CTA. */

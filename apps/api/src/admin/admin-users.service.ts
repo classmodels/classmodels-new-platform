@@ -1,11 +1,13 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { MediaService } from '../media/media.service';
 import { CreateAdminUserDto, UpdateAdminUserDto } from './dto/admin-user.dto';
 import { sanitizeModelSheetMerge } from '../users/model-sheet.util';
 
@@ -21,8 +23,8 @@ const userPublicSelect = {
   defaultPortal: true,
   isPremium: true,
   premiumUntil: true,
-  premiumOverride: true,
   mollieCustomerId: true,
+  legacyWpUserId: true,
   createdAt: true,
   updatedAt: true,
   roles: { include: { role: true } },
@@ -31,7 +33,10 @@ const userPublicSelect = {
 
 @Injectable()
 export class AdminUsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private media: MediaService,
+  ) {}
 
   list() {
     return this.prisma.user.findMany({
@@ -93,7 +98,6 @@ export class AdminUsersService {
     if (dto.status != null) data.status = dto.status;
     if (dto.defaultPortal !== undefined) data.defaultPortal = dto.defaultPortal;
     if (dto.isPremium !== undefined) data.isPremium = dto.isPremium;
-    if (dto.premiumOverride !== undefined) data.premiumOverride = dto.premiumOverride;
     if (dto.premiumUntil !== undefined) {
       data.premiumUntil = dto.premiumUntil ? new Date(dto.premiumUntil) : null;
     }
@@ -127,5 +131,63 @@ export class AdminUsersService {
     }
 
     return this.get(id);
+  }
+
+  /** Verwijdert gebruiker + eigen media (schijf + DB). Gebruikt niet in transaction zodat removeAsset bestanden veilig opruimt. */
+  async deleteUser(actorUserId: string, targetUserId: string) {
+    if (actorUserId === targetUserId) {
+      throw new ForbiddenException('Je eigen account kun je hier niet verwijderen.');
+    }
+    const target = await this.prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, profilePhotoAssetId: true },
+    });
+    if (!target) throw new NotFoundException();
+
+    await this.prisma.contentString.updateMany({
+      where: { updatedById: targetUserId },
+      data: { updatedById: null },
+    });
+    await this.prisma.auditLog.updateMany({
+      where: { userId: targetUserId },
+      data: { userId: null },
+    });
+
+    const uploads = await this.prisma.mediaAsset.findMany({
+      where: { uploadedById: targetUserId },
+      select: { id: true },
+    });
+    const assetIds = new Set<string>();
+    for (const u of uploads) assetIds.add(u.id);
+    if (target.profilePhotoAssetId) assetIds.add(target.profilePhotoAssetId);
+
+    for (const aid of assetIds) {
+      try {
+        await this.media.removeAsset(aid, true);
+      } catch {
+        /* best-effort: bij corrupte refs verder gaan */
+      }
+    }
+
+    await this.prisma.user.delete({ where: { id: targetUserId } });
+    return { ok: true, id: targetUserId };
+  }
+
+  async deleteUsers(actorUserId: string, ids: string[]) {
+    const uniq = [...new Set(ids)].filter((id) => id && id !== actorUserId);
+    const deleted: string[] = [];
+    const errors: { id: string; message: string }[] = [];
+    for (const id of uniq) {
+      try {
+        await this.deleteUser(actorUserId, id);
+        deleted.push(id);
+      } catch (e) {
+        errors.push({
+          id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    return { deleted, errors };
   }
 }

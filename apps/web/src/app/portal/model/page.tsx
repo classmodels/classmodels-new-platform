@@ -8,7 +8,7 @@ import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
 import { ModelPortalShell } from '@/components/model-portal/ModelPortalShell';
 import { ModelPortalHomeContent } from '@/components/model-portal/ModelPortalHomeContent';
-import { ModelPortalProfile } from '@/components/model-portal/ModelPortalProfile';
+import { ModelPortalProfile, type ProfileMediaRow } from '@/components/model-portal/ModelPortalProfile';
 import {
   parseModelPortalTab,
   MODEL_PORTAL_TABS,
@@ -17,7 +17,11 @@ import {
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { ModelOpleidingTab } from '@/components/model-portal/ModelOpleidingTab';
 import { ModelPortfolioTab } from '@/components/model-portal/ModelPortfolioTab';
+import { ModelPortalHistoriekTab } from '@/components/model-portal/ModelPortalHistoriekTab';
+import { ModelPortalPushTab } from '@/components/model-portal/ModelPortalPushTab';
 import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data';
+import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
+import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 
 type PremiumInfo = { currency: string; amount: string; premiumDurationDays: number };
 
@@ -57,16 +61,6 @@ type OpenBrief = {
     lastName?: string | null;
   };
   responses: { modelUserId: string; status: string }[];
-};
-
-type MediaRow = {
-  id: string;
-  originalName: string;
-  storageKey: string;
-  mimeType: string;
-  thumbKey?: string | null;
-  webpKey?: string | null;
-  createdAt: string;
 };
 
 type BriefFilter = 'all' | 'available' | 'subscribed';
@@ -171,13 +165,20 @@ function ModelPortalPageInner() {
   const [briefErr, setBriefErr] = useState<string | null>(null);
   const [briefFilter, setBriefFilter] = useState<BriefFilter>('all');
 
-  const [media, setMedia] = useState<MediaRow[]>([]);
+  const [media, setMedia] = useState<ProfileMediaRow[]>([]);
   const [mediaBusy, setMediaBusy] = useState(false);
 
   const [messageSubject, setMessageSubject] = useState('');
   const [messageBody, setMessageBody] = useState('');
   const [opleidingHeaderRight, setOpleidingHeaderRight] = useState<ReactNode | null>(null);
   const [portfolioHeaderRight, setPortfolioHeaderRight] = useState<ReactNode | null>(null);
+  const [modellenTitlebar, setModellenTitlebar] = useState<ReactNode | null>(null);
+  const [historiekHeaderSlot, setHistoriekHeaderSlot] = useState<ReactNode | null>(null);
+  const [pushHeaderSlot, setPushHeaderSlot] = useState<ReactNode | null>(null);
+
+  const setModellenTitlebarSlot = useCallback((node: ReactNode | null) => {
+    setModellenTitlebar(node);
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -192,6 +193,18 @@ function ModelPortalPageInner() {
 
   useEffect(() => {
     if (tab !== 'profiel') setProfileEditing(false);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'modellen') setModellenTitlebar(null);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'historiek') setHistoriekHeaderSlot(null);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'push') setPushHeaderSlot(null);
   }, [tab]);
 
   useEffect(() => {
@@ -229,7 +242,7 @@ function ModelPortalPageInner() {
 
   const loadMedia = useCallback(() => {
     if (!token || !can('portal.model.media.read')) return;
-    apiFetch<MediaRow[]>('/portal/model/media', { token })
+    apiFetch<ProfileMediaRow[]>('/portal/model/media', { token })
       .then(setMedia)
       .catch(() => setMedia([]));
   }, [token, can]);
@@ -285,19 +298,44 @@ function ModelPortalPageInner() {
     }
   };
 
-  const uploadMedia = async (file: File | null) => {
+  const uploadMedia = async (file: File | null, opts?: { setAsProfilePhoto?: boolean }) => {
     if (!file || !token || !can('portal.model.media.upload')) return;
     setMediaBusy(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${getApiBase()}/portal/model/media/upload`, {
+      const res = await fetch(`${getApiBase()}/portal/model/media/upload?folderSlug=models`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       });
       if (!res.ok) throw new Error(await res.text());
+      const row = (await res.json()) as { id?: string; error?: string };
+      if (row?.error) throw new Error(row.error);
       await loadMedia();
+      if (opts?.setAsProfilePhoto && row?.id) {
+        await apiFetch('/users/me', {
+          method: 'PATCH',
+          token,
+          body: JSON.stringify({ profilePhotoAssetId: row.id }),
+        });
+        await refreshMe();
+      }
+    } finally {
+      setMediaBusy(false);
+    }
+  };
+
+  const setProfilePhotoFromAsset = async (assetId: string) => {
+    if (!token) return;
+    setMediaBusy(true);
+    try {
+      await apiFetch('/users/me', {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify({ profilePhotoAssetId: assetId }),
+      });
+      await refreshMe();
     } finally {
       setMediaBusy(false);
     }
@@ -318,11 +356,25 @@ function ModelPortalPageInner() {
     return briefs.filter((b) => b.responses.some((r) => r.modelUserId === myId));
   }, [briefs, briefFilter, myId]);
 
-  const sendMessageMailto = () => {
+  const sendMessageMailto = async () => {
     const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Model';
     const footer = `\n\n---\nNaam: ${name}\nE-mail: ${user?.email ?? ''}\nGSM: ${user?.phone ?? '—'}\nProfiel: ${typeof window !== 'undefined' ? window.location.origin : ''}/portal/model?tab=profiel`;
-    const subj = messageSubject.trim() || 'Bericht via modellenportaal';
+    const subj = messageSubject.trim() || 'Bericht Class-Models (model)';
     const body = (messageBody.trim() || '') + footer;
+    if (token) {
+      try {
+        await apiFetch('/portal/model/history/message-intent', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({
+            subject: subj,
+            bodyChars: body.length,
+          }),
+        });
+      } catch {
+        /* toch mailto */
+      }
+    }
     window.location.href = `mailto:${GUEST_CONTACT_INFO.email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
   };
 
@@ -365,11 +417,7 @@ function ModelPortalPageInner() {
               key={id}
               type="button"
               onClick={() => setBriefFilter(id)}
-              className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                active
-                  ? 'border-white bg-white text-zinc-900 shadow-sm'
-                  : 'border-white/40 bg-white/10 text-white hover:bg-white/20'
-              }`}
+              className={portalTitlebarPillClass(active)}
             >
               {label}
             </button>
@@ -497,8 +545,9 @@ function ModelPortalPageInner() {
           media={media}
           mediaBusy={mediaBusy}
           uploadMedia={uploadMedia}
+          setProfilePhotoFromAsset={setProfilePhotoFromAsset}
           premiumSection={
-            can('payments.checkout') ? (
+            profileEditing && can('payments.checkout') ? (
               <div className="rounded-cm border border-line bg-zinc-50/80 p-4">
                 <CmText contentKey="portal.model.premium.title" as="h3" className="text-sm font-semibold text-ink" />
                 <CmText contentKey="portal.model.premium.intro" as="p" className="mt-2 text-xs leading-relaxed text-muted" />
@@ -534,20 +583,45 @@ function ModelPortalPageInner() {
   } else if (tab === 'opleiding') {
     sectionHeaderRight = opleidingHeaderRight ?? undefined;
     main = <ModelOpleidingTab onHeaderRightChange={setOpleidingHeaderRight} />;
-  } else if (tab === 'historiek') {
+  } else if (tab === 'modellen') {
+    sectionHeaderRight = modellenTitlebar ?? undefined;
     main = (
-      <div className="space-y-2 text-sm text-muted">
-        <p>
-          Hier verschijnt binnenkort je historiek: opdrachten, inschrijvingen en afspraken. De gegevens worden
-          gekoppeld aan je account zodra deze module in het beheer beschikbaar is.
+      <div className="min-w-0 space-y-3">
+        <p className="text-sm leading-relaxed text-muted">
+          Modellenoverzicht voor iedereen met een modelaccount. Zelfde menu als de rest van je account.
         </p>
+        <ModelsCatalogGrid toolbarPlacement="titlebar" onTitlebarContent={setModellenTitlebarSlot} />
       </div>
     );
-  } else if (tab === 'push') {
+  } else if (tab === 'historiek' && can('portal.model.history.read')) {
+    sectionTitle = 'Historiek';
+    sectionHeaderRight = historiekHeaderSlot ?? undefined;
+    main = (
+      <ModelPortalHistoriekTab
+        token={token}
+        lastLoginAt={user.lastLoginAt ?? null}
+        onHeaderExtras={setHistoriekHeaderSlot}
+      />
+    );
+  } else if (tab === 'historiek') {
     main = (
       <p className="text-sm text-muted">
-        Er zijn nog geen pushberichten voor jouw account. Deze functie wordt verder uitgewerkt.
+        Je account heeft geen rechten voor de historiek. Vraag een beheerder om de permissie{' '}
+        <code className="rounded bg-zinc-100 px-1 text-xs">portal.model.history.read</code> op de modelrol te zetten.
       </p>
+    );
+  } else if (tab === 'push') {
+    sectionTitle = 'Pushberichten';
+    sectionHeaderRight = pushHeaderSlot ?? undefined;
+    main = (
+      <ModelPortalPushTab
+        token={token}
+        refreshMe={refreshMe}
+        canRead={can('portal.model.push.read')}
+        canSubscribe={can('portal.model.push.subscribe')}
+        pushSummary={user.push}
+        onHeaderExtras={setPushHeaderSlot}
+      />
     );
   } else if (tab === 'bericht') {
     main = (
@@ -609,6 +683,9 @@ function ModelPortalPageInner() {
       onTabChange={setTab}
       sectionTitle={sectionTitle}
       sectionHeaderRight={sectionHeaderRight}
+      sectionTitleBarClassName={tab === 'push' ? '!h-auto min-h-[44px] py-1.5' : undefined}
+      sectionTitleBarInnerClassName={tab === 'push' ? 'items-start !flex-wrap' : undefined}
+      pushUnreadCount={user.push?.unreadCount ?? 0}
       userFirstName={firstName}
       premiumButton={premiumButton}
     >

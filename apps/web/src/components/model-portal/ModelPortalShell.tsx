@@ -18,7 +18,7 @@ function ModelPortalHeroInner({
           contentKey="portal.model.hero.kicker"
           as="p"
           className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
-          fallback="Modellenportaal"
+          fallback="Model"
         />
         <h2 className="mt-2 font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl">
           <CmText contentKey="portal.model.hero.welcome" as="span" className="text-white" fallback="Welkom" />
@@ -37,7 +37,7 @@ function ModelPortalHeroInner({
           contentKey="portal.model.hero.box.title"
           as="p"
           className="font-medium text-white"
-          fallback="Class-Models — modellenportaal"
+          fallback="Class-Models"
         />
         <CmText
           contentKey="portal.model.hero.box.body"
@@ -55,16 +55,25 @@ export function ModelPortalShell({
   onTabChange,
   sectionTitle,
   sectionHeaderRight,
+  sectionTitleBarClassName,
+  sectionTitleBarInnerClassName,
   userFirstName,
   premiumButton,
+  pushUnreadCount = 0,
   children,
 }: {
   activeTab: ModelPortalTabId;
   onTabChange: (id: ModelPortalTabId) => void;
   sectionTitle: string;
   sectionHeaderRight?: ReactNode;
+  /** bv. `!h-auto min-h-[44px] py-1.5` als de rechterkant meerdere rijen knoppen heeft */
+  sectionTitleBarClassName?: string;
+  /** bv. `items-start !flex-wrap` voor langere toolbars */
+  sectionTitleBarInnerClassName?: string;
   userFirstName: string;
   premiumButton?: ReactNode;
+  /** Ongelezen pushberichten (tab Pushberichten in het menu). */
+  pushUnreadCount?: number;
   children: ReactNode;
 }) {
   return (
@@ -76,57 +85,73 @@ export function ModelPortalShell({
       </div>
 
       <div className="mx-auto w-full max-w-page px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-8">
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
-          <aside className="flex h-full min-h-0 flex-col overflow-hidden border border-line bg-white shadow-sm lg:sticky lg:top-4">
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+          <aside className="flex min-h-0 flex-col overflow-hidden border border-line bg-white shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start">
             <div className="cm-red-titlebar shrink-0 border-b border-line">
               <div className="cm-red-titlebar-inner">
                 <CmText
                   contentKey="portal.model.sidebar.title"
                   as="p"
                   className="text-xs font-semibold uppercase tracking-wide text-white"
-                  fallback="Snelle actie"
+                  fallback="Menu"
                 />
               </div>
             </div>
-            <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Modellenportaal">
-              <div className="shrink-0">
-                {MODEL_PORTAL_TABS.map((t, index) => {
-                  const isActive = activeTab === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => onTabChange(t.id)}
-                      className={`flex w-full items-center justify-between gap-2 py-3 pl-4 pr-4 text-left text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0 ${
-                        index > 0 ? 'border-t border-line' : ''
-                      } ${
-                        isActive
-                          ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
-                          : 'text-ink hover:bg-panel/70'
-                      }`}
-                    >
+            <nav
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white"
+              aria-label="Model menu"
+            >
+              {MODEL_PORTAL_TABS.map((t, index) => {
+                const isActive = activeTab === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => onTabChange(t.id)}
+                    className={`flex w-full items-center justify-between gap-2 py-3 pl-4 pr-4 text-left text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0 ${
+                      index > 0 ? 'border-t border-line' : ''
+                    } ${
+                      isActive
+                        ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+                        : 'text-ink hover:bg-panel/70'
+                    }`}
+                  >
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
                       <CmText
                         contentKey={`portal.model.nav.${t.id}.label`}
                         as="span"
-                        className="text-ink"
+                        className="min-w-0 truncate text-ink"
                         fallback={t.label}
                       />
-                      <span className="text-muted" aria-hidden>
-                        ›
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="min-h-8 flex-1 bg-white" aria-hidden />
+                      {t.id === 'push' && pushUnreadCount > 0 ? (
+                        <span
+                          className="shrink-0 rounded-full bg-burgundy px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+                          aria-label={`${pushUnreadCount} ongelezen`}
+                        >
+                          {pushUnreadCount > 99 ? '99+' : pushUnreadCount}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-muted" aria-hidden>
+                      ›
+                    </span>
+                  </button>
+                );
+              })}
             </nav>
           </aside>
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border border-line bg-white shadow-sm">
-            <div className="cm-red-titlebar shrink-0 border-b border-line">
-              <div className="cm-red-titlebar-inner">
-                <h2 className="cm-red-titlebar-title">{sectionTitle}</h2>
-                {sectionHeaderRight}
+            <div
+              className={`cm-red-titlebar shrink-0 border-b border-line ${sectionTitleBarClassName ?? ''}`}
+            >
+              <div className={`cm-red-titlebar-inner ${sectionTitleBarInnerClassName ?? ''}`}>
+                <h2 className="cm-red-titlebar-title min-w-0 shrink-0">{sectionTitle}</h2>
+                {sectionHeaderRight != null ? (
+                  <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+                    {sectionHeaderRight}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="min-h-0 flex-1 p-4 md:p-6">{children}</div>

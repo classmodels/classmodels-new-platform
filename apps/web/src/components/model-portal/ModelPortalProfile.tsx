@@ -12,7 +12,24 @@ export type ProfileMediaRow = {
   thumbKey?: string | null;
   webpKey?: string | null;
   createdAt: string;
+  /** Server: eerste bestaande bestand op schijf (thumb → webp → origineel). */
+  publicKey?: string;
+  detailKey?: string;
+  /** Modelportaal: volledige resolutie tot eerste download als admin dat zo instelt. */
+  portalDetailKey?: string;
 };
+
+function mediaThumbKey(a: ProfileMediaRow): string {
+  return a.publicKey ?? a.thumbKey ?? a.webpKey ?? a.storageKey;
+}
+
+function mediaDetailKey(a: ProfileMediaRow): string {
+  return a.detailKey ?? a.webpKey ?? a.storageKey ?? a.thumbKey ?? a.storageKey;
+}
+
+function mediaPortalDetailKey(a: ProfileMediaRow): string {
+  return a.portalDetailKey ?? mediaDetailKey(a);
+}
 
 const BESCHIKBAAR_OPTS = [
   'Modeshows',
@@ -102,6 +119,22 @@ const emptySheet = (): SheetForm => ({
   beschikbaar: [],
 });
 
+/** Verwijdert per ongeluk in usermeta geplakte PHP-snippers (import/WP). */
+function stripCorruptedMetaLeak(s: string): string {
+  const t = s.trim();
+  if (!t) return '';
+  if (
+    t.includes('update_user_meta') ||
+    t.includes('$ensure_role') ||
+    t.includes('$remove_role') ||
+    t.includes('<?php') ||
+    (t.includes('$user_id') && t.includes('tryout'))
+  ) {
+    return '';
+  }
+  return s;
+}
+
 function sheetFromUser(ms: Record<string, unknown> | null | undefined, phoneFallback: string): SheetForm {
   const b = emptySheet();
   if (!ms) {
@@ -133,8 +166,8 @@ function sheetFromUser(ms: Record<string, unknown> | null | undefined, phoneFall
     heupomtrek: str(ms.heupomtrek),
     jeansmaat: str(ms.jeansmaat),
     taille: str(ms.taille),
-    overMij: str(ms.overMij),
-    ervaringen: str(ms.ervaringen),
+    overMij: stripCorruptedMetaLeak(str(ms.overMij)),
+    ervaringen: stripCorruptedMetaLeak(str(ms.ervaringen)),
     geslacht: strArr(ms.geslacht),
     beschikbaar: strArr(ms.beschikbaar),
   };
@@ -162,26 +195,26 @@ function ProfileSection({
   children: ReactNode;
 }) {
   return (
-    <div className="border border-zinc-300 bg-white">
-      <div className="flex items-center justify-between border-b-2 border-burgundy bg-burgundy px-2 py-0.5">
-        <h3 className="text-[10px] font-bold uppercase leading-none tracking-wide text-white">{title}</h3>
+    <div className="border border-line bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b-2 border-burgundy bg-burgundy px-2.5 py-1.5 md:px-3">
+        <h3 className="text-xs font-bold uppercase leading-none tracking-wide text-white">{title}</h3>
         {complete ? (
-          <span className="text-[10px] font-bold text-white" aria-hidden>
+          <span className="text-xs font-bold text-white" aria-hidden>
             ✓
           </span>
         ) : null}
       </div>
-      <div className="px-2 py-1.5 md:px-2.5 md:py-2">{children}</div>
+      <div className="px-2 py-2 md:px-3 md:py-2.5">{children}</div>
     </div>
   );
 }
 
 function fieldClass() {
-  return 'mt-0 w-full border border-zinc-300 bg-white px-1.5 py-0.5 text-[11px] leading-tight text-ink outline-none focus:border-burgundy focus:ring-0';
+  return 'mt-0 w-full border border-line bg-white px-2 py-1.5 font-serif text-sm leading-snug text-ink outline-none focus:border-burgundy focus:ring-1 focus:ring-burgundy/25';
 }
 
 function labelClass() {
-  return 'mb-0 block text-[10px] font-bold uppercase leading-tight tracking-wide text-zinc-600';
+  return 'mb-0 block font-serif text-[11px] font-bold uppercase leading-tight tracking-wide text-burgundy';
 }
 
 export function ModelPortalProfile({
@@ -194,24 +227,25 @@ export function ModelPortalProfile({
   media,
   mediaBusy,
   uploadMedia,
+  setProfilePhotoFromAsset,
   premiumSection,
 }: {
   user: AuthUser;
   token: string;
-  refreshMe: () => Promise<void>;
+  refreshMe: (tokenOverride?: string | null) => Promise<AuthUser | null>;
   editing: boolean;
   canReadMedia: boolean;
   canUploadMedia: boolean;
   media: ProfileMediaRow[];
   mediaBusy: boolean;
-  uploadMedia: (f: File | null) => void;
+  uploadMedia: (f: File | null, opts?: { setAsProfilePhoto?: boolean }) => void | Promise<void>;
+  setProfilePhotoFromAsset: (assetId: string) => void | Promise<void>;
   premiumSection: ReactNode;
 }) {
   const [profile, setProfile] = useState({
     firstName: user.firstName ?? '',
     lastName: user.lastName ?? '',
     phone: user.phone ?? '',
-    bio: user.bio ?? '',
   });
   const [sheet, setSheet] = useState<SheetForm>(() => sheetFromUser(user.modelSheet ?? null, user.phone ?? ''));
   const [msg, setMsg] = useState('');
@@ -221,9 +255,8 @@ export function ModelPortalProfile({
       firstName: user.firstName ?? '',
       lastName: user.lastName ?? '',
       phone: user.phone ?? '',
-      bio: user.bio ?? '',
     });
-  }, [user.firstName, user.lastName, user.phone, user.bio]);
+  }, [user.firstName, user.lastName, user.phone]);
 
   useEffect(() => {
     if (editing) {
@@ -233,20 +266,70 @@ export function ModelPortalProfile({
   }, [editing, user.id, user.modelSheet, user.phone]);
 
   const images = useMemo(() => media.filter((a) => a.mimeType.startsWith('image/')), [media]);
-  const [galleryIndex, setGalleryIndex] = useState(0);
+  const galleryOnly = useMemo(
+    () =>
+      user.profilePhotoAssetId
+        ? images.filter((a) => a.id !== user.profilePhotoAssetId)
+        : images,
+    [images, user.profilePhotoAssetId],
+  );
+  const profileAsset = useMemo(
+    () =>
+      user.profilePhotoAssetId
+        ? images.find((a) => a.id === user.profilePhotoAssetId)
+        : undefined,
+    [images, user.profilePhotoAssetId],
+  );
+
+  const slides = useMemo(() => {
+    const keys: string[] = [];
+    const profileHeroKey = profileAsset
+      ? mediaPortalDetailKey(profileAsset)
+      : user.profileThumbKey?.trim() || null;
+    if (profileHeroKey) keys.push(profileHeroKey);
+    for (const a of galleryOnly) {
+      const k = mediaPortalDetailKey(a);
+      if (k && !keys.includes(k)) keys.push(k);
+    }
+    if (keys.length === 0 && images.length) {
+      for (const a of images) keys.push(mediaPortalDetailKey(a));
+    }
+    return keys;
+  }, [profileAsset, user.profileThumbKey, galleryOnly, images]);
+
+  const [slideIndex, setSlideIndex] = useState(0);
 
   useEffect(() => {
-    setGalleryIndex(0);
-  }, [images.length, user.id]);
+    setSlideIndex(0);
+  }, [slides.length, user.profilePhotoAssetId, user.id, editing]);
 
-  const mainImg = images[galleryIndex] ?? images[0];
+  useEffect(() => {
+    if (slideIndex > 0 && slideIndex >= slides.length) {
+      setSlideIndex(Math.max(0, slides.length - 1));
+    }
+  }, [slideIndex, slides.length]);
   const geslachtLabel =
     sheet.geslacht.length > 0 ? sheet.geslacht.map((g) => (g === 'vrouw' ? 'vrouw' : 'man')).join(', ') : '—';
   const leeftijd = ageFromGeboorte(sheet.geboortedatum);
 
   const sectionContactOk = !!(sheet.straat && sheet.postcode && sheet.gemeente && sheet.land && sheet.gsmModel);
   const sectionModelOk = !!(sheet.lengte && sheet.maat && sheet.schoenmaat);
-  const sectionSocialOk = !!(sheet.instagram || sheet.facebook || sheet.tiktok || sheet.overMij);
+  const sectionSocialOk = !!(sheet.instagram || sheet.facebook || sheet.tiktok);
+
+  const ackPortfolioDownload = useCallback(
+    async (assetId: string) => {
+      try {
+        await apiFetch('/portal/model/media/download-ack', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({ assetId }),
+        });
+      } catch {
+        /* download kan al gestart zijn */
+      }
+    },
+    [token],
+  );
 
   const save = useCallback(
     async (e: React.FormEvent) => {
@@ -260,7 +343,7 @@ export function ModelPortalProfile({
             firstName: profile.firstName,
             lastName: profile.lastName,
             phone: sheet.gsmModel || profile.phone,
-            bio: profile.bio,
+            bio: null,
             modelSheet: {
               ...sheet,
               gsmModel: sheet.gsmModel || profile.phone,
@@ -277,63 +360,110 @@ export function ModelPortalProfile({
   );
 
   const row = (label: string, value: string) => (
-    <div className="flex flex-col gap-0 border-b border-line py-1 last:border-b-0 sm:grid sm:grid-cols-[minmax(0,120px)_1fr] sm:items-baseline sm:gap-2 sm:py-0.5">
-      <dt className="text-[10px] font-semibold leading-tight text-muted">{label}</dt>
-      <dd className="text-[11px] leading-tight text-ink">{value || '—'}</dd>
+    <div className="flex flex-col gap-0 border-b border-line py-1.5 last:border-b-0 sm:grid sm:grid-cols-[1fr_auto] sm:items-baseline sm:gap-4 sm:py-1.5">
+      <dt className="text-[11px] font-normal uppercase tracking-wide text-ink/80">{label}</dt>
+      <dd className="min-w-0 text-right text-xs leading-snug text-ink">{value || '—'}</dd>
     </div>
   );
 
-  if (!editing) {
-    return (
-      <div className="space-y-3">
-        <div className="grid gap-2 lg:grid-cols-[minmax(0,220px)_1fr] lg:items-start">
-          {canReadMedia ? (
-            <div className="space-y-2">
-              {mainImg ? (
-                <div className="border border-zinc-300 bg-white">
-                  <img
-                    src={`${getApiBase()}/media/public/${mainImg.thumbKey || mainImg.webpKey || mainImg.storageKey}`}
-                    alt=""
-                    className="aspect-[3/4] w-full object-cover"
-                  />
-                  {images.length > 1 ? (
-                    <div className="flex items-center justify-between gap-1.5 border-t border-burgundy bg-burgundy px-1.5 py-0.5 text-white">
-                      <button
-                        type="button"
-                        className="px-2 py-0.5 text-[11px] hover:bg-white/10"
-                        aria-label="Vorige foto"
-                        onClick={() => setGalleryIndex((i) => (i <= 0 ? images.length - 1 : i - 1))}
-                      >
-                        ‹
-                      </button>
-                      <span className="text-xs tabular-nums">
-                        {galleryIndex + 1} / {images.length}
-                      </span>
-                      <button
-                        type="button"
-                        className="px-2 py-0.5 text-[11px] hover:bg-white/10"
-                        aria-label="Volgende foto"
-                        onClick={() => setGalleryIndex((i) => (i >= images.length - 1 ? 0 : i + 1))}
-                      >
-                        ›
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="flex aspect-[3/4] items-center justify-center border border-dashed border-zinc-300 bg-zinc-50 text-center text-[11px] text-muted">
-                  Nog geen foto&apos;s in je media-bibliotheek
-                </div>
-              )}
-            </div>
-          ) : null}
+  const beschikbaarTekst = sheet.beschikbaar.length
+    ? sheet.beschikbaar.map((x) => BESCHIKBAAR_LABEL[x] ?? x).join(' · ')
+    : '';
 
-          <div className="min-w-0 space-y-2">
-            <div className="border border-zinc-300 bg-white px-2 py-1.5">
-              <h3 className="border-b border-burgundy pb-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-burgundy">
+  if (!editing) {
+    const heroPublicKey = slides[slideIndex] ?? slides[0] ?? null;
+    const photoBarTotal = slides.length;
+    const showPhotoBar = !!heroPublicKey && photoBarTotal >= 1;
+    const thumbNavDisabled = photoBarTotal <= 1;
+    const photoBarIndex = photoBarTotal > 0 ? slideIndex + 1 : 0;
+
+    return (
+      <div className="space-y-5 font-serif text-sm">
+        <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+          <div className="min-w-0 space-y-4">
+            {canReadMedia ? (
+              <div className="overflow-hidden border border-line bg-white shadow-sm">
+                {heroPublicKey ? (
+                  <>
+                    <img
+                      src={`${getApiBase()}/media/public/${encodeURIComponent(heroPublicKey)}`}
+                      alt=""
+                      className="aspect-[3/4] w-full object-cover"
+                    />
+                    {showPhotoBar ? (
+                      <div className="flex items-center justify-between gap-2 border-t border-burgundy bg-burgundy px-2 py-2 text-white sm:px-3">
+                        <button
+                          type="button"
+                          disabled={thumbNavDisabled}
+                          className={`min-w-[2.25rem] px-2 py-1 text-sm font-semibold sm:text-base ${
+                            thumbNavDisabled ? 'cursor-default opacity-40' : 'hover:bg-white/10'
+                          }`}
+                          aria-label="Vorige foto"
+                          onClick={() => {
+                            if (thumbNavDisabled) return;
+                            setSlideIndex((i) => (i <= 0 ? slides.length - 1 : i - 1));
+                          }}
+                        >
+                          ‹
+                        </button>
+                        <span className="text-sm font-semibold tabular-nums sm:text-base">
+                          {photoBarIndex} / {photoBarTotal}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={thumbNavDisabled}
+                          className={`min-w-[2.25rem] px-2 py-1 text-sm font-semibold sm:text-base ${
+                            thumbNavDisabled ? 'cursor-default opacity-40' : 'hover:bg-white/10'
+                          }`}
+                          aria-label="Volgende foto"
+                          onClick={() => {
+                            if (thumbNavDisabled) return;
+                            setSlideIndex((i) => (i >= slides.length - 1 ? 0 : i + 1));
+                          }}
+                        >
+                          ›
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="flex aspect-[3/4] items-center justify-center border-b border-line bg-panel px-4 text-center text-xs text-muted">
+                    Nog geen foto&apos;s in je media-bibliotheek
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex aspect-[3/4] items-center justify-center border border-dashed border-line bg-panel text-center text-xs text-muted">
+                Media niet beschikbaar voor dit account
+              </div>
+            )}
+            {sheet.overMij.trim() || sheet.ervaringen.trim() ? (
+              <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
+                <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
+                  Over mij en ervaring
+                </h3>
+                {sheet.overMij.trim() ? (
+                  <div className="mt-2">
+                    <p className="text-[11px] font-normal uppercase tracking-wide text-ink/80">Over mij</p>
+                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink">{sheet.overMij}</p>
+                  </div>
+                ) : null}
+                {sheet.ervaringen.trim() ? (
+                  <div className={sheet.overMij.trim() ? 'mt-3 border-t border-line pt-3' : 'mt-2'}>
+                    <p className="text-[11px] font-normal uppercase tracking-wide text-ink/80">Ervaring</p>
+                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink">{sheet.ervaringen}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="min-w-0 space-y-4 font-serif text-sm">
+            <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
+              <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
                 Overzicht
               </h3>
-              <dl className="mt-0.5">{row('Naam', [user.firstName, user.lastName].filter(Boolean).join(' '))}</dl>
+              <dl className="mt-1">{row('Naam', [user.firstName, user.lastName].filter(Boolean).join(' '))}</dl>
               <dl>{row('E-mail', user.email)}</dl>
               <dl>{row('Telefoon', sheet.gsmModel || user.phone || '')}</dl>
               <dl>{row('Gemeente', sheet.gemeente)}</dl>
@@ -343,11 +473,18 @@ export function ModelPortalProfile({
               <dl>{row('Geslacht', geslachtLabel)}</dl>
             </div>
 
-            <div className="border border-zinc-300 bg-white px-2 py-1.5">
-              <h3 className="border-b border-burgundy pb-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-burgundy">
+            <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
+              <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
+                Beschikbaar voor
+              </h3>
+              <p className="mt-2 text-xs leading-relaxed text-ink">{beschikbaarTekst || '—'}</p>
+            </div>
+
+            <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
+              <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
                 Model info
               </h3>
-              <dl className="mt-0.5">{row('Lengte', sheet.lengte ? `${sheet.lengte} cm` : '')}</dl>
+              <dl className="mt-1">{row('Lengte', sheet.lengte ? `${sheet.lengte} cm` : '')}</dl>
               <dl>{row('Maat', sheet.maat)}</dl>
               <dl>{row('Schoenmaat', sheet.schoenmaat)}</dl>
               <dl>{row('BH-maat', sheet.bhMaat)}</dl>
@@ -364,66 +501,108 @@ export function ModelPortalProfile({
             </div>
           </div>
         </div>
-
-        {canReadMedia && images.length > 0 ? (
-          <div className="border border-zinc-300 bg-white px-2 py-1.5">
-            <h3 className="border-b border-burgundy pb-0.5 text-[10px] font-bold uppercase leading-none tracking-wide text-burgundy">
-              Galerij
-            </h3>
-            <p className="mt-0.5 text-[10px] leading-tight text-muted">{images.length} foto&apos;s</p>
-            <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-0.5">
-              {images.map((a) => (
-                <img
-                  key={a.id}
-                  src={`${getApiBase()}/media/public/${a.thumbKey || a.webpKey || a.storageKey}`}
-                  alt=""
-                  className="h-24 w-20 shrink-0 border border-zinc-300 object-cover"
-                />
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {premiumSection}
       </div>
     );
   }
 
   return (
-    <form onSubmit={save} className="space-y-3">
+    <form onSubmit={save} className="space-y-3 font-serif text-sm">
       {canReadMedia ? (
         <ProfileSection title="Foto's" complete={images.length > 0}>
-          <div className="flex flex-wrap gap-1.5">
-            {canUploadMedia ? (
-              <label className="cursor-pointer border border-ink bg-ink px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-white hover:bg-ink/90">
-                {mediaBusy ? 'Uploaden…' : 'Bestand toevoegen'}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => uploadMedia(e.target.files?.[0] ?? null)}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Hoofdfoto</p>
+              {profileAsset ? (
+                <img
+                  src={`${getApiBase()}/media/public/${encodeURIComponent(mediaPortalDetailKey(profileAsset))}`}
+                  alt=""
+                  className="aspect-[3/4] w-full max-w-[220px] border border-line object-cover"
                 />
-              </label>
-            ) : null}
-          </div>
-          <p className="mt-1 text-[10px] leading-snug text-muted">
-            Upload je portfoliofoto&apos;s hier. De eerste in de lijst kun je als hoofdbeeld gebruiken in je overzicht.
-          </p>
-          {images.length > 0 ? (
-            <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
-              {images.map((a) => (
-                <div key={a.id} className="w-28 shrink-0">
-                  <img
-                    src={`${getApiBase()}/media/public/${a.thumbKey || a.webpKey || a.storageKey}`}
-                    alt=""
-                    className="aspect-[3/4] w-full border border-zinc-300 object-cover"
+              ) : user.profileThumbKey ? (
+                <img
+                  src={`${getApiBase()}/media/public/${encodeURIComponent(user.profileThumbKey)}`}
+                  alt=""
+                  className="aspect-[3/4] w-full max-w-[220px] border border-line object-cover"
+                />
+              ) : (
+                <p className="text-xs text-muted">Nog geen hoofdfoto gekozen.</p>
+              )}
+              {canUploadMedia ? (
+                <label className="inline-block cursor-pointer border border-ink bg-ink px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-white hover:bg-ink/90">
+                  {mediaBusy ? 'Uploaden…' : 'Hoofdfoto uploaden'}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { setAsProfilePhoto: true })}
                   />
-                  <p className="mt-0.5 truncate text-[9px] leading-tight text-muted">{a.originalName}</p>
-                </div>
-              ))}
+                </label>
+              ) : null}
             </div>
+            <div className="min-w-0 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Galerij</p>
+              <p className="text-xs leading-snug text-muted">
+                Extra portfoliofoto&apos;s: blader op je fiche met de pijltjes. Je hoofdfoto wordt getoond in het
+                modellenoverzicht. Met <strong className="text-ink">Download</strong> open je de beste kwaliteit; als de
+                beheerder een wis-termijn heeft ingesteld, start daarmee de teller om de bestanden later automatisch te
+                verwijderen.
+              </p>
+              {canUploadMedia ? (
+                <label className="inline-block cursor-pointer border border-line bg-white px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-ink hover:bg-panel">
+                  {mediaBusy ? 'Uploaden…' : 'Galerijfoto toevoegen'}
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => uploadMedia(e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              ) : null}
+            </div>
+          </div>
+          {images.length > 0 ? (
+            <ul className="mt-3 space-y-1.5 border-t border-line pt-2">
+              {images.map((a) => {
+                const isMain = user.profilePhotoAssetId === a.id;
+                return (
+                  <li
+                    key={a.id}
+                    className="flex flex-wrap items-center gap-2 border border-line bg-white px-2 py-1.5"
+                  >
+                    <img
+                      src={`${getApiBase()}/media/public/${encodeURIComponent(mediaThumbKey(a))}`}
+                      alt=""
+                      className="h-14 w-11 shrink-0 border border-line object-cover"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted">{a.originalName}</span>
+                    <a
+                      href={`${getApiBase()}/media/public/${encodeURIComponent(mediaPortalDetailKey(a))}`}
+                      download
+                      target="_blank"
+                      rel="noreferrer"
+                      className="shrink-0 text-[10px] font-bold uppercase text-burgundy underline hover:text-burgundyDeep"
+                      onMouseDown={() => void ackPortfolioDownload(a.id)}
+                    >
+                      Download
+                    </a>
+                    {isMain ? (
+                      <span className="text-[10px] font-bold uppercase text-burgundy">Hoofdfoto</span>
+                    ) : canUploadMedia ? (
+                      <button
+                        type="button"
+                        disabled={mediaBusy}
+                        onClick={() => void setProfilePhotoFromAsset(a.id)}
+                        className="shrink-0 border border-burgundy bg-burgundy/10 px-2 py-0.5 text-[10px] font-bold uppercase text-burgundy hover:bg-burgundy/20 disabled:opacity-50"
+                      >
+                        Als hoofdfoto
+                      </button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
-            <p className="mt-1.5 text-[11px] leading-tight text-muted">Nog geen foto&apos;s.</p>
+            <p className="mt-2 text-xs text-muted">Nog geen foto&apos;s in je bibliotheek.</p>
           )}
         </ProfileSection>
       ) : null}
@@ -455,13 +634,13 @@ export function ModelPortalProfile({
               onChange={(e) => setSheet((s) => ({ ...s, geboortedatum: e.target.value }))}
             />
           </div>
-          <div className="sm:col-span-2">
+          <div>
             <label className={labelClass()}>Geslacht</label>
             <div className="mt-0.5 flex flex-wrap gap-3">
               {(['vrouw', 'man'] as const).map((g) => {
                 const on = sheet.geslacht.includes(g);
                 return (
-                  <label key={g} className="flex items-center gap-1.5 text-[11px] leading-tight">
+                  <label key={g} className="flex items-center gap-1.5 text-xs leading-tight">
                     <input
                       type="checkbox"
                       checked={on}
@@ -478,7 +657,7 @@ export function ModelPortalProfile({
               })}
             </div>
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className={labelClass()}>Nationaliteit</label>
             <select
               className={fieldClass()}
@@ -543,7 +722,7 @@ export function ModelPortalProfile({
               onChange={(e) => setSheet((s) => ({ ...s, gsmMoeder: e.target.value }))}
             />
           </div>
-          <div>
+          <div className="sm:col-span-2">
             <label className={labelClass()}>GSM vader</label>
             <input
               className={fieldClass()}
@@ -592,9 +771,27 @@ export function ModelPortalProfile({
             </div>
           ))}
         </div>
+        <div className="mt-3 space-y-2 border-t border-line pt-3">
+          <div>
+            <label className={labelClass()}>Over mij</label>
+            <textarea
+              className={`${fieldClass()} min-h-[64px]`}
+              value={sheet.overMij}
+              onChange={(e) => setSheet((s) => ({ ...s, overMij: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className={labelClass()}>Ervaring</label>
+            <textarea
+              className={`${fieldClass()} min-h-[56px]`}
+              value={sheet.ervaringen}
+              onChange={(e) => setSheet((s) => ({ ...s, ervaringen: e.target.value }))}
+            />
+          </div>
+        </div>
       </ProfileSection>
 
-      <ProfileSection title="Social media + ervaring" complete={sectionSocialOk}>
+      <ProfileSection title="Social media" complete={sectionSocialOk}>
         <div className="grid gap-x-2 gap-y-1.5 sm:grid-cols-2">
           <div>
             <label className={labelClass()}>Instagram</label>
@@ -620,22 +817,6 @@ export function ModelPortalProfile({
               onChange={(e) => setSheet((s) => ({ ...s, tiktok: e.target.value }))}
             />
           </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass()}>Ervaring</label>
-            <textarea
-              className={`${fieldClass()} min-h-[56px]`}
-              value={sheet.ervaringen}
-              onChange={(e) => setSheet((s) => ({ ...s, ervaringen: e.target.value }))}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass()}>Over mij</label>
-            <textarea
-              className={`${fieldClass()} min-h-[64px]`}
-              value={sheet.overMij}
-              onChange={(e) => setSheet((s) => ({ ...s, overMij: e.target.value }))}
-            />
-          </div>
         </div>
       </ProfileSection>
 
@@ -646,8 +827,8 @@ export function ModelPortalProfile({
             return (
               <label
                 key={opt}
-                className={`flex cursor-pointer items-center gap-1.5 border px-1.5 py-0.5 text-[10px] leading-tight ${
-                  on ? 'border-burgundy bg-burgundy/10' : 'border-zinc-300 bg-white'
+                className={`flex cursor-pointer items-center gap-2 border px-2 py-1.5 text-xs leading-snug sm:px-2.5 ${
+                  on ? 'border-burgundy bg-burgundy/10' : 'border-line bg-white'
                 }`}
               >
                 <input
@@ -666,16 +847,6 @@ export function ModelPortalProfile({
           })}
         </div>
       </ProfileSection>
-
-      <div className="border border-zinc-300 bg-zinc-50 px-2 py-1.5">
-        <label className={labelClass()}>Bio (kort, platform)</label>
-        <textarea
-          className={`${fieldClass()} min-h-[52px]`}
-          value={profile.bio}
-          onChange={(e) => setProfile((p) => ({ ...p, bio: e.target.value }))}
-          placeholder="Korte bio voor opdrachten (optioneel)"
-        />
-      </div>
 
       <div className="flex flex-wrap gap-2">
         <button

@@ -258,7 +258,8 @@ export function GuestTestshootSection() {
               </button>
               {m.downloadUnlocked && (
                 <span className="rounded-full border border-[#eadfea] bg-white/90 px-3 py-1 text-xs font-semibold text-muted">
-                  Feedback ontvangen — volgende download zonder formulier
+                  Feedback ontvangen — zip zonder formulier (tot de eerste geslaagde download verdwijnen de foto’s
+                  hier)
                 </span>
               )}
             </div>
@@ -298,7 +299,8 @@ export function GuestTestshootSection() {
               Feedback — {modalModel.name}
             </h2>
             <p className="mt-2 text-sm text-muted">
-              Vul het formulier in; daarna start automatisch de download van alle foto’s als zip.
+              Vul het formulier in; daarna start automatisch de download van alle foto’s als zip. Na een geslaagde
+              download verdwijnen ze van deze pagina.
             </p>
             <form className="mt-5 space-y-4" onSubmit={(e) => void submitFeedback(e)}>
               <div className="grid gap-3 md:grid-cols-2">

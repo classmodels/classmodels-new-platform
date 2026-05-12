@@ -6,10 +6,18 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { Role, User, UserRole } from '@prisma/client';
-import { UsersService } from '../users/users.service';
+import { UsersService, pickPublicMediaKey } from '../users/users.service';
 import { mergePermissionsFromRoles, premiumEffective } from './permissions.util';
 
-type UserWithRoles = User & { roles: (UserRole & { role: Role })[] };
+type UserWithRoles = User & {
+  roles: (UserRole & { role: Role })[];
+  profilePhoto?: {
+    storageKey: string;
+    webpKey?: string | null;
+    thumbKey?: string | null;
+    mimeType: string;
+  } | null;
+};
 
 @Injectable()
 export class AuthService {
@@ -41,9 +49,12 @@ export class AuthService {
         companyName: user.companyName,
         defaultPortal: user.defaultPortal,
         modelSheet: user.modelSheet ?? null,
+        profilePhotoAssetId: user.profilePhotoAssetId ?? null,
+        profileThumbKey: pickPublicMediaKey(user.profilePhoto ?? null),
         roles: roleSlugs,
         isPremium: premiumActive,
         permissions,
+        lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       },
     };
   }
@@ -56,7 +67,10 @@ export class AuthService {
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Ongeldige gegevens');
-    return this.buildAuthResponse(user as UserWithRoles);
+    await this.users.recordLastLogin(user.id);
+    const fresh = await this.users.findByEmailWithRoles(email);
+    if (!fresh) throw new UnauthorizedException('Ongeldige gegevens');
+    return this.buildAuthResponse(fresh as UserWithRoles);
   }
 
   async register(params: {

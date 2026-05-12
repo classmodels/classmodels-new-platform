@@ -1,29 +1,40 @@
-# Pushberichten (testmodus)
+# Pushberichten (Web Push + inbox)
 
-## Doel
+## Wat is er gebouwd
 
-- **Firebase** voor mobiele/web push
-- **Web push** (VAPID) voor PWA
+- **Historiek → push**: elke gebeurtenis die in het modellenportaal onder **Historiek** wordt gelogd, kan ook een **inbox-regel** en een **systeem-push** geven (als het model dat wil).
+- **Model**: tab **Pushberichten** — voorkeuren (historiek / bureau apart), inbox, en **push op dit toestel** (Web Push + service worker).
+- **Backsite**: **Pushberichten** (broadcast naar alle modellen, premium, niet-premium, of een **push-lijst**) en **Push-lijsten** (leden beheren).
+- **PWA**: `public/sw.js` toont meldingen met titel + tekst; waar ondersteund een **badge** op het app-icoon (`badgeUnread`).
 
-## Variabelen (`.env.example`)
+## iPhone / Android
 
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_CLIENT_EMAIL`
-- `FIREBASE_PRIVATE_KEY` (let op newline-escaping in `.env`)
-- `NEXT_PUBLIC_FIREBASE_VAPID_KEY` — voor web clients
+- **Android / desktop Chrome**: Web Push werkt in de browser; voor vaste app-ervaring: site installeren (PWA).
+- **iPhone (iOS 16.4+)**: Web Push werkt voor sites die **aan het beginscherm zijn toegevoegd**; meldingen inschakelen in iOS-instellingen. Zonder “Zet op beginscherm” zijn meldingen beperkt of afwezig — dat is een Apple-beperking, geen bug in deze code.
 
-## Testmodus
+## Omgeving (API)
 
-1. Maak een Firebase-project (test) en download service account JSON → map naar de env-variabelen.
-2. Schakel **Cloud Messaging** in; registreer web app en VAPID key.
-3. In de app: service worker registreren (PWA) en FCM token naar de API sturen (endpoint volgt in API-module `push`).
+Genereer VAPID-sleutels (één keer per omgeving):
 
-## Wat nog gebouwd wordt
+```bash
+cd apps/api && npx web-push generate-vapid-keys
+```
 
-- API-endpoints: campagnes aanmaken/plannen (model `PushCampaign` bestaat al)
-- Worker/queue (Redis staat in `docker-compose.yml` voor latere jobverwerking)
-- Doelgroepfilters (rollen, premium, portaal)
+Zet in `apps/api/.env` (of root `.env`):
 
-## Lokaal zonder Firebase
+- `VAPID_PUBLIC_KEY` — publiek
+- `VAPID_PRIVATE_KEY` — geheim, nooit in de frontend
+- `VAPID_CONTACT_EMAIL` — bv. `mailto:info@classmodels.be`
+- `APP_PUBLIC_URL` — volledige basis-URL van de website (bv. `https://class-models.be`) voor de klik-URL in meldingen
+- `APP_PUBLIC_BASE_PATH` — alleen als Next `basePath` gebruikt (zelfde waarde als `NEXT_PUBLIC_BASE_PATH`)
 
-Laat de Firebase-velden leeg; push is dan uitgeschakeld maar de rest van het platform blijft bruikbaar.
+**CORS**: zet je webdomein in `CORS_ORIGIN` (komma-gescheiden), bv. `https://class-models.local`.
+
+## Permissies
+
+- Model: `portal.model.push.read`, `portal.model.push.subscribe` (staan in seed op modelrollen).
+- Backoffice: `admin.push.send`, `admin.push.lists` (admin-rol heeft `*` en ziet alles).
+
+## Firebase
+
+Het bestaande `PushCampaign`-model wordt nu gebruikt voor backstage-broadcasts. Optionele Firebase-integratie kan later naast VAPID worden toegevoegd voor native apps.

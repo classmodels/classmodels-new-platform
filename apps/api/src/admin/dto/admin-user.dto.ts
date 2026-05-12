@@ -73,10 +73,6 @@ export class UpdateAdminUserDto {
   premiumUntil?: string;
 
   @IsOptional()
-  @IsBoolean()
-  premiumOverride?: boolean;
-
-  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   roleSlugs?: string[];
@@ -96,4 +92,10 @@ export class UpdateAdminUserDto {
   @IsOptional()
   @IsObject()
   modelSheet?: Record<string, unknown>;
+}
+
+export class DeleteManyUsersDto {
+  @IsArray()
+  @IsString({ each: true })
+  ids!: string[];
 }

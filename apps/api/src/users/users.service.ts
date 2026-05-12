@@ -1,23 +1,57 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { existsSync } from 'fs';
+import { join } from 'path';
+import { resolveMediaRoot } from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PatchProfileDto } from './dto/patch-profile.dto';
 import { sanitizeModelSheetMerge } from './model-sheet.util';
+import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
+
+function mediaRoot(): string {
+  return resolveMediaRoot();
+}
+
+export function pickPublicMediaKey(asset: {
+  storageKey: string;
+  webpKey?: string | null;
+  thumbKey?: string | null;
+} | null): string | null {
+  if (!asset) return null;
+  const root = mediaRoot();
+  for (const k of [asset.thumbKey, asset.webpKey, asset.storageKey]) {
+    if (k && existsSync(join(root, k))) return k;
+  }
+  return asset.storageKey;
+}
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private modelHistory: ModelPortalHistoryService,
+  ) {}
 
   findByEmailWithRoles(email: string) {
     return this.prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        profilePhoto: {
+          select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
+        },
+      },
     });
   }
 
   findById(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        profilePhoto: {
+          select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
+        },
+      },
     });
   }
 
@@ -49,11 +83,37 @@ export class UsersService {
         status: 'active',
         roles: { create: [{ role: { connect: { id: role.id } } }] },
       },
-      include: { roles: { include: { role: true } } },
+      include: {
+        roles: { include: { role: true } },
+        profilePhoto: {
+          select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
+        },
+      },
+    });
+  }
+
+  async recordLastLogin(userId: string) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date() },
     });
   }
 
   async patchProfile(userId: string, dto: PatchProfileDto) {
+    const before = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        firstName: true,
+        lastName: true,
+        phone: true,
+        bio: true,
+        companyName: true,
+        modelSheet: true,
+        profilePhotoAssetId: true,
+      },
+    });
+    if (!before) throw new BadRequestException('Gebruiker niet gevonden');
+
     const data: Record<string, unknown> = {};
     if (dto.firstName !== undefined) data.firstName = dto.firstName || null;
     if (dto.lastName !== undefined) data.lastName = dto.lastName || null;
@@ -62,14 +122,48 @@ export class UsersService {
     if (dto.companyName !== undefined) data.companyName = dto.companyName || null;
 
     if (dto.modelSheet !== undefined) {
-      const cur = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { modelSheet: true },
-      });
-      data.modelSheet = sanitizeModelSheetMerge(cur?.modelSheet ?? null, dto.modelSheet);
+      data.modelSheet = sanitizeModelSheetMerge(before.modelSheet ?? null, dto.modelSheet);
     }
 
-    return this.prisma.user.update({
+    if (dto.profilePhotoAssetId !== undefined) {
+      if (dto.profilePhotoAssetId === null) {
+        data.profilePhotoAssetId = null;
+      } else {
+        const asset = await this.prisma.mediaAsset.findFirst({
+          where: {
+            id: dto.profilePhotoAssetId,
+            uploadedById: userId,
+            hardDeleted: false,
+            folder: { slug: 'models' },
+          },
+        });
+        if (!asset) {
+          throw new BadRequestException('Ongeldige profielfoto (eigen upload in map Modellen vereist).');
+        }
+        data.profilePhotoAssetId = dto.profilePhotoAssetId;
+      }
+    }
+
+    if (Object.keys(data).length === 0) {
+      const row = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          bio: true,
+          companyName: true,
+          defaultPortal: true,
+          modelSheet: true,
+        },
+      });
+      if (!row) throw new BadRequestException('Gebruiker niet gevonden');
+      return row;
+    }
+
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: data as never,
       select: {
@@ -84,5 +178,17 @@ export class UsersService {
         modelSheet: true,
       },
     });
+    const labels: string[] = [];
+    if (dto.firstName !== undefined) labels.push('Voornaam');
+    if (dto.lastName !== undefined) labels.push('Familienaam');
+    if (dto.phone !== undefined) labels.push('Telefoon');
+    if (dto.bio !== undefined) labels.push('Bio');
+    if (dto.companyName !== undefined) labels.push('Bedrijfsnaam');
+    if (dto.modelSheet !== undefined) labels.push('Modellenfiche');
+    if (dto.profilePhotoAssetId !== undefined) labels.push('Hoofdfoto');
+    if (labels.length) {
+      void this.modelHistory.log(userId, 'profile_updated', { velden: labels });
+    }
+    return updated;
   }
 }

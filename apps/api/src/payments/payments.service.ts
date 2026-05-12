@@ -8,12 +8,16 @@ import {
 import { Prisma } from '@prisma/client';
 import createMollieClient, { Payment } from '@mollie/api-client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 
 @Injectable()
 export class PaymentsService {
   private readonly log = new Logger(PaymentsService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private modelHistory: ModelPortalHistoryService,
+  ) {}
 
   private async apiKey(): Promise<string> {
     const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
@@ -77,15 +81,6 @@ export class PaymentsService {
 
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Gebruiker niet gevonden');
-
-    if (user.premiumOverride) {
-      return {
-        skipCheckout: true as const,
-        reason:
-          'Premium wordt beheerd via admin (premiumOverride). Mollie-checkout is niet nodig voor deze gebruiker.',
-        isPremium: user.isPremium,
-      };
-    }
 
     if (user.isPremium && user.premiumUntil && user.premiumUntil > new Date()) {
       return {
@@ -192,11 +187,6 @@ export class PaymentsService {
     const user = sub.user;
     if (!user) return;
 
-    if (user.premiumOverride) {
-      this.log.log(`Webhook genegeerd voor premium status (premiumOverride) user=${user.id}`);
-      return;
-    }
-
     if (payment.status === 'paid') {
       const days = this.premiumDays();
       const until = new Date();
@@ -212,6 +202,10 @@ export class PaymentsService {
           meta: { paymentId: payment.id, subscriptionId: sub.id, premiumUntil: until.toISOString() },
         },
       });
+      void this.modelHistory.log(user.id, 'premium_paid', {
+        paymentId: payment.id,
+        premiumUntil: until.toISOString(),
+      });
       return;
     }
 
@@ -226,6 +220,10 @@ export class PaymentsService {
           action: 'premium.mollie_revoked',
           meta: { paymentId: payment.id, status: payment.status },
         },
+      });
+      void this.modelHistory.log(user.id, 'premium_revoked', {
+        paymentId: payment.id,
+        status: payment.status,
       });
     }
   }

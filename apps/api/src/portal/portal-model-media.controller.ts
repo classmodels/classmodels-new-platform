@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   Post,
@@ -14,6 +15,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
+import { DownloadAckDto } from '../media/dto/media-admin.dto';
 import { MediaService } from '../media/media.service';
 
 @Controller('portal/model/media')
@@ -25,6 +27,12 @@ export class PortalModelMediaController {
   @Permissions('portal.model.media.read')
   list(@Req() req: { user: JwtPayload }) {
     return this.media.listForUploader(req.user.sub);
+  }
+
+  @Post('download-ack')
+  @Permissions('portal.model.media.read')
+  downloadAck(@Req() req: { user: JwtPayload }, @Body() body: DownloadAckDto) {
+    return this.media.modelAckPortfolioDownload(req.user.sub, body.assetId);
   }
 
   @Post('upload')
@@ -41,6 +49,10 @@ export class PortalModelMediaController {
     @Query('folderSlug') folderSlug?: string,
   ) {
     if (!file) return { error: 'Geen bestand' };
-    return this.media.saveForPortalUser(file, req.user.sub, folderSlug?.trim() || 'models');
+    const slug = folderSlug?.trim() || 'models';
+    if (slug !== 'models') {
+      return { error: 'Portfolio-uploads horen in de map Modellen.' };
+    }
+    return this.media.saveForPortalUser(file, req.user.sub, 'models');
   }
 }

@@ -17,6 +17,10 @@
     "db:migrate": "bash scripts/with-root-env.sh npm run prisma:migrate -w @cm/api",
     "db:deploy": "bash scripts/with-root-env.sh npm run prisma:deploy -w @cm/api",
     "wp:migrate": "bash scripts/with-root-env.sh npm run migrate:wp -w @cm/api",
+    "wp:import-models": "bash scripts/wp-import-models.sh",
+    "wp:import-model-photos": "bash scripts/wp-import-model-photos.sh",
+    "tool:set-password": "bash scripts/tool-set-user-password.sh",
+    "tool:import-profile-photos": "bash scripts/tool-import-profile-photos-manifest.sh",
     "db:seed": "bash scripts/with-root-env.sh npm run prisma:seed -w @cm/api",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"

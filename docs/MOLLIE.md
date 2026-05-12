@@ -8,7 +8,7 @@ De API gebruikt `@mollie/api-client` voor:
 - een **webhook** die de betalingsstatus ophaalt bij Mollie en `User.isPremium` / `premiumUntil` bijwerkt;
 - registratie in `Subscription` + `AuditLog`.
 
-**Admin `premiumOverride`:** als dit aan staat, wijzigt de webhook **niet** de premiumstatus (handmatig beheer in backoffice).
+Premium is **effectief** zolang `isPremium` aan staat én er geen verstreken `premiumUntil` is (tenzij `premiumUntil` leeg is). Handmatig premium zet je in de admin bij gebruikers.
 
 ## Omgevingsvariabelen
 
@@ -46,7 +46,7 @@ Body (JSON, optioneel): `{ "recurring": true }` → wordt **geweigerd** tot Moll
 **Antwoorden:**
 
 - `{ checkoutUrl, paymentId, subscriptionId }` — redirect de browser naar `checkoutUrl`.
-- `{ skipCheckout: true, reason, ... }` — o.a. `premiumOverride` of nog actieve `premiumUntil`.
+- `{ skipCheckout: true, reason, ... }` — o.a. wanneer premium nog actief is tot `premiumUntil`.
 
 ### `POST /payments/mollie/webhook`
 

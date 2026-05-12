@@ -3,6 +3,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { PortalModule } from '../portal/portal.module';
+import { MediaModule } from '../media/media.module';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminUsersService } from './admin-users.service';
 import { AdminRolesController } from './admin-roles.controller';
@@ -15,7 +16,7 @@ import { AdminPluginsController } from './admin-plugins.controller';
 import { AdminBriefsController } from './admin-briefs.controller';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ReviewsModule, PortalModule],
+  imports: [PrismaModule, AuthModule, ReviewsModule, PortalModule, MediaModule],
   controllers: [
     AdminUsersController,
     AdminRolesController,

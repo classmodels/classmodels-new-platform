@@ -9,7 +9,7 @@ export const ADMIN_MODULES = [
   },
   {
     slug: 'modellen-profielen',
-    label: 'Modellenprofielen',
+    label: 'Modellen',
     permission: 'admin.users.read' as const,
   },
   {
@@ -32,6 +32,16 @@ export const ADMIN_MODULES = [
   { slug: 'media', label: 'Media Library', permission: 'admin.media.read' as const },
   { slug: 'historiek', label: 'Historiek', permission: 'admin.audit.read' as const },
   { slug: 'snippets', label: 'Snippets / Plugins', permission: 'admin.snippets.read' as const },
+  {
+    slug: 'push-berichten',
+    label: 'Pushberichten',
+    permission: 'admin.push.send' as const,
+  },
+  {
+    slug: 'push-lijsten',
+    label: 'Push-lijsten',
+    permission: 'admin.push.lists' as const,
+  },
 ] as const;
 
 export type AdminModuleSlug = (typeof ADMIN_MODULES)[number]['slug'];

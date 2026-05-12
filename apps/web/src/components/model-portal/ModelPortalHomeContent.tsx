@@ -93,7 +93,7 @@ export function ModelPortalHomeContent({
                 contentKey="portal.model.home.important.body"
                 as="p"
                 className="mt-1.5 text-[13px] leading-snug text-ink/90"
-                fallback="Om het modellenplatform volledig te kunnen beheren, moet u steeds ingelogd zijn. U bereikt uw omgeving via het menu Modellen-Platform, of via het menu Modellen door daar op een model te klikken."
+                fallback="Om je account volledig te beheren, blijf je ingelogd. Je vindt alles in het menu links."
               />
             </div>
             {premiumReturn ? (

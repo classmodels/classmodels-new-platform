@@ -27,6 +27,10 @@ export const PERMISSION_CATALOG: {
       { id: 'admin.briefs.write', label: 'Casting-aanvragen beheren' },
       { id: 'admin.testshoot.read', label: 'Testshoot bekijken' },
       { id: 'admin.testshoot.write', label: 'Testshoot beheren (foto’s, modellen, feedback)' },
+      { id: 'admin.agenda.read', label: 'Agenda bekijken' },
+      { id: 'admin.agenda.write', label: 'Agenda beheren' },
+      { id: 'admin.push.send', label: 'Pushberichten versturen (modellen)' },
+      { id: 'admin.push.lists', label: 'Push-lijsten beheren' },
     ],
   },
   {
@@ -46,6 +50,9 @@ export const PERMISSION_CATALOG: {
       { id: 'portal.model.media.upload', label: 'Eigen media uploaden' },
       { id: 'portal.model.agenda.read', label: 'Eigen opleidingsafspraak bekijken' },
       { id: 'portal.model.agenda.book', label: 'Opleidingsafspraak boeken of wijzigen' },
+      { id: 'portal.model.history.read', label: 'Eigen historiek (portaal)' },
+      { id: 'portal.model.push.read', label: 'Pushberichten bekijken (inbox + voorkeuren)' },
+      { id: 'portal.model.push.subscribe', label: 'Push op dit apparaat inschakelen' },
     ],
   },
   {

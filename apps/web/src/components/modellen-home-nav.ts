@@ -11,13 +11,19 @@ export type HomeNavPill = { id: string; label: string };
 export type HomeNavSection = {
   id: string;
   label: string;
-  kind: 'content' | 'auth';
+  kind: 'content' | 'auth' | 'catalog';
   pills?: HomeNavPill[];
   /** Keys = pill id, or "default" when there are no pills */
   cardsByPill: Record<string, HomeContentCard[]>;
 };
 
 export const MODELLEN_HOME_NAV: HomeNavSection[] = [
+  {
+    id: 'rooster',
+    label: 'Modellen',
+    kind: 'catalog',
+    cardsByPill: { default: [] },
+  },
   {
     id: 'model-worden',
     label: 'Model worden',
@@ -73,36 +79,6 @@ export const MODELLEN_HOME_NAV: HomeNavSection[] = [
             'Geen druk — wel duidelijkheid',
           ],
           ctaLabel: 'Boek je intakegesprek',
-        },
-      ],
-    },
-  },
-  {
-    id: 'testmenu',
-    label: 'Testmenu',
-    kind: 'content',
-    pills: [
-      { id: 'a', label: 'Optie A' },
-      { id: 'b', label: 'Optie B' },
-    ],
-    cardsByPill: {
-      a: [
-        {
-          kicker: 'Demo',
-          title: 'Inhoud voor optie A',
-          body: 'Dit is voorbeeldtekst. Later koppel je hier CMS-blokken of vaste secties aan.',
-        },
-        {
-          kicker: 'Bijlage',
-          title: 'Tweede blok onder A',
-          bullets: ['Strak onder elkaar', 'Zelfde typografie als de rest van het platform'],
-        },
-      ],
-      b: [
-        {
-          kicker: 'Demo',
-          title: 'Inhoud voor optie B',
-          body: 'De rechter pillenbalk schakelt tussen verschillende inhoudsblokken onder elkaar.',
         },
       ],
     },

@@ -30,6 +30,11 @@ export class AgendaNotificationService {
     });
   }
 
+  /** Agenda + testshoot-docs: zelfde SMTP (`SMTP_HOST`, …). Retourneert false als niet geconfigureerd of geen adres. */
+  async sendHtmlMail(to: string, subject: string, html: string): Promise<boolean> {
+    return this.trySendSmtp(to, subject, html);
+  }
+
   async sendBookingConfirmation(p: AgendaConfirmationPayload): Promise<void> {
     const subject = `Bevestiging: ${p.calendarTitle} — Class Models`;
     const html = this.buildEmailHtml(p);

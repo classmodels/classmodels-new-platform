@@ -13,6 +13,8 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { PortalModule } from './portal/portal.module';
 import { AgendaModule } from './agenda/agenda.module';
 import { TestshootModule } from './testshoot/testshoot.module';
+import { CatalogModule } from './catalog/catalog.module';
+import { PushModule } from './push/push.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { TestshootModule } from './testshoot/testshoot.module';
     PortalModule,
     AgendaModule,
     TestshootModule,
+    CatalogModule,
+    PushModule,
   ],
 })
 export class AppModule {}

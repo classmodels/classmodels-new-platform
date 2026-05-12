@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
@@ -10,18 +11,47 @@ import { basename, join } from 'node:path';
 import type { Response } from 'express';
 import archiver from 'archiver';
 import type { Prisma } from '@prisma/client';
+import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MediaService } from '../media/media.service';
 import type { TestshootFeedbackDto } from './dto/testshoot-feedback.dto';
 
 const ZIP_SIG_SECONDS = 900;
 
+const FEEDBACK_LABELS: Record<string, string> = {
+  naam: 'Naam',
+  voornaam: 'Voornaam',
+  email: 'E-mail',
+  gsm: 'Telefoon',
+  ervaring: 'Testshoot ervaren',
+  tevredenheid_fotos: 'Tevredenheid foto’s',
+  ingeschreven: 'Ingeschreven bij bureau',
+  druk: 'Druk om in te schrijven',
+  ontvangst: 'Ontvangst',
+  info: 'Informatie',
+  toekomst_contact: 'Contact in toekomst',
+  reden_nee_vrij: 'Reden (nee inschrijven)',
+  opmerkingen: 'Opmerkingen',
+  time: 'Tijdstip formulier',
+  ip: 'IP-adres',
+};
+
 @Injectable()
 export class TestshootService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly media: MediaService,
+    private readonly mail: AgendaNotificationService,
   ) {}
+
+  private esc(s: unknown): string {
+    const t = s == null ? '' : String(s);
+    return t
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
   private zipSecret(): string {
     return (
@@ -140,12 +170,16 @@ export class TestshootService {
     return this.signZipDownload(modelId);
   }
 
-  async streamZipToResponse(modelId: string, exp: number, sig: string, res: Response) {
-    if (!this.verifyZipDownload(modelId, exp, sig)) {
-      throw new ForbiddenException('Ongeldige of verlopen downloadlink.');
-    }
+  /**
+   * Zip met originele bestanden (`storageKey`). Alleen actieve (niet-gearchiveerde) slots voor bezoekers.
+   */
+  private async streamModelPhotoZipToResponse(
+    modelId: string,
+    res: Response,
+    opts: { requireActive: boolean },
+  ) {
     const model = await this.prisma.testshootModel.findFirst({
-      where: { id: modelId, archived: false },
+      where: opts.requireActive ? { id: modelId, archived: false } : { id: modelId },
       include: {
         photos: {
           where: { asset: { hardDeleted: false } },
@@ -172,6 +206,7 @@ export class TestshootService {
       }
     });
 
+    let filesInZip = 0;
     await new Promise<void>((resolve, reject) => {
       archive.on('error', reject);
       archive.on('end', () => resolve());
@@ -183,10 +218,28 @@ export class TestshootService {
           archive.append(createReadStream(full), {
             name: p.asset.originalName || basename(key),
           });
+          filesInZip += 1;
         }
       }
       void archive.finalize();
     });
+    return { filesInZip };
+  }
+
+  /** Bezoeker: na geslaagde zip met minstens één bestand worden alle foto’s van het slot gewist (niet bij admin-zip). */
+  async streamZipToResponse(modelId: string, exp: number, sig: string, res: Response) {
+    if (!this.verifyZipDownload(modelId, exp, sig)) {
+      throw new ForbiddenException('Ongeldige of verlopen downloadlink.');
+    }
+    const { filesInZip } = await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: true });
+    if (filesInZip > 0) {
+      await this.adminClearPhotos(modelId);
+    }
+  }
+
+  /** Admin-backup: zelfde zip als bezoeker, zonder bestanden te wissen. */
+  async adminStreamZipToResponse(modelId: string, res: Response) {
+    await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: false });
   }
 
   /** --- Admin --- */
@@ -237,7 +290,9 @@ export class TestshootService {
 
     let added = 0;
     for (const file of files) {
-      const asset = await this.media.saveFile(file, userId, folder?.id ?? undefined);
+      const asset = await this.media.saveFile(file, userId, folder?.id ?? undefined, {
+        fileLabel: model.name,
+      });
       await this.prisma.testshootPhoto.create({
         data: { modelId, assetId: asset.id, sortOrder: order++ },
       });
@@ -296,5 +351,137 @@ export class TestshootService {
     });
     if (!model) throw new NotFoundException();
     return model;
+  }
+
+  /**
+   * Verwijdert slot(s) volledig uit de database + alle gekoppelde MediaAsset-bestanden (mediatheek).
+   */
+  async adminPermanentDeleteByIds(ids: string[]) {
+    const unique = [...new Set(ids.map((x) => x.trim()).filter(Boolean))];
+    if (unique.length === 0) throw new BadRequestException('Geen id’s.');
+    if (unique.length > 40) throw new BadRequestException('Maximaal 40 slots tegelijk.');
+
+    let deletedModels = 0;
+    let deletedAssets = 0;
+
+    for (const id of unique) {
+      const model = await this.prisma.testshootModel.findUnique({
+        where: { id },
+        include: { photos: { select: { assetId: true } } },
+      });
+      if (!model) continue;
+
+      for (const p of model.photos) {
+        await this.media.removeAsset(p.assetId, true);
+        deletedAssets += 1;
+      }
+
+      await this.prisma.testshootFeedback.deleteMany({ where: { modelId: id } });
+      await this.prisma.testshootModel.delete({ where: { id } });
+      deletedModels += 1;
+    }
+
+    return { deletedModels, deletedAssets };
+  }
+
+  async adminListAllFeedbacks() {
+    const rows = await this.prisma.testshootFeedback.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { model: { select: { name: true, archived: true } } },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      modelId: r.modelId,
+      modelName: r.model.name,
+      modelArchived: r.model.archived,
+      createdAt: r.createdAt.toISOString(),
+      ip: r.ip,
+      summary: this.feedbackSummaryLine(r.payload as Record<string, unknown>),
+    }));
+  }
+
+  private feedbackSummaryLine(payload: Record<string, unknown>): string {
+    const voornaam = String(payload.voornaam ?? '').trim();
+    const naam = String(payload.naam ?? '').trim();
+    const email = String(payload.email ?? '').trim();
+    const base = [voornaam, naam].filter(Boolean).join(' ') || '—';
+    return email ? `${base} · ${email}` : base;
+  }
+
+  async buildFeedbackDocumentsHtml(ids: string[]): Promise<string> {
+    const unique = [...new Set(ids)].filter(Boolean);
+    if (unique.length === 0) throw new BadRequestException('Geen documenten geselecteerd.');
+    if (unique.length > 40) throw new BadRequestException('Maximaal 40 documenten.');
+
+    const rows = await this.prisma.testshootFeedback.findMany({
+      where: { id: { in: unique } },
+      include: { model: { select: { name: true } } },
+    });
+
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const order = unique.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+    if (order.length === 0) throw new BadRequestException('Geen geldige feedback gevonden.');
+
+    const pages = order.map((r) => this.feedbackA4Section(r, r.model.name));
+    return `<!DOCTYPE html>
+<html lang="nl"><head><meta charset="utf-8"/>
+<title>Testshoot documenten</title>
+<style>
+@page { size: A4; margin: 14mm; }
+html, body { margin: 0; padding: 0; background: #fff; color: #111; }
+body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; line-height: 1.35; }
+.doc-page { page-break-after: always; padding: 0 2mm; min-height: 250mm; box-sizing: border-box; }
+.doc-page:last-child { page-break-after: auto; }
+h1 { font-size: 14pt; margin: 0 0 10pt; color: #6f121b; font-family: system-ui, sans-serif; }
+.meta { font-size: 9pt; color: #555; margin-bottom: 12pt; font-family: system-ui, sans-serif; }
+table { width: 100%; border-collapse: collapse; font-family: system-ui, sans-serif; font-size: 10pt; }
+th, td { border: 1px solid #ccc; padding: 6pt 8pt; text-align: left; vertical-align: top; }
+th { width: 32%; background: #f7f2f3; color: #3d2a30; font-weight: 600; }
+.path { font-size: 8pt; color: #777; margin-bottom: 8pt; font-family: system-ui, sans-serif; }
+</style></head><body>
+<p class="path">Class Models — Documenten / Gratis fotoshoot / Testshoot-feedback</p>
+${pages.join('\n')}
+</body></html>`;
+  }
+
+  private feedbackA4Section(
+    row: { id: string; createdAt: Date; ip: string | null; payload: unknown },
+    modelName: string,
+  ): string {
+    const payload =
+      row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
+        ? (row.payload as Record<string, unknown>)
+        : {};
+    const rowsHtml = Object.keys(payload)
+      .sort()
+      .map((key) => {
+        const label = FEEDBACK_LABELS[key] ?? key;
+        return `<tr><th>${this.esc(label)}</th><td>${this.esc(payload[key])}</td></tr>`;
+      })
+      .join('');
+
+    const dateStr = row.createdAt.toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' });
+
+    return `<section class="doc-page">
+<h1>Feedbackformulier testshoot</h1>
+<p class="meta">Model: ${this.esc(modelName)} · Document-ID: ${this.esc(row.id)} · ${this.esc(dateStr)} · IP: ${this.esc(row.ip ?? '—')}</p>
+<table>${rowsHtml}</table>
+</section>`;
+  }
+
+  async adminBulkMailFeedbacks(ids: string[], to: string) {
+    const addr = to.trim();
+    if (!addr) throw new BadRequestException('Ontvanger (e-mail) ontbreekt.');
+    const unique = [...new Set(ids.map((x) => x.trim()).filter(Boolean))];
+    const html = await this.buildFeedbackDocumentsHtml(unique);
+    const n = unique.length;
+    const subject = `Testshoot-feedback (${n} document${n > 1 ? 'en' : ''}) — Class Models`;
+    const ok = await this.mail.sendHtmlMail(addr, subject, html);
+    if (!ok) {
+      throw new ServiceUnavailableException(
+        'E-mail niet verstuurd: configureer SMTP in de API (.env): SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, MAIL_FROM (zelfde als agenda-bevestigingen).',
+      );
+    }
+    return { sent: true, to: addr, count: n };
   }
 }

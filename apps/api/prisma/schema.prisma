@@ -61,6 +61,11 @@ model User {
   premiumUntil    DateTime?
   premiumOverride Boolean    @default(false)
   mollieCustomerId String?
+  /// WordPress user id (import / foto-import)
+  legacyWpUserId  Int?       @unique
+  /// Hoofdportret voor modellenrooster (MediaAsset in map `models`)
+  profilePhotoAssetId String? @unique
+  profilePhoto    MediaAsset? @relation("UserProfilePhoto", fields: [profilePhotoAssetId], references: [id], onDelete: SetNull)
   roles           UserRole[]
   contentEdits    ContentString[]
   mediaAssets     MediaAsset[]
@@ -71,6 +76,16 @@ model User {
   agendaBookings  AgendaBooking[]
   /// WordPress-achtige modellenfiche (velden uit registratie-modellen-2 / cm_* meta)
   modelSheet      Json?
+  favoritesGiven   ModelAdminFavorite[] @relation("AdminModelFav")
+  favoritesReceived ModelAdminFavorite[] @relation("ModelFavoritedBy")
+  /// Laatste succesvolle login (wachtwoord) — getoond in modellenportaal Historiek.
+  lastLoginAt     DateTime?
+  webPushSubscriptions WebPushSubscription[]
+  modelPushSettings    ModelPushSettings?
+  modelPushInbox       ModelPushInbox[]
+  pushRecipientListsCreated PushRecipientList[] @relation("PushListCreatedBy")
+  pushRecipientListMembers  PushRecipientListMember[]
+  pushCampaignsAuthored     PushCampaign[]       @relation("PushCampaignAuthor")
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }
@@ -169,6 +184,8 @@ model MediaFolder {
   id        String        @id @default(uuid())
   slug      String        @unique
   label     String
+  /// Map-instellingen: deleteDaysAfterModelDownload, storeUploadsAsWebpOnly, …
+  settings  Json          @default("{}")
   parentId  String?
   parent    MediaFolder?  @relation("FolderTree", fields: [parentId], references: [id])
   children  MediaFolder[] @relation("FolderTree")
@@ -188,11 +205,28 @@ model MediaAsset {
   height       Int?
   webpKey      String?
   thumbKey     String?
+  /// Eerste keer dat het model een download bevestigde (map met auto-wis policy).
+  modelDownloadedAt     DateTime?
+  /// Na deze tijd wordt het bestand definitief gewist (cron/lightweight sweep).
+  scheduledHardDeleteAt   DateTime?
   hardDeleted  Boolean      @default(false)
   uploadedById String?
   uploadedBy   User?        @relation(fields: [uploadedById], references: [id])
+  profilePhotoFor User?     @relation("UserProfilePhoto")
   createdAt    DateTime     @default(now())
   testshootPhotos TestshootPhoto[]
+}
+
+/// Admin markeert favoriet-model (zoals WP `favs` usermeta).
+model ModelAdminFavorite {
+  id          String   @id @default(uuid())
+  adminUserId String
+  modelUserId String
+  admin       User     @relation("AdminModelFav", fields: [adminUserId], references: [id], onDelete: Cascade)
+  model       User     @relation("ModelFavoritedBy", fields: [modelUserId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([adminUserId, modelUserId])
 }
 
 /// Testshoot-galerij per “slot” (zoals WP Code Snippet): backstage-foto’s + feedback vóór download.
@@ -251,7 +285,80 @@ model PushCampaign {
   audience    Json
   scheduledFor DateTime?
   sentAt      DateTime?
+  /// Backoffice-gebruiker die verstuurde (optioneel).
+  sentByUserId String?
+  sentBy       User?    @relation("PushCampaignAuthor", fields: [sentByUserId], references: [id], onDelete: SetNull)
+  /// Doellijst (als `audience.kind` = `custom_list`).
+  recipientListId String?
+  recipientList   PushRecipientList? @relation(fields: [recipientListId], references: [id], onDelete: SetNull)
+  deliveries ModelPushInbox[]
   createdAt   DateTime  @default(now())
+}
+
+/// Web Push (VAPID) — één browser/app per endpoint.
+model WebPushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// Model: push bij historiek + push bij bureau-broadcasts (onafhankelijk aan/uit).
+model ModelPushSettings {
+  userId                 String   @id
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Push + inbox bij gebeurtenissen die ook in Historiek verschijnen.
+  notifyHistoryEvents    Boolean  @default(true)
+  /// Push + inbox bij berichten vanuit de backsite.
+  notifyAgencyBroadcasts Boolean  @default(true)
+  updatedAt              DateTime @updatedAt
+}
+
+/// Inbox in het modellenportaal (tab Pushberichten).
+model ModelPushInbox {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  body       String   @db.Text
+  /// `history` | `agency`
+  source     String
+  meta       Json?
+  readAt     DateTime?
+  campaignId String?
+  campaign   PushCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+/// Door beheerder beheerde lijsten voor gerichte push.
+model PushRecipientList {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  createdById String?
+  createdBy   User?    @relation("PushListCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  members     PushRecipientListMember[]
+  campaigns   PushCampaign[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PushRecipientListMember {
+  listId    String
+  list      PushRecipientList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([listId, userId])
 }
 
 model MollieSettings {

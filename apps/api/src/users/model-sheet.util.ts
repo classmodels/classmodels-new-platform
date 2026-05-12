@@ -52,6 +52,43 @@ function clipStr(v: unknown, max: number): string | null {
   return s.slice(0, max);
 }
 
+const TIMELINE_ENTRY_TEXT_MAX = 8000;
+const TIMELINE_MAX_ENTRIES = 300;
+
+function clipTimelineText(v: unknown, max: number): string {
+  if (v == null) return '';
+  const s = typeof v === 'string' ? v : String(v);
+  return s.slice(0, max).trim();
+}
+
+function parseAtOrNow(atRaw: unknown): string {
+  if (typeof atRaw !== 'string' || atRaw.length < 10) return new Date().toISOString();
+  const t = Date.parse(atRaw);
+  return Number.isNaN(t) ? new Date().toISOString() : new Date(t).toISOString();
+}
+
+/** Admin-opmerkingen op modellenfiche-JSON; alleen dit veld wordt hier verwerkt. */
+export function sanitizeAdminTimeline(
+  v: unknown,
+): Array<{ id: string; at: string; text: string }> | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: { id: string; at: string; text: string }[] = [];
+  for (const item of v.slice(-TIMELINE_MAX_ENTRIES)) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const o = item as Record<string, unknown>;
+    const idRaw = o.id;
+    const id =
+      typeof idRaw === 'string' && idRaw.length > 0 && idRaw.length <= 80
+        ? idRaw
+        : `${Date.now()}-${out.length}-${Math.random().toString(36).slice(2, 9)}`;
+    const at = parseAtOrNow(o.at);
+    const text = clipTimelineText(o.text, TIMELINE_ENTRY_TEXT_MAX);
+    if (!text) continue;
+    out.push({ id, at, text });
+  }
+  return out;
+}
+
 /** Voegt alleen toegestane sleutels uit `patch` toe; bestaande JSON blijft behouden. */
 export function sanitizeModelSheetMerge(
   existing: Prisma.JsonValue | null | undefined,
@@ -75,6 +112,9 @@ export function sanitizeModelSheetMerge(
       } else if (k === 'geslacht') {
         base[k] = arr.filter((x) => x === 'man' || x === 'vrouw');
       }
+    } else if (k === 'adminTimeline') {
+      const st = sanitizeAdminTimeline(v);
+      if (st !== undefined) base[k] = st;
     }
   }
 

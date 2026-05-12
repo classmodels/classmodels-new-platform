@@ -50,3 +50,23 @@ DATABASE_URL="postgresql://..." npx ts-node --compiler-options '{"module":"Commo
 4. **`--apply` vlag** voor echte import na goedgekeurde dry-run (met transacties per batch).
 
 Tot die tijd: gebruik deze CLI alleen voor **inventarisatie** en audit trail in PostgreSQL.
+
+## Modellen uit oude WordPress (registratie-modellen, `cm_*` usermeta)
+
+De oude plugin `registratie-modellen.php` bewaart fichevelden als **user meta** (`cm_voornaam`, `cm_gemeente`, …). Dat zit **niet** in een standaard WXR-export. Daarvoor:
+
+1. **Op de WordPress-server** (map met `wp-load.php`): kopieer `scripts/wp-export-class-models.php` uit deze monorepo naast `wp-load.php` en run:
+   ```bash
+   php wp-export-class-models.php > wp-models-export.json
+   ```
+2. **Zet `wp-models-export.json`** op je machine waar Postgres draait.
+3. **Dry-run** (geen schrijven, enkel console-overzicht):
+   ```bash
+   npm run wp:import-models -- --file=/pad/wp-models-export.json --dry-run
+   ```
+4. **Import** (maakt ontbrekende gebruikers aan met rol `model`, vult/werkt `modelSheet` bij; bestaand e-mail = update fiche + rol `model` toevoegen indien nodig):
+   ```bash
+   npm run wp:import-models -- --file=/pad/wp-models-export.json --apply --temp-password='Minstens10Tekens!'
+   ```
+
+**Foto’s** (`cm_hoofdfoto`, `cm_galerijfotos`, attachment-ID’s) worden in deze stap **niet** gekopieerd naar `MediaAsset`; dat is een aparte stap (uploads-map + mapping). Na import zie je de modellen wel onder **Admin → Modellen** met de geïmporteerde fichevelden.

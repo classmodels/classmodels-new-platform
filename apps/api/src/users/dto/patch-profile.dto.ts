@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class PatchProfileDto {
   @IsOptional()
@@ -30,4 +30,9 @@ export class PatchProfileDto {
   @IsOptional()
   @IsObject()
   modelSheet?: Record<string, unknown>;
+
+  /** Hoofdportret: moet een MediaAsset zijn geüpload door dit account (map Modellen). */
+  @IsOptional()
+  @IsUUID()
+  profilePhotoAssetId?: string | null;
 }

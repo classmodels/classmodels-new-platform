@@ -6,6 +6,7 @@ import { getApiBase } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { EntryAuthPanel, type EntryAuthTab } from '@/components/entry-auth-panel';
 import { MODELLEN_HOME_NAV, type HomeContentCard, type HomeNavSection } from '@/components/modellen-home-nav';
+import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
 
 type ApiMenuBlock = {
   id: string;
@@ -87,7 +88,7 @@ export function ModellenHomePage() {
   const [apiLeftMenus, setApiLeftMenus] = useState<ApiMenuBlock[]>([]);
 
   const nav = MODELLEN_HOME_NAV;
-  const [sectionId, setSectionId] = useState<string>(nav[0]?.id ?? 'model-worden');
+  const [sectionId, setSectionId] = useState<string>(nav[0]?.id ?? 'rooster');
   const section = useMemo(
     () => nav.find((s) => s.id === sectionId) ?? nav[0],
     [nav, sectionId],
@@ -283,12 +284,14 @@ export function ModellenHomePage() {
             </div>
 
             <div className="p-4 md:p-6">
-              {section?.kind === 'auth' ? (
+              {section?.kind === 'catalog' ? (
+                <ModelsCatalogGrid />
+              ) : section?.kind === 'auth' ? (
                 <EntryAuthPanel activeTab={authTab} hidePortalTabs />
               ) : (
                 <ContentStack cards={cards} />
               )}
-              {section?.kind !== 'auth' ? <TrustStrip /> : null}
+              {section?.kind !== 'auth' && section?.kind !== 'catalog' ? <TrustStrip /> : null}
             </div>
           </div>
         </div>

@@ -12,6 +12,14 @@ import {
 import { apiFetch, getApiBase } from '@/lib/api';
 import { getStoredToken, setStoredToken } from '@/lib/storage';
 
+export type ModelPushSummary = {
+  unreadCount: number;
+  notifyHistoryEvents: boolean;
+  notifyAgencyBroadcasts: boolean;
+  webPushConfigured: boolean;
+  vapidPublicKey: string | null;
+};
+
 export type AuthUser = {
   id: string;
   email: string;
@@ -23,9 +31,17 @@ export type AuthUser = {
   defaultPortal?: string | null;
   /** Modellenfiche (WP cm_* velden in camelCase), server: Json */
   modelSheet?: Record<string, unknown> | null;
+  /** Publieke media-sleutel voor hoofdportret (rooster + profiel). */
+  profileThumbKey?: string | null;
+  /** MediaAsset-id van de hoofdfoto (map Modellen), exclusief in galerij-pijlen. */
+  profilePhotoAssetId?: string | null;
+  /** ISO string, laatste wachtwoord-login (API). */
+  lastLoginAt?: string | null;
   roles: string[];
   isPremium: boolean;
   permissions: string[];
+  /** Samenvatting push (alleen na /users/me). */
+  push?: ModelPushSummary | null;
 };
 
 type AuthState = {
@@ -48,7 +64,7 @@ type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (input: RegisterInput) => Promise<AuthUser>;
   logout: () => void;
-  refreshMe: () => Promise<void>;
+  refreshMe: (tokenOverride?: string | null) => Promise<AuthUser | null>;
   /** Heeft minstens één `admin.*` permissie of `*`. */
   hasBackofficeAccess: boolean;
   /** Mag /admin-layout openen (incl. alleen content-schrijfrechten). */
@@ -70,14 +86,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const tok = t ?? token;
     if (!tok) {
       setUser(null);
-      return;
+      return null;
     }
     const me = await apiFetch<AuthUser>('/users/me', { token: tok });
-    setUser({
+    const u = {
       ...me,
       permissions: me.permissions ?? [],
       roles: me.roles ?? [],
-    });
+    };
+    setUser(u);
+    return u;
   }, [token]);
 
   useEffect(() => {
@@ -96,37 +114,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, [refreshMe]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await apiFetch<{ access_token: string; user: AuthUser }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    setStoredToken(res.access_token);
-    setToken(res.access_token);
-    const u = {
-      ...res.user,
-      permissions: res.user.permissions ?? [],
-      roles: res.user.roles ?? [],
-    };
-    setUser(u);
-    return u;
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await apiFetch<{ access_token: string; user: AuthUser }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      setStoredToken(res.access_token);
+      setToken(res.access_token);
+      const u = await refreshMe(res.access_token);
+      if (!u) throw new Error('Sessie kon niet worden geladen.');
+      return u;
+    },
+    [refreshMe],
+  );
 
-  const register = useCallback(async (input: RegisterInput) => {
-    const res = await apiFetch<{ access_token: string; user: AuthUser }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    });
-    setStoredToken(res.access_token);
-    setToken(res.access_token);
-    const u = {
-      ...res.user,
-      permissions: res.user.permissions ?? [],
-      roles: res.user.roles ?? [],
-    };
-    setUser(u);
-    return u;
-  }, []);
+  const register = useCallback(
+    async (input: RegisterInput) => {
+      const res = await apiFetch<{ access_token: string; user: AuthUser }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      setStoredToken(res.access_token);
+      setToken(res.access_token);
+      const u = await refreshMe(res.access_token);
+      if (!u) throw new Error('Sessie kon niet worden geladen.');
+      return u;
+    },
+    [refreshMe],
+  );
 
   const logout = useCallback(() => {
     setStoredToken(null);
@@ -166,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
-      refreshMe: () => refreshMe(),
+      refreshMe: (override?: string | null) => refreshMe(override),
       hasBackofficeAccess,
       canAccessAdminShell,
       can,

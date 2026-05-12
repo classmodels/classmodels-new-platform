@@ -20,8 +20,6 @@ export function hasEveryPermission(granted: string[], required: string[]): boole
 export function premiumEffective(user: {
   isPremium: boolean;
   premiumUntil: Date | null;
-  premiumOverride: boolean;
 }): boolean {
-  if (user.premiumOverride) return user.isPremium;
   return user.isPremium && (!user.premiumUntil || user.premiumUntil > new Date());
 }

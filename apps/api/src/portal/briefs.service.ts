@@ -1,10 +1,14 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { BriefStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ModelPortalHistoryService } from './model-portal-history.service';
 
 @Injectable()
 export class BriefsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private modelHistory: ModelPortalHistoryService,
+  ) {}
 
   listForClient(clientId: string) {
     return this.prisma.clientBrief.findMany({
@@ -263,11 +267,17 @@ export class BriefsService {
       where: { id: briefId, status: 'open' },
     });
     if (!brief) throw new NotFoundException();
-    return this.prisma.modelBriefResponse.upsert({
+    const row = await this.prisma.modelBriefResponse.upsert({
       where: { briefId_modelUserId: { briefId, modelUserId } },
       create: { briefId, modelUserId, message, status: 'submitted' },
       update: { message, status: 'submitted' },
     });
+    void this.modelHistory.log(modelUserId, 'brief_interest_submitted', {
+      briefId,
+      briefTitle: brief.title,
+      messageChars: message.length,
+    });
+    return row;
   }
 
   async withdrawResponse(briefId: string, modelUserId: string) {
@@ -275,10 +285,19 @@ export class BriefsService {
       where: { briefId_modelUserId: { briefId, modelUserId } },
     });
     if (!r) throw new NotFoundException();
-    return this.prisma.modelBriefResponse.update({
+    const brief = await this.prisma.clientBrief.findUnique({
+      where: { id: briefId },
+      select: { title: true },
+    });
+    const row = await this.prisma.modelBriefResponse.update({
       where: { id: r.id },
       data: { status: 'withdrawn' },
     });
+    void this.modelHistory.log(modelUserId, 'brief_interest_withdrawn', {
+      briefId,
+      briefTitle: brief?.title ?? '',
+    });
+    return row;
   }
 
   adminList() {
