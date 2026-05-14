@@ -5,7 +5,10 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "node ../../node_modules/typescript/lib/tsc.js -p tsconfig.json",
-    "dev": "node ../../node_modules/typescript/lib/tsc.js -p tsconfig.json --watch"
+    "build": "node build.cjs",
+    "dev": "node build.cjs --watch"
+  },
+  "dependencies": {
+    "typescript": "^5.6.3"
   }
 }
