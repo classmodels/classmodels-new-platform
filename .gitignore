@@ -1,5 +1,6 @@
 node_modules
-dist
+# Nest-output; niet globaal "dist" — packages/shared/dist wordt wél gecommit (Combell).
+apps/api/dist
 .next
 .turbo
 .env
