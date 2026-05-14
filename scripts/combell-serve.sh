@@ -10,6 +10,9 @@ case "${SERVE_APP:-web}" in
     exec npm run start -w @cm/api
     ;;
   *)
+    if [ "${COMBELL_HOST_ROUTER:-}" = "1" ]; then
+      exec node "$ROOT/scripts/combell-dual-proxy.cjs"
+    fi
     exec npm run start -w @cm/web
     ;;
 esac
