@@ -1,19 +1,37 @@
 'use strict';
 /**
- * Combell: `next` staat niet in PATH. Gebruik altijd de Next-installatie uit
- * de monorepo-node_modules (geen `npx next` — dat breekt webpack-resolve).
+ * Next starten zonder `next` in PATH. Zoekt `next` met fs over alle
+ * bovenliggende `node_modules` (robuuster dan require.resolve op Combell).
  */
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const cwd = __dirname;
+const cwd = fs.realpathSync(__dirname);
 
-/** Alle `…/node_modules` vanaf apps/web omhoog tot monorepo-root (voor resolve + NODE_PATH). */
+function tryNextBin(nextRoot) {
+  const bin = path.join(nextRoot, 'dist', 'bin', 'next');
+  const app = path.join(nextRoot, 'dist', 'pages', '_app.js');
+  if (fs.existsSync(bin) && fs.existsSync(app)) return bin;
+  return null;
+}
+
+function findNextBin() {
+  let dir = cwd;
+  for (let i = 0; i < 24; i++) {
+    const hit = tryNextBin(path.join(dir, 'node_modules', 'next'));
+    if (hit) return hit;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
 function ancestorNodeModulesRoots() {
   const roots = [];
   let dir = cwd;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 24; i++) {
     roots.push(path.join(dir, 'node_modules'));
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -22,27 +40,35 @@ function ancestorNodeModulesRoots() {
   return roots;
 }
 
-function resolveNextBin() {
-  const roots = [cwd, path.resolve(cwd, '..'), path.resolve(cwd, '../..')];
-  for (const root of roots) {
-    try {
-      const pkgJson = require.resolve('next/package.json', { paths: [root] });
-      const nextRoot = path.dirname(pkgJson);
-      const bin = path.join(nextRoot, 'dist', 'bin', 'next');
-      const appEntry = path.join(nextRoot, 'dist', 'pages', '_app.js');
-      if (fs.existsSync(bin) && fs.existsSync(appEntry)) return bin;
-    } catch (_) {
-      /* volgende root */
+function logDiagnostics() {
+  console.error('--- diagnose (next niet gevonden) ---');
+  console.error('cwd (realpath):', cwd);
+  let dir = cwd;
+  for (let i = 0; i < 8; i++) {
+    const nm = path.join(dir, 'node_modules');
+    const exists = fs.existsSync(nm);
+    let sample = '';
+    if (exists) {
+      try {
+        sample = fs.readdirSync(nm).slice(0, 40).join(', ');
+      } catch (e) {
+        sample = '(lezen mislukt)';
+      }
     }
+    console.error(`  [${i}] ${nm} → ${exists ? 'JA' : 'NEE'}${exists ? ` o.a.: ${sample}` : ''}`);
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
   }
-  return null;
+  console.error('--- einde diagnose ---');
 }
 
-const nextBin = resolveNextBin();
+const nextBin = findNextBin();
 if (!nextBin) {
   console.error(
-    'Kan `next` niet vinden in node_modules (gezocht via package.json omhoog). Monorepo-root moet `npm ci` draaien.',
+    'Kan `next` niet vinden onder een node_modules-map boven apps/web.',
   );
+  logDiagnostics();
   process.exit(1);
 }
 

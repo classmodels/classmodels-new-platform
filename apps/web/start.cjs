@@ -3,12 +3,31 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const cwd = __dirname;
+const cwd = fs.realpathSync(__dirname);
+
+function tryNextBin(nextRoot) {
+  const bin = path.join(nextRoot, 'dist', 'bin', 'next');
+  const app = path.join(nextRoot, 'dist', 'pages', '_app.js');
+  if (fs.existsSync(bin) && fs.existsSync(app)) return bin;
+  return null;
+}
+
+function findNextBin() {
+  let dir = cwd;
+  for (let i = 0; i < 24; i++) {
+    const hit = tryNextBin(path.join(dir, 'node_modules', 'next'));
+    if (hit) return hit;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
 
 function ancestorNodeModulesRoots() {
   const roots = [];
   let dir = cwd;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 24; i++) {
     roots.push(path.join(dir, 'node_modules'));
     const parent = path.dirname(dir);
     if (parent === dir) break;
@@ -17,23 +36,9 @@ function ancestorNodeModulesRoots() {
   return roots;
 }
 
-function resolveNextBin() {
-  const roots = [cwd, path.resolve(cwd, '..'), path.resolve(cwd, '../..')];
-  for (const root of roots) {
-    try {
-      const pkgJson = require.resolve('next/package.json', { paths: [root] });
-      const nextRoot = path.dirname(pkgJson);
-      const bin = path.join(nextRoot, 'dist', 'bin', 'next');
-      const appEntry = path.join(nextRoot, 'dist', 'pages', '_app.js');
-      if (fs.existsSync(bin) && fs.existsSync(appEntry)) return bin;
-    } catch (_) {}
-  }
-  return null;
-}
-
-const nextBin = resolveNextBin();
+const nextBin = findNextBin();
 if (!nextBin) {
-  console.error('Kan `next` niet vinden in node_modules.');
+  console.error('Kan `next` niet vinden.');
   process.exit(1);
 }
 
