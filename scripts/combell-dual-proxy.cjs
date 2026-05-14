@@ -86,10 +86,13 @@ async function bootBackends() {
   spawnChild('nest', 'npm', ['run', 'start', '-w', '@cm/api'], {
     API_HOST: '127.0.0.1',
     API_PORT: String(nestPort),
+    /** Anders start apps/web/start.cjs opnieuw een proxy (zelfde env als parent). */
+    COMBELL_HOST_ROUTER: '0',
   });
 
   spawnChild('next', 'npm', ['run', 'start', '-w', '@cm/web'], {
     PORT: String(webPort),
+    COMBELL_HOST_ROUTER: '0',
   });
 
   try {
