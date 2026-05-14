@@ -1,6 +1,10 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  GUEST_MODEL_PORTAL_PREVIEW_USER,
+  isGuestModelPortalPreviewEnabled,
+} from '@/lib/guest-model-portal-preview';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { CmText } from '@/components/CmText';
@@ -155,6 +159,12 @@ export default function ModelPortalPage() {
 
 function ModelPortalPageInner() {
   const { user, loading, token, refreshMe, can } = useAuth();
+  const guestPreview = isGuestModelPortalPreviewEnabled();
+  const portalUser = useMemo(() => {
+    if (user) return user;
+    if (guestPreview && !loading) return GUEST_MODEL_PORTAL_PREVIEW_USER;
+    return null;
+  }, [user, guestPreview, loading]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -201,14 +211,17 @@ function ModelPortalPageInner() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) router.replace('/');
-    else if (
+    if (!user) {
+      if (!guestPreview) router.replace('/');
+      return;
+    }
+    if (
       !user.roles.includes('model') &&
       !user.permissions?.includes('*') &&
       !user.permissions?.some((x) => x.startsWith('admin.'))
     )
       router.replace('/');
-  }, [user, loading, router]);
+  }, [user, loading, router, guestPreview]);
 
   useEffect(() => {
     if (tab !== 'profiel') setProfileEditing(false);
@@ -417,8 +430,8 @@ function ModelPortalPageInner() {
   }, [briefs, briefFilter, myId]);
 
   const sendMessageMailto = async () => {
-    const name = [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Model';
-    const footer = `\n\n---\nNaam: ${name}\nE-mail: ${user?.email ?? ''}\nGSM: ${user?.phone ?? '—'}\nProfiel: ${typeof window !== 'undefined' ? window.location.origin : ''}/portal/model?tab=profiel`;
+    const name = [portalUser?.firstName, portalUser?.lastName].filter(Boolean).join(' ') || 'Model';
+    const footer = `\n\n---\nNaam: ${name}\nE-mail: ${portalUser?.email ?? ''}\nGSM: ${portalUser?.phone ?? '—'}\nProfiel: ${typeof window !== 'undefined' ? window.location.origin : ''}/portal/model?tab=profiel`;
     const subj = messageSubject.trim() || 'Bericht Class-Models (model)';
     const body = (messageBody.trim() || '') + footer;
     if (token) {
@@ -438,13 +451,13 @@ function ModelPortalPageInner() {
     window.location.href = `mailto:${GUEST_CONTACT_INFO.email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
   };
 
-  if (loading || !user) return <div className="p-8 text-sm text-muted">Laden…</div>;
+  if (loading || !portalUser) return <div className="p-8 text-sm text-muted">Laden…</div>;
 
   const premiumReturn = searchParams.get('premium') === 'return';
-  const firstName = user.firstName?.trim() || '';
+  const firstName = portalUser.firstName?.trim() || '';
 
   const premiumButton =
-    can('payments.checkout') && !user.isPremium ? (
+    can('payments.checkout') && !portalUser.isPremium ? (
       <Link
         href="/portal/model?tab=premium"
         className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-amber-200 via-amber-300 to-amber-400 px-5 py-2.5 text-sm font-bold tracking-wide text-zinc-900 shadow-md hover:opacity-95"
@@ -458,11 +471,11 @@ function ModelPortalPageInner() {
   let main: ReactNode = null;
 
   if (tab === 'home') {
-    main = <ModelPortalHomeContent userEmail={user.email} premiumReturn={premiumReturn} />;
+    main = <ModelPortalHomeContent userEmail={portalUser.email} premiumReturn={premiumReturn} />;
   } else if (tab === 'premium') {
     main = (
       <ModelPremiumTab
-        user={user}
+        user={portalUser}
         premiumInfo={premiumInfo}
         checkoutBusy={checkoutBusy}
         checkoutErr={checkoutErr}
@@ -498,7 +511,7 @@ function ModelPortalPageInner() {
     );
     main = (
       <div className="space-y-4">
-        {!user.isPremium ? (
+        {!portalUser.isPremium ? (
           <div className="rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
             <strong>Tip:</strong> met{' '}
             <Link href="/portal/model?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
@@ -703,7 +716,15 @@ function ModelPortalPageInner() {
     );
   } else if (tab === 'profiel') {
     if (!token) {
-      main = <p className="text-sm text-muted">Laden…</p>;
+      main =
+        guestPreview && !user ? (
+          <p className="text-sm leading-relaxed text-muted">
+            In de voorbeeldmodus zonder account is je modellenfiche niet beschikbaar. Log in om gegevens en foto’s te
+            beheren.
+          </p>
+        ) : (
+          <p className="text-sm text-muted">Laden…</p>
+        );
     } else {
       sectionHeaderRight = (
         <button
@@ -727,7 +748,7 @@ function ModelPortalPageInner() {
             </p>
           ) : null}
           <ModelPortalProfile
-          user={user}
+          user={portalUser}
           token={token}
           refreshMe={refreshMe}
           editing={profileEditing}
@@ -744,7 +765,7 @@ function ModelPortalPageInner() {
                 <CmText contentKey="portal.model.premium.intro" as="p" className="mt-2 text-xs leading-relaxed text-muted" />
                 <p className="mt-2 text-xs text-muted">
                   Status:{' '}
-                  <strong className="text-ink">{user.isPremium ? 'Premium actief' : 'Geen premium'}</strong>
+                  <strong className="text-ink">{portalUser.isPremium ? 'Premium actief' : 'Geen premium'}</strong>
                   {premiumInfo ? (
                     <>
                       {' '}
@@ -755,11 +776,11 @@ function ModelPortalPageInner() {
                 {checkoutErr ? <p className="mt-2 text-xs text-red-700">{checkoutErr}</p> : null}
                 <button
                   type="button"
-                  disabled={checkoutBusy || user.isPremium}
+                  disabled={checkoutBusy || portalUser.isPremium}
                   onClick={() => startPremium()}
                   className="mt-3 rounded-cm bg-burgundy px-3 py-2 text-xs font-medium text-white hover:bg-burgundyDeep disabled:opacity-50"
                 >
-                  {checkoutBusy ? 'Bezig…' : user.isPremium ? 'Premium actief' : 'Premium afrekenen (Mollie)'}
+                  {checkoutBusy ? 'Bezig…' : portalUser.isPremium ? 'Premium actief' : 'Premium afrekenen (Mollie)'}
                 </button>
                 <p className="mt-3 text-xs">
                   <Link href="/portal/model?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
@@ -796,7 +817,7 @@ function ModelPortalPageInner() {
     main = (
       <ModelPortalHistoriekTab
         token={token}
-        lastLoginAt={user.lastLoginAt ?? null}
+        lastLoginAt={portalUser.lastLoginAt ?? null}
         onHeaderExtras={setHistoriekHeaderSlot}
       />
     );
@@ -809,7 +830,7 @@ function ModelPortalPageInner() {
     );
   } else if (tab === 'push') {
     sectionTitle = 'Pushberichten';
-    if (!user.isPremium) {
+    if (!portalUser.isPremium) {
       main = (
         <div className="mx-auto max-w-lg rounded-2xl border border-zinc-200 bg-white px-6 py-10 text-center shadow-sm">
           <h2 className="font-serif text-xl font-semibold text-ink">Pushberichten zijn premium</h2>
@@ -832,7 +853,7 @@ function ModelPortalPageInner() {
           refreshMe={refreshMe}
           canRead={can('portal.model.push.read')}
           canSubscribe={can('portal.model.push.subscribe')}
-          pushSummary={user.push}
+          pushSummary={portalUser.push}
           onTitleBar={setPushTitleSlot}
         />
       );
@@ -861,16 +882,16 @@ function ModelPortalPageInner() {
             <div>
               <dt className="text-muted">Naam</dt>
               <dd className="font-medium text-ink">
-                {[user.firstName, user.lastName].filter(Boolean).join(' ') || '—'}
+                {[portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ') || '—'}
               </dd>
             </div>
             <div>
               <dt className="text-muted">E-mail</dt>
-              <dd className="font-medium text-ink">{user.email}</dd>
+              <dd className="font-medium text-ink">{portalUser.email}</dd>
             </div>
             <div>
               <dt className="text-muted">GSM</dt>
-              <dd className="font-medium text-ink">{user.phone || '—'}</dd>
+              <dd className="font-medium text-ink">{portalUser.phone || '—'}</dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-muted">Profiel model</dt>
@@ -892,7 +913,7 @@ function ModelPortalPageInner() {
   }
 
   const pushRead = can('portal.model.push.read');
-  const pushToolbar = pushRead && user.isPremium;
+  const pushToolbar = pushRead && portalUser.isPremium;
 
   return (
     <ModelPortalShell
@@ -904,10 +925,17 @@ function ModelPortalPageInner() {
       sectionHeaderRight={tab === 'push' && pushToolbar ? undefined : sectionHeaderRight}
       sectionTitleBarClassName={tab === 'push' && pushToolbar ? '!h-auto min-h-[44px] py-2' : undefined}
       sectionTitleBarInnerClassName={undefined}
-      pushUnreadCount={user.push?.unreadCount ?? 0}
+      pushUnreadCount={portalUser.push?.unreadCount ?? 0}
       userFirstName={firstName}
       premiumButton={premiumButton}
     >
+      {guestPreview && !user ? (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
+          <strong>Voorbeeld zonder account.</strong> Je ziet de opbouw van het modellenportaal. Onder tab{' '}
+          <strong>Modellen</strong> laadt het rooster via de publieke catalogus (API). Voor opdrachten, je fiche en
+          uploads heb je een echte login nodig.
+        </div>
+      ) : null}
       {main}
       <div className="mt-8 border-t border-zinc-100 pt-4">
         <Link href="/" className="text-sm text-burgundy hover:underline">
