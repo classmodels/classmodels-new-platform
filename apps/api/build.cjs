@@ -1,21 +1,36 @@
 'use strict';
+/**
+ * Combell / npm workspaces: prisma en nest staan vaak in de **monorepo-root**
+ * `node_modules`, niet in `apps/api/node_modules`. `require.resolve` met alleen
+ * `paths: [__dirname]` zoekt daar niet — daarom expliciet omhoog lopen.
+ */
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 const cwd = __dirname;
-const resolveOpts = { paths: [cwd] };
 
-let prismaCli;
-let nestCli;
-try {
-  prismaCli = require.resolve('prisma/build/index.js', resolveOpts);
-} catch (e) {
-  console.error('Kan prisma niet vinden:', e.message);
+function findUp(relativePath) {
+  let dir = cwd;
+  for (let i = 0; i < 8; i++) {
+    const candidate = path.join(dir, 'node_modules', ...relativePath.split('/'));
+    if (fs.existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
+}
+
+const prismaCli = findUp('prisma/build/index.js');
+if (!prismaCli) {
+  console.error('Kan prisma niet vinden (gezocht vanaf apps/api omhoog in node_modules).');
   process.exit(1);
 }
-try {
-  nestCli = require.resolve('@nestjs/cli/bin/nest.js', resolveOpts);
-} catch (e) {
-  console.error('Kan nest CLI niet vinden:', e.message);
+
+const nestCli = findUp('@nestjs/cli/bin/nest.js');
+if (!nestCli) {
+  console.error('Kan nest CLI niet vinden (gezocht vanaf apps/api omhoog in node_modules).');
   process.exit(1);
 }
 
