@@ -3,7 +3,7 @@
 ## 1. Vereisten
 
 - Node.js 22+ en npm
-- Docker Desktop (aanbevolen voor Postgres)
+- Docker Desktop (aanbevolen voor MySQL)
 
 ## 2. Omgeving
 
@@ -14,7 +14,7 @@ cp .env.example .env
 
 Vul minstens in:
 
-- `DATABASE_URL` — standaard in `.env.example`: `postgresql://cmuser:cmpass@localhost:5433/classmodels?schema=public`
+- `DATABASE_URL` — standaard in `.env.example`: `mysql://cmuser:cmpass@127.0.0.1:3307/classmodels`
 - `JWT_SECRET` — lang willekeurig geheim (min. 32 tekens in productie)
 - `NEXT_PUBLIC_API_URL=http://localhost:4000`
 - `NEXT_PUBLIC_APP_URL=http://localhost:3000`
@@ -26,7 +26,7 @@ Vul minstens in:
 npm run docker:up
 ```
 
-Dit start PostgreSQL (poort **5433**) en Redis (**6380**), los van andere projecten op de standaard 5432.
+Dit start MySQL (poort **3307**) en Redis (**6380**), los van andere projecten op de standaard 3306.
 
 ## 4. Installatie en migratie
 

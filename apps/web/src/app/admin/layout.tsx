@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { ADMIN_MODULES } from '@/app/admin/admin-nav';
+import { AdminSidebarNav } from '@/app/admin/AdminSidebarNav';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { user, loading, canAccessAdminShell, can } = useAuth();
@@ -18,47 +18,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   if (loading || !user || !canAccessAdminShell) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-panel text-sm text-muted">
+      <div className="flex min-h-screen items-center justify-center bg-[#1e2329] text-sm text-zinc-300">
         Laden…
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-zinc-100 text-zinc-900">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-800 bg-ink text-white">
-        <div className="border-b border-white/10 px-4 py-4 text-sm font-semibold tracking-tight">
-          Class Models — backsite
+    <div className="flex min-h-screen bg-[#f0f0f1] text-zinc-900">
+      <aside className="flex w-[260px] shrink-0 flex-col border-r border-black/20 bg-[#1e2329] text-zinc-200 shadow-[2px_0_8px_rgba(0,0,0,0.12)]">
+        <div className="border-b border-white/[0.08] px-3 py-3.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-zinc-500">Class Models</p>
+          <p className="mt-0.5 text-sm font-semibold text-white">Backsite</p>
         </div>
-        <nav className="flex-1 overflow-y-auto py-2 text-[13px]">
-          {ADMIN_MODULES.filter((m) => {
-            if (!('permission' in m) || !m.permission) return true;
-            return can(m.permission);
-          }).map((m) => {
-            const href = `/admin/${m.slug}`;
-            const active =
-              pathname === href ||
-              (m.slug === 'dashboard' && (pathname === '/admin' || pathname === '/admin/dashboard')) ||
-              (m.slug === 'agenda' && pathname.startsWith('/admin/agenda')) ||
-              (m.slug === 'modellen-profielen' && pathname.startsWith('/admin/modellen-profielen')) ||
-              (m.slug === 'testshoot' && pathname.startsWith('/admin/testshoot')) ||
-              (m.slug === 'push-berichten' && pathname.startsWith('/admin/push-berichten')) ||
-              (m.slug === 'push-lijsten' && pathname.startsWith('/admin/push-lijsten'));
-            return (
-              <Link
-                key={m.slug}
-                href={href}
-                prefetch={false}
-                className={[
-                  'block px-4 py-2 hover:bg-white/10',
-                  active ? 'bg-white/10 text-white' : 'text-white/80',
-                ].join(' ')}
-              >
-                {m.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <AdminSidebarNav pathname={pathname} can={can} />
       </aside>
       <div className="min-w-0 flex-1 overflow-auto">
         <div className="mx-auto w-full max-w-page px-6 py-8">{children}</div>

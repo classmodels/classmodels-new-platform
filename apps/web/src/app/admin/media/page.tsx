@@ -24,13 +24,29 @@ type Folder = {
   slug: string;
   label: string;
   settings?: unknown;
+  /** Totaal in map (API); `assets` is alleen de huidige pagina. */
+  assetCount?: number;
   assets: MediaAssetRow[];
 };
 
+type MediaLibraryResponse = {
+  folders: Folder[];
+  folderId: string;
+  page: number;
+  pageSize: number;
+  totalAssets: number;
+  /** Som van `sizeBytes` van alle actieve assets (primaire bestanden; geen extra thumb/webp). */
+  totalAllBytes: number;
+};
+
+const ASSET_PAGE_SIZE = 72;
+
 function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
+  if (!Number.isFinite(n) || n < 0) return '—';
+  if (n < 1024) return `${Math.round(n)} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 function isVideo(m: string): boolean {
@@ -42,8 +58,11 @@ function isImage(m: string): boolean {
 }
 
 export default function AdminMediaPage() {
-  const { token } = useAuth();
+  const { token, can } = useAuth();
+  const canWriteMedia = can('admin.media.write');
   const [lib, setLib] = useState<Folder[]>([]);
+  const [totalAssets, setTotalAssets] = useState(0);
+  const [assetPage, setAssetPage] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const [fileLabel, setFileLabel] = useState('');
@@ -53,27 +72,43 @@ export default function AdminMediaPage() {
   const [copied, setCopied] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [moveTargetFolderId, setMoveTargetFolderId] = useState('');
   const [deleteDaysAfterDl, setDeleteDaysAfterDl] = useState('');
   const [folderWebpOnly, setFolderWebpOnly] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState('');
+  const [newFolderLabel, setNewFolderLabel] = useState('');
+  const [storagePanelOpen, setStoragePanelOpen] = useState(false);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const vidInputRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
-    if (!token) return;
-    setLib(await adminFetch<Folder[]>('/media/library', token));
-  }, [token]);
+  const [totalAllBytes, setTotalAllBytes] = useState(0);
+
+  const load = useCallback(
+    async (override?: { folderId?: string; page?: number }) => {
+      if (!token) return;
+      const fid = override?.folderId ?? selectedFolderId;
+      const pageNum = override?.page ?? assetPage;
+      const params = new URLSearchParams();
+      if (fid) params.set('folderId', fid);
+      params.set('page', String(pageNum));
+      params.set('pageSize', String(ASSET_PAGE_SIZE));
+      const res = await adminFetch<MediaLibraryResponse>(`/media/library?${params.toString()}`, token);
+      setLib(res.folders);
+      setTotalAssets(res.totalAssets);
+      setTotalAllBytes(typeof res.totalAllBytes === 'number' ? res.totalAllBytes : 0);
+      setAssetPage(res.page);
+      setSelectedFolderId(res.folderId);
+    },
+    [token, selectedFolderId, assetPage],
+  );
 
   useEffect(() => {
-    load().catch(() => setLib([]));
+    load().catch(() => {
+      setLib([]);
+      setTotalAssets(0);
+      setTotalAllBytes(0);
+    });
   }, [load]);
-
-  useEffect(() => {
-    if (!selectedFolderId && lib.length > 0) {
-      const models = lib.find((f) => f.slug === 'models');
-      setSelectedFolderId(models?.id ?? lib[0].id);
-    }
-  }, [lib, selectedFolderId]);
 
   const filteredFolders = useMemo(() => {
     const q = folderSearch.trim().toLowerCase();
@@ -92,7 +127,7 @@ export default function AdminMediaPage() {
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [selectedFolderId]);
+  }, [selectedFolderId, assetPage]);
 
   useEffect(() => {
     if (!activeFolder || activeFolder.slug === 'verwijderde') {
@@ -121,6 +156,10 @@ export default function AdminMediaPage() {
     return activeFolder.assets.filter((a) => a.originalName.toLowerCase().includes(q));
   }, [activeFolder, assetSearch]);
 
+  const totalPages = Math.max(1, Math.ceil(totalAssets / ASSET_PAGE_SIZE));
+  const rangeStart = totalAssets === 0 ? 0 : (assetPage - 1) * ASSET_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(assetPage * ASSET_PAGE_SIZE, totalAssets);
+
   const ensure = async () => {
     if (!token) return;
     try {
@@ -128,6 +167,23 @@ export default function AdminMediaPage() {
       await load();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Standaardmappen aanmaken mislukt. Controleer of je als admin bent ingelogd en de API draait.');
+    }
+  };
+
+  const createFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !canWriteMedia) return;
+    const label = newFolderLabel.trim();
+    if (!label) return;
+    try {
+      const created = await adminFetch<{ id: string }>('/media/folders', token, {
+        method: 'POST',
+        body: JSON.stringify({ label }),
+      });
+      setNewFolderLabel('');
+      await load({ folderId: created.id, page: 1 });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Map aanmaken mislukt.');
     }
   };
 
@@ -187,6 +243,26 @@ export default function AdminMediaPage() {
     });
     setSelectedIds(new Set());
     setBulkMode(false);
+    setDetail(null);
+    await load();
+  };
+
+  const moveSelectionToFolder = async () => {
+    if (!token || !moveTargetFolderId) return;
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    if (moveTargetFolderId === selectedFolderId) {
+      alert('Kies een andere map dan de huidige.');
+      return;
+    }
+    if (!confirm(`${ids.length} bestand(en) naar de gekozen map verplaatsen?`)) return;
+    await adminFetch('/media/assets/move-folder', token, {
+      method: 'POST',
+      body: JSON.stringify({ ids, folderId: moveTargetFolderId }),
+    });
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    setMoveTargetFolderId('');
     setDetail(null);
     await load();
   };
@@ -289,14 +365,43 @@ export default function AdminMediaPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-lg font-semibold text-ink">Mediatheek</h1>
-        <button
-          type="button"
-          onClick={ensure}
-          className="rounded border border-line bg-white px-2.5 py-1 text-xs hover:bg-panel"
-        >
-          Standaardmappen
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setStoragePanelOpen((o) => !o)}
+            className="rounded border border-line bg-white px-2.5 py-1 text-xs hover:bg-panel"
+          >
+            {storagePanelOpen ? 'Verberg totaal' : 'Totaal omvang'}
+          </button>
+          <button
+            type="button"
+            onClick={ensure}
+            className="rounded border border-line bg-white px-2.5 py-1 text-xs hover:bg-panel"
+          >
+            Standaardmappen
+          </button>
+        </div>
       </div>
+
+      {storagePanelOpen ? (
+        <div className="rounded-md border border-line bg-white px-3 py-2.5 text-xs text-ink shadow-sm">
+          <p>
+            <span className="font-semibold">Totaal geregistreerd (alle mappen):</span>{' '}
+            <span className="font-mono tabular-nums">{formatBytes(totalAllBytes)}</span>
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-muted">
+            Dit is de som van de bestandsgroottes in de database per media-item (primaire opslag). Afgeleide
+            miniaturen of WebP-kopieën op schijf tellen daar niet dubbel bij mee.
+          </p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="mt-2 rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-medium text-burgundy hover:bg-panel"
+          >
+            Vernieuwen
+          </button>
+        </div>
+      ) : null}
 
       <div className="flex min-h-[min(70vh,640px)] flex-1 gap-0 overflow-hidden rounded-md border border-line bg-white shadow-sm">
         {/* Linkerkolom: mappen */}
@@ -315,13 +420,14 @@ export default function AdminMediaPage() {
             <ul className="space-y-0.5">
               {filteredFolders.map((f) => {
                 const selected = f.id === selectedFolderId;
-                const count = f.assets.length;
+                const count = f.assetCount ?? f.assets.length;
                 return (
                   <li key={f.id}>
                     <button
                       type="button"
                       onClick={() => {
                         setSelectedFolderId(f.id);
+                        setAssetPage(1);
                         setAssetSearch('');
                       }}
                       className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition ${
@@ -344,6 +450,32 @@ export default function AdminMediaPage() {
               })}
             </ul>
           </nav>
+          {canWriteMedia ? (
+            <form
+              onSubmit={(e) => void createFolder(e)}
+              className="shrink-0 space-y-1.5 border-t border-line bg-white px-2 py-2"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Nieuwe map</p>
+              <input
+                type="text"
+                value={newFolderLabel}
+                onChange={(e) => setNewFolderLabel(e.target.value)}
+                maxLength={120}
+                placeholder="Naam (bv. Campagne 2026)"
+                className="w-full rounded border border-line bg-panel px-2 py-1 text-xs text-ink placeholder:text-muted"
+              />
+              <button
+                type="submit"
+                disabled={!newFolderLabel.trim()}
+                className="w-full rounded border border-burgundy bg-burgundy px-2 py-1 text-[11px] font-medium text-white hover:bg-burgundyDeep disabled:opacity-40"
+              >
+                Map aanmaken
+              </button>
+              <p className="text-[9px] leading-tight text-muted">
+                Technische map-slug wordt automatisch afgeleid en is uniek.
+              </p>
+            </form>
+          ) : null}
         </aside>
 
         {/* Rechterkolom: toolbar + compacte grid */}
@@ -402,6 +534,27 @@ export default function AdminMediaPage() {
             ) : (
               <p className="mt-1 text-[10px] text-muted">{folderHint}</p>
             )}
+            <p className="mt-1 flex flex-wrap items-center gap-1 text-[9px] text-muted">
+              <span>Snel naar map:</span>
+              {(['tijdelijke-uploads', 'site', 'models'] as const).map((slug) => {
+                const f = lib.find((x) => x.slug === slug);
+                if (!f) return null;
+                return (
+                  <button
+                    key={slug}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFolderId(f.id);
+                      setAssetPage(1);
+                      setAssetSearch('');
+                    }}
+                    className="rounded border border-line bg-white px-1.5 py-0.5 text-[9px] text-ink hover:bg-panel"
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </p>
             {settingsMsg ? <p className="mt-1 text-[10px] text-burgundy">{settingsMsg}</p> : null}
             {!isTrashFolder && activeFolder ? (
               <div className="mt-2 rounded border border-dashed border-line bg-panel/60 px-2 py-2 text-[10px] text-ink">
@@ -460,13 +613,19 @@ export default function AdminMediaPage() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <input
                 type="search"
-                placeholder="Zoek in deze map…"
+                placeholder="Zoek op deze pagina…"
                 value={assetSearch}
                 onChange={(e) => setAssetSearch(e.target.value)}
                 className="max-w-xs flex-1 rounded border border-line bg-panel px-2 py-1 text-xs text-ink placeholder:text-muted"
               />
               <span className="text-[10px] text-muted">
-                {filteredAssets.length} / {activeFolder?.assets.length ?? 0} getoond
+                {assetSearch.trim() ?
+                  `${filteredAssets.length} van ${activeFolder?.assets.length ?? 0} op deze pagina`
+                : totalAssets > 0 ?
+                  `${rangeStart}–${rangeEnd} van ${totalAssets}${
+                    totalPages > 1 ? ` · pagina ${assetPage} / ${totalPages}` : ''
+                  }`
+                : '0'}
               </span>
               <button
                 type="button"
@@ -500,6 +659,32 @@ export default function AdminMediaPage() {
                     Selectie naar Verwijderde ({selectedIds.size})
                   </button>
                 )
+              ) : null}
+              {bulkMode && selectedIds.size > 0 && !isTrashFolder ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={moveTargetFolderId}
+                    onChange={(e) => setMoveTargetFolderId(e.target.value)}
+                    className="max-w-[200px] rounded border border-line bg-white px-2 py-1 text-[10px] text-ink"
+                  >
+                    <option value="">Verplaats naar map…</option>
+                    {lib
+                      .filter((f) => f.id !== selectedFolderId && f.slug !== 'verwijderde')
+                      .map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.label}
+                        </option>
+                      ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={!moveTargetFolderId}
+                    onClick={() => void moveSelectionToFolder()}
+                    className="rounded border border-line bg-white px-2 py-1 text-[10px] font-medium text-ink hover:bg-panel disabled:opacity-40"
+                  >
+                    Verplaats selectie
+                  </button>
+                </div>
               ) : null}
               {isTrashFolder ? (
                 <button
@@ -555,12 +740,12 @@ export default function AdminMediaPage() {
                           <div
                             className={`pointer-events-none absolute right-1 top-1 z-10 flex h-7 w-7 items-center justify-center rounded-full border-2 text-[11px] font-bold shadow ${
                               selectedIds.has(a.id)
-                                ? 'border-burgundy bg-burgundy text-white opacity-100'
-                                : 'border-line bg-white/95 text-ink opacity-0 transition-opacity duration-150 group-hover:opacity-100'
+                                ? 'border-burgundy bg-burgundy text-white'
+                                : 'border-burgundy/40 bg-white/95 text-ink/50'
                             }`}
                             aria-hidden
                           >
-                            ✓
+                            {selectedIds.has(a.id) ? '✓' : ''}
                           </div>
                         ) : null}
                         <div className="relative aspect-square w-full bg-zinc-100">
@@ -594,6 +779,29 @@ export default function AdminMediaPage() {
                 })}
               </ul>
             )}
+            {totalPages > 1 ? (
+              <div className="flex flex-wrap items-center justify-center gap-2 border-t border-line bg-white px-2 py-2">
+                <button
+                  type="button"
+                  disabled={assetPage <= 1}
+                  onClick={() => setAssetPage((p) => Math.max(1, p - 1))}
+                  className="rounded border border-line bg-white px-2.5 py-1 text-[11px] text-ink hover:bg-panel disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Vorige
+                </button>
+                <span className="text-[11px] text-muted">
+                  Pagina {assetPage} van {totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={assetPage >= totalPages}
+                  onClick={() => setAssetPage((p) => Math.min(totalPages, p + 1))}
+                  className="rounded border border-line bg-white px-2.5 py-1 text-[11px] text-ink hover:bg-panel disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Volgende
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

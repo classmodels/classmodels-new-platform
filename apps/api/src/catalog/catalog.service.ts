@@ -151,7 +151,7 @@ export class CatalogService {
       },
     });
 
-    // Postgres ORDER BY is hoofdlettergevoelig; alleen kleine letters in voornaam komen dan ver
+    // DB ORDER BY is hoofdlettergevoelig; alleen kleine letters in voornaam komen dan ver
     // na namen met hoofdletter — waardoor een model "weg" lijkt tussen Aaa en Alexandra.
     rows.sort((a, b) => {
       const fa = (a.firstName ?? '').trim();

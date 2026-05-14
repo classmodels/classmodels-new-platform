@@ -31,4 +31,10 @@ body {
   .cm-red-titlebar-title {
     @apply min-w-0 text-sm font-semibold;
   }
+
+  /* Rond: globale `border-radius: 0` overschrijven voor push-tellers */
+  .push-pill-badge,
+  .push-menu-badge {
+    border-radius: 9999px !important;
+  }
 }

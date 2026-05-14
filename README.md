@@ -1,6 +1,6 @@
 # Class Models — nieuw platform (`classmodels-new-platform`)
 
-Onafhankelijk van WordPress: **Next.js** (frontend + PWA), **NestJS** (REST API), **PostgreSQL** (Prisma), eigen backoffice en portaalroutes. De bestaande live site wordt hier **niet** aangepast; dit project staat in een **aparte map** en is bedoeld voor test (`/testsite` of lokaal) vóór eventuele productie.
+Onafhankelijk van WordPress: **Next.js** (frontend + PWA), **NestJS** (REST API), **MySQL** (Prisma), eigen backoffice en portaalroutes. De bestaande live site wordt hier **niet** aangepast; dit project staat in een **aparte map** en is bedoeld voor test (`/testsite` of lokaal) vóór eventuele productie.
 
 ## Wat zit erin
 
@@ -9,14 +9,14 @@ Onafhankelijk van WordPress: **Next.js** (frontend + PWA), **NestJS** (REST API)
 | API (NestJS) | `apps/api` |
 | Web (Next.js 15) | `apps/web` |
 | Gedeelde tokens/types | `packages/shared` |
-| Postgres + Redis (dev) | `docker-compose.yml` |
-| DB-migraties | `apps/api/prisma/migrations/` (o.a. `20260509120000_init`, `20260510103000_subscription_user_fk`) |
+| MySQL + Redis (dev) | `docker-compose.yml` |
+| DB-migraties | `apps/api/prisma/migrations/` (baseline o.a. `20260513160000_init_mysql`) |
 | Docker images (optioneel) | `Dockerfile.api`, `Dockerfile.web` |
 
 ## Vereisten
 
 - Node.js 22+ en npm 10+
-- Docker Desktop (optioneel, voor Postgres/Redis)
+- Docker Desktop (optioneel, voor MySQL/Redis)
 
 ## Snelstart (lokaal)
 
@@ -28,7 +28,7 @@ Onafhankelijk van WordPress: **Next.js** (frontend + PWA), **NestJS** (REST API)
 
    Pas `DATABASE_URL`, `JWT_SECRET`, `NEXT_PUBLIC_API_URL` en `NEXT_PUBLIC_APP_URL` aan indien nodig.
 
-2. Start database (Postgres op poort **5433**, Redis op **6380**):
+2. Start database (MySQL op poort **3307**, Redis op **6380**):
 
    ```bash
    npm run docker:up
@@ -79,8 +79,8 @@ npm run build
 ## Hosting: shared vs VPS
 
 - **Alleen statische HTML** is hier **niet** voldoende: Next.js gebruikt een **Node-server** (SSR/API-routes in de toekomst), en de API is een aparte **Node**-proces.
-- Aanbevolen: **VPS** of managed Node-hosting + **PostgreSQL**, of **Docker** (zie Dockerfiles) achter een reverse proxy (Nginx/Caddy).
-- Klassieke **shared hosting zonder Node + Postgres** is ongeschikt voor deze stack.
+- Aanbevolen: **VPS** of managed Node-hosting + **MySQL** (of externe DB), of **Docker** (zie Dockerfiles) achter een reverse proxy (Nginx/Caddy).
+- Klassieke **shared hosting zonder Node** is ongeschikt voor deze stack; Node + MySQL (Combell) kan wel passen.
 
 ## Documentatie (stap-voor-stap)
 

@@ -238,6 +238,11 @@ async function main() {
   const roles: { slug: string; label: string; permissions: string[] }[] = [
     { slug: 'admin', label: 'Administrator', permissions: ['*'] },
     {
+      slug: 'fotograaf',
+      label: 'Fotograaf',
+      permissions: ['photographer.portfolio.upload'],
+    },
+    {
       slug: 'model',
       label: 'Model',
       permissions: [
@@ -357,6 +362,38 @@ async function main() {
       roles: { create: [{ role: { connect: { slug: 'client' } } }] },
     },
   });
+
+  await prisma.user.upsert({
+    where: { email: 'fotograaf@class-models.local' },
+    update: {
+      passwordHash: hash,
+      firstName: 'Fotograaf',
+      lastName: 'Demo',
+      defaultPortal: 'guest',
+      status: 'active',
+    },
+    create: {
+      email: 'fotograaf@class-models.local',
+      passwordHash: hash,
+      firstName: 'Fotograaf',
+      lastName: 'Demo',
+      defaultPortal: 'guest',
+      roles: { create: [{ role: { connect: { slug: 'fotograaf' } } }] },
+    },
+  });
+  const fotoUser = await prisma.user.findUnique({
+    where: { email: 'fotograaf@class-models.local' },
+    select: { id: true },
+  });
+  const fotoRoleRow = await prisma.role.findUnique({ where: { slug: 'fotograaf' } });
+  if (fotoUser && fotoRoleRow) {
+    const ur = await prisma.userRole.findUnique({
+      where: { userId_roleId: { userId: fotoUser.id, roleId: fotoRoleRow.id } },
+    });
+    if (!ur) {
+      await prisma.userRole.create({ data: { userId: fotoUser.id, roleId: fotoRoleRow.id } });
+    }
+  }
 
   await prisma.contentString.upsert({
     where: { key: 'home.hero.title' },
@@ -567,6 +604,9 @@ async function main() {
     ['reviews', 'Reviews'],
     ['models', 'Modellen'],
     ['testshoot', 'Testshoot'],
+    ['tijdelijke-uploads', 'Tijdelijke uploads'],
+    ['portfolio-fotograaf', 'Portfolio (fotograaf → model)'],
+    ['portfolio-divers', 'Portfolio (divers / geen model)'],
   ];
   for (const [slug, label] of folders) {
     await prisma.mediaFolder.upsert({
@@ -653,10 +693,11 @@ async function main() {
 
   await seedAgenda(prisma);
 
-  console.log('Seed OK. Demo login (alle drie wachtwoord): Demo123!');
+  console.log('Seed OK. Demo-login (allemaal wachtwoord): Demo123!');
   console.log('  admin@class-models.local');
   console.log('  model@class-models.local');
   console.log('  klant@class-models.local');
+  console.log('  fotograaf@class-models.local (portfolio-uploads)');
   console.log('Admin user id:', admin.id);
 }
 

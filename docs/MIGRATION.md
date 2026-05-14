@@ -27,7 +27,7 @@ Direct in `apps/api`:
 
 ```bash
 cd apps/api
-DATABASE_URL="postgresql://..." npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/migrate-wordpress.ts --file=export.xml --dry-run
+DATABASE_URL="mysql://..." npx ts-node --compiler-options '{"module":"CommonJS"}' scripts/migrate-wordpress.ts --file=export.xml --dry-run
 ```
 
 ### Wat wordt opgeslagen?
@@ -49,7 +49,7 @@ DATABASE_URL="postgresql://..." npx ts-node --compiler-options '{"module":"Commo
 3. **Media:** download uit `wp-content/uploads` of URLs uit attachments, schrijf naar `MediaAsset` + schijf.
 4. **`--apply` vlag** voor echte import na goedgekeurde dry-run (met transacties per batch).
 
-Tot die tijd: gebruik deze CLI alleen voor **inventarisatie** en audit trail in PostgreSQL.
+Tot die tijd: gebruik deze CLI alleen voor **inventarisatie** en audit trail in MySQL.
 
 ## Modellen uit oude WordPress (registratie-modellen, `cm_*` usermeta)
 
@@ -59,7 +59,7 @@ De oude plugin `registratie-modellen.php` bewaart fichevelden als **user meta** 
    ```bash
    php wp-export-class-models.php > wp-models-export.json
    ```
-2. **Zet `wp-models-export.json`** op je machine waar Postgres draait.
+2. **Zet `wp-models-export.json`** op je machine waar MySQL draait.
 3. **Dry-run** (geen schrijven, enkel console-overzicht):
    ```bash
    npm run wp:import-models -- --file=/pad/wp-models-export.json --dry-run
@@ -69,4 +69,11 @@ De oude plugin `registratie-modellen.php` bewaart fichevelden als **user meta** 
    npm run wp:import-models -- --file=/pad/wp-models-export.json --apply --temp-password='Minstens10Tekens!'
    ```
 
-**Foto’s** (`cm_hoofdfoto`, `cm_galerijfotos`, attachment-ID’s) worden in deze stap **niet** gekopieerd naar `MediaAsset`; dat is een aparte stap (uploads-map + mapping). Na import zie je de modellen wel onder **Admin → Modellen** met de geïmporteerde fichevelden.
+**Foto’s:** na de modellen-import (zelfde `wp-models-export.json` in de projectroot):
+
+```bash
+npm run wp:import-model-photos -- --file=wp-models-export.json --dry-run
+npm run wp:import-model-photos -- --file=wp-models-export.json --apply
+```
+
+Gebruik daarvoor een export gemaakt met de **actuele** `scripts/wp-export-class-models.php` uit deze repo: die JSON bevat `hoofdfotoUrl`/`profielfotoUrl` en per gebruiker `galerijfotos` met directe URL’s (nodig als de live-site geen `wp-json` voor media serveert). Zonder `galerijfotos` in de JSON kan alleen de hoofdfoto geïmporteerd worden.

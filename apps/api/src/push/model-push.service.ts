@@ -30,6 +30,13 @@ export class ModelPushService {
     return `${p}?tab=push`;
   }
 
+  private portalModelUrl(tab: string): string {
+    const basePath = this.config.get<string>('APP_PUBLIC_BASE_PATH')?.trim() || '';
+    const p = basePath ? `${basePath.replace(/\/$/, '')}/portal/model` : '/portal/model';
+    const q = tab === 'home' || !tab ? '' : `?tab=${encodeURIComponent(tab)}`;
+    return `${this.appBaseUrl()}${p}${q}`;
+  }
+
   async getSummaryForUser(userId: string) {
     /** Meldingen historiek + bureau altijd actief (geen uitschakelen door model). */
     await this.prisma.modelPushSettings.upsert({
@@ -50,7 +57,7 @@ export class ModelPushService {
   async emitFromHistory(userId: string, kind: string, meta?: Record<string, unknown>) {
     try {
       const { title, body } = historyKindToPushMessage(kind, meta);
-      const openUrl = `${this.appBaseUrl()}${this.pushOpenPath()}`;
+      const openUrl = this.portalModelUrl('push');
       await this.prisma.modelPushInbox.create({
         data: {
           userId,
@@ -223,6 +230,90 @@ export class ModelPushService {
     throw new BadRequestException(`Onbekend audience: ${kind}`);
   }
 
+  /** Push + inbox: opdracht waar het profiel voor in aanmerking komt (alleen die groep). */
+  async notifyBriefCastingEligible(userId: string, briefTitle: string, briefId: string) {
+    try {
+      const title = 'Opdracht — profiel in aanmerking';
+      const body = `${briefTitle}: je profiel past bij de criteria. Bekijk tab Opdrachten in je portaal.`;
+      const openUrl = this.portalModelUrl('opdrachten');
+      await this.prisma.modelPushInbox.create({
+        data: {
+          userId,
+          title,
+          body,
+          source: 'agency',
+          meta: { kind: 'brief_casting_eligible', briefId, briefTitle } as object,
+        },
+      });
+      const unread = await this.prisma.modelPushInbox.count({ where: { userId, readAt: null } });
+      await this.webPush.sendToUser(userId, {
+        title,
+        body,
+        url: openUrl,
+        badgeUnread: unread,
+      });
+    } catch (e) {
+      console.error('ModelPushService.notifyBriefCastingEligible', e);
+    }
+  }
+
+  /** Prototype: na contractgeneratie informeren model (geen bijlage — contact bureau). */
+  async notifyContractPrototype(userId: string, briefTitle: string) {
+    try {
+      const title = 'Contract (prototype)';
+      const body = `Er werd een overeenkomst voorbereid voor “${briefTitle}”. Neem contact op met Class-Models voor je exemplaar.`;
+      const openUrl = this.portalModelUrl('push');
+      await this.prisma.modelPushInbox.create({
+        data: {
+          userId,
+          title,
+          body,
+          source: 'agency',
+          meta: { kind: 'brief_contract_prototype', briefTitle } as object,
+        },
+      });
+      const unread = await this.prisma.modelPushInbox.count({ where: { userId, readAt: null } });
+      await this.webPush.sendToUser(userId, {
+        title,
+        body,
+        url: openUrl,
+        badgeUnread: unread,
+      });
+    } catch (e) {
+      console.error('ModelPushService.notifyContractPrototype', e);
+    }
+  }
+
+  /** Push vanuit admin (opdrachten); zonder campagne-id. */
+  async sendBriefAdminBroadcast(
+    userIds: string[],
+    title: string,
+    body: string,
+    meta?: Record<string, unknown>,
+  ) {
+    const openUrl = this.portalModelUrl('opdrachten');
+    const unique = [...new Set(userIds)];
+    for (const uid of unique) {
+      await this.prisma.modelPushInbox.create({
+        data: {
+          userId: uid,
+          title,
+          body,
+          source: 'agency',
+          campaignId: null,
+          meta: { kind: 'brief_admin_broadcast', ...(meta ?? {}) } as object,
+        },
+      });
+      const unread = await this.prisma.modelPushInbox.count({ where: { userId: uid, readAt: null } });
+      await this.webPush.sendToUser(uid, {
+        title,
+        body,
+        url: openUrl,
+        badgeUnread: unread,
+      });
+    }
+  }
+
   async deliverAgencyToUsers(params: {
     userIds: string[];
     title: string;
@@ -230,7 +321,7 @@ export class ModelPushService {
     campaignId: string;
     meta?: Record<string, unknown>;
   }) {
-    const openUrl = `${this.appBaseUrl()}${this.pushOpenPath()}`;
+    const openUrl = this.portalModelUrl('push');
     const unique = [...new Set(params.userIds)];
     for (const uid of unique) {
       await this.prisma.modelPushInbox.create({

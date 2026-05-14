@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { MODEL_PORTAL_TABS, type ModelPortalTabId } from '@/components/model-portal/model-portal-nav';
+import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { CmText } from '@/components/CmText';
 
 function ModelPortalHeroInner({
@@ -54,6 +55,8 @@ export function ModelPortalShell({
   activeTab,
   onTabChange,
   sectionTitle,
+  sectionTitleSlot,
+  replaceSectionTitleBar = false,
   sectionHeaderRight,
   sectionTitleBarClassName,
   sectionTitleBarInnerClassName,
@@ -65,6 +68,8 @@ export function ModelPortalShell({
   activeTab: ModelPortalTabId;
   onTabChange: (id: ModelPortalTabId) => void;
   sectionTitle: string;
+  sectionTitleSlot?: ReactNode | null;
+  replaceSectionTitleBar?: boolean;
   sectionHeaderRight?: ReactNode;
   /** bv. `!h-auto min-h-[44px] py-1.5` als de rechterkant meerdere rijen knoppen heeft */
   sectionTitleBarClassName?: string;
@@ -78,6 +83,7 @@ export function ModelPortalShell({
 }) {
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
+      <ImpersonationBanner />
       <div className="w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
         <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
           <ModelPortalHeroInner userFirstName={userFirstName} premiumButton={premiumButton} />
@@ -123,9 +129,13 @@ export function ModelPortalShell({
                         className="min-w-0 truncate text-ink"
                         fallback={t.label}
                       />
-                      {t.id === 'push' && pushUnreadCount > 0 ? (
+                      {t.id === 'push' ? (
                         <span
-                          className="shrink-0 rounded-full bg-burgundy px-1.5 py-0.5 text-[10px] font-bold leading-none text-white"
+                          className={`push-menu-badge shrink-0 px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                            pushUnreadCount > 0
+                              ? 'bg-burgundy text-white'
+                              : 'border border-zinc-200 bg-zinc-100 text-zinc-600'
+                          }`}
                           aria-label={`${pushUnreadCount} ongelezen`}
                         >
                           {pushUnreadCount > 99 ? '99+' : pushUnreadCount}
@@ -145,13 +155,29 @@ export function ModelPortalShell({
             <div
               className={`cm-red-titlebar shrink-0 border-b border-line ${sectionTitleBarClassName ?? ''}`}
             >
-              <div className={`cm-red-titlebar-inner ${sectionTitleBarInnerClassName ?? ''}`}>
-                <h2 className="cm-red-titlebar-title min-w-0 shrink-0">{sectionTitle}</h2>
-                {sectionHeaderRight != null ? (
-                  <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
-                    {sectionHeaderRight}
+              <div
+                className={`cm-red-titlebar-inner ${sectionTitleBarInnerClassName ?? ''} ${
+                  replaceSectionTitleBar ? '!h-auto min-h-0 flex-col items-stretch gap-2 py-2' : ''
+                }`}
+              >
+                {replaceSectionTitleBar ? (
+                  <div className="min-w-0 flex-1">
+                    {sectionTitleSlot ?? (
+                      <span className="text-xs text-white/80" aria-live="polite">
+                        Laden…
+                      </span>
+                    )}
                   </div>
-                ) : null}
+                ) : (
+                  <>
+                    <h2 className="cm-red-titlebar-title min-w-0 shrink-0">{sectionTitle}</h2>
+                    {sectionHeaderRight != null ? (
+                      <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+                        {sectionHeaderRight}
+                      </div>
+                    ) : null}
+                  </>
+                )}
               </div>
             </div>
             <div className="min-h-0 flex-1 p-4 md:p-6">{children}</div>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getApiBase } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 
 const PORTFOLIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
@@ -23,6 +23,8 @@ export function ModelPortfolioTab({
 }) {
   const { token, can } = useAuth();
   const [booking, setBooking] = useState<BookingRow | null | undefined>(undefined);
+  const [deliveryCount, setDeliveryCount] = useState<number | null>(null);
+  const [deliveryBusy, setDeliveryBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [panel, setPanel] = useState<'summary' | 'book' | 'info'>('summary');
@@ -47,6 +49,53 @@ export function ModelPortfolioTab({
   useEffect(() => {
     void load();
   }, [load]);
+
+  const loadDeliveryCount = useCallback(async () => {
+    if (!token || !can('portal.model.media.read')) {
+      setDeliveryCount(null);
+      return;
+    }
+    try {
+      const r = await apiFetch<{ count: number }>('/portal/model/media/portfolio-delivery/count', { token });
+      setDeliveryCount(typeof r.count === 'number' ? r.count : 0);
+    } catch {
+      setDeliveryCount(0);
+    }
+  }, [token, can]);
+
+  useEffect(() => {
+    void loadDeliveryCount();
+  }, [loadDeliveryCount, booking]);
+
+  const downloadPortfolioZip = useCallback(async () => {
+    if (!token) return;
+    setDeliveryBusy(true);
+    try {
+      const res = await fetch(`${getApiBase()}/portal/model/media/portfolio-delivery/zip`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'Download mislukt');
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('Content-Disposition');
+      let name = 'portfolio.zip';
+      const m = cd?.match(/filename\*=UTF-8''([^;]+)/);
+      if (m?.[1]) name = decodeURIComponent(m[1]);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      await loadDeliveryCount();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Download mislukt');
+    } finally {
+      setDeliveryBusy(false);
+    }
+  }, [token, loadDeliveryCount]);
 
   const fmtNl = (ymd: string) => {
     const [y, m, d] = ymd.split('-').map((x) => parseInt(x, 10));
@@ -113,8 +162,28 @@ export function ModelPortfolioTab({
   if (!token) return <p className="text-sm text-muted">Log in om uw portfolio-afspraak te beheren.</p>;
   if (!can('portal.model.agenda.read')) return <p className="text-sm text-muted">Geen toegang.</p>;
 
+  const showDelivery =
+    can('portal.model.media.read') && deliveryCount !== null && deliveryCount > 0;
+
   return (
     <div className="space-y-3">
+      {showDelivery ? (
+        <div className="border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-[13px] leading-snug text-zinc-900">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Portfolio van je shoot</p>
+          <p className="mt-1.5">
+            Er staan <strong>{deliveryCount}</strong> foto&apos;s klaar om één keer te downloaden als ZIP in de hoogste
+            kwaliteit die op de server staat (primaire bestanden). Daarna verdwijnen ze uit je account en de mediatheek.
+          </p>
+          <button
+            type="button"
+            disabled={deliveryBusy}
+            onClick={() => void downloadPortfolioZip()}
+            className="mt-2 rounded bg-burgundy px-3 py-2 text-xs font-semibold text-white hover:bg-burgundyDeep disabled:opacity-50"
+          >
+            {deliveryBusy ? 'Bezig…' : 'Download ZIP'}
+          </button>
+        </div>
+      ) : null}
       {err ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div> : null}
 
       {loading ? (

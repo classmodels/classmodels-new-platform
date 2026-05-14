@@ -238,7 +238,10 @@ export function ModelPortalProfile({
   canUploadMedia: boolean;
   media: ProfileMediaRow[];
   mediaBusy: boolean;
-  uploadMedia: (f: File | null, opts?: { setAsProfilePhoto?: boolean }) => void | Promise<void>;
+  uploadMedia: (
+    f: File | null,
+    opts?: { setAsProfilePhoto?: boolean; folderSlug?: 'models' | 'tijdelijke-uploads' },
+  ) => void | Promise<void>;
   setProfilePhotoFromAsset: (assetId: string) => void | Promise<void>;
   premiumSection: ReactNode;
 }) {
@@ -249,6 +252,7 @@ export function ModelPortalProfile({
   });
   const [sheet, setSheet] = useState<SheetForm>(() => sheetFromUser(user.modelSheet ?? null, user.phone ?? ''));
   const [msg, setMsg] = useState('');
+  const [galleryUploadFolder, setGalleryUploadFolder] = useState<'models' | 'tijdelijke-uploads'>('models');
 
   useEffect(() => {
     setProfile({
@@ -385,11 +389,13 @@ export function ModelPortalProfile({
               <div className="overflow-hidden border border-line bg-white shadow-sm">
                 {heroPublicKey ? (
                   <>
-                    <img
-                      src={`${getApiBase()}/media/public/${encodeURIComponent(heroPublicKey)}`}
-                      alt=""
-                      className="aspect-[3/4] w-full object-cover"
-                    />
+                    <div className="flex w-full justify-center bg-zinc-100">
+                      <img
+                        src={`${getApiBase()}/media/public/${encodeURIComponent(heroPublicKey)}`}
+                        alt=""
+                        className="mx-auto block h-auto max-h-[min(92vh,960px)] w-auto max-w-full object-contain"
+                      />
+                    </div>
                     {showPhotoBar ? (
                       <div className="flex items-center justify-between gap-2 border-t border-burgundy bg-burgundy px-2 py-2 text-white sm:px-3">
                         <button
@@ -427,13 +433,13 @@ export function ModelPortalProfile({
                     ) : null}
                   </>
                 ) : (
-                  <div className="flex aspect-[3/4] items-center justify-center border-b border-line bg-panel px-4 text-center text-xs text-muted">
+                  <div className="flex min-h-[14rem] items-center justify-center border-b border-line bg-zinc-100 px-4 py-10 text-center text-xs text-muted">
                     Nog geen foto&apos;s in je media-bibliotheek
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex aspect-[3/4] items-center justify-center border border-dashed border-line bg-panel text-center text-xs text-muted">
+              <div className="flex min-h-[14rem] items-center justify-center border border-dashed border-line bg-zinc-100 text-center text-xs text-muted">
                 Media niet beschikbaar voor dit account
               </div>
             )}
@@ -516,13 +522,13 @@ export function ModelPortalProfile({
                 <img
                   src={`${getApiBase()}/media/public/${encodeURIComponent(mediaPortalDetailKey(profileAsset))}`}
                   alt=""
-                  className="aspect-[3/4] w-full max-w-[220px] border border-line object-cover"
+                  className="mx-auto block h-auto w-full max-w-[220px] border border-line bg-zinc-100 object-contain"
                 />
               ) : user.profileThumbKey ? (
                 <img
                   src={`${getApiBase()}/media/public/${encodeURIComponent(user.profileThumbKey)}`}
                   alt=""
-                  className="aspect-[3/4] w-full max-w-[220px] border border-line object-cover"
+                  className="mx-auto block h-auto w-full max-w-[220px] border border-line bg-zinc-100 object-contain"
                 />
               ) : (
                 <p className="text-xs text-muted">Nog geen hoofdfoto gekozen.</p>
@@ -548,13 +554,35 @@ export function ModelPortalProfile({
                 verwijderen.
               </p>
               {canUploadMedia ? (
+                <div className="flex flex-wrap gap-3 text-[11px] text-ink">
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="gallery-upload-folder"
+                      checked={galleryUploadFolder === 'models'}
+                      onChange={() => setGalleryUploadFolder('models')}
+                    />
+                    Modellen (portfolio)
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="gallery-upload-folder"
+                      checked={galleryUploadFolder === 'tijdelijke-uploads'}
+                      onChange={() => setGalleryUploadFolder('tijdelijke-uploads')}
+                    />
+                    Tijdelijke uploads (afspraken)
+                  </label>
+                </div>
+              ) : null}
+              {canUploadMedia ? (
                 <label className="inline-block cursor-pointer border border-line bg-white px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-ink hover:bg-panel">
                   {mediaBusy ? 'Uploaden…' : 'Galerijfoto toevoegen'}
                   <input
                     type="file"
                     className="hidden"
                     accept="image/*"
-                    onChange={(e) => uploadMedia(e.target.files?.[0] ?? null)}
+                    onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { folderSlug: galleryUploadFolder })}
                   />
                 </label>
               ) : null}
@@ -572,7 +600,7 @@ export function ModelPortalProfile({
                     <img
                       src={`${getApiBase()}/media/public/${encodeURIComponent(mediaThumbKey(a))}`}
                       alt=""
-                      className="h-14 w-11 shrink-0 border border-line object-cover"
+                      className="h-14 w-11 shrink-0 border border-line bg-zinc-100 object-contain"
                     />
                     <span className="min-w-0 flex-1 truncate text-xs text-muted">{a.originalName}</span>
                     <a

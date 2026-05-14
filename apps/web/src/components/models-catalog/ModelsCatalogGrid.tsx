@@ -9,9 +9,11 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
-import { getApiBase } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { getApiBase, apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 
 export type CatalogModel = {
@@ -388,8 +390,10 @@ export function ModelsCatalogGrid({
   toolbarPlacement = 'inline',
   onTitlebarContent,
 }: ModelsCatalogGridProps = {}) {
-  const { token, user } = useAuth();
+  const router = useRouter();
+  const { token, user, can, applySessionToken } = useAuth();
   const isAdmin = user?.roles?.includes('admin') ?? false;
+  const canImpersonate = can('admin.users.write');
   const [rows, setRows] = useState<CatalogModel[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>('alle');
@@ -549,6 +553,25 @@ export function ModelsCatalogGrid({
       await load();
     } catch {
       window.alert('Verwijderen mislukt.');
+    }
+  };
+
+  const openAsModel = async (m: CatalogModel, e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!token || !user?.email) return;
+    try {
+      startImpersonationSession(token, user.email);
+      const res = await apiFetch<{ access_token: string }>('/auth/impersonate', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ targetUserId: m.id }),
+      });
+      await applySessionToken(res.access_token);
+      router.push('/portal/model?tab=profiel');
+    } catch (err) {
+      clearImpersonationSession();
+      window.alert(err instanceof Error ? err.message : 'Openen als model mislukt.');
     }
   };
 
@@ -725,6 +748,16 @@ export function ModelsCatalogGrid({
                   >
                     Verwijder
                   </button>
+                  {canImpersonate ? (
+                    <button
+                      type="button"
+                      className="rounded border border-lime-600 px-1.5 py-0.5 text-[10px] text-lime-200 hover:bg-lime-950/80"
+                      title="Portaal openen als dit model (profiel, push, afspraken)"
+                      onClick={(e) => void openAsModel(m, e)}
+                    >
+                      Als model
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
             </div>

@@ -1,6 +1,11 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import type { JwtPayload } from './jwt.strategy';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { Permissions } from './permissions.decorator';
+import { PermissionsGuard } from './permissions.guard';
 import { AuthService } from './auth.service';
+import { ImpersonateDto } from './dto/impersonate.dto';
 
 class LoginDto {
   @IsEmail()
@@ -42,6 +47,14 @@ class RegisterDto {
 @Controller('auth')
 export class AuthController {
   constructor(private auth: AuthService) {}
+
+  @Post('impersonate')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.users.write')
+  @HttpCode(HttpStatus.OK)
+  impersonate(@Req() req: { user: JwtPayload }, @Body() dto: ImpersonateDto) {
+    return this.auth.impersonateModel(req.user.sub, dto.targetUserId);
+  }
 
   @Post('login')
   login(@Body() dto: LoginDto) {

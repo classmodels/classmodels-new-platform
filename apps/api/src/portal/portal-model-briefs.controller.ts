@@ -28,8 +28,8 @@ export class PortalModelBriefsController {
 
   @Get()
   @Permissions('portal.model.briefs.read')
-  list() {
-    return this.briefs.listOpenForModels();
+  list(@Req() req: { user: JwtPayload }) {
+    return this.briefs.listOpenForModelUser(req.user.sub);
   }
 
   @Get(':id')

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
 
-type Tab = 'model' | 'guest' | 'client';
+type Tab = 'model' | 'guest' | 'client' | 'photographer';
 type SubMode = 'login' | 'register';
 
 const LEFT_TITLE = 'Class-Models';
@@ -51,9 +51,26 @@ export function BeginLanding() {
   const [cCompany, setCCompany] = useState('');
   const [cPhone, setCPhone] = useState('');
 
+  const [fEmail, setFEmail] = useState('');
+  const [fPass, setFPass] = useState('');
+
   const goGuest = useCallback(() => {
     router.push('/portal/guest');
   }, [router]);
+
+  const onPhotographerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setBusy(true);
+    try {
+      const u = await login(fEmail.trim(), fPass);
+      redirectAfterPortalAuth(u, router);
+    } catch (er) {
+      setErr(parseApiError(er));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const onModelLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,6 +217,7 @@ export function BeginLanding() {
             {tabBtn('model', 'Inloggen model / account aanmaken model')}
             {tabBtn('guest', 'Inloggen bezoekers / model worden')}
             {tabBtn('client', 'Inloggen klanten')}
+            {tabBtn('photographer', 'Inloggen fotograaf')}
           </div>
 
           {tab === 'model' ? (
@@ -459,6 +477,44 @@ export function BeginLanding() {
                   </button>
                 </form>
               )}
+            </div>
+          ) : tab === 'photographer' ? (
+            <div className="mt-5 rounded-2xl border border-white/15 bg-black/35 p-6 shadow-2xl backdrop-blur-md">
+              <h2 className="font-serif text-xl text-white">Inloggen als fotograaf</h2>
+              <p className="mt-2 text-xs leading-relaxed text-white/75">
+                Apart account voor het opladen van shoot-foto&apos;s. Geen modellenaccount? Kies hieronder — niet
+                &quot;Inloggen model&quot;. Demo na seed: <span className="font-mono text-white/90">fotograaf@class-models.local</span> /{' '}
+                <span className="font-mono text-white/90">Demo123!</span>
+              </p>
+              {err ? <p className="mt-3 text-xs text-red-200">{err}</p> : null}
+              <form className="mt-5 space-y-3" onSubmit={onPhotographerLogin}>
+                <input
+                  className={inputClass}
+                  type="email"
+                  autoComplete="username"
+                  placeholder="E-mailadres (fotograaf)"
+                  value={fEmail}
+                  onChange={(e) => setFEmail(e.target.value)}
+                  required
+                />
+                <input
+                  className={inputClass}
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Wachtwoord"
+                  value={fPass}
+                  onChange={(e) => setFPass(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="mt-2 w-full rounded-xl bg-black py-3 text-sm font-semibold text-white hover:bg-zinc-900 disabled:opacity-60"
+                >
+                  Inloggen als fotograaf
+                </button>
+              </form>
             </div>
           ) : null}
         </div>

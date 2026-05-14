@@ -39,6 +39,8 @@ export type AuthUser = {
   lastLoginAt?: string | null;
   roles: string[];
   isPremium: boolean;
+  /** ISO; premium loopt tot deze datum (indien gezet). */
+  premiumUntil?: string | null;
   permissions: string[];
   /** Samenvatting push (alleen na /users/me). */
   push?: ModelPushSummary | null;
@@ -64,6 +66,8 @@ type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<AuthUser>;
   register: (input: RegisterInput) => Promise<AuthUser>;
   logout: () => void;
+  /** JWT in localStorage + context zetten en /users/me laden (o.a. admin-impersonatie). */
+  applySessionToken: (accessToken: string) => Promise<AuthUser>;
   refreshMe: (tokenOverride?: string | null) => Promise<AuthUser | null>;
   /** Heeft minstens één `admin.*` permissie of `*`. */
   hasBackofficeAccess: boolean;
@@ -98,6 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return u;
   }, [token]);
 
+  const applySessionToken = useCallback(
+    async (accessToken: string) => {
+      setStoredToken(accessToken);
+      setToken(accessToken);
+      const u = await refreshMe(accessToken);
+      if (!u) throw new Error('Sessie kon niet worden geladen.');
+      return u;
+    },
+    [refreshMe],
+  );
+
   useEffect(() => {
     const t = getStoredToken();
     setToken(t);
@@ -120,13 +135,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      setStoredToken(res.access_token);
-      setToken(res.access_token);
-      const u = await refreshMe(res.access_token);
-      if (!u) throw new Error('Sessie kon niet worden geladen.');
-      return u;
+      return applySessionToken(res.access_token);
     },
-    [refreshMe],
+    [applySessionToken],
   );
 
   const register = useCallback(
@@ -135,13 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         body: JSON.stringify(input),
       });
-      setStoredToken(res.access_token);
-      setToken(res.access_token);
-      const u = await refreshMe(res.access_token);
-      if (!u) throw new Error('Sessie kon niet worden geladen.');
-      return u;
+      return applySessionToken(res.access_token);
     },
-    [refreshMe],
+    [applySessionToken],
   );
 
   const logout = useCallback(() => {
@@ -182,6 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      applySessionToken,
       refreshMe: (override?: string | null) => refreshMe(override),
       hasBackofficeAccess,
       canAccessAdminShell,
@@ -195,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      applySessionToken,
       refreshMe,
       hasBackofficeAccess,
       canAccessAdminShell,

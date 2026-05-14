@@ -12,8 +12,12 @@ import { AdminReviewsController } from './admin-reviews.controller';
 import { AdminMollieController } from './admin-mollie.controller';
 import { AdminAuditController } from './admin-audit.controller';
 import { AdminSubscriptionsController } from './admin-subscriptions.controller';
+import { AdminPremiumController } from './admin-premium.controller';
+import { AdminPremiumService } from './admin-premium.service';
 import { AdminPluginsController } from './admin-plugins.controller';
 import { AdminBriefsController } from './admin-briefs.controller';
+import { AdminTryoutModeshowController } from './admin-tryout-modeshow.controller';
+import { AdminTryoutModeshowService } from './admin-tryout-modeshow.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, ReviewsModule, PortalModule, MediaModule],
@@ -24,9 +28,11 @@ import { AdminBriefsController } from './admin-briefs.controller';
     AdminMollieController,
     AdminAuditController,
     AdminSubscriptionsController,
+    AdminPremiumController,
     AdminPluginsController,
     AdminBriefsController,
+    AdminTryoutModeshowController,
   ],
-  providers: [AdminUsersService, AdminRolesService],
+  providers: [AdminUsersService, AdminRolesService, AdminTryoutModeshowService, AdminPremiumService],
 })
 export class AdminModule {}

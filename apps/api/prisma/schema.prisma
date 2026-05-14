@@ -1,4 +1,4 @@
-// Class Models — nieuw platform (PostgreSQL)
+// Class Models — nieuw platform (MySQL)
 // Uitbreidbaar; migraties: npm run db:migrate
 
 generator client {
@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -86,6 +86,9 @@ model User {
   pushRecipientListsCreated PushRecipientList[] @relation("PushListCreatedBy")
   pushRecipientListMembers  PushRecipientListMember[]
   pushCampaignsAuthored     PushCampaign[]       @relation("PushCampaignAuthor")
+  tryoutModeshowRegistrations TryoutModeshowRegistration[]
+  /// Portfolio-levering door fotograaf (map `portfolio-fotograaf`), gekoppeld aan dit model.
+  portfolioDeliveryAssets MediaAsset[] @relation("PortfolioDeliveryForModel")
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }
@@ -112,6 +115,11 @@ model ClientBrief {
   ageWomanTo      Int?
   ageChildFrom    Int?
   ageChildTo      Int?
+  wantedTeenagers Int?
+  ageTeenFrom     Int?
+  ageTeenTo       Int?
+  /// Adres(sen), make-up/kapsel, verdienste, opmerkingen (JSON — zie BriefDetails in API)
+  details   Json     @default("{}")
   status    BriefStatus @default(open)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -212,9 +220,14 @@ model MediaAsset {
   hardDeleted  Boolean      @default(false)
   uploadedById String?
   uploadedBy   User?        @relation(fields: [uploadedById], references: [id])
+  /// Fotograaf-uploads voor portfolio-download door dit model (map `portfolio-fotograaf`).
+  linkedModelUserId String?
+  linkedModel       User?   @relation("PortfolioDeliveryForModel", fields: [linkedModelUserId], references: [id], onDelete: SetNull)
   profilePhotoFor User?     @relation("UserProfilePhoto")
   createdAt    DateTime     @default(now())
   testshootPhotos TestshootPhoto[]
+
+  @@index([linkedModelUserId, folderId])
 }
 
 /// Admin markeert favoriet-model (zoals WP `favs` usermeta).
@@ -367,7 +380,28 @@ model MollieSettings {
   apiKeyLive   String?
   webhookUrl   String?
   premiumPrice Decimal  @default(48) @db.Decimal(10, 2)
+  /// Eenmalige inschrijving try-out modeshow (Mollie).
+  tryoutPrice  Decimal  @default(600) @db.Decimal(10, 2)
   updatedAt    DateTime @updatedAt
+}
+
+/// Inschrijving try-out modeshow per editie (één rij per gebruiker + editionSlug).
+model TryoutModeshowRegistration {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  editionSlug     String
+  /// `none` | `declined` | `interested` | `paid`
+  interestStatus  String   @default("none")
+  termsAcceptedAt DateTime?
+  molliePaymentId String?  @unique
+  paymentStatus   String?
+  amount          Decimal? @db.Decimal(10, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, editionSlug])
+  @@index([editionSlug, interestStatus])
 }
 
 model Subscription {
@@ -412,7 +446,7 @@ model MigrationBatch {
   createdAt DateTime @default(now())
 }
 
-// --- Agenda (Class Models Agenda Pro — equivalent in PostgreSQL) ---
+// --- Agenda (Class Models Agenda Pro) ---
 
 model AgendaCalendar {
   id              String           @id @default(uuid())

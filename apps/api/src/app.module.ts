@@ -15,6 +15,7 @@ import { AgendaModule } from './agenda/agenda.module';
 import { TestshootModule } from './testshoot/testshoot.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { PushModule } from './push/push.module';
+import { PhotographerModule } from './photographer/photographer.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { PushModule } from './push/push.module';
     TestshootModule,
     CatalogModule,
     PushModule,
+    PhotographerModule,
   ],
 })
 export class AppModule {}

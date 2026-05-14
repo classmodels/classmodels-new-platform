@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import type { Role, User, UserRole } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { UsersService, pickPublicMediaKey } from '../users/users.service';
 import { mergePermissionsFromRoles, premiumEffective } from './permissions.util';
 
@@ -24,6 +26,7 @@ export class AuthService {
   constructor(
     private users: UsersService,
     private jwt: JwtService,
+    private prisma: PrismaService,
   ) {}
 
   private async buildAuthResponse(user: UserWithRoles) {
@@ -53,6 +56,7 @@ export class AuthService {
         profileThumbKey: pickPublicMediaKey(user.profilePhoto ?? null),
         roles: roleSlugs,
         isPremium: premiumActive,
+        premiumUntil: user.premiumUntil?.toISOString() ?? null,
         permissions,
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       },
@@ -107,5 +111,48 @@ export class AuthService {
       companyName,
     });
     return this.buildAuthResponse(user);
+  }
+
+  /** Admin: tijdelijk JWT voor een modellenaccount (zelfde rechten als dat model). */
+  async impersonateModel(adminId: string, targetUserId: string) {
+    if (adminId === targetUserId) {
+      throw new BadRequestException('Je kunt jezelf niet impersoneren.');
+    }
+    const admin = await this.users.findById(adminId);
+    if (!admin) throw new UnauthorizedException();
+    const adminPerms = mergePermissionsFromRoles(admin.roles.map((r) => r.role));
+    if (!adminPerms.includes('*') && !adminPerms.includes('admin.users.write')) {
+      throw new ForbiddenException();
+    }
+
+    const target = await this.users.findById(targetUserId);
+    if (!target || target.status !== 'active') {
+      throw new BadRequestException('Model niet gevonden of niet actief.');
+    }
+    const modelSlugs = new Set(['model', 'newface', 'tryout', 'inactief']);
+    const hasModelRole = target.roles.some((r) => modelSlugs.has(r.role.slug));
+    if (!hasModelRole) {
+      throw new BadRequestException('Alleen modellenaccounts kunnen worden overgenomen.');
+    }
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId: adminId,
+        action: 'admin.impersonate',
+        meta: {
+          targetUserId: target.id,
+          targetEmail: target.email,
+        } as object,
+      },
+    });
+
+    const base = await this.buildAuthResponse(target as UserWithRoles);
+    return {
+      ...base,
+      impersonation: {
+        fromAdminId: admin.id,
+        fromAdminEmail: admin.email,
+      },
+    };
   }
 }

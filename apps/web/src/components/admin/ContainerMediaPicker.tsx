@@ -58,7 +58,7 @@ export function ContainerMediaPicker({ open, onClose, onPick, token, canRead, ca
     if (!token || !canRead) return;
     setErr('');
     try {
-      const data = await adminFetch<MediaFolder[]>('/media/library', token);
+      const data = await adminFetch<MediaFolder[]>('/media/library?legacy=1', token);
       setLib(data);
     } catch {
       setLib([]);

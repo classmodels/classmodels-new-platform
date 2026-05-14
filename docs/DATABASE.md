@@ -1,8 +1,8 @@
-# Database (PostgreSQL + Prisma)
+# Database (MySQL + Prisma)
 
 ## Rol
 
-Eén **PostgreSQL**-database voor website, app en backoffice. Geen WordPress-tabellen.
+Eén **MySQL**-database voor website, app en backoffice. Geen WordPress-tabellen.
 
 ## Verbinding
 
@@ -10,13 +10,13 @@ Variabele: `DATABASE_URL`
 Voorbeeld (lokaal met docker-compose uit dit project):
 
 ```text
-postgresql://cmuser:cmpass@localhost:5433/classmodels?schema=public
+mysql://cmuser:cmpass@127.0.0.1:3307/classmodels
 ```
 
 ## Eerste opzet
 
 ```bash
-npm run docker:up    # of eigen Postgres
+npm run docker:up    # of eigen MySQL
 npm run db:deploy  # past migraties toe
 npm run db:seed    # demo-data (alleen test/acceptatie)
 ```
@@ -46,4 +46,4 @@ npm run db:deploy
 
 ## Back-up
 
-Gebruik `pg_dump` op de productie-instantie; bewaar dumps versleuteld. Media staan op schijf (`MEDIA_ROOT`), niet in de DB.
+Gebruik `mysqldump` op de productie-instantie; bewaar dumps versleuteld. Media staan op schijf (`MEDIA_ROOT`), niet in de DB.

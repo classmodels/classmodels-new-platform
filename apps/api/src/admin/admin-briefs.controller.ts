@@ -14,6 +14,7 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { BriefsService } from '../portal/briefs.service';
 import { AdminCreateBriefDto, AdminUpdateBriefDto } from './dto/admin-brief.dto';
+import { BriefEmailContractPdfDto, BriefPushSelectedDto } from './dto/admin-brief-actions.dto';
 
 class AdminPatchResponseDto {
   @IsIn(['accepted', 'declined'])
@@ -45,6 +46,33 @@ export class AdminBriefsController {
     @Body() dto: AdminPatchResponseDto,
   ) {
     return this.briefs.adminSetResponseStatus(responseId, dto.status);
+  }
+
+  @Get(':id/matching-summary')
+  @Permissions('admin.briefs.read')
+  matchingSummary(@Param('id', ParseUUIDPipe) id: string) {
+    return this.briefs.adminMatchingSummary(id);
+  }
+
+  @Post(':id/push-selected')
+  @Permissions('admin.briefs.write')
+  pushSelected(@Param('id', ParseUUIDPipe) id: string, @Body() dto: BriefPushSelectedDto) {
+    return this.briefs.adminPushSelectedUsers(id, dto.userIds, dto.title ?? null, dto.body ?? null);
+  }
+
+  @Post(':id/email-contract-pdf')
+  @Permissions('admin.briefs.write')
+  emailContractPdf(@Param('id', ParseUUIDPipe) id: string, @Body() dto: BriefEmailContractPdfDto) {
+    return this.briefs.adminEmailContractPdfToUsers(id, dto.userIds);
+  }
+
+  @Post(':id/responses/:responseId/contract')
+  @Permissions('admin.briefs.write')
+  generateContract(
+    @Param('id', ParseUUIDPipe) briefId: string,
+    @Param('responseId', ParseUUIDPipe) responseId: string,
+  ) {
+    return this.briefs.generateContractAndNotify(briefId, responseId);
   }
 
   @Get(':id')

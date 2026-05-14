@@ -40,18 +40,32 @@ function historyTitle(action: string, meta?: unknown): string {
       return 'Portfolio-download bevestigd';
     case 'portfolio_photo_uploaded':
       return 'Portfoliofoto geüpload';
+    case 'portfolio_shoot_zip_downloaded':
+      return 'Portfolio-shoot gedownload (ZIP)';
     case 'profile_updated':
       return 'Profiel / modellenfiche aangepast';
     case 'brief_interest_submitted':
       return 'Interesse opdracht ingediend';
     case 'brief_interest_withdrawn':
       return 'Interesse opdracht ingetrokken';
+    case 'brief_selection_accepted':
+      return 'Opdracht — geselecteerd';
+    case 'brief_selection_declined':
+      return 'Opdracht — niet geselecteerd';
     case 'message_mailto':
       return 'Bericht naar Class-Models (gestart)';
     case 'premium_paid':
       return 'Premium betaald';
     case 'premium_revoked':
       return 'Premium niet actief (betaling)';
+    case 'tryout_modeshow_interested':
+      return 'Try-out modeshow — geïnteresseerd';
+    case 'tryout_modeshow_declined':
+      return 'Try-out modeshow — niet geïnteresseerd';
+    case 'tryout_modeshow_terms_accepted':
+      return 'Try-out modeshow — voorwaarden geaccepteerd';
+    case 'tryout_modeshow_paid':
+      return 'Try-out modeshow — ingeschreven (betaald)';
     default:
       return k.replace(/_/g, ' ');
   }
@@ -74,11 +88,19 @@ function historySubtitle(action: string, meta: unknown): string {
   if (k === 'portfolio_photo_uploaded') {
     return String(m.originalName ?? '');
   }
+  if (k === 'portfolio_shoot_zip_downloaded') {
+    return typeof m.fileCount === 'number' ? `${m.fileCount} bestand(en)` : '';
+  }
   if (k === 'profile_updated') {
     const velden = m.velden;
     return Array.isArray(velden) ? velden.join(', ') : '';
   }
-  if (k === 'brief_interest_submitted' || k === 'brief_interest_withdrawn') {
+  if (
+    k === 'brief_interest_submitted' ||
+    k === 'brief_interest_withdrawn' ||
+    k === 'brief_selection_accepted' ||
+    k === 'brief_selection_declined'
+  ) {
     return String(m.briefTitle ?? '');
   }
   if (k === 'message_mailto') {
@@ -88,6 +110,9 @@ function historySubtitle(action: string, meta: unknown): string {
   }
   if (k === 'premium_paid' || k === 'premium_revoked') {
     return String(m.premiumUntil ?? m.status ?? m.paymentId ?? '');
+  }
+  if (k.startsWith('tryout_modeshow_')) {
+    return String(m.editionSlug ?? m.paymentId ?? '');
   }
   return '';
 }

@@ -8,6 +8,10 @@ export class PushPublicController {
   /** Publieke VAPID-sleutel voor `pushManager.subscribe` in de browser. */
   @Get('vapid-public-key')
   vapidPublicKey() {
-    return { publicKey: this.webPush.getPublicKey() };
+    return {
+      publicKey: this.webPush.getPublicKey(),
+      /** 65 bytes (uncompressed P-256); gebruik dit in de browser i.p.v. zelf base64 te decoderen. */
+      publicKeyBytes: this.webPush.getPublicKeyBytes(),
+    };
   }
 }

@@ -56,6 +56,16 @@ export function historyKindToPushMessage(
         title: 'Interesse ingetrokken',
         body: 'Je interesse voor een opdracht werd ingetrokken.',
       };
+    case 'brief_selection_accepted':
+      return {
+        title: 'Je bent gekozen',
+        body: 'Gefeliciteerd — je bent geselecteerd voor een opdracht. Neem contact op met Class-Models voor de vervolgstappen.',
+      };
+    case 'brief_selection_declined':
+      return {
+        title: 'Opdracht — niet gekozen',
+        body: 'Je bent niet geselecteerd voor deze opdracht. Er volgen nog andere kansen via Class-Models.',
+      };
     case 'portfolio_photo_uploaded':
       return {
         title: 'Portfolio-foto',

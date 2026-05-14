@@ -65,6 +65,12 @@ export default function LoginPage() {
                 <code>klant@class-models.local</code>
               </td>
             </tr>
+            <tr>
+              <td className="py-0.5 pr-2 font-medium text-ink">Fotograaf (portfolio)</td>
+              <td>
+                <code>fotograaf@class-models.local</code>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

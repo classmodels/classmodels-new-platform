@@ -35,6 +35,16 @@ export class AgendaNotificationService {
     return this.trySendSmtp(to, subject, html);
   }
 
+  /** Zelfde SMTP met bijlagen (bv. PDF-contract). */
+  async sendHtmlMailWithAttachments(
+    to: string,
+    subject: string,
+    html: string,
+    attachments: { filename: string; content: Buffer }[],
+  ): Promise<boolean> {
+    return this.trySendSmtp(to, subject, html, attachments);
+  }
+
   async sendBookingConfirmation(p: AgendaConfirmationPayload): Promise<void> {
     const subject = `Bevestiging: ${p.calendarTitle} — Class Models`;
     const html = this.buildEmailHtml(p);
@@ -48,7 +58,12 @@ export class AgendaNotificationService {
     this.log.log(`SMS → ${p.phone ?? '(geen GSM)'}\n${sms}`);
   }
 
-  private async trySendSmtp(to: string | null, subject: string, html: string): Promise<boolean> {
+  private async trySendSmtp(
+    to: string | null,
+    subject: string,
+    html: string,
+    attachments?: { filename: string; content: Buffer }[],
+  ): Promise<boolean> {
     const addr = to?.trim();
     if (!addr) return false;
 
@@ -74,8 +89,21 @@ export class AgendaNotificationService {
       to: addr,
       subject,
       html,
+      ...(attachments?.length
+        ? {
+            attachments: attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content,
+              contentType: 'application/pdf',
+            })),
+          }
+        : {}),
     });
-    this.log.log(`E-mail verstuurd naar ${addr}`);
+    this.log.log(
+      attachments?.length
+        ? `E-mail met ${attachments.length} bijlage(n) verstuurd naar ${addr}`
+        : `E-mail verstuurd naar ${addr}`,
+    );
     return true;
   }
 

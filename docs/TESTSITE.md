@@ -9,7 +9,7 @@ Het doel: de **huidige WordPress-site** en bestanden in `www` (of de live root) 
 
 ## Aanbevolen architectuur op dezelfde host
 
-1. **PostgreSQL** — aparte database, bv. `classmodels_test`, eigen gebruiker.
+1. **MySQL** — aparte database, bv. `classmodels_test`, eigen gebruiker.
 2. **API (NestJS)** — draait als systemd-service of Docker-container, bereikbaar intern als `http://127.0.0.1:4000`.
 3. **Web (Next.js)** — `next build` met `output: 'standalone'`, start met `node server.js` (zie `Dockerfile.web`), bereikbaar intern als `http://127.0.0.1:3000`.
 4. **Reverse proxy (Nginx/Caddy)** — publieke URL:
@@ -52,14 +52,14 @@ of een lijst met komma’s als je meerdere origins gebruikt.
 
 | Locatie op server | Inhoud |
 |-------------------|--------|
-| Geen platte WordPress-map | Node + Postgres + proxy |
+| Geen platte WordPress-map | Node + MySQL + proxy |
 | `www/testsite` (optioneel) | Alleen als je **statische export** zou doen — **niet** het default van dit project |
 | VPS / container | `standalone` Next + `dist` API + `uploads` voor media |
-| Database-server | PostgreSQL schema via `prisma migrate deploy` |
+| Database-server | MySQL schema via `prisma migrate deploy` |
 
 ## Stappen samengevat
 
-1. Maak een **nieuwe** Postgres-database (test).
+1. Maak een **nieuwe** MySQL-database (test).
 2. Zet **omgevingsvariabelen** op de server (zie `.env.example`).
 3. Deploy API: `npm run db:deploy` + start `node dist/main.js` (of Docker `Dockerfile.api`).
 4. Deploy web: build met `NEXT_PUBLIC_BASE_PATH=/testsite` + start standalone server (of Docker `Dockerfile.web`).

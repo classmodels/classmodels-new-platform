@@ -1,23 +1,26 @@
 # Lokale stack voor ontwikkeling & test — NIET automatisch op productie.
-# PostgreSQL poort 5433 om conflict met bestaande lokale Postgres te vermijden.
+# MySQL poort 3307 om conflict met bestaande lokale MySQL te vermijden.
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: cm-new-postgres
+  mysql:
+    image: mysql:8.4
+    container_name: cm-new-mysql
     environment:
-      POSTGRES_USER: cmuser
-      POSTGRES_PASSWORD: cmpass
-      POSTGRES_DB: classmodels
+      MYSQL_DATABASE: classmodels
+      MYSQL_USER: cmuser
+      MYSQL_PASSWORD: cmpass
+      MYSQL_ROOT_PASSWORD: cmrootpass
     ports:
-      - "5433:5432"
+      - "3307:3306"
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
-      - cm_pg_data:/var/lib/postgresql/data
+      - cm_mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cmuser -d classmodels"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pcmrootpass"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 20
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
@@ -26,4 +29,4 @@ services:
       - "6380:6379"
 
 volumes:
-  cm_pg_data:
+  cm_mysql_data:

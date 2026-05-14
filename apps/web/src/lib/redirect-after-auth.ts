@@ -13,8 +13,14 @@ export function redirectAfterPortalAuth(
   const p = u.permissions ?? [];
   const toBackoffice = p.includes('*') || p.some((x) => x.startsWith('admin.'));
   const contentOnly = p.includes('content.strings.write') && !toBackoffice;
+  const photographerOnly =
+    p.includes('photographer.portfolio.upload') && !toBackoffice && !contentOnly;
   if (toBackoffice) {
     router.replace('/admin/dashboard');
+    return;
+  }
+  if (photographerOnly) {
+    router.replace('/photographer');
     return;
   }
   if (contentOnly) {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
 
-export type EntryAuthTab = 'model' | 'guest' | 'client';
+export type EntryAuthTab = 'model' | 'guest' | 'client' | 'photographer';
 type SubMode = 'login' | 'register';
 
 function parseApiError(err: unknown): string {
@@ -61,6 +61,9 @@ export function EntryAuthPanel({
   const [mLast, setMLast] = useState('');
   const [mPhone, setMPhone] = useState('');
 
+  const [fEmail, setFEmail] = useState('');
+  const [fPass, setFPass] = useState('');
+
   const [cEmail, setCEmail] = useState('');
   const [cPass, setCPass] = useState('');
   const [cEmail2, setCEmail2] = useState('');
@@ -73,6 +76,20 @@ export function EntryAuthPanel({
   const goGuest = useCallback(() => {
     router.push('/portal/guest');
   }, [router]);
+
+  const onPhotographerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setBusy(true);
+    try {
+      const u = await login(fEmail.trim(), fPass);
+      redirectAfterPortalAuth(u, router);
+    } catch (er) {
+      setErr(parseApiError(er));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const onModelLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +213,7 @@ export function EntryAuthPanel({
           {tabBtn('model', 'Model')}
           {tabBtn('guest', 'Bezoeker — model worden')}
           {tabBtn('client', 'Klant')}
+          {tabBtn('photographer', 'Fotograaf')}
         </div>
       ) : null}
 
@@ -212,6 +230,45 @@ export function EntryAuthPanel({
           >
             Naar bezoekersportaal
           </button>
+        </div>
+      ) : null}
+
+      {tab === 'photographer' ? (
+        <div className={hidePortalTabs ? 'py-1' : 'mt-5'}>
+          <h2 className="font-serif text-lg text-ink">Inloggen als fotograaf</h2>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted">
+            Alleen voor shoot-uploads. Demo na seed: <code className="text-[11px]">fotograaf@class-models.local</code> /{' '}
+            <code className="text-[11px]">Demo123!</code>
+          </p>
+          {err ? <p className="mt-2 text-xs text-danger">{err}</p> : null}
+          <form className="mt-4 space-y-2.5" onSubmit={onPhotographerLogin}>
+            <input
+              className={inputClass}
+              type="email"
+              autoComplete="username"
+              placeholder="E-mailadres"
+              value={fEmail}
+              onChange={(e) => setFEmail(e.target.value)}
+              required
+            />
+            <input
+              className={inputClass}
+              type="password"
+              autoComplete="current-password"
+              placeholder="Wachtwoord"
+              value={fPass}
+              onChange={(e) => setFPass(e.target.value)}
+              required
+              minLength={6}
+            />
+            <button
+              type="submit"
+              disabled={busy}
+              className="mt-1 w-full rounded-xl bg-burgundy py-2.5 text-sm font-semibold text-white hover:bg-burgundyDeep disabled:opacity-60"
+            >
+              Inloggen
+            </button>
+          </form>
         </div>
       ) : null}
 

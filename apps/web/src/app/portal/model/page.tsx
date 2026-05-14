@@ -19,6 +19,8 @@ import { ModelOpleidingTab } from '@/components/model-portal/ModelOpleidingTab';
 import { ModelPortfolioTab } from '@/components/model-portal/ModelPortfolioTab';
 import { ModelPortalHistoriekTab } from '@/components/model-portal/ModelPortalHistoriekTab';
 import { ModelPortalPushTab } from '@/components/model-portal/ModelPortalPushTab';
+import { ModelPremiumTab } from '@/components/model-portal/ModelPremiumTab';
+import { ModelTryoutModeshowTab } from '@/components/model-portal/ModelTryoutModeshowTab';
 import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data';
 import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
@@ -45,14 +47,20 @@ type OpenBrief = {
   wantedMen?: number | null;
   wantedWomen?: number | null;
   wantedChildren?: number | null;
+  wantedTeenagers?: number | null;
   ageManFrom?: number | null;
   ageManTo?: number | null;
   ageWomanFrom?: number | null;
   ageWomanTo?: number | null;
   ageChildFrom?: number | null;
   ageChildTo?: number | null;
+  ageTeenFrom?: number | null;
+  ageTeenTo?: number | null;
+  details?: Record<string, unknown> | null;
+  portalDisplay?: { hideGezochtCriteria?: boolean };
   status: string;
   createdAt: string;
+  eligibility?: { eligible: boolean; reason: string };
   client: {
     id: string;
     email: string;
@@ -63,7 +71,7 @@ type OpenBrief = {
   responses: { modelUserId: string; status: string }[];
 };
 
-type BriefFilter = 'all' | 'available' | 'subscribed';
+type BriefFilter = 'all' | 'eligible' | 'available' | 'subscribed';
 
 function tabLabel(id: ModelPortalTabId): string {
   return MODEL_PORTAL_TABS.find((t) => t.id === id)?.label ?? 'Home';
@@ -92,15 +100,25 @@ function ageSuffix(from?: number | null, to?: number | null): string {
 }
 
 function GezochtLines({ b }: { b: OpenBrief }) {
+  if (b.portalDisplay?.hideGezochtCriteria) {
+    return (
+      <p className="text-sm text-zinc-600">
+        De criteria voor deze opdracht worden door het bureau niet publiek getoond. Zie de omschrijving of neem contact
+        met Class-Models.
+      </p>
+    );
+  }
   const lines: { key: string; text: string }[] = [];
   const wm = b.wantedMen ?? 0;
   const ww = b.wantedWomen ?? 0;
   const wk = b.wantedChildren ?? 0;
+  const wt = b.wantedTeenagers ?? 0;
   if (wm > 0) lines.push({ key: 'm', text: `Mannen: ${wm}${ageSuffix(b.ageManFrom, b.ageManTo)}` });
   if (ww > 0) lines.push({ key: 'w', text: `Vrouwen: ${ww}${ageSuffix(b.ageWomanFrom, b.ageWomanTo)}` });
   if (wk > 0) lines.push({ key: 'k', text: `Kinderen: ${wk}${ageSuffix(b.ageChildFrom, b.ageChildTo)}` });
+  if (wt > 0) lines.push({ key: 't', text: `Tieners: ${wt}${ageSuffix(b.ageTeenFrom, b.ageTeenTo)}` });
   if (!lines.length) {
-    return <p className="text-sm text-zinc-600">Zie de omschrijving voor het gevraagde profiel.</p>;
+    return <p className="text-sm text-zinc-600">Geen specifieke profielen ingesteld — iedereen komt in aanmerking.</p>;
   }
   return (
     <ul className="space-y-1.5 text-sm text-zinc-800">
@@ -174,7 +192,8 @@ function ModelPortalPageInner() {
   const [portfolioHeaderRight, setPortfolioHeaderRight] = useState<ReactNode | null>(null);
   const [modellenTitlebar, setModellenTitlebar] = useState<ReactNode | null>(null);
   const [historiekHeaderSlot, setHistoriekHeaderSlot] = useState<ReactNode | null>(null);
-  const [pushHeaderSlot, setPushHeaderSlot] = useState<ReactNode | null>(null);
+  const [pushTitleSlot, setPushTitleSlot] = useState<ReactNode | null>(null);
+  const [tryoutHeaderRight, setTryoutHeaderRight] = useState<ReactNode | null>(null);
 
   const setModellenTitlebarSlot = useCallback((node: ReactNode | null) => {
     setModellenTitlebar(node);
@@ -204,7 +223,11 @@ function ModelPortalPageInner() {
   }, [tab]);
 
   useEffect(() => {
-    if (tab !== 'push') setPushHeaderSlot(null);
+    if (tab !== 'push') setPushTitleSlot(null);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'tryout-modeshow') setTryoutHeaderRight(null);
   }, [tab]);
 
   useEffect(() => {
@@ -221,10 +244,22 @@ function ModelPortalPageInner() {
     apiFetch<PremiumInfo>('/payments/premium/info')
       .then(setPremiumInfo)
       .catch(() => setPremiumInfo(null));
-  }, []);
+  }, [tab]);
 
   useEffect(() => {
-    if (searchParams.get('premium') === 'return') {
+    if (searchParams.get('premium') !== 'return') return;
+    void refreshMe()
+      .catch(() => undefined)
+      .finally(() => {
+        const q = new URLSearchParams(searchParams.toString());
+        q.delete('premium');
+        const s = q.toString();
+        router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
+      });
+  }, [searchParams, refreshMe, pathname, router]);
+
+  useEffect(() => {
+    if (searchParams.get('tryout') === 'return') {
       refreshMe().catch(() => undefined);
     }
   }, [searchParams, refreshMe]);
@@ -298,13 +333,31 @@ function ModelPortalPageInner() {
     }
   };
 
-  const uploadMedia = async (file: File | null, opts?: { setAsProfilePhoto?: boolean }) => {
+  const withdrawInterest = async (briefId: string) => {
+    if (!token) return;
+    setBriefErr(null);
+    try {
+      await apiFetch(`/portal/model/briefs/${briefId}/responses/withdraw`, {
+        method: 'POST',
+        token,
+      });
+      loadBriefs();
+    } catch (e) {
+      setBriefErr(e instanceof Error ? e.message : 'Uitschrijven mislukt');
+    }
+  };
+
+  const uploadMedia = async (
+    file: File | null,
+    opts?: { setAsProfilePhoto?: boolean; folderSlug?: 'models' | 'tijdelijke-uploads' },
+  ) => {
     if (!file || !token || !can('portal.model.media.upload')) return;
     setMediaBusy(true);
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${getApiBase()}/portal/model/media/upload?folderSlug=models`, {
+      const folderSlug = opts?.setAsProfilePhoto ? 'models' : (opts?.folderSlug ?? 'models');
+      const res = await fetch(`${getApiBase()}/portal/model/media/upload?folderSlug=${encodeURIComponent(folderSlug)}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
@@ -344,13 +397,20 @@ function ModelPortalPageInner() {
   const myId = user?.id ?? '';
 
   const briefCounts = useMemo(() => {
+    const eligible = briefs.filter((b) => b.eligibility?.eligible);
     const available = briefs.filter((b) => !b.responses.some((r) => r.modelUserId === myId));
     const subscribed = briefs.filter((b) => b.responses.some((r) => r.modelUserId === myId));
-    return { all: briefs.length, available: available.length, subscribed: subscribed.length };
+    return {
+      all: briefs.length,
+      eligible: eligible.length,
+      available: available.length,
+      subscribed: subscribed.length,
+    };
   }, [briefs, myId]);
 
   const filteredBriefs = useMemo(() => {
     if (briefFilter === 'all') return briefs;
+    if (briefFilter === 'eligible') return briefs.filter((b) => b.eligibility?.eligible);
     if (briefFilter === 'available')
       return briefs.filter((b) => !b.responses.some((r) => r.modelUserId === myId));
     return briefs.filter((b) => b.responses.some((r) => r.modelUserId === myId));
@@ -385,14 +445,12 @@ function ModelPortalPageInner() {
 
   const premiumButton =
     can('payments.checkout') && !user.isPremium ? (
-      <button
-        type="button"
-        disabled={checkoutBusy}
-        onClick={() => startPremium()}
-        className="rounded-lg bg-gradient-to-r from-amber-200 via-amber-300 to-amber-400 px-5 py-2.5 text-sm font-bold tracking-wide text-zinc-900 shadow-md hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+      <Link
+        href="/portal/model?tab=premium"
+        className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-amber-200 via-amber-300 to-amber-400 px-5 py-2.5 text-sm font-bold tracking-wide text-zinc-900 shadow-md hover:opacity-95"
       >
-        {checkoutBusy ? 'Bezig…' : 'WORD PREMIUM'}
-      </button>
+        Premium
+      </Link>
     ) : null;
 
   let sectionTitle = tabLabel(tab);
@@ -401,14 +459,27 @@ function ModelPortalPageInner() {
 
   if (tab === 'home') {
     main = <ModelPortalHomeContent userEmail={user.email} premiumReturn={premiumReturn} />;
+  } else if (tab === 'premium') {
+    main = (
+      <ModelPremiumTab
+        user={user}
+        premiumInfo={premiumInfo}
+        checkoutBusy={checkoutBusy}
+        checkoutErr={checkoutErr}
+        premiumReturn={premiumReturn}
+        canCheckout={can('payments.checkout')}
+        onStartCheckout={() => void startPremium()}
+      />
+    );
   } else if (tab === 'opdrachten' && can('portal.model.briefs.read')) {
     sectionHeaderRight = (
       <div className="flex flex-wrap justify-end gap-1.5">
         {(
           [
-            ['all', `Alle opdrachten (${briefCounts.all})`],
-            ['available', `Voor mij (${briefCounts.available})`],
-            ['subscribed', `Ingeschreven voor (${briefCounts.subscribed})`],
+            ['all', `Alle (${briefCounts.all})`],
+            ['eligible', `In aanmerking (${briefCounts.eligible})`],
+            ['available', `Nog niet ingeschreven (${briefCounts.available})`],
+            ['subscribed', `Mijn inschrijvingen (${briefCounts.subscribed})`],
           ] as const
         ).map(([id, label]) => {
           const active = briefFilter === id;
@@ -427,76 +498,186 @@ function ModelPortalPageInner() {
     );
     main = (
       <div className="space-y-4">
+        {!user.isPremium ? (
+          <div className="rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
+            <strong>Tip:</strong> met{' '}
+            <Link href="/portal/model?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
+              Premium
+            </Link>{' '}
+            krijg je onder meer pushmeldingen bij nieuwe opdrachten en updates — ideaal om snel te reageren.
+          </div>
+        ) : null}
         <p className="text-xs text-muted">
-          Reageer met een korte motivatie; de klant ziet je profielgegevens bij je reactie.
+          Opdrachten staan op datum gesorteerd (eerstvolgende bovenaan). Vul je modellenfiche aan (geboortedatum als
+          JJJJ-MM-DD, geslacht) voor een correcte &quot;in aanmerking&quot;-match.
         </p>
         {briefErr ? <p className="text-xs text-red-700">{briefErr}</p> : null}
-        <ul className="space-y-4">
+        <ul className="space-y-5">
           {filteredBriefs.map((b) => {
             const mine = b.responses.find((r) => r.modelUserId === myId);
             const badge = responseBadge(mine);
             const clientLabel =
               b.client.companyName ||
               [b.client.firstName, b.client.lastName].filter(Boolean).join(' ') ||
-              b.client.email;
+              b.client.email ||
+              'Class-Models';
             const sub = formatBriefSubtitle(b);
-            const canRespond = can('portal.model.briefs.respond') && b.status === 'open' && !mine;
+            const elig = b.eligibility;
+            const inAanmerking = elig?.eligible === true;
+            const canRespond =
+              can('portal.model.briefs.respond') && b.status === 'open' && !mine && inAanmerking;
             const blocked = mine?.status === 'declined';
+            const det =
+              b.details && typeof b.details === 'object' && !Array.isArray(b.details)
+                ? (b.details as Record<string, unknown>)
+                : {};
+            const mainA =
+              det.mainAddress && typeof det.mainAddress === 'object' && !Array.isArray(det.mainAddress)
+                ? (det.mainAddress as Record<string, string>)
+                : {};
+            const onA =
+              det.onLocationAddress &&
+              typeof det.onLocationAddress === 'object' &&
+              !Array.isArray(det.onLocationAddress)
+                ? (det.onLocationAddress as Record<string, string>)
+                : {};
+            const fmtAddr = (a: Record<string, string>) =>
+              [a.organization, a.street, a.number].filter(Boolean).join(' ') +
+              (a.postcode || a.municipality ? `\n${[a.postcode, a.municipality].filter(Boolean).join(' ')}` : '');
 
             return (
-              <li key={b.id} className="overflow-hidden rounded-cm border border-line bg-white shadow-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2 bg-slate-700 px-4 py-3 text-white">
+              <li
+                key={b.id}
+                className="overflow-hidden rounded-cm border border-burgundy/25 bg-white shadow-md ring-1 ring-burgundy/10"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-burgundy/30 bg-burgundy px-4 py-3 text-white">
                   <div>
-                    <p className="font-serif text-base font-semibold">{b.title}</p>
-                    <p className="mt-0.5 text-xs text-white/85">{sub || '—'}</p>
+                    <p className="font-serif text-lg font-semibold tracking-tight">{b.title}</p>
+                    <p className="mt-0.5 text-xs text-white/90">{sub || '—'}</p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-white ${badge.className}`}>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold text-white ${badge.className}`}
+                  >
                     {badge.label}
                   </span>
                 </div>
+
+                <div
+                  className={`border-b px-4 py-2 text-center text-xs font-semibold ${
+                    inAanmerking ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'
+                  }`}
+                >
+                  {inAanmerking ? 'U komt in aanmerking voor deze opdracht.' : 'U komt niet in aanmerking voor deze opdracht.'}
+                  {elig?.reason ? <span className="mt-1 block font-normal opacity-90">{elig.reason}</span> : null}
+                </div>
+
                 <div className="grid gap-4 p-4 md:grid-cols-2">
-                  <div className="rounded-cm border border-zinc-200 bg-zinc-50/60 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-600">Omschrijving</p>
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">{b.body}</p>
-                    {b.extraInfo ? (
+                  <div className="rounded-cm border border-zinc-200 bg-zinc-50/80 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Omschrijving</p>
+                    {b.body?.trim() ? (
+                      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">{b.body}</p>
+                    ) : (
+                      <p className="mt-2 text-sm italic text-zinc-500">Omschrijving niet zichtbaar voor dit profiel.</p>
+                    )}
+                    {b.extraInfo?.trim() ? (
                       <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">{b.extraInfo}</p>
                     ) : null}
                     <p className="mt-3 text-xs text-muted">Klant: {clientLabel}</p>
                   </div>
-                  <div className="rounded-cm border border-zinc-200 bg-zinc-50/60 p-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-600">Gezocht</p>
+                  <div className="rounded-cm border border-zinc-200 bg-zinc-50/80 p-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Gezocht</p>
                     <div className="mt-2">
                       <GezochtLines b={b} />
                     </div>
+                    {typeof det.makeup === 'string' && det.makeup ? (
+                      <p className="mt-3 text-xs text-zinc-700">
+                        <strong>Make-up:</strong>{' '}
+                        {det.makeup === 'self' ? 'zelf te doen' : det.makeup === 'provided' ? 'make-up aanwezig' : det.makeup}
+                      </p>
+                    ) : null}
+                    {typeof det.hair === 'string' && det.hair ? (
+                      <p className="mt-1 text-xs text-zinc-700">
+                        <strong>Kapsel:</strong>{' '}
+                        {det.hair === 'self' ? 'zelf te doen' : det.hair === 'provided' ? 'kapper aanwezig' : det.hair}
+                      </p>
+                    ) : null}
+                    {typeof det.provisionsText === 'string' && det.provisionsText ? (
+                      <p className="mt-3 whitespace-pre-wrap text-xs text-zinc-800">
+                        <strong className="text-burgundy">Wat te voorzien:</strong> {det.provisionsText}
+                      </p>
+                    ) : null}
+                    {typeof det.earningsText === 'string' && det.earningsText ? (
+                      <p className="mt-2 text-xs text-zinc-800">
+                        <strong className="text-burgundy">Verdiensten:</strong> {det.earningsText}
+                      </p>
+                    ) : null}
+                    {typeof det.remarksText === 'string' && det.remarksText ? (
+                      <p className="mt-2 whitespace-pre-wrap text-xs text-muted">{det.remarksText}</p>
+                    ) : null}
                   </div>
                 </div>
-                <div className="border-t border-zinc-100 bg-zinc-50/80 px-4 py-3">
+
+                {(Object.keys(mainA).length && fmtAddr(mainA).trim()) ? (
+                  <div className="border-t border-zinc-100 px-4 py-2 text-xs text-zinc-800">
+                    <p className="font-bold uppercase tracking-wide text-burgundy">Adres</p>
+                    <p className="mt-1 whitespace-pre-line">{fmtAddr(mainA)}</p>
+                  </div>
+                ) : null}
+                {(Object.keys(onA).length && fmtAddr(onA).trim()) ? (
+                  <div className="border-t border-zinc-100 px-4 py-2 text-xs text-zinc-800">
+                    <p className="font-bold uppercase tracking-wide text-burgundy">Opdracht gaat door op</p>
+                    <p className="mt-1 whitespace-pre-line">{fmtAddr(onA)}</p>
+                  </div>
+                ) : null}
+
+                <div className="border-t border-zinc-100 bg-zinc-50/90 px-4 py-3">
                   {blocked ? (
-                    <span className="inline-block rounded-full bg-zinc-400 px-4 py-2 text-xs font-medium text-white">
-                      Niet beschikbaar voor uw profiel
+                    <span className="inline-block rounded-full bg-zinc-500 px-4 py-2 text-xs font-medium text-white">
+                      U bent niet gekozen voor deze opdracht
                     </span>
+                  ) : mine?.status === 'submitted' ? (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-xs text-muted">
+                        Ingeschreven. Status: <strong className="text-ink">{mine.status}</strong>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => withdrawInterest(b.id)}
+                        className="rounded-full border border-red-700 bg-white px-4 py-2 text-xs font-semibold text-red-800 hover:bg-red-50"
+                      >
+                        Uitschrijven
+                      </button>
+                    </div>
+                  ) : mine?.status === 'accepted' ? (
+                    <p className="text-sm font-semibold text-emerald-800">
+                      Gefeliciteerd — u bent gekozen. Neem contact op met Class-Models.
+                    </p>
+                  ) : mine ? (
+                    <p className="text-xs text-muted">
+                      Status: <strong className="text-ink">{mine.status}</strong>
+                    </p>
                   ) : canRespond ? (
                     <div className="flex flex-col gap-2 sm:mx-auto sm:max-w-lg sm:flex-row sm:items-end">
                       <textarea
                         className="min-h-[72px] flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-xs"
-                        placeholder="Waarom ben je geschikt?"
+                        placeholder="Korte motivatie (min. 5 tekens)"
                         value={briefNote[b.id] ?? ''}
                         onChange={(e) => setBriefNote((n) => ({ ...n, [b.id]: e.target.value }))}
                       />
                       <button
                         type="button"
                         onClick={() => submitInterest(b.id)}
-                        className="rounded-full bg-zinc-800 px-4 py-2 text-xs font-semibold text-white hover:bg-zinc-900"
+                        className="rounded-full bg-burgundy px-4 py-2 text-xs font-semibold text-white hover:bg-burgundyDeep"
                       >
-                        Interesse melden
+                        Inschrijven
                       </button>
                     </div>
-                  ) : mine ? (
-                    <p className="text-xs text-muted">
-                      Jouw status: <strong className="text-ink">{mine.status}</strong>
+                  ) : b.status === 'open' && !inAanmerking ? (
+                    <p className="text-xs text-red-800">
+                      Inschrijven is niet beschikbaar: uw profiel komt niet in aanmerking volgens de criteria.
                     </p>
                   ) : (
-                    <span className="text-xs text-muted">Deze opdracht is niet meer open voor reacties.</span>
+                    <span className="text-xs text-muted">Deze opdracht is niet meer open voor nieuwe inschrijvingen.</span>
                   )}
                 </div>
               </li>
@@ -510,6 +691,16 @@ function ModelPortalPageInner() {
     );
   } else if (tab === 'opdrachten') {
     main = <p className="text-sm text-muted">Je hebt geen toegang tot opdrachten.</p>;
+  } else if (tab === 'tryout-modeshow' && can('portal.model.briefs.read')) {
+    sectionHeaderRight = tryoutHeaderRight ?? undefined;
+    main = <ModelTryoutModeshowTab onHeaderRightChange={setTryoutHeaderRight} />;
+  } else if (tab === 'tryout-modeshow') {
+    main = (
+      <p className="text-sm text-muted">
+        Je account heeft geen rechten voor deze pagina. Vraag een beheerder om de permissie{' '}
+        <code className="rounded bg-zinc-100 px-1 text-xs">portal.model.briefs.read</code> op de modelrol te zetten.
+      </p>
+    );
   } else if (tab === 'profiel') {
     if (!token) {
       main = <p className="text-sm text-muted">Laden…</p>;
@@ -570,6 +761,12 @@ function ModelPortalPageInner() {
                 >
                   {checkoutBusy ? 'Bezig…' : user.isPremium ? 'Premium actief' : 'Premium afrekenen (Mollie)'}
                 </button>
+                <p className="mt-3 text-xs">
+                  <Link href="/portal/model?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
+                    Uitgebreide Premium-pagina
+                  </Link>{' '}
+                  — prijs, voordelen en uitleg.
+                </p>
               </div>
             ) : null
           }
@@ -612,17 +809,34 @@ function ModelPortalPageInner() {
     );
   } else if (tab === 'push') {
     sectionTitle = 'Pushberichten';
-    sectionHeaderRight = pushHeaderSlot ?? undefined;
-    main = (
-      <ModelPortalPushTab
-        token={token}
-        refreshMe={refreshMe}
-        canRead={can('portal.model.push.read')}
-        canSubscribe={can('portal.model.push.subscribe')}
-        pushSummary={user.push}
-        onHeaderExtras={setPushHeaderSlot}
-      />
-    );
+    if (!user.isPremium) {
+      main = (
+        <div className="mx-auto max-w-lg rounded-2xl border border-zinc-200 bg-white px-6 py-10 text-center shadow-sm">
+          <h2 className="font-serif text-xl font-semibold text-ink">Pushberichten zijn premium</h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            Als premium model ontvang je webpush bij nieuwe opdrachten, herinneringen en acties van het bureau — zo
+            blijf je zonder e-mail te verversen op de hoogte.
+          </p>
+          <Link
+            href="/portal/model?tab=premium"
+            className="mt-6 inline-flex rounded-full bg-burgundy px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-white hover:bg-burgundyDeep"
+          >
+            Bekijk Premium
+          </Link>
+        </div>
+      );
+    } else {
+      main = (
+        <ModelPortalPushTab
+          token={token}
+          refreshMe={refreshMe}
+          canRead={can('portal.model.push.read')}
+          canSubscribe={can('portal.model.push.subscribe')}
+          pushSummary={user.push}
+          onTitleBar={setPushTitleSlot}
+        />
+      );
+    }
   } else if (tab === 'bericht') {
     main = (
       <div className="space-y-4 text-sm">
@@ -677,14 +891,19 @@ function ModelPortalPageInner() {
     );
   }
 
+  const pushRead = can('portal.model.push.read');
+  const pushToolbar = pushRead && user.isPremium;
+
   return (
     <ModelPortalShell
       activeTab={tab}
       onTabChange={setTab}
       sectionTitle={sectionTitle}
-      sectionHeaderRight={sectionHeaderRight}
-      sectionTitleBarClassName={tab === 'push' ? '!h-auto min-h-[44px] py-1.5' : undefined}
-      sectionTitleBarInnerClassName={tab === 'push' ? 'items-start !flex-wrap' : undefined}
+      replaceSectionTitleBar={tab === 'push' && pushToolbar}
+      sectionTitleSlot={tab === 'push' && pushToolbar ? pushTitleSlot : undefined}
+      sectionHeaderRight={tab === 'push' && pushToolbar ? undefined : sectionHeaderRight}
+      sectionTitleBarClassName={tab === 'push' && pushToolbar ? '!h-auto min-h-[44px] py-2' : undefined}
+      sectionTitleBarInnerClassName={undefined}
       pushUnreadCount={user.push?.unreadCount ?? 0}
       userFirstName={firstName}
       premiumButton={premiumButton}

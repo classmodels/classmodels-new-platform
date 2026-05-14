@@ -19,4 +19,10 @@ export class PatchMollieSettingsDto {
   @IsNumber()
   @Min(0)
   premiumPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  tryoutPrice?: number;
 }

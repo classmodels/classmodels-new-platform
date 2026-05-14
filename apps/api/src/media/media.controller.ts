@@ -20,7 +20,12 @@ import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { basename, join } from 'path';
 import { existsSync } from 'fs';
-import { MoveToTrashDto, UpdateFolderSettingsDto } from './dto/media-admin.dto';
+import {
+  CreateMediaFolderDto,
+  MoveAssetsFolderDto,
+  MoveToTrashDto,
+  UpdateFolderSettingsDto,
+} from './dto/media-admin.dto';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
@@ -43,8 +48,22 @@ export class MediaController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.read')
   @Get('library')
-  library() {
-    return this.media.library();
+  library(
+    @Query('legacy') legacy?: string,
+    @Query('folderId') folderId?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    if (legacy === '1' || legacy === 'true') {
+      return this.media.libraryLegacy();
+    }
+    const p = page ? parseInt(page, 10) : 1;
+    const ps = pageSize ? parseInt(pageSize, 10) : 72;
+    return this.media.libraryPaginated(
+      folderId,
+      Number.isFinite(p) ? p : 1,
+      Number.isFinite(ps) ? ps : 72,
+    );
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -52,6 +71,13 @@ export class MediaController {
   @Post('folders/ensure-defaults')
   ensureFolders() {
     return this.media.ensureDefaultFolders();
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('folders')
+  createFolder(@Body() body: CreateMediaFolderDto) {
+    return this.media.createFolder(body.label);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -90,6 +116,12 @@ export class MediaController {
     @Query('hard') hard?: string,
   ) {
     return this.media.removeAsset(id, hard === '1' || hard === 'true');
+  }
+
+  @Permissions('admin.media.write')
+  @Post('assets/move-folder')
+  moveFolder(@Body() body: MoveAssetsFolderDto) {
+    return this.media.moveAssetsToFolder(body.ids, body.folderId);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

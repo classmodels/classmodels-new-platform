@@ -53,6 +53,7 @@ export const PERMISSION_CATALOG: {
       { id: 'portal.model.history.read', label: 'Eigen historiek (portaal)' },
       { id: 'portal.model.push.read', label: 'Pushberichten bekijken (inbox + voorkeuren)' },
       { id: 'portal.model.push.subscribe', label: 'Push op dit apparaat inschakelen' },
+      { id: 'photographer.portfolio.upload', label: 'Fotograaf: portfolio-uploads (eigen omgeving)' },
     ],
   },
   {

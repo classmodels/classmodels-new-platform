@@ -1,9 +1,11 @@
 import { BriefStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -68,6 +70,12 @@ export class AdminCreateBriefDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  wantedTeenagers?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   ageManFrom?: number | null;
 
   @IsOptional()
@@ -99,6 +107,22 @@ export class AdminCreateBriefDto {
   @IsInt()
   @Min(0)
   ageChildTo?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  ageTeenFrom?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  ageTeenTo?: number | null;
+
+  @IsOptional()
+  @IsObject()
+  details?: Record<string, unknown>;
 
   @IsOptional()
   @IsEnum(BriefStatus)
@@ -164,6 +188,12 @@ export class AdminUpdateBriefDto {
   @Type(() => Number)
   @IsInt()
   @Min(0)
+  wantedTeenagers?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
   ageManFrom?: number | null;
 
   @IsOptional()
@@ -195,6 +225,26 @@ export class AdminUpdateBriefDto {
   @IsInt()
   @Min(0)
   ageChildTo?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  ageTeenFrom?: number | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  ageTeenTo?: number | null;
+
+  @IsOptional()
+  @IsObject()
+  details?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsBoolean()
+  eligibilityPush?: boolean;
 
   @IsOptional()
   @IsEnum(BriefStatus)

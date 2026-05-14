@@ -5,12 +5,14 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -35,6 +37,19 @@ export class PortalModelMediaController {
     return this.media.modelAckPortfolioDownload(req.user.sub, body.assetId);
   }
 
+  @Get('portfolio-delivery/count')
+  @Permissions('portal.model.media.read')
+  async portfolioDeliveryCount(@Req() req: { user: JwtPayload }) {
+    const n = await this.media.countPortfolioDeliveryForModel(req.user.sub);
+    return { count: n };
+  }
+
+  @Get('portfolio-delivery/zip')
+  @Permissions('portal.model.media.read')
+  async portfolioDeliveryZip(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
+    await this.media.streamPortfolioDeliveryZipAndConsume(req.user.sub, res);
+  }
+
   @Post('upload')
   @Permissions('portal.model.media.upload')
   @UseInterceptors(
@@ -50,9 +65,10 @@ export class PortalModelMediaController {
   ) {
     if (!file) return { error: 'Geen bestand' };
     const slug = folderSlug?.trim() || 'models';
-    if (slug !== 'models') {
-      return { error: 'Portfolio-uploads horen in de map Modellen.' };
+    const allowed = ['models', 'tijdelijke-uploads'];
+    if (!allowed.includes(slug)) {
+      return { error: `Alleen ${allowed.join(' of ')} is toegestaan voor model-uploads.` };
     }
-    return this.media.saveForPortalUser(file, req.user.sub, 'models');
+    return this.media.saveForPortalUser(file, req.user.sub, slug);
   }
 }

@@ -4,6 +4,7 @@ import { UsersService, pickPublicMediaKey } from './users.service';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { PatchProfileDto } from './dto/patch-profile.dto';
 import { ModelPushService } from '../push/model-push.service';
+import { premiumEffective } from '../auth/permissions.util';
 
 @Controller('users')
 export class UsersController {
@@ -30,7 +31,8 @@ export class UsersController {
       modelSheet: u.modelSheet ?? null,
       profilePhotoAssetId: u.profilePhotoAssetId ?? null,
       profileThumbKey: pickPublicMediaKey(u.profilePhoto ?? null),
-      isPremium: req.user.isPremium,
+      isPremium: premiumEffective(u),
+      premiumUntil: u.premiumUntil?.toISOString() ?? null,
       roles: req.user.roles,
       permissions: req.user.permissions,
       lastLoginAt: u.lastLoginAt?.toISOString() ?? null,

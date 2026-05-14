@@ -4,14 +4,14 @@
 
 ## 1. Infra
 
-- **VPS of managed Node + Postgres** (aanbevolen). Zorg voor TLS (Let’s Encrypt).
+- **VPS of managed Node + MySQL** (aanbevolen). Zorg voor TLS (Let’s Encrypt).
 - Back-ups van database en mediabestanden (`MEDIA_ROOT` / volume).
 
 ## 2. Omgeving (productie)
 
 - Sterke `JWT_SECRET`, geen demo-seed op productie.
 - `NODE_ENV=production`
-- `DATABASE_URL` naar productie-Postgres
+- `DATABASE_URL` naar productie-MySQL
 - `MOLLIE_API_KEY_LIVE` alleen wanneer live betalingen gewenst zijn (zie `docs/MOLLIE.md`)
 - `CORS_ORIGIN` = exacte publieke origin(s) van de frontend
 - `NEXT_PUBLIC_BASE_PATH` leeg laten als de site op `/` draait

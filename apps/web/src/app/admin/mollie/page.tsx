@@ -11,12 +11,14 @@ export default function AdminMolliePage() {
     apiKeyLive: string | null;
     webhookUrl: string | null;
     premiumPrice: string;
+    tryoutPrice: string;
   } | null>(null);
   const [form, setForm] = useState({
     apiKeyTest: '',
     apiKeyLive: '',
     webhookUrl: '',
     premiumPrice: '48',
+    tryoutPrice: '600',
   });
 
   const load = useCallback(async () => {
@@ -26,6 +28,7 @@ export default function AdminMolliePage() {
       apiKeyLive: string | null;
       webhookUrl: string | null;
       premiumPrice: string;
+      tryoutPrice: string;
     }>('/admin/mollie-settings', token);
     setData(d);
     setForm({
@@ -33,6 +36,7 @@ export default function AdminMolliePage() {
       apiKeyLive: '',
       webhookUrl: d.webhookUrl ?? '',
       premiumPrice: d.premiumPrice,
+      tryoutPrice: d.tryoutPrice,
     });
   }, [token]);
 
@@ -48,6 +52,7 @@ export default function AdminMolliePage() {
       body: JSON.stringify({
         webhookUrl: form.webhookUrl || null,
         premiumPrice: parseFloat(form.premiumPrice),
+        tryoutPrice: parseFloat(form.tryoutPrice),
         ...(form.apiKeyTest ? { apiKeyTest: form.apiKeyTest } : {}),
         ...(form.apiKeyLive ? { apiKeyLive: form.apiKeyLive } : {}),
       }),
@@ -105,6 +110,16 @@ export default function AdminMolliePage() {
             className="mt-1 w-full rounded border border-line px-2 py-1 text-xs"
             value={form.premiumPrice}
             onChange={(e) => setForm({ ...form, premiumPrice: e.target.value })}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs text-muted">Try-out modeshow — inschrijfprijs (EUR)</span>
+          <input
+            type="number"
+            step="0.01"
+            className="mt-1 w-full rounded border border-line px-2 py-1 text-xs"
+            value={form.tryoutPrice}
+            onChange={(e) => setForm({ ...form, tryoutPrice: e.target.value })}
           />
         </label>
         <button type="submit" className="rounded bg-burgundy px-3 py-1.5 text-white hover:bg-burgundyDeep">
