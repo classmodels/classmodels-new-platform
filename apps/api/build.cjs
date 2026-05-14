@@ -1,14 +1,17 @@
 'use strict';
 /**
- * Combell / npm workspaces: prisma en nest staan vaak in de **monorepo-root**
- * `node_modules`, niet in `apps/api/node_modules`. `require.resolve` met alleen
- * `paths: [__dirname]` zoekt daar niet — daarom expliciet omhoog lopen.
+ * 1) Lokaal: prisma/nest uit node_modules (workspaces → vaak in monorepo-root).
+ * 2) Combell / rare Docker: als die er niet staan → `npx --yes` met vaste versies
+ *    (downloadt de CLI; build heeft normaal netwerk).
  */
 const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const cwd = __dirname;
+
+const PRISMA_VERSION = '5.22.0';
+const NEST_CLI_VERSION = '10.4.9';
 
 function findUp(relativePath) {
   let dir = cwd;
@@ -22,20 +25,33 @@ function findUp(relativePath) {
   return null;
 }
 
+function runNode(scriptPath, args) {
+  return spawnSync(process.execPath, [scriptPath, ...args], { stdio: 'inherit', cwd });
+}
+
+function runNpx(pkgWithVersion, args) {
+  return spawnSync('npx', ['--yes', pkgWithVersion, ...args], {
+    stdio: 'inherit',
+    cwd,
+    shell: true,
+  });
+}
+
+// --- Prisma generate ---
 const prismaCli = findUp('prisma/build/index.js');
-if (!prismaCli) {
-  console.error('Kan prisma niet vinden (gezocht vanaf apps/api omhoog in node_modules).');
-  process.exit(1);
+let r;
+if (prismaCli) {
+  r = runNode(prismaCli, ['generate']);
+} else {
+  r = runNpx(`prisma@${PRISMA_VERSION}`, ['generate']);
 }
-
-const nestCli = findUp('@nestjs/cli/bin/nest.js');
-if (!nestCli) {
-  console.error('Kan nest CLI niet vinden (gezocht vanaf apps/api omhoog in node_modules).');
-  process.exit(1);
-}
-
-let r = spawnSync(process.execPath, [prismaCli, 'generate'], { stdio: 'inherit', cwd });
 if (r.status) process.exit(r.status === null ? 1 : r.status);
 
-r = spawnSync(process.execPath, [nestCli, 'build'], { stdio: 'inherit', cwd });
+// --- Nest build ---
+const nestCli = findUp('@nestjs/cli/bin/nest.js');
+if (nestCli) {
+  r = runNode(nestCli, ['build']);
+} else {
+  r = runNpx(`@nestjs/cli@${NEST_CLI_VERSION}`, ['build']);
+}
 process.exit(r.status === null ? 1 : r.status);
