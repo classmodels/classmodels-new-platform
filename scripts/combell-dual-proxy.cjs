@@ -88,8 +88,11 @@ async function main() {
   await waitGet(webPort, '/', (c) => c < 500);
 
   const server = http.createServer((req, res) => {
-    const host = (req.headers.host || '').split(':')[0].toLowerCase();
-    const toNest = host.startsWith('api.');
+    const host = (req.headers.host || '').split(':')[0].toLowerCase().trim();
+    const toNest =
+      host === 'api.class-models.be' ||
+      host.startsWith('api.') ||
+      host.startsWith('www.api.');
     forward(req, res, toNest ? nestPort : webPort);
   });
 
