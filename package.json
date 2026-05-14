@@ -14,6 +14,7 @@
     "ports:free": "bash scripts/free-dev-ports.sh",
     "build": "node scripts/ensure-next-for-combell.cjs && npm run build -w @cm/api && npm run build -w @cm/web",
     "serve": "bash scripts/combell-serve.sh",
+    "start": "node scripts/combell-start.cjs",
     "db:generate": "npm run prisma:generate -w @cm/api",
     "db:migrate": "bash scripts/with-root-env.sh npm run prisma:migrate -w @cm/api",
     "db:deploy": "bash scripts/with-root-env.sh npm run prisma:deploy -w @cm/api",
