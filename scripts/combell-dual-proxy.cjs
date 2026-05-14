@@ -4,9 +4,11 @@
  * - Host begint met `api.` → Nest op interne poort
  * - Anders → Next op interne poort
  *
- * Luistert meteen op PORT (warmup 200) zodat deploy-probes niet falen.
- * Interne Nest/Web-poorten mogen nooit gelijk zijn aan de publieke PORT (Combell gebruikt vaak 3000/4000/8080).
+ * Combell-deploy: meteen luisteren + warmup. Next moet op tijd reageren (anders exit 1).
+ * Nest: start met `node dist/main.js` (geen `npm`-subproces). Als Nest crasht of /health uitblijft,
+ * blijft het proces draaien (website werkt) — deploy kan alsnog slagen; API geeft 503 tot Nest ok is.
  */
+const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -14,6 +16,7 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const publicPort = parseInt(process.env.PORT || '3000', 10);
 const maxBootMs = parseInt(process.env.COMBELL_DUAL_BOOT_MS || '180000', 10);
+const strictNest = String(process.env.COMBELL_DUAL_STRICT_NEST || '').trim() === '1';
 
 const taken = new Set([publicPort]);
 function pickPort(envKey, fallback) {
@@ -27,7 +30,13 @@ function pickPort(envKey, fallback) {
 const nestPort = pickPort('NEST_INTERNAL_PORT', 4000);
 const webPort = pickPort('WEB_INTERNAL_PORT', 3001);
 
+const apiDir = path.join(root, 'apps', 'api');
+const nestMain = path.join(apiDir, 'dist', 'main.js');
+const webDir = path.join(root, 'apps', 'web');
+const webStart = path.join(webDir, 'start.cjs');
+
 let proxyReady = false;
+let nestLive = false;
 
 function forward(req, res, port) {
   const headers = { ...req.headers };
@@ -70,22 +79,50 @@ function waitGet(port, pth, ok) {
   });
 }
 
-function spawnChild(name, npmArgs, extraEnv) {
-  const child = spawn('npm', npmArgs, {
-    cwd: root,
+function spawnNext() {
+  const child = spawn(process.execPath, [webStart], {
+    cwd: webDir,
     stdio: 'inherit',
-    env: { ...process.env, ...extraEnv },
-    shell: true,
+    env: {
+      ...process.env,
+      PORT: String(webPort),
+      COMBELL_HOST_ROUTER: '0',
+    },
   });
   child.on('error', (err) => {
-    console.error(`[combell-dual] ${name} spawn error:`, err);
+    console.error('[combell-dual] next spawn error:', err);
     process.exit(1);
   });
   child.on('exit', (code, signal) => {
-    console.error(`[combell-dual] ${name} gestopt (code=${code} signal=${signal})`);
+    console.error(`[combell-dual] next gestopt (code=${code} signal=${signal})`);
     process.exit(code ?? 1);
   });
   return child;
+}
+
+function spawnNest() {
+  if (!fs.existsSync(nestMain)) {
+    console.error('[combell-dual] Nest build ontbreekt (verwacht na pipeline build):', nestMain);
+    return false;
+  }
+  const child = spawn(process.execPath, [nestMain], {
+    cwd: apiDir,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      API_HOST: '127.0.0.1',
+      API_PORT: String(nestPort),
+      COMBELL_HOST_ROUTER: '0',
+    },
+  });
+  child.on('error', (err) => {
+    console.error('[combell-dual] nest spawn error (website blijft draaien):', err);
+  });
+  child.on('exit', (code, signal) => {
+    nestLive = false;
+    console.error(`[combell-dual] nest gestopt (code=${code} signal=${signal}) — API tijdelijk onbereikbaar`);
+  });
+  return true;
 }
 
 function hostToNest(hostRaw) {
@@ -97,21 +134,24 @@ function hostToNest(hostRaw) {
   );
 }
 
+async function waitNestHealthBackground() {
+  try {
+    await waitGet(nestPort, '/health', (c) => c === 200 || c === 204);
+    nestLive = true;
+    console.error('[combell-dual] Nest /health reageert');
+  } catch (e) {
+    console.error('[combell-dual] Nest /health binnen timeout niet ok:', e.message || e);
+    console.error('[combell-dual] Website blijft actief; herstel DB_URL/env en herstart of wacht.');
+  }
+}
+
 async function bootBackends() {
   console.error(
-    `[combell-dual] publiek PORT=${publicPort}, intern Nest=${nestPort}, intern Next=${webPort}, boot max ${maxBootMs}ms`,
+    `[combell-dual] publiek PORT=${publicPort}, intern Nest=${nestPort}, intern Next=${webPort}, strictNest=${strictNest}`,
   );
 
-  spawnChild('nest', ['run', 'start', '-w', '@cm/api'], {
-    API_HOST: '127.0.0.1',
-    API_PORT: String(nestPort),
-    COMBELL_HOST_ROUTER: '0',
-  });
-
-  spawnChild('next', ['run', 'start', '-w', '@cm/web'], {
-    PORT: String(webPort),
-    COMBELL_HOST_ROUTER: '0',
-  });
+  const hadNest = spawnNest();
+  spawnNext();
 
   try {
     await waitGet(webPort, '/', (c) => c < 500);
@@ -120,17 +160,26 @@ async function bootBackends() {
     console.error('[combell-dual] Next start niet op tijd:', e.message || e);
     process.exit(1);
   }
-  try {
-    await waitGet(nestPort, '/health', (c) => c === 200 || c === 204);
-    console.error('[combell-dual] Nest /health reageert');
-  } catch (e) {
-    console.error('[combell-dual] Nest start niet op tijd:', e.message || e);
-    console.error('[combell-dual] Controleer DB_URL en overige API-env in Combell.');
-    process.exit(1);
+
+  if (strictNest) {
+    if (!hadNest) {
+      console.error('[combell-dual] strictNest maar geen Nest build.');
+      process.exit(1);
+    }
+    try {
+      await waitGet(nestPort, '/health', (c) => c === 200 || c === 204);
+      nestLive = true;
+      console.error('[combell-dual] Nest /health reageert (strict)');
+    } catch (e) {
+      console.error('[combell-dual] Nest strict: gestopt.', e.message || e);
+      process.exit(1);
+    }
+  } else if (hadNest) {
+    void waitNestHealthBackground();
   }
 
   proxyReady = true;
-  console.error('[combell-dual] proxy routeert nu naar Next en Nest');
+  console.error('[combell-dual] proxy routeert (API pas live na /health)');
 }
 
 const server = http.createServer((req, res) => {
@@ -148,6 +197,16 @@ const server = http.createServer((req, res) => {
 
   const host = (req.headers.host || '').split(':')[0].toLowerCase().trim();
   const toNest = hostToNest(host);
+  if (toNest && !nestLive) {
+    res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(
+      JSON.stringify({
+        error: 'api_not_ready',
+        message: 'De API start nog op of kon niet opstarten. Controleer Combell logs en DB_URL.',
+      }),
+    );
+    return;
+  }
   forward(req, res, toNest ? nestPort : webPort);
 });
 
