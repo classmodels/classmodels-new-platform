@@ -37,7 +37,10 @@ function runNpx(pkgWithVersion, args) {
   });
 }
 
-// --- Prisma generate ---
+// --- Prisma generate (zelfde DB_URL / DATABASE_URL-brug als env.bootstrap) ---
+if (!process.env.DB_URL?.trim() && process.env.DATABASE_URL?.trim()) {
+  process.env.DB_URL = process.env.DATABASE_URL.trim();
+}
 const prismaCli = findUp('prisma/build/index.js');
 let r;
 if (prismaCli) {

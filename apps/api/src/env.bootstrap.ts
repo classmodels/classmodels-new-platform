@@ -34,3 +34,10 @@ function loadEnvFromAncestors() {
 }
 
 loadEnvFromAncestors();
+
+/** Combell: sommige panels weigeren lange keys; Prisma leest `DB_URL`. Oude `DATABASE_URL` blijft werken. */
+const dbUrl = process.env.DB_URL?.trim() || process.env.DATABASE_URL?.trim();
+if (dbUrl) {
+  process.env.DB_URL = dbUrl;
+  if (!process.env.DATABASE_URL?.trim()) process.env.DATABASE_URL = dbUrl;
+}
