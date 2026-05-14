@@ -4,7 +4,8 @@
  * - Host begint met `api.` → Nest op NEST_INTERNAL_PORT (default 4000)
  * - Anders → Next op WEB_INTERNAL_PORT (default 3001)
  *
- * Zet in Combell o.a.: COMBELL_HOST_ROUTER=1 (en laat npm start dit script uitvoeren).
+ * COMBELL: luister **onmiddellijk** op PORT met 200 voor GET/HEAD (warmup), zodat de
+ * deploy-probe niet faalt terwijl Next/Nest nog opstarten.
  */
 const http = require('http');
 const { spawn } = require('child_process');
@@ -15,6 +16,8 @@ const publicPort = parseInt(process.env.PORT || '3000', 10);
 const nestPort = parseInt(process.env.NEST_INTERNAL_PORT || '4000', 10);
 const webPort = parseInt(process.env.WEB_INTERNAL_PORT || '3001', 10);
 const maxBootMs = parseInt(process.env.COMBELL_DUAL_BOOT_MS || '120000', 10);
+
+let proxyReady = false;
 
 function forward(req, res, port) {
   const headers = { ...req.headers };
@@ -70,11 +73,16 @@ function spawnChild(name, cmd, args, extraEnv) {
   return child;
 }
 
-async function main() {
-  console.error(
-    `[combell-dual] start Nest :${nestPort}, Next :${webPort}, luisteraar :${publicPort} (Host api.* → Nest)`,
+function hostToNest(hostRaw) {
+  const host = (hostRaw || '').split(':')[0].toLowerCase().trim();
+  return (
+    host === 'api.class-models.be' ||
+    host.startsWith('api.') ||
+    host.startsWith('www.api.')
   );
+}
 
+async function bootBackends() {
   spawnChild('nest', 'npm', ['run', 'start', '-w', '@cm/api'], {
     API_HOST: '127.0.0.1',
     API_PORT: String(nestPort),
@@ -84,7 +92,6 @@ async function main() {
     PORT: String(webPort),
   });
 
-  // Next eerst: Combell deploy-check raakt vaak de site (/) aan vóór de API.
   try {
     await waitGet(webPort, '/', (c) => c < 500);
     console.error('[combell-dual] Next (intern) reageert');
@@ -101,21 +108,34 @@ async function main() {
     process.exit(1);
   }
 
-  const server = http.createServer((req, res) => {
-    const host = (req.headers.host || '').split(':')[0].toLowerCase().trim();
-    const toNest =
-      host === 'api.class-models.be' ||
-      host.startsWith('api.') ||
-      host.startsWith('www.api.');
-    forward(req, res, toNest ? nestPort : webPort);
-  });
-
-  server.listen(publicPort, '0.0.0.0', () => {
-    console.error(`[combell-dual] proxy luistert op 0.0.0.0:${publicPort}`);
-  });
+  proxyReady = true;
+  console.error('[combell-dual] proxy routeert nu naar Next en Nest');
 }
 
-main().catch((e) => {
-  console.error('[combell-dual]', e);
-  process.exit(1);
+const server = http.createServer((req, res) => {
+  if (!proxyReady) {
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      if (req.method === 'GET') res.end('OK');
+      else res.end();
+      return;
+    }
+    res.writeHead(503, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Nog aan het opstarten');
+    return;
+  }
+
+  const host = (req.headers.host || '').split(':')[0].toLowerCase().trim();
+  const toNest = hostToNest(host);
+  forward(req, res, toNest ? nestPort : webPort);
+});
+
+server.listen(publicPort, '0.0.0.0', () => {
+  console.error(
+    `[combell-dual] luistert op 0.0.0.0:${publicPort} (warmup → Nest :${nestPort}, Next :${webPort})`,
+  );
+  void bootBackends().catch((e) => {
+    console.error('[combell-dual]', e);
+    process.exit(1);
+  });
 });
