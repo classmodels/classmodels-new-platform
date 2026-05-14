@@ -1,6 +1,7 @@
 # Kopieer onderstaande regels één voor één naar Combell → Environment variables.
 # Vervang de waarden waar het zegt VERVANG_...
 
+# COMBELL_HOST_ROUTER: 1 of true (niet leeg / geen punt). Geneste workers forceren zelf 0.
 COMBELL_HOST_ROUTER=1
 DB_URL=VERVANG_DATABASE_CONNECTION_STRING
 JWT_SECRET=VERVANG_LANG_WILLEKEURIG_GEHEIM

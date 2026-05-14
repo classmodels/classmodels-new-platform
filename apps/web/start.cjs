@@ -4,9 +4,10 @@ const fs = require('fs');
 const path = require('path');
 
 const cwd = fs.realpathSync(__dirname);
+const { combellHostRouterEnabled } = require(path.join(cwd, '..', '..', 'scripts', 'combell-host-router.cjs'));
 
 /** Combell start vaak alleen `node apps/web/start.cjs` (niet root `npm start`). */
-if (process.env.COMBELL_HOST_ROUTER === '1') {
+if (combellHostRouterEnabled()) {
   const dual = path.join(cwd, '..', '..', 'scripts', 'combell-dual-proxy.cjs');
   if (!fs.existsSync(dual)) {
     console.error('[start] combell-dual-proxy ontbreekt:', dual);

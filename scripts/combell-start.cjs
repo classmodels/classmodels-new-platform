@@ -5,10 +5,11 @@
  */
 const { spawnSync } = require('child_process');
 const path = require('path');
+const { combellHostRouterEnabled } = require('./combell-host-router.cjs');
 
 const root = path.join(__dirname, '..');
 
-if (process.env.COMBELL_HOST_ROUTER === '1') {
+if (combellHostRouterEnabled()) {
   require('./combell-dual-proxy.cjs');
 } else {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'combell-serve.cjs')], {
