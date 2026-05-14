@@ -84,8 +84,22 @@ async function main() {
     PORT: String(webPort),
   });
 
-  await waitGet(nestPort, '/health', (c) => c === 200 || c === 204);
-  await waitGet(webPort, '/', (c) => c < 500);
+  // Next eerst: Combell deploy-check raakt vaak de site (/) aan vóór de API.
+  try {
+    await waitGet(webPort, '/', (c) => c < 500);
+    console.error('[combell-dual] Next (intern) reageert');
+  } catch (e) {
+    console.error('[combell-dual] Next start niet op tijd:', e.message || e);
+    process.exit(1);
+  }
+  try {
+    await waitGet(nestPort, '/health', (c) => c === 200 || c === 204);
+    console.error('[combell-dual] Nest /health reageert');
+  } catch (e) {
+    console.error('[combell-dual] Nest start niet op tijd:', e.message || e);
+    console.error('[combell-dual] Controleer DB_URL, JWT_SECRET, CORS_ORIGIN in Combell env.');
+    process.exit(1);
+  }
 
   const server = http.createServer((req, res) => {
     const host = (req.headers.host || '').split(':')[0].toLowerCase().trim();
