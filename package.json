@@ -26,11 +26,6 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"
   },
-  "dependencies": {
-    "@nestjs/cli": "^10.4.9",
-    "prisma": "^5.22.0",
-    "typescript": "^5.6.3"
-  },
   "devDependencies": {
     "concurrently": "^9.1.0"
   }
