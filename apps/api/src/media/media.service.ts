@@ -85,6 +85,21 @@ export class MediaService {
     return resolveMediaRoot();
   }
 
+  /** Alleen schijf (geen nieuw DB-record): herstel mediabestanden op productie met zelfde bestandsnaam als in DB. */
+  async putDiskFile(file: Express.Multer.File, filename: string) {
+    const safe = basename(filename);
+    if (!safe || safe === '.' || safe.includes('..') || !/^[a-zA-Z0-9._-]+$/.test(safe)) {
+      throw new BadRequestException('Ongeldige bestandsnaam');
+    }
+    const hasBuffer = Buffer.isBuffer(file.buffer) && file.buffer.length > 0;
+    if (!hasBuffer) throw new BadRequestException('Leeg bestand');
+    const root = this.root();
+    if (!existsSync(root)) mkdirSync(root, { recursive: true });
+    const full = join(root, safe);
+    writeFileSync(full, file.buffer);
+    return { ok: true, filename: safe };
+  }
+
   /** Publieke bestandsnaam die wél op schijf staat (thumb → webp → origineel). Voorkomt 404 als alleen thumb bestaat. */
   resolvePublicFilename(asset: {
     storageKey: string;

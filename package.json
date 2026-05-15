@@ -23,6 +23,7 @@
     "wp:import-model-photos": "bash scripts/wp-import-model-photos.sh",
     "tool:set-password": "bash scripts/tool-set-user-password.sh",
     "tool:import-profile-photos": "bash scripts/tool-import-profile-photos-manifest.sh",
+    "tool:push-media-live": "bash scripts/push-media-to-live.sh",
     "db:seed": "bash scripts/with-root-env.sh npm run prisma:seed -w @cm/api",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down"

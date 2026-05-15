@@ -108,6 +108,25 @@ export class MediaController {
     return this.media.saveFile(file, req.user.sub, folderId, label ? { fileLabel: label } : undefined);
   }
 
+  /** Herstel: zelfde bestandsnaam als in DB, geen nieuw mediarecord. */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('sync-disk-file')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 200 * 1024 * 1024 },
+    }),
+  )
+  syncDiskFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('filename') filename?: string,
+  ) {
+    if (!file) return { error: 'Geen bestand' };
+    const name = filename?.trim() || file.originalname;
+    return this.media.putDiskFile(file, name);
+  }
+
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Delete('assets/:id')
