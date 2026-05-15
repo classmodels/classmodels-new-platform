@@ -18,7 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Response } from 'express';
-import { basename, join } from 'path';
+import { basename, extname, join } from 'path';
 import { existsSync } from 'fs';
 import {
   CreateMediaFolderDto,
@@ -32,6 +32,21 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
 
+/** Juiste Content-Type voor publieke bestanden (HTML5 video vereist o.a. video/mp4). */
+const PUBLIC_FILE_MIME: Record<string, string> = {
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.ogv': 'video/ogg',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.pdf': 'application/pdf',
+  '.mp3': 'audio/mpeg',
+};
+
 @Controller('media')
 export class MediaController {
   constructor(private media: MediaService) {}
@@ -42,7 +57,10 @@ export class MediaController {
     const safe = basename(filename);
     const full = join(this.media.root(), safe);
     if (!safe || safe === '.' || !existsSync(full)) throw new NotFoundException();
-    return res.sendFile(full);
+    const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
+    if (mime) res.setHeader('Content-Type', mime);
+    /** Range-requests: nodig voor betrouwbare `<video>`-playback (o.a. Safari). */
+    return res.sendFile(full, { acceptRanges: true });
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

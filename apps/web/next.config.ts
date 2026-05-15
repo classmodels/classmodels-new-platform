@@ -19,8 +19,8 @@ const nextConfig: NextConfig = {
   /** Altijd zetten: anders pakt Next soms een verkeerde lockfile (bv. in ~) en klopt `/_next/static/...` niet → geen CSS in dev. */
   outputFileTracingRoot: tracingRoot,
   ...(isProd ? { output: 'standalone' as const } : {}),
+  /** Ook in dev: `/__cm_api` → Nest (zelfde als productie), zodat media/video URLs werken. */
   async rewrites() {
-    if (!isProd) return [];
     return [{ source: '/__cm_api/:path*', destination: `${apiInternal}/:path*` }];
   },
 };

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Fragment, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
@@ -230,56 +230,82 @@ function ModelWordenColumnCard({
 /** Alleen het onderste deel van de rode zone (Model worden). */
 function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
   const videoSrc = guestPortalPublicMediaUrl(GUEST_PORTAL_PUBLIC_MEDIA.heroVideoBasename);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !videoSrc) return;
+    const tryPlay = () => void el.play().catch(() => {});
+    tryPlay();
+    el.addEventListener('loadeddata', tryPlay);
+    return () => el.removeEventListener('loadeddata', tryPlay);
+  }, [videoSrc]);
 
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(300px,46%)] md:items-stretch md:gap-8 lg:gap-10">
-      <div className="flex flex-col">
-        <CmText
-          contentKey="portal.guest.hero.kicker"
-          as="p"
-          className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
-          fallback="Gastenportaal"
-        />
-        <CmText
-          contentKey="portal.guest.hero.welcome"
-          as="h2"
-          className="mt-2 font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl"
-          fallback="Welkom"
-        />
-        <CmText
-          contentKey="portal.guest.hero.body"
-          as="p"
-          className="mt-3 max-w-xl text-sm leading-relaxed text-white/90"
-          fallback="Kies hieronder hoe je wilt starten: gratis test-fotoshoot, casting of een vrijblijvend intakegesprek."
-        />
-        <div className="mt-5 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => onNav('gratis-fotoshoot')}
-            className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
-          >
-            Gratis fotoshoot
-          </button>
-          <button
-            type="button"
-            onClick={() => onNav('casting')}
-            className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
-          >
-            Casting
-          </button>
-          <button
-            type="button"
-            onClick={() => onNav('intake-gesprek')}
-            className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
-          >
-            Intakegesprek
-          </button>
+    <div className="relative w-full overflow-hidden">
+      <div className="relative z-10 mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
+        <div className="max-w-xl md:mr-[calc(70px+min(560px,52vw)+2rem)]">
+          <CmText
+            contentKey="portal.guest.hero.kicker"
+            as="p"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
+            fallback="Gastenportaal"
+          />
+          <CmText
+            contentKey="portal.guest.hero.welcome"
+            as="h2"
+            className="mt-2 font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl"
+            fallback="Welkom"
+          />
+          <CmText
+            contentKey="portal.guest.hero.body"
+            as="p"
+            className="mt-3 max-w-xl text-sm leading-relaxed text-white/90"
+            fallback="Kies hieronder hoe je wilt starten: gratis test-fotoshoot, casting of een vrijblijvend intakegesprek."
+          />
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onNav('gratis-fotoshoot')}
+              className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
+            >
+              Gratis fotoshoot
+            </button>
+            <button
+              type="button"
+              onClick={() => onNav('casting')}
+              className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
+            >
+              Casting
+            </button>
+            <button
+              type="button"
+              onClick={() => onNav('intake-gesprek')}
+              className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
+            >
+              Intakegesprek
+            </button>
+          </div>
+          <GuestSignatureTagline variant="light" className="mt-6 max-w-md" />
         </div>
-        <GuestSignatureTagline variant="light" className="mt-6 max-w-md" />
       </div>
 
-      <div className="flex min-h-[180px] flex-col rounded-cm border border-white/25 bg-black/25 p-4 text-xs leading-relaxed text-white/90 md:min-h-[220px] md:p-5 md:text-sm">
-        <div className={videoSrc ? '' : 'flex flex-1 flex-col justify-center'}>
+      {videoSrc ? (
+        <div className="pointer-events-none hidden justify-center md:absolute md:bottom-[70px] md:right-[70px] md:top-[70px] md:flex md:justify-end">
+          <video
+            ref={videoRef}
+            src={videoSrc}
+            className="aspect-video w-full max-w-2xl select-none rounded-none border-0 object-contain shadow-none md:h-full md:w-auto md:max-w-[min(560px,52vw)]"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="auto"
+            aria-label="Class-Models promotiefilm"
+          />
+        </div>
+      ) : (
+        <div className="mt-6 rounded-cm border border-white/25 bg-black/20 p-4 text-xs leading-relaxed text-white/90 md:absolute md:bottom-[70px] md:right-[70px] md:top-[70px] md:mt-0 md:max-w-[min(560px,52vw)] md:overflow-y-auto md:text-sm">
           <CmText
             contentKey="portal.guest.hero.box.title"
             as="p"
@@ -289,24 +315,11 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
           <CmText
             contentKey="portal.guest.hero.box.body"
             as="p"
-            className={`mt-2 ${videoSrc ? 'line-clamp-[8] md:line-clamp-6' : ''}`}
+            className="mt-2"
             fallback="Hier lees je hoe je start als model: van gratis testshoot tot casting en intake. Gebruik het menu links voor alle onderwerpen; hieronder vind je een overzicht in drie stappen."
           />
         </div>
-        {videoSrc ? (
-          <div className="mt-4 flex w-full flex-1 flex-col justify-end">
-            <video
-              className="ml-auto aspect-video w-full max-w-full rounded-lg border border-white/30 object-cover shadow-[0_12px_40px_rgba(0,0,0,0.35)] md:max-h-[min(42vw,420px)] lg:max-h-[440px]"
-              controls
-              playsInline
-              preload="metadata"
-              aria-label="Class-Models promotiefilm"
-            >
-              <source src={videoSrc} type="video/mp4" />
-            </video>
-          </div>
-        ) : null}
-      </div>
+      )}
     </div>
   );
 }
@@ -405,32 +418,22 @@ type GuestOfferPageDef = {
   ctaButton: string;
 };
 
-function GuestGratisFotoshootPromoBanner({ page }: { page: GuestOfferPageDef }) {
+function GuestGratisFotoshootPromoBanner() {
   const apiImg = guestPortalPublicMediaUrl(GUEST_PORTAL_PUBLIC_MEDIA.gratisFotoshootImageBasename);
   const imgSrc = apiImg ?? '/guest/gratis-fotoshoot-hero.png';
 
+  /**
+   * Volle breedte wit paneel + tegen de rode titelbalk: compenseert horizontaal én verticaal
+   * het padding van het hoofdblok (`p-4` / `md:p-6`).
+   */
   return (
-    <div className="overflow-hidden rounded-cm border border-line bg-[#faf8f5] shadow-sm">
-      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(260px,42%)] lg:items-stretch">
-        <div className="space-y-4 p-5 md:p-8">
-          <p className="text-[11px] font-bold tracking-[0.22em] text-ink">GRATIS FOTOSHOOT</p>
-          <div className="h-px max-w-[11rem] bg-gradient-to-r from-[#c9a962]/90 via-[#c9a962]/35 to-transparent" aria-hidden />
-          <h3 className="font-serif text-xl font-semibold text-ink md:text-2xl">Professionele studio-opnames</h3>
-          <ul className="space-y-2.5">
-            {page.expectBullets.slice(0, 3).map((line) => (
-              <li key={line} className="flex gap-3 text-sm leading-relaxed text-ink/90">
-                <CheckDisc />
-                <span>{line}</span>
-              </li>
-            ))}
-          </ul>
-          <GuestSignatureTagline className="pt-2" />
-        </div>
-        <div className="relative min-h-[240px] w-full bg-zinc-200 lg:min-h-[280px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imgSrc} alt="" className="absolute inset-0 h-full w-full object-cover object-[center_22%]" />
-        </div>
-      </div>
+    <div className="relative -mx-4 -mt-4 w-[calc(100%+2rem)] max-w-none overflow-hidden md:-mx-6 md:-mt-6 md:w-[calc(100%+3rem)]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={imgSrc}
+        alt=""
+        className="block min-h-[200px] w-full max-w-none object-cover object-center md:min-h-[min(42vw,380px)]"
+      />
     </div>
   );
 }
@@ -796,13 +799,15 @@ export function GuestPortalLayout() {
   );
 
   const renderGratisFotoshoot = () => (
-    <div className="space-y-5">
-      <GuestGratisFotoshootPromoBanner page={GRATIS_FOTOSHOOT_PAGE} />
-      <GuestOfferWithDoelgroepenPage
-        page={GRATIS_FOTOSHOOT_PAGE}
-        onMenuSelect={goMenu}
-        onStartBooking={startBooking}
-      />
+    <div>
+      <GuestGratisFotoshootPromoBanner />
+      <div className="space-y-5 pt-5 md:pt-6">
+        <GuestOfferWithDoelgroepenPage
+          page={GRATIS_FOTOSHOOT_PAGE}
+          onMenuSelect={goMenu}
+          onStartBooking={startBooking}
+        />
+      </div>
     </div>
   );
 
@@ -844,10 +849,8 @@ export function GuestPortalLayout() {
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
       {/* Rode hero — op elke pagina van het gastenportaal */}
-      <div className="w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
-        <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
-          <ModelWordenHeroInner onNav={goMenu} />
-        </div>
+      <div className="w-full overflow-hidden bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+        <ModelWordenHeroInner onNav={goMenu} />
       </div>
 
       <div className="mx-auto w-full max-w-page px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-8">

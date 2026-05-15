@@ -200,8 +200,8 @@ export const GUEST_PORTAL_PUBLIC_MEDIA = {
   /** Rode banner rechts: promotiefilm (MP4). Leeg laten = alleen tekstkader zoals vroeger. */
   heroVideoBasename: 'film22.mp4',
   /**
-   * Gratis-fotoshoot pagina: promo rechts. Leeg = gebruik statische `/guest/gratis-fotoshoot-hero.png`.
-   * Na upload met exact deze naam in de mediatheek wordt de API-URL gebruikt.
+   * Gratis-fotoshoot: volledige afbeelding (object-contain). Leeg = `/guest/gratis-fotoshoot-hero.png`.
+   * Zet hier de exacte bestandsnaam na upload in Admin → Media (zelfde als op schijf in uploads).
    */
   gratisFotoshootImageBasename: '',
 } as const;
