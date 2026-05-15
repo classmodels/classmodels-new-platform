@@ -58,5 +58,10 @@ module.exports = { syncHostingMediaToApp };
 if (require.main === module) {
   const root = path.resolve(__dirname, '..');
   const ok = syncHostingMediaToApp(root);
-  process.exit(ok ? 0 : 1);
+  if (!ok) {
+    console.error(
+      '[combell] media sync overgeslagen (www niet bereikbaar tijdens build — ok; sync bij Node-start)',
+    );
+  }
+  process.exit(0);
 }
