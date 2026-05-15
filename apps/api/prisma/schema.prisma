@@ -71,6 +71,7 @@ model User {
   contentEdits    ContentString[]
   mediaAssets     MediaAsset[]
   auditLogs       AuditLog[]
+  sitePageViews   SitePageView[]
   subscriptions   Subscription[]
   clientBriefs    ClientBrief[]       @relation("ClientBriefs")
   briefResponses  ModelBriefResponse[]
@@ -433,6 +434,21 @@ model PluginSnippet {
   manifest    Json
   bundlePath  String
   createdAt   DateTime @default(now())
+}
+
+/// Anonieme paginaweergaven (frontend, geen admin).
+model SitePageView {
+  id        String   @id @default(uuid())
+  path      String
+  sessionId String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  referrer  String?  @db.VarChar(512)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([path])
+  @@index([sessionId])
 }
 
 model AuditLog {

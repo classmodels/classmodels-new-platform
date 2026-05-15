@@ -110,6 +110,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     label: 'Beheer & techniek',
     icon: 'wrench',
     items: [
+      { href: '/admin/statistieken', label: 'Statistieken', permission: 'admin.agenda.read' },
       { href: '/admin/historiek', label: 'Historiek / logs', permission: 'admin.audit.read' },
       { href: '/admin/snippets', label: 'Snippets / plugins', permission: 'admin.snippets.read' },
     ],

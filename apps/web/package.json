@@ -13,7 +13,8 @@
     "framer-motion": "^11.11.17",
     "next": "^15.0.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^2.15.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

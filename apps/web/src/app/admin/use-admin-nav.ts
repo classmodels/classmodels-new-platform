@@ -89,6 +89,7 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
         label: t('admin.sectionTech'),
         icon: 'wrench',
         items: [
+          { href: '/admin/statistieken', label: 'Statistieken', permission: 'admin.agenda.read' },
           { href: '/admin/historiek', label: t('admin.history'), permission: 'admin.audit.read' },
           { href: '/admin/snippets', label: t('admin.snippets'), permission: 'admin.snippets.read' },
         ],
