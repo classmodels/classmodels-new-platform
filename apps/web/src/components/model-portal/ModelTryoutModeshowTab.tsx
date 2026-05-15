@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
@@ -39,9 +38,6 @@ export function ModelTryoutModeshowTab({
   onHeaderRightChange?: (node: ReactNode | null) => void;
 }) {
   const { token, can } = useAuth();
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
   const canBriefs = can('portal.model.briefs.read');
   const canPay = can('payments.checkout');
   const canAdminList = can('admin.billing.read');
@@ -75,15 +71,6 @@ export function ModelTryoutModeshowTab({
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    if (searchParams.get('tryout') !== 'return') return;
-    void load();
-    const q = new URLSearchParams(searchParams.toString());
-    q.delete('tryout');
-    const s = q.toString();
-    router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
-  }, [searchParams, load, router, pathname]);
 
   const interest = useCallback(
     async (interested: boolean) => {

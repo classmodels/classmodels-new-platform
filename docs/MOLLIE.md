@@ -23,7 +23,7 @@ Zie root `.env.example`:
 | `PREMIUM_DURATION_DAYS` | Dagen premium na status `paid` (default 365) |
 | `API_PUBLIC_URL` | Basis-URL van de API voor webhook, bv. `https://jouwdomein.be/api-test` |
 | `PAYMENT_REDIRECT_URL` | Volledige URL waar de gebruiker na betaling terugkomt (optioneel) |
-| `WEB_APP_URL` | Fallback voor redirect: `{WEB_APP_URL}/portal/model?premium=return` |
+| `WEB_APP_URL` | Fallback voor redirect: `{WEB_APP_URL}/portal/model/betaling/bedankt?soort=premium` |
 
 Webhook-URL die je in Mollie configureert (of die automatisch wordt meegestuurd):
 

@@ -221,14 +221,7 @@ export class PaymentsService {
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
     const webhookUrl = await this.paymentWebhookUrl();
 
-    const base = (
-      process.env.WEB_APP_URL ||
-      process.env.NEXT_PUBLIC_APP_URL ||
-      'http://localhost:3000'
-    ).replace(/\/$/, '');
-    const redirectUrl =
-      process.env.TRYOUT_PAYMENT_REDIRECT_URL?.trim() ||
-      `${base}/portal/model?tab=tryout-modeshow&tryout=return`;
+    const redirectUrl = this.paymentReturnUrl('tryout');
 
     if (reg.molliePaymentId) {
       try {
@@ -313,6 +306,21 @@ export class PaymentsService {
     return `${this.resolveApiPublicBase()}/payments/mollie/webhook`;
   }
 
+  private paymentReturnUrl(kind: 'premium' | 'tryout'): string {
+    const base = (
+      process.env.WEB_APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      'http://localhost:3000'
+    ).replace(/\/$/, '');
+    const envOverride =
+      kind === 'premium'
+        ? process.env.PAYMENT_REDIRECT_URL?.trim()
+        : process.env.TRYOUT_PAYMENT_REDIRECT_URL?.trim();
+    if (envOverride) return envOverride;
+    const soort = kind === 'premium' ? 'premium' : 'tryout';
+    return `${base}/portal/model/betaling/bedankt?soort=${soort}`;
+  }
+
   /** localhost-webhook in DB negeren op productie (anders weigert Mollie betalingen). */
   private resolveWebhookUrl(dbOverride: string | null | undefined): {
     url: string;
@@ -379,9 +387,7 @@ export class PaymentsService {
     const mode = await this.resolveActiveMode();
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
 
-    const redirectUrl =
-      process.env.PAYMENT_REDIRECT_URL?.trim() ||
-      `${(process.env.WEB_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '')}/portal/model?tab=premium&premium=return`;
+    const redirectUrl = this.paymentReturnUrl('premium');
 
     const webhookUrl = await this.paymentWebhookUrl();
 

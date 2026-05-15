@@ -260,22 +260,14 @@ function ModelPortalPageInner() {
   }, [tab]);
 
   useEffect(() => {
-    if (searchParams.get('premium') !== 'return') return;
-    void refreshMe()
-      .catch(() => undefined)
-      .finally(() => {
-        const q = new URLSearchParams(searchParams.toString());
-        q.delete('premium');
-        const s = q.toString();
-        router.replace(s ? `${pathname}?${s}` : pathname, { scroll: false });
-      });
-  }, [searchParams, refreshMe, pathname, router]);
-
-  useEffect(() => {
-    if (searchParams.get('tryout') === 'return') {
-      refreshMe().catch(() => undefined);
+    if (searchParams.get('premium') === 'return') {
+      router.replace('/portal/model/betaling/bedankt?soort=premium');
+      return;
     }
-  }, [searchParams, refreshMe]);
+    if (searchParams.get('tryout') === 'return') {
+      router.replace('/portal/model/betaling/bedankt?soort=tryout');
+    }
+  }, [searchParams, router]);
 
   const loadBriefs = useCallback(() => {
     if (!token || !can('portal.model.briefs.read')) return;

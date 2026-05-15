@@ -1,17 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { GoogleTranslate } from '@/components/GoogleTranslate';
 import { useI18n } from '@/i18n/context';
 import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
 
-export default function LoginPage() {
+function LoginForm() {
   const { login } = useAuth();
   const { t } = useI18n();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -24,7 +26,11 @@ export default function LoginPage() {
     setBusy(true);
     try {
       const u = await login(email, password, { rememberMe });
-      redirectAfterPortalAuth(u, router);
+      if (next && next.startsWith('/') && !next.startsWith('//')) {
+        router.replace(next);
+      } else {
+        redirectAfterPortalAuth(u, router);
+      }
     } catch (err) {
       let msg = t('auth.loginFailed');
       if (err instanceof Error) {
@@ -134,5 +140,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-md px-4 py-12 text-sm text-muted">Laden…</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
