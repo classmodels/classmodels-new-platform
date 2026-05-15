@@ -100,6 +100,7 @@ function spawnNext() {
       ...process.env,
       PORT: String(webPort),
       COMBELL_HOST_ROUTER: '0',
+      CM_API_INTERNAL_URL: `http://127.0.0.1:${nestPort}`,
     },
   });
   child.on('error', (err) => {

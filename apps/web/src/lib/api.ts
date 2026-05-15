@@ -1,18 +1,20 @@
-/** Productie-fallback als NEXT_PUBLIC_API_URL bij build ontbrak (Combell). */
-const PRODUCTION_API = 'https://api.class-models.be';
+/** Zelfde domein als de site → geen CORS (Combell www + api op één Node). */
+export const CM_API_PROXY_PREFIX = '/__cm_api';
 
-function productionApiFromBrowser(): string | null {
-  if (typeof window === 'undefined') return null;
-  const host = window.location.hostname.toLowerCase();
-  if (host === 'www.class-models.be' || host === 'class-models.be') {
-    return PRODUCTION_API;
-  }
-  return null;
+function isClassModelsSiteHost(host: string) {
+  const h = host.toLowerCase();
+  return h === 'www.class-models.be' || h === 'class-models.be';
 }
 
 export function getApiBase() {
-  const fromBrowser = productionApiFromBrowser();
-  if (fromBrowser) return fromBrowser;
+  if (typeof window !== 'undefined') {
+    if (isClassModelsSiteHost(window.location.hostname)) {
+      return CM_API_PROXY_PREFIX;
+    }
+  }
+
+  const internal = process.env.CM_API_INTERNAL_URL?.replace(/\/$/, '');
+  if (internal) return internal;
 
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
   if (fromEnv && !fromEnv.includes('localhost') && !fromEnv.includes('127.0.0.1')) {
