@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import type { Role, User, UserRole } from '@prisma/client';
-import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
+import { sendHtmlMail } from '../mail/send-html-mail';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService, pickPublicMediaKey } from '../users/users.service';
 import { mergePermissionsFromRoles, premiumEffective } from './permissions.util';
@@ -33,7 +33,6 @@ export class AuthService {
     private users: UsersService,
     private jwt: JwtService,
     private prisma: PrismaService,
-    private mail: AgendaNotificationService,
   ) {}
 
   private async buildAuthResponse(user: UserWithRoles) {
@@ -133,7 +132,7 @@ export class AuthService {
       <p>Werkt de link niet? Kopieer: ${link}</p>
       <p>Heb je dit niet aangevraagd? Negeer deze mail.</p>
     `;
-    const sent = await this.mail.sendHtmlMail(user.email, 'Nieuw wachtwoord — Class Models', html);
+    const sent = await sendHtmlMail(user.email, 'Nieuw wachtwoord — Class Models', html);
     if (!sent) {
       this.log.warn(`Wachtwoord-reset niet gemaild (SMTP?): ${user.email}`);
     }
