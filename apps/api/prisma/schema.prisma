@@ -383,6 +383,8 @@ model PushRecipientListMember {
 
 model MollieSettings {
   id           Int      @id @default(1)
+  /// `test` | `live` — welke Mollie API key gebruikt wordt voor checkout en webhooks.
+  activeMode   String   @default("test")
   apiKeyTest   String?
   apiKeyLive   String?
   webhookUrl   String?

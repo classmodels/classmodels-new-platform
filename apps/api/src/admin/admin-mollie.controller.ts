@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaymentsService } from '../payments/payments.service';
 import { PatchMollieSettingsDto } from './dto/mollie-settings.dto';
+import { MollieTestConnectionDto } from './dto/mollie-test-connection.dto';
 
 function maskKey(k: string | null | undefined) {
   if (!k) return null;
@@ -15,19 +17,30 @@ function maskKey(k: string | null | undefined) {
 @Controller('admin/mollie-settings')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AdminMollieController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private payments: PaymentsService,
+  ) {}
 
   @Get()
   @Permissions('admin.billing.read')
   async get() {
-    const s = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
-    if (!s) {
-      return await this.prisma.mollieSettings.create({
-        data: { id: 1 },
-      });
-    }
+    const s = await this.prisma.mollieSettings.upsert({
+      where: { id: 1 },
+      update: {},
+      create: { id: 1 },
+    });
+    const status = await this.payments.getMollieAdminStatus();
     return {
       id: s.id,
+      activeMode: status.activeMode,
+      modeSource: status.modeSource,
+      hasApiKeyTest: status.hasApiKeyTest,
+      hasApiKeyLive: status.hasApiKeyLive,
+      activeKeyConfigured: status.activeKeyConfigured,
+      effectiveWebhookUrl: status.effectiveWebhookUrl,
+      suggestedWebhookUrl: status.suggestedWebhookUrl,
+      apiPublicUrl: status.apiPublicUrl,
       apiKeyTest: maskKey(s.apiKeyTest),
       apiKeyLive: maskKey(s.apiKeyLive),
       webhookUrl: s.webhookUrl,
@@ -41,6 +54,7 @@ export class AdminMollieController {
   @Permissions('admin.billing.write')
   async patch(@Body() dto: PatchMollieSettingsDto) {
     const data: Record<string, unknown> = {};
+    if (dto.activeMode !== undefined) data.activeMode = dto.activeMode;
     if (dto.webhookUrl !== undefined) data.webhookUrl = dto.webhookUrl || null;
     if (dto.premiumPrice != null) {
       data.premiumPrice = new Prisma.Decimal(dto.premiumPrice);
@@ -59,8 +73,17 @@ export class AdminMollieController {
       update: data as never,
       create: { id: 1, ...(data as object) },
     });
+    const status = await this.payments.getMollieAdminStatus();
     return {
       id: s.id,
+      activeMode: status.activeMode,
+      modeSource: status.modeSource,
+      hasApiKeyTest: status.hasApiKeyTest,
+      hasApiKeyLive: status.hasApiKeyLive,
+      activeKeyConfigured: status.activeKeyConfigured,
+      effectiveWebhookUrl: status.effectiveWebhookUrl,
+      suggestedWebhookUrl: status.suggestedWebhookUrl,
+      apiPublicUrl: status.apiPublicUrl,
       apiKeyTest: maskKey(s.apiKeyTest),
       apiKeyLive: maskKey(s.apiKeyLive),
       webhookUrl: s.webhookUrl,
@@ -68,5 +91,11 @@ export class AdminMollieController {
       tryoutPrice: s.tryoutPrice.toString(),
       updatedAt: s.updatedAt,
     };
+  }
+
+  @Post('test-connection')
+  @Permissions('admin.billing.write')
+  testConnection(@Body() dto: MollieTestConnectionDto) {
+    return this.payments.testMollieConnection(dto.mode);
   }
 }

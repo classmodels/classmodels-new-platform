@@ -18,7 +18,7 @@ Zie root `.env.example`:
 |-----------|--------|
 | `MOLLIE_API_KEY_TEST` | Test key (`test_...`) |
 | `MOLLIE_API_KEY_LIVE` | Live key (alleen productie) |
-| `MOLLIE_MODE` | `test` of `live` (default: test, behalve als je `live` zet of productie + geen override) |
+| `MOLLIE_MODE` | `test` of `live` — fallback als backoffice geen modus heeft ingesteld |
 | `PREMIUM_PRICE_EUROS` | Fallback als DB-rij geen prijs heeft |
 | `PREMIUM_DURATION_DAYS` | Dagen premium na status `paid` (default 365) |
 | `API_PUBLIC_URL` | Basis-URL van de API voor webhook, bv. `https://jouwdomein.be/api-test` |
@@ -54,12 +54,22 @@ Body: `application/x-www-form-urlencoded` of JSON met veld **`id`** (Mollie paym
 
 De server haalt de payment op bij Mollie (verificatie), zoekt `Subscription` op `molliePaymentId` en werkt status + gebruiker bij.
 
+## Backoffice (aanbevolen)
+
+**Admin → Mollie-instellingen** (`/admin/mollie`):
+
+- Kies **Test API** of **Live API** (veld `activeMode` in database).
+- Vul `test_…` en/of `live_…` keys in; gebruik **Test verbinding** om te controleren.
+- Webhook-URL wordt getoond; leeg laten = `{API_PUBLIC_URL}/payments/mollie/webhook`.
+
+Op productie werd vroeger automatisch live gebruikt; nu volgt de API **altijd** de modus uit de backoffice (of `MOLLIE_MODE` in `.env` als fallback).
+
 ## Testmodus in Mollie Dashboard
 
-1. Zet test API key in `.env` / later in backoffice (`MollieSettings`).
-2. Webhook-URL instellen op je **publiek bereikbare** test-API.
+1. Backoffice: modus **Test** + test API key opslaan.
+2. Webhook-URL instellen op je **publiek bereikbare** API (zelfde URL als in backoffice).
 3. Testbetaling afronden; controleer `Subscription.status`, `User.isPremium`, `AuditLog`.
 
 ## Live
 
-Zet `MOLLIE_MODE=live`, gebruik live key, HTTPS-webhook en pas `docs/LIVE.md` toe.
+Backoffice: modus **Live** + live key. Zorg voor HTTPS-webhook en pas `docs/LIVE.md` toe.

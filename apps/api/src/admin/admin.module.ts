@@ -18,9 +18,10 @@ import { AdminPluginsController } from './admin-plugins.controller';
 import { AdminBriefsController } from './admin-briefs.controller';
 import { AdminTryoutModeshowController } from './admin-tryout-modeshow.controller';
 import { AdminTryoutModeshowService } from './admin-tryout-modeshow.service';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ReviewsModule, PortalModule, MediaModule],
+  imports: [PrismaModule, AuthModule, ReviewsModule, PortalModule, MediaModule, PaymentsModule],
   controllers: [
     AdminUsersController,
     AdminRolesController,

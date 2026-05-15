@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
@@ -26,8 +26,9 @@ export class PaymentsController {
   /** Mollie webhook — altijd 200 bij ontvangst om dubbele retries te beperken. */
   @Post('mollie/webhook')
   @HttpCode(200)
-  async mollieWebhook(@Body() body: { id?: string }) {
-    const id = typeof body?.id === 'string' ? body.id : undefined;
+  async mollieWebhook(@Body() body: { id?: string }, @Query('id') queryId?: string) {
+    const raw = typeof body?.id === 'string' ? body.id : typeof queryId === 'string' ? queryId : undefined;
+    const id = raw?.trim();
     if (id) await this.payments.handleMollieWebhook(id);
     return { received: true };
   }

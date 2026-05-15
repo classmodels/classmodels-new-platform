@@ -10,6 +10,8 @@ import createMollieClient, { Payment } from '@mollie/api-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 
+export type MollieMode = 'test' | 'live';
+
 @Injectable()
 export class PaymentsService {
   private readonly log = new Logger(PaymentsService.name);
@@ -19,20 +21,114 @@ export class PaymentsService {
     private modelHistory: ModelPortalHistoryService,
   ) {}
 
-  private async apiKey(): Promise<string> {
+  /** Actieve modus: backoffice (DB) → MOLLIE_MODE env → test (veilige default). */
+  async resolveActiveMode(): Promise<MollieMode> {
     const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
-    const useLive =
-      process.env.MOLLIE_MODE === 'live' ||
-      (process.env.NODE_ENV === 'production' && process.env.MOLLIE_MODE !== 'test');
-    const key = useLive
-      ? (settings?.apiKeyLive?.trim() || process.env.MOLLIE_API_KEY_LIVE?.trim())
-      : (settings?.apiKeyTest?.trim() || process.env.MOLLIE_API_KEY_TEST?.trim());
-    if (!key) {
+    if (settings?.activeMode === 'live' || settings?.activeMode === 'test') {
+      return settings.activeMode;
+    }
+    if (process.env.MOLLIE_MODE === 'live') return 'live';
+    if (process.env.MOLLIE_MODE === 'test') return 'test';
+    return 'test';
+  }
+
+  private async rawKeyForMode(mode: MollieMode): Promise<string | null> {
+    const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
+    if (mode === 'live') {
+      return settings?.apiKeyLive?.trim() || process.env.MOLLIE_API_KEY_LIVE?.trim() || null;
+    }
+    return settings?.apiKeyTest?.trim() || process.env.MOLLIE_API_KEY_TEST?.trim() || null;
+  }
+
+  async apiKeyForMode(mode: MollieMode, opts?: { required?: boolean }): Promise<string | null> {
+    const key = await this.rawKeyForMode(mode);
+    if (!key && opts?.required !== false) {
       throw new ServiceUnavailableException(
-        'Mollie API key ontbreekt (test of live). Zie .env en MollieSettings.',
+        `Mollie ${mode} API key ontbreekt. Vul de key in via backoffice → Mollie of zet MOLLIE_API_KEY_${mode.toUpperCase()} in .env.`,
       );
     }
     return key;
+  }
+
+  private async apiKey(): Promise<string> {
+    const mode = await this.resolveActiveMode();
+    const key = await this.apiKeyForMode(mode);
+    if (!key) {
+      throw new ServiceUnavailableException(
+        'Mollie API key ontbreekt voor de gekozen modus. Zie backoffice → Mollie-instellingen.',
+      );
+    }
+    return key;
+  }
+
+  private async fetchMolliePayment(paymentId: string): Promise<Payment | null> {
+    for (const mode of ['test', 'live'] as const) {
+      const key = await this.rawKeyForMode(mode);
+      if (!key) continue;
+      try {
+        const mollie = createMollieClient({ apiKey: key });
+        return await mollie.payments.get(paymentId);
+      } catch {
+        /* andere modus proberen — webhook kan na moduswissel binnenkomen */
+      }
+    }
+    return null;
+  }
+
+  async getMollieAdminStatus() {
+    const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
+    const activeMode = await this.resolveActiveMode();
+    const hasApiKeyTest = Boolean(await this.rawKeyForMode('test'));
+    const hasApiKeyLive = Boolean(await this.rawKeyForMode('live'));
+    const effectiveWebhookUrl = await this.paymentWebhookUrl();
+    const apiPublic =
+      process.env.API_PUBLIC_URL?.replace(/\/$/, '') ||
+      `http://localhost:${process.env.API_PORT ?? '4000'}`;
+    const suggestedWebhookUrl = `${apiPublic}/payments/mollie/webhook`;
+    return {
+      activeMode,
+      hasApiKeyTest,
+      hasApiKeyLive,
+      activeKeyConfigured: activeMode === 'live' ? hasApiKeyLive : hasApiKeyTest,
+      effectiveWebhookUrl,
+      suggestedWebhookUrl,
+      apiPublicUrl: apiPublic,
+      modeSource:
+        settings?.activeMode === 'live' || settings?.activeMode === 'test'
+          ? ('database' as const)
+          : process.env.MOLLIE_MODE
+            ? ('env' as const)
+            : ('default_test' as const),
+    };
+  }
+
+  async testMollieConnection(mode: MollieMode) {
+    const key = await this.apiKeyForMode(mode);
+    if (!key) {
+      throw new BadRequestException(`Geen ${mode} API key geconfigureerd.`);
+    }
+    if (mode === 'test' && !key.startsWith('test_')) {
+      throw new BadRequestException('Testmodus vereist een key die begint met test_.');
+    }
+    if (mode === 'live' && !key.startsWith('live_')) {
+      throw new BadRequestException('Livemodus vereist een key die begint met live_.');
+    }
+    const mollie = createMollieClient({ apiKey: key });
+    try {
+      const profile = await mollie.profiles.getCurrent();
+      return {
+        ok: true as const,
+        mode,
+        profileId: profile.id,
+        profileName: profile.name,
+        status: profile.status,
+      };
+    } catch (e) {
+      this.log.warn(`Mollie test connection (${mode}) failed: ${e}`);
+      throw new BadRequestException(
+        `Verbinding met Mollie (${mode}) mislukt. Controleer de API key in je Mollie-dashboard.`,
+      );
+    }
   }
 
   private async premiumAmount(): Promise<Prisma.Decimal> {
@@ -246,12 +342,9 @@ export class PaymentsService {
       return;
     }
 
-    const mollie = createMollieClient({ apiKey: await this.apiKey() });
-    let payment: Payment;
-    try {
-      payment = await mollie.payments.get(paymentId);
-    } catch (e) {
-      this.log.error(`Webhook: payment ophalen mislukt ${paymentId}: ${e}`);
+    const payment = await this.fetchMolliePayment(paymentId);
+    if (!payment) {
+      this.log.error(`Webhook: payment ophalen mislukt ${paymentId} (geen geldige test/live key)`);
       return;
     }
 
