@@ -12,6 +12,7 @@ const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 const path = require('path');
+const { runPrismaMigrateDeploy } = require('./combell-prisma-deploy.cjs');
 
 const root = path.join(__dirname, '..');
 const publicPort = parseInt(process.env.PORT || '3000', 10);
@@ -239,6 +240,8 @@ async function bootBackends() {
   console.error(
     `[combell-dual] publiek PORT=${publicPort}, intern Nest=${nestPort}, intern Next=${webPort}, strictNest=${strictNest}`,
   );
+
+  runPrismaMigrateDeploy(root);
 
   const hadNest = spawnNest();
   spawnNext();
