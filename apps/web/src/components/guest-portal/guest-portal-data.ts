@@ -191,6 +191,21 @@ export const CASTING_PAGE = {
   ctaButton: 'Online afspraak maken casting',
 } as const;
 
+/**
+ * Gastenportaal — video / afbeelding uit Admin → Media.
+ * API serveert alleen de **bestandsnaam** (zoals op schijf in uploads).
+ * Upload bijvoorbeeld je MP4 als `film22.mp4` en zet die naam hier.
+ */
+export const GUEST_PORTAL_PUBLIC_MEDIA = {
+  /** Rode banner rechts: promotiefilm (MP4). Leeg laten = alleen tekstkader zoals vroeger. */
+  heroVideoBasename: 'film22.mp4',
+  /**
+   * Gratis-fotoshoot pagina: promo rechts. Leeg = gebruik statische `/guest/gratis-fotoshoot-hero.png`.
+   * Na upload met exact deze naam in de mediatheek wordt de API-URL gebruikt.
+   */
+  gratisFotoshootImageBasename: '',
+} as const;
+
 /** Publieke contactgegevens (gastenportaal). */
 export const GUEST_CONTACT_INFO = {
   company: 'Class-Models',
