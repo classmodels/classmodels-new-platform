@@ -5,7 +5,7 @@
  * - Anders → Next op interne poort
  *
  * Combell-deploy: meteen luisteren + warmup. Next moet op tijd reageren (anders exit 1).
- * Nest: `npm run start -w @cm/api` vanaf repo-root (module-resolutie zoals lokaal). Crasht Nest, dan
+ * Nest: `node apps/api/dist/main.js` met NODE_PATH naar monorepo-root (Combell). Crasht Nest, dan
  * blijft de site draaien; API geeft 503 of 502 tot Nest luistert.
  */
 const fs = require('fs');
@@ -103,6 +103,32 @@ function spawnNext() {
   return child;
 }
 
+function ancestorNodeModulesPaths(startDir) {
+  const paths = [];
+  let dir = startDir;
+  for (let i = 0; i < 14; i++) {
+    const nm = path.join(dir, 'node_modules');
+    if (fs.existsSync(nm)) paths.push(nm);
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return paths;
+}
+
+function nestChildEnv() {
+  const nodePaths = [...ancestorNodeModulesPaths(apiDir), ...ancestorNodeModulesPaths(root)];
+  const unique = [...new Set(nodePaths)];
+  const nodePath = [...unique, process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
+  return {
+    ...process.env,
+    NODE_PATH: nodePath,
+    API_HOST: '127.0.0.1',
+    API_PORT: String(nestPort),
+    COMBELL_HOST_ROUTER: '0',
+  };
+}
+
 function spawnNestOnce() {
   if (!fs.existsSync(nestMain)) {
     console.error('[combell-dual] Nest build ontbreekt (verwacht na pipeline build):', nestMain);
@@ -113,17 +139,13 @@ function spawnNestOnce() {
     console.error('[combell-dual] nest: max herstarts bereikt; controleer DB_URL en logs.');
     return false;
   }
-  console.error(`[combell-dual] nest start poging ${nestSpawnCount}/${NEST_MAX_SPAWNS} (intern :${nestPort})`);
-  const child = spawn('npm', ['run', 'start', '-w', '@cm/api'], {
-    cwd: root,
+  console.error(
+    `[combell-dual] nest start poging ${nestSpawnCount}/${NEST_MAX_SPAWNS} → node dist/main.js :${nestPort}`,
+  );
+  const child = spawn(process.execPath, [nestMain], {
+    cwd: apiDir,
     stdio: 'inherit',
-    shell: true,
-    env: {
-      ...process.env,
-      API_HOST: '127.0.0.1',
-      API_PORT: String(nestPort),
-      COMBELL_HOST_ROUTER: '0',
-    },
+    env: nestChildEnv(),
   });
   child.on('error', (err) => {
     console.error('[combell-dual] nest spawn error:', err);
