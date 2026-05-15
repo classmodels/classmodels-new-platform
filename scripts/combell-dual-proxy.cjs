@@ -125,13 +125,49 @@ function spawnNest() {
   return true;
 }
 
+function stripFirstHost(h) {
+  return String(h || '')
+    .split(',')[0]
+    .trim()
+    .split(':')[0]
+    .toLowerCase();
+}
+
+/** Combell/proxy zet vaak de echte host in X-Forwarded-Host; `Host` is dan localhost of intern. */
+function effectiveHost(req) {
+  const xf = stripFirstHost(req.headers['x-forwarded-host']);
+  if (xf) return xf;
+  const xo = stripFirstHost(req.headers['x-original-host']);
+  if (xo) return xo;
+  return stripFirstHost(req.headers.host);
+}
+
+const extraApiHosts = String(process.env.COMBELL_API_PUBLIC_HOSTS || '')
+  .split(',')
+  .map((s) => stripFirstHost(s))
+  .filter(Boolean);
+
 function hostToNest(hostRaw) {
-  const host = (hostRaw || '').split(':')[0].toLowerCase().trim();
+  const host = stripFirstHost(hostRaw);
+  if (!host) return false;
+  if (extraApiHosts.includes(host)) return true;
   return (
     host === 'api.class-models.be' ||
     host.startsWith('api.') ||
     host.startsWith('www.api.')
   );
+}
+
+/** API-paden of api.* host → Nest (niet Next, anders 404 op /health). */
+function shouldRouteToNest(req) {
+  const pathOnly = String(req.url || '').split('?')[0];
+  if (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    (pathOnly === '/health' || pathOnly.startsWith('/health/'))
+  ) {
+    return true;
+  }
+  return hostToNest(effectiveHost(req));
 }
 
 async function waitNestHealthBackground() {
@@ -195,8 +231,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const host = (req.headers.host || '').split(':')[0].toLowerCase().trim();
-  const toNest = hostToNest(host);
+  const toNest = shouldRouteToNest(req);
   if (toNest && !nestLive) {
     res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
