@@ -35,7 +35,14 @@ export class AuthService {
     private prisma: PrismaService,
   ) {}
 
-  private async buildAuthResponse(user: UserWithRoles) {
+  private jwtExpiresIn(rememberMe: boolean): string {
+    if (rememberMe) {
+      return (process.env.JWT_EXPIRES_IN || '30d').trim() || '30d';
+    }
+    return (process.env.JWT_EXPIRES_IN_SESSION || '1d').trim() || '1d';
+  }
+
+  private async buildAuthResponse(user: UserWithRoles, rememberMe = true) {
     const roleSlugs = user.roles.map((r) => r.role.slug);
     const permissions = mergePermissionsFromRoles(user.roles.map((r) => r.role));
     const premiumActive = premiumEffective(user);
@@ -47,7 +54,9 @@ export class AuthService {
       permissions,
     };
     return {
-      access_token: await this.jwt.signAsync(payload),
+      access_token: await this.jwt.signAsync(payload, {
+        expiresIn: this.jwtExpiresIn(rememberMe),
+      }),
       user: {
         id: user.id,
         email: user.email,
@@ -70,7 +79,7 @@ export class AuthService {
     };
   }
 
-  async login(identifier: string, password: string) {
+  async login(identifier: string, password: string, rememberMe = true) {
     const user = await this.users.findByLoginIdentifierWithRoles(identifier);
     if (!user) throw new UnauthorizedException('Ongeldige gegevens');
     if (user.status !== 'active') {
@@ -81,7 +90,7 @@ export class AuthService {
     await this.users.recordLastLogin(user.id);
     const fresh = await this.users.findById(user.id);
     if (!fresh) throw new UnauthorizedException('Ongeldige gegevens');
-    return this.buildAuthResponse(fresh as UserWithRoles);
+    return this.buildAuthResponse(fresh as UserWithRoles, rememberMe);
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

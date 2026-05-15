@@ -57,7 +57,7 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginBodyDto) {
     const identifier = (dto.identifier || dto.email || '').trim();
-    return this.auth.login(identifier, dto.password);
+    return this.auth.login(identifier, dto.password, dto.rememberMe !== false);
   }
 
   @Post('register')

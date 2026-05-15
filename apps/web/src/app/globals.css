@@ -38,3 +38,26 @@ body {
     border-radius: 9999px !important;
   }
 }
+
+/* Google Translate widget: verberg bovenste banner, pagina niet verschuiven */
+.goog-te-banner-frame,
+.skiptranslate,
+#goog-gt-tt {
+  display: none !important;
+}
+body {
+  top: 0 !important;
+}
+.goog-te-gadget {
+  font-size: 0 !important;
+}
+.goog-te-gadget .goog-te-combo {
+  margin: 0 !important;
+  padding: 0.25rem 0.5rem !important;
+  font-size: 12px !important;
+}
+/* Merknaam niet laten vertalen */
+.notranslate,
+.notranslate * {
+  translate: no;
+}

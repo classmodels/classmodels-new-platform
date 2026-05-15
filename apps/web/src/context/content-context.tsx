@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { useI18n } from '@/i18n/context';
 
 type ContentRow = { key: string; value: string; locale: string };
 
@@ -27,6 +28,7 @@ type Ctx = {
 const ContentContext = createContext<Ctx | null>(null);
 
 export function ContentProvider({ children }: { children: ReactNode }) {
+  const { locale } = useI18n();
   const { token, can } = useAuth();
   const [byKey, setByKey] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -36,7 +38,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await apiFetch<ContentRow[]>('/content/strings');
+      const rows = await apiFetch<ContentRow[]>(`/content/strings?locale=${encodeURIComponent(locale)}`);
       const m: Record<string, string> = {};
       for (const r of rows) m[r.key] = r.value;
       setByKey(m);
@@ -45,7 +47,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     void refresh();

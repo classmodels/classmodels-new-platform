@@ -14,6 +14,10 @@ export class LoginBodyDto {
   @IsString()
   @MinLength(6)
   password!: string;
+
+  /** true = langer JWT (localStorage); false = sessie (tab sluiten). */
+  @IsOptional()
+  rememberMe?: boolean;
 }
 
 export class ChangePasswordDto {

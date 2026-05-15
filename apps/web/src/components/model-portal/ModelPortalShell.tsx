@@ -1,7 +1,8 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { MODEL_PORTAL_TABS, type ModelPortalTabId } from '@/components/model-portal/model-portal-nav';
+import { type ModelPortalTabId } from '@/components/model-portal/model-portal-nav';
+import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { CmText } from '@/components/CmText';
 
@@ -81,6 +82,8 @@ export function ModelPortalShell({
   pushUnreadCount?: number;
   children: ReactNode;
 }) {
+  const portalTabs = useModelPortalTabLabels();
+
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
       <ImpersonationBanner />
@@ -107,7 +110,7 @@ export function ModelPortalShell({
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white"
               aria-label="Model menu"
             >
-              {MODEL_PORTAL_TABS.map((t, index) => {
+              {portalTabs.map((t, index) => {
                 const isActive = activeTab === t.id;
                 return (
                   <button

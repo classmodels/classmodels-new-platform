@@ -3,18 +3,14 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { useI18n } from '@/i18n/context';
 import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
 
 type Tab = 'model' | 'guest' | 'client' | 'photographer';
 type SubMode = 'login' | 'register';
 
-const LEFT_TITLE = 'Class-Models';
-const LEFT_SUB = 'Modeling Agency';
-const LEFT_BODY =
-  'Dit platform is jouw persoonlijke omgeving binnen Class-Models, waar je op een stijlvolle en overzichtelijke manier alles beheert wat bij jouw carrière als model komt kijken. Raadpleeg je profiel, houd je portfolio up-to-date, bekijk opdrachten en blijf verbonden met het bureau.';
-
-function parseApiError(err: unknown): string {
-  if (!(err instanceof Error)) return 'Er ging iets mis.';
+function parseApiError(err: unknown, fallback: string): string {
+  if (!(err instanceof Error)) return fallback;
   try {
     const j = JSON.parse(err.message) as { message?: string | string[] };
     if (typeof j.message === 'string') return j.message;
@@ -22,12 +18,13 @@ function parseApiError(err: unknown): string {
   } catch {
     if (err.message && !err.message.startsWith('{')) return err.message;
   }
-  return 'Er ging iets mis.';
+  return fallback;
 }
 
 /** Donkere enterpagina: inloggen / registreren (eerste scherm van het platform). */
 export function BeginLanding() {
   const router = useRouter();
+  const { t } = useI18n();
   const { login, register: registerUser } = useAuth();
   const [tab, setTab] = useState<Tab>('model');
   const [subMode, setSubMode] = useState<SubMode>('login');
@@ -36,6 +33,7 @@ export function BeginLanding() {
 
   const [mEmail, setMEmail] = useState('');
   const [mPass, setMPass] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [mEmail2, setMEmail2] = useState('');
   const [mPass2, setMPass2] = useState('');
   const [mFirst, setMFirst] = useState('');
@@ -63,10 +61,10 @@ export function BeginLanding() {
     setErr(null);
     setBusy(true);
     try {
-      const u = await login(fEmail.trim(), fPass);
+      const u = await login(fEmail.trim(), fPass, { rememberMe });
       redirectAfterPortalAuth(u, router);
     } catch (er) {
-      setErr(parseApiError(er));
+      setErr(parseApiError(er, t('common.errorGeneric')));
     } finally {
       setBusy(false);
     }
@@ -77,10 +75,10 @@ export function BeginLanding() {
     setErr(null);
     setBusy(true);
     try {
-      const u = await login(mEmail.trim(), mPass);
+      const u = await login(mEmail.trim(), mPass, { rememberMe });
       redirectAfterPortalAuth(u, router);
     } catch (er) {
-      setErr(parseApiError(er));
+      setErr(parseApiError(er, t('common.errorGeneric')));
     } finally {
       setBusy(false);
     }
@@ -90,11 +88,11 @@ export function BeginLanding() {
     e.preventDefault();
     setErr(null);
     if (mEmail.trim().toLowerCase() !== mEmail2.trim().toLowerCase()) {
-      setErr('E-mailadressen komen niet overeen.');
+      setErr(t('auth.emailMismatch'));
       return;
     }
     if (mPass !== mPass2) {
-      setErr('Wachtwoorden komen niet overeen.');
+      setErr(t('auth.passwordMismatch'));
       return;
     }
     setBusy(true);
@@ -109,7 +107,7 @@ export function BeginLanding() {
       });
       redirectAfterPortalAuth(u, router, { fromRegister: true });
     } catch (er) {
-      setErr(parseApiError(er));
+      setErr(parseApiError(er, t('common.errorGeneric')));
     } finally {
       setBusy(false);
     }
@@ -120,10 +118,10 @@ export function BeginLanding() {
     setErr(null);
     setBusy(true);
     try {
-      const u = await login(cEmail.trim(), cPass);
+      const u = await login(cEmail.trim(), cPass, { rememberMe });
       redirectAfterPortalAuth(u, router);
     } catch (er) {
-      setErr(parseApiError(er));
+      setErr(parseApiError(er, t('common.errorGeneric')));
     } finally {
       setBusy(false);
     }
@@ -133,11 +131,11 @@ export function BeginLanding() {
     e.preventDefault();
     setErr(null);
     if (cEmail.trim().toLowerCase() !== cEmail2.trim().toLowerCase()) {
-      setErr('E-mailadressen komen niet overeen.');
+      setErr(t('auth.emailMismatch'));
       return;
     }
     if (cPass !== cPass2) {
-      setErr('Wachtwoorden komen niet overeen.');
+      setErr(t('auth.passwordMismatch'));
       return;
     }
     setBusy(true);
@@ -153,7 +151,7 @@ export function BeginLanding() {
       });
       redirectAfterPortalAuth(u, router);
     } catch (er) {
-      setErr(parseApiError(er));
+      setErr(parseApiError(er, t('common.errorGeneric')));
     } finally {
       setBusy(false);
     }
@@ -196,17 +194,17 @@ export function BeginLanding() {
 
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-page flex-col gap-10 px-5 py-12 md:flex-row md:items-stretch md:gap-14 md:px-8 md:py-16 lg:gap-20">
         <div className="flex flex-1 flex-col justify-center md:max-w-md lg:max-w-lg">
-          <h1 className="font-serif text-4xl font-semibold tracking-tight text-white md:text-5xl">{LEFT_TITLE}</h1>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.28em] text-white/70">{LEFT_SUB}</p>
-          <p className="mt-8 text-sm leading-relaxed text-white/85">{LEFT_BODY}</p>
+          <h1 className="font-serif text-4xl font-semibold tracking-tight text-white md:text-5xl">{t('begin.title')}</h1>
+          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.28em] text-white/70">{t('begin.subtitle')}</p>
+          <p className="mt-8 text-sm leading-relaxed text-white/85">{t('begin.body')}</p>
           <p className="mt-6 text-xs text-white/60">
-            Meer info over model worden?{' '}
+            {t('begin.moreInfo')}{' '}
             <button
               type="button"
               onClick={() => router.push('/portal/guest')}
               className="text-white underline underline-offset-2 hover:text-white/90"
             >
-              Bekijk het gastenportaal
+              {t('begin.viewGuestPortal')}
             </button>
             .
           </p>
@@ -214,20 +212,19 @@ export function BeginLanding() {
 
         <div className="flex flex-1 flex-col justify-center md:max-w-md">
           <div className="flex flex-col gap-2.5">
-            {tabBtn('model', 'Inloggen model / account aanmaken model')}
-            {tabBtn('guest', 'Inloggen bezoekers / model worden')}
-            {tabBtn('client', 'Inloggen klanten')}
-            {tabBtn('photographer', 'Inloggen fotograaf')}
+            {tabBtn('model', t('begin.tabModel'))}
+            {tabBtn('guest', t('begin.tabGuest'))}
+            {tabBtn('client', t('begin.tabClient'))}
+            {tabBtn('photographer', t('begin.tabPhotographer'))}
           </div>
 
           {tab === 'model' ? (
             <div className="mt-5 rounded-2xl border border-white/15 bg-black/35 p-6 shadow-2xl backdrop-blur-md">
               <h2 className="font-serif text-xl text-white">
-                {subMode === 'login' ? 'Inloggen als model' : 'Modelaccount aanmaken'}
+                {subMode === 'login' ? t('begin.modelLoginTitle') : t('begin.modelRegisterTitle')}
               </h2>
               <p className="mt-2 text-xs leading-relaxed text-white/75">
-                Een modellenaccount is bedoeld voor modellen die met Class-Models samenwerken. Geen contract? Log
-                dan in als bezoeker.
+                {t('begin.modelLoginHint')}
               </p>
               {err ? <p className="mt-3 text-xs text-red-200">{err}</p> : null}
 
@@ -237,7 +234,7 @@ export function BeginLanding() {
                     className={inputClass}
                     type="text"
                     autoComplete="username"
-                    placeholder="E-mail of telefoonnummer"
+                    placeholder={t('auth.identifier')}
                     value={mEmail}
                     onChange={(e) => setMEmail(e.target.value)}
                     required
@@ -246,24 +243,33 @@ export function BeginLanding() {
                     className={inputClass}
                     type="password"
                     autoComplete="current-password"
-                    placeholder="Wachtwoord"
+                    placeholder={t('auth.password')}
                     value={mPass}
                     onChange={(e) => setMPass(e.target.value)}
                     required
                     minLength={6}
                   />
+                  <label className="flex items-center gap-2 text-xs text-white/85">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="rounded border-white/40"
+                    />
+                    {t('auth.rememberMe')}
+                  </label>
                   <a
                     href="/wachtwoord-vergeten"
                     className="block text-right text-xs text-white/90 underline underline-offset-2 hover:text-white"
                   >
-                    Wachtwoord vergeten?
+                    {t('auth.forgotPassword')}
                   </a>
                   <button
                     type="submit"
                     disabled={busy}
                     className="mt-2 w-full rounded-xl bg-black py-3 text-sm font-semibold text-white hover:bg-zinc-900 disabled:opacity-60"
                   >
-                    Inloggen als model
+                    {t('begin.modelLoginBtn')}
                   </button>
                   <button
                     type="button"
@@ -273,7 +279,7 @@ export function BeginLanding() {
                       setErr(null);
                     }}
                   >
-                    Nog geen account? Maak hier één aan
+                    {t('begin.noAccount')}
                   </button>
                 </form>
               ) : (

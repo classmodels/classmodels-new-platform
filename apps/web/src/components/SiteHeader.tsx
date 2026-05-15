@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { CmText } from '@/components/CmText';
+import { GoogleTranslate } from '@/components/GoogleTranslate';
 import { isGuestModelPortalPreviewEnabled } from '@/lib/guest-model-portal-preview';
 
 export function SiteHeader() {
@@ -18,8 +19,8 @@ export function SiteHeader() {
     <header className="border-b border-white/10 bg-ink text-white">
       <div className="mx-auto flex w-full max-w-page items-center justify-between px-4 py-2.5 text-sm md:px-6">
         <div>
-          <Link href="/" className="block font-serif text-xl font-semibold tracking-tight text-white">
-            <CmText contentKey="site.header.logo" as="span" className="text-white" fallback="Class-Models" />
+          <Link href="/" className="notranslate block font-serif text-xl font-semibold tracking-tight text-white">
+            <CmText contentKey="site.header.logo" as="span" className="text-white notranslate" fallback="Class-Models" />
           </Link>
           <CmText
             contentKey="site.header.tagline"
@@ -29,6 +30,7 @@ export function SiteHeader() {
           />
         </div>
         <nav className="flex flex-wrap items-center gap-4">
+          <GoogleTranslate variant="dark" />
           <Link href="/portal/guest" className="text-white/90 hover:text-white">
             <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
           </Link>

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { apiFetch, getApiBase } from '@/lib/api';
-import { getStoredToken, setStoredToken } from '@/lib/storage';
+import { getRememberMePreference, getStoredToken, setStoredToken } from '@/lib/storage';
 
 export type ModelPushSummary = {
   unreadCount: number;
@@ -64,11 +64,11 @@ export type RegisterInput = {
 };
 
 type AuthContextValue = AuthState & {
-  login: (identifier: string, password: string) => Promise<AuthUser>;
+  login: (identifier: string, password: string, options?: { rememberMe?: boolean }) => Promise<AuthUser>;
   register: (input: RegisterInput) => Promise<AuthUser>;
   logout: () => void;
   /** JWT in localStorage + context zetten en /users/me laden (o.a. admin-impersonatie). */
-  applySessionToken: (accessToken: string) => Promise<AuthUser>;
+  applySessionToken: (accessToken: string, rememberMe?: boolean) => Promise<AuthUser>;
   refreshMe: (tokenOverride?: string | null) => Promise<AuthUser | null>;
   /** Heeft minstens één `admin.*` permissie of `*`. */
   hasBackofficeAccess: boolean;
@@ -104,8 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token]);
 
   const applySessionToken = useCallback(
-    async (accessToken: string) => {
-      setStoredToken(accessToken);
+    async (accessToken: string, rememberMe?: boolean) => {
+      const remember = rememberMe ?? getRememberMePreference();
+      setStoredToken(accessToken, remember);
       setToken(accessToken);
       const u = await refreshMe(accessToken);
       if (!u) throw new Error('Sessie kon niet worden geladen.');
@@ -131,12 +132,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshMe]);
 
   const login = useCallback(
-    async (identifier: string, password: string) => {
+    async (identifier: string, password: string, options?: { rememberMe?: boolean }) => {
+      const rememberMe = options?.rememberMe !== false;
       const res = await apiFetch<{ access_token: string; user: AuthUser }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ identifier: identifier.trim(), password }),
+        body: JSON.stringify({ identifier: identifier.trim(), password, rememberMe }),
       });
-      return applySessionToken(res.access_token);
+      return applySessionToken(res.access_token, rememberMe);
     },
     [applySessionToken],
   );

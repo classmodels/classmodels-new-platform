@@ -396,7 +396,7 @@ async function main() {
   }
 
   await prisma.contentString.upsert({
-    where: { key: 'home.hero.title' },
+    where: { key_locale: { key: 'home.hero.title', locale: 'nl' } },
     update: {},
     create: {
       key: 'home.hero.title',
@@ -406,7 +406,7 @@ async function main() {
   });
 
   await prisma.contentString.upsert({
-    where: { key: 'home.hero.subtitle' },
+    where: { key_locale: { key: 'home.hero.subtitle', locale: 'nl' } },
     update: {},
     create: {
       key: 'home.hero.subtitle',
@@ -678,7 +678,7 @@ async function main() {
   ];
   for (const c of extraContent) {
     await prisma.contentString.upsert({
-      where: { key: c.key },
+      where: { key_locale: { key: c.key, locale: 'nl' } },
       update: { value: c.value, portal: c.portal ?? null },
       create: { key: c.key, value: c.value, locale: 'nl', portal: c.portal ?? undefined },
     });

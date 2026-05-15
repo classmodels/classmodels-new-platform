@@ -3,13 +3,11 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
-  ADMIN_DASHBOARD_ITEM,
-  ADMIN_NAV_SECTIONS,
-  filterNavSections,
   isAdminNavItemActive,
   sectionContainsPath,
   type AdminNavIconId,
 } from '@/app/admin/admin-nav';
+import { useAdminNavSections } from '@/app/admin/use-admin-nav';
 
 export function AdminNavIcon({ name, className }: { name: AdminNavIconId; className?: string }) {
   const c = className ?? 'h-[18px] w-[18px] shrink-0 opacity-90';
@@ -88,7 +86,7 @@ type Props = {
 };
 
 export function AdminSidebarNav({ pathname, can }: Props) {
-  const sections = useMemo(() => filterNavSections(ADMIN_NAV_SECTIONS, can), [can]);
+  const { dashboard, sections } = useAdminNavSections(can);
 
   const [openIds, setOpenIds] = useState<Set<string>>(() => new Set());
 
@@ -102,7 +100,7 @@ export function AdminSidebarNav({ pathname, can }: Props) {
   };
 
   const dashActive =
-    pathname === ADMIN_DASHBOARD_ITEM.href ||
+    pathname === dashboard.href ||
     pathname === '/admin' ||
     pathname === '/admin/';
 
@@ -112,7 +110,7 @@ export function AdminSidebarNav({ pathname, can }: Props) {
   return (
     <nav className="flex-1 overflow-y-auto px-2 pb-4 pt-1" aria-label="Admin menu">
       <Link
-        href={ADMIN_DASHBOARD_ITEM.href}
+        href={dashboard.href}
         prefetch={false}
         className={[
           linkBase,
@@ -120,7 +118,7 @@ export function AdminSidebarNav({ pathname, can }: Props) {
         ].join(' ')}
       >
         <AdminNavIcon name="home" className={dashActive ? 'h-[18px] w-[18px] shrink-0 text-white' : 'h-[18px] w-[18px] shrink-0'} />
-        <span className="min-w-0 font-medium">{ADMIN_DASHBOARD_ITEM.label}</span>
+        <span className="min-w-0 font-medium">{dashboard.label}</span>
       </Link>
 
       <div className="mt-2 space-y-0.5 border-t border-white/[0.06] pt-2">

@@ -156,7 +156,7 @@ model UserRole {
 /// Inline bewerkbare teksten (key = stabiele sleutel per scherm/blok)
 model ContentString {
   id        String   @id @default(uuid())
-  key       String   @unique
+  key       String
   locale    String   @default("nl")
   value     String   @db.Text
   portal    Portal?
@@ -164,6 +164,8 @@ model ContentString {
   updatedBy User?    @relation(fields: [updatedById], references: [id])
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
+
+  @@unique([key, locale])
 }
 
 model Menu {
