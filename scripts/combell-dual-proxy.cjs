@@ -231,13 +231,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  const pathOnly = String(req.url || '').split('?')[0];
+  const isHealthProbe = pathOnly === '/health' || pathOnly.startsWith('/health/');
   const toNest = shouldRouteToNest(req);
-  if (toNest && !nestLive) {
+  /** `/health` altijd doorsturen: zo zie je echte API-response of 502; geen blokkade op `nestLive`. */
+  if (toNest && !nestLive && !isHealthProbe) {
     res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
         error: 'api_not_ready',
-        message: 'De API start nog op of kon niet opstarten. Controleer Combell logs en DB_URL.',
+        message: 'De API start nog op of kon niet opstarten. Controleer DB_URL en serverlogs.',
       }),
     );
     return;

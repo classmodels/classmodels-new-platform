@@ -9,7 +9,14 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const uploadDir = join(process.cwd(), 'uploads', 'agenda');
-  mkdirSync(uploadDir, { recursive: true });
+  try {
+    mkdirSync(uploadDir, { recursive: true });
+  } catch (e) {
+    console.warn(
+      `[bootstrap] Kan map niet aanmaken (sommige hosts: read-only): ${uploadDir}`,
+      e instanceof Error ? e.message : e,
+    );
+  }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
@@ -31,4 +38,7 @@ async function bootstrap() {
   console.log(`API http://localhost:${port}`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('[bootstrap] Nest start mislukt:', err);
+  process.exit(1);
+});
