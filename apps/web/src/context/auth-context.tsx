@@ -37,6 +37,7 @@ export type AuthUser = {
   profilePhotoAssetId?: string | null;
   /** ISO string, laatste wachtwoord-login (API). */
   lastLoginAt?: string | null;
+  mustChangePassword?: boolean;
   roles: string[];
   isPremium: boolean;
   /** ISO; premium loopt tot deze datum (indien gezet). */
@@ -63,7 +64,7 @@ export type RegisterInput = {
 };
 
 type AuthContextValue = AuthState & {
-  login: (email: string, password: string) => Promise<AuthUser>;
+  login: (identifier: string, password: string) => Promise<AuthUser>;
   register: (input: RegisterInput) => Promise<AuthUser>;
   logout: () => void;
   /** JWT in localStorage + context zetten en /users/me laden (o.a. admin-impersonatie). */
@@ -130,10 +131,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshMe]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (identifier: string, password: string) => {
       const res = await apiFetch<{ access_token: string; user: AuthUser }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier: identifier.trim(), password }),
       });
       return applySessionToken(res.access_token);
     },

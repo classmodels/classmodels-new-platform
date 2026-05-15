@@ -2,14 +2,18 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import type { Role, User, UserRole } from '@prisma/client';
+import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService, pickPublicMediaKey } from '../users/users.service';
 import { mergePermissionsFromRoles, premiumEffective } from './permissions.util';
+import { normalizeEmail } from './login-identifier.util';
 
 type UserWithRoles = User & {
   roles: (UserRole & { role: Role })[];
@@ -23,10 +27,13 @@ type UserWithRoles = User & {
 
 @Injectable()
 export class AuthService {
+  private readonly log = new Logger(AuthService.name);
+
   constructor(
     private users: UsersService,
     private jwt: JwtService,
     private prisma: PrismaService,
+    private mail: AgendaNotificationService,
   ) {}
 
   private async buildAuthResponse(user: UserWithRoles) {
@@ -59,12 +66,13 @@ export class AuthService {
         premiumUntil: user.premiumUntil?.toISOString() ?? null,
         permissions,
         lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+        mustChangePassword: user.mustChangePassword,
       },
     };
   }
 
-  async login(email: string, password: string) {
-    const user = await this.users.findByEmailWithRoles(email);
+  async login(identifier: string, password: string) {
+    const user = await this.users.findByLoginIdentifierWithRoles(identifier);
     if (!user) throw new UnauthorizedException('Ongeldige gegevens');
     if (user.status !== 'active') {
       throw new UnauthorizedException('Account niet actief');
@@ -72,9 +80,101 @@ export class AuthService {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Ongeldige gegevens');
     await this.users.recordLastLogin(user.id);
-    const fresh = await this.users.findByEmailWithRoles(email);
+    const fresh = await this.users.findById(user.id);
     if (!fresh) throw new UnauthorizedException('Ongeldige gegevens');
     return this.buildAuthResponse(fresh as UserWithRoles);
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException();
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) throw new UnauthorizedException('Huidig wachtwoord is onjuist');
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('Kies een ander wachtwoord dan het huidige.');
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash, mustChangePassword: false },
+    });
+    const fresh = await this.users.findById(userId);
+    if (!fresh) throw new UnauthorizedException();
+    return this.buildAuthResponse(fresh as UserWithRoles);
+  }
+
+  /** Altijd hetzelfde antwoord (geen account-enumeratie). */
+  async forgotPassword(identifier: string) {
+    const generic = {
+      ok: true,
+      message:
+        'Als er een account bij dit e-mailadres of telefoonnummer hoort, ontvang je een e-mail met instructies.',
+    };
+    const user = await this.users.findByLoginIdentifierWithRoles(identifier);
+    if (!user?.email) return generic;
+
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+    await this.prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash, expiresAt },
+    });
+
+    const appUrl = (process.env.WEB_PUBLIC_URL || process.env.WEB_APP_URL || 'https://www.class-models.be').replace(
+      /\/$/,
+      '',
+    );
+    const link = `${appUrl}/reset-password?token=${rawToken}`;
+    const html = `
+      <p>Hallo${user.firstName ? ` ${user.firstName}` : ''},</p>
+      <p>Je vroeg een nieuw wachtwoord aan voor Class Models.</p>
+      <p><a href="${link}">Klik hier om een nieuw wachtwoord te kiezen</a> (geldig 1 uur).</p>
+      <p>Werkt de link niet? Kopieer: ${link}</p>
+      <p>Heb je dit niet aangevraagd? Negeer deze mail.</p>
+    `;
+    const sent = await this.mail.sendHtmlMail(user.email, 'Nieuw wachtwoord — Class Models', html);
+    if (!sent) {
+      this.log.warn(`Wachtwoord-reset niet gemaild (SMTP?): ${user.email}`);
+    }
+    return generic;
+  }
+
+  async resetPasswordWithToken(token: string, newPassword: string) {
+    const tokenHash = createHash('sha256').update(token.trim()).digest('hex');
+    const row = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      include: {
+        user: {
+          include: {
+            roles: { include: { role: true } },
+          },
+        },
+      },
+    });
+    if (!row || row.expiresAt < new Date()) {
+      throw new BadRequestException('Deze link is ongeldig of verlopen. Vraag opnieuw een reset aan.');
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: row.userId },
+        data: { passwordHash, mustChangePassword: false },
+      }),
+      this.prisma.passwordResetToken.delete({ where: { id: row.id } }),
+    ]);
+    return this.buildAuthResponse(row.user as UserWithRoles);
+  }
+
+  /** Admin: zelfde tijdelijk wachtwoord voor iedereen (behalve exclude). */
+  async applySharedTemporaryPassword(password: string, excludeEmail?: string) {
+    const hash = await bcrypt.hash(password, 10);
+    const exclude = normalizeEmail(excludeEmail || 'admin@class-models.local');
+    const result = await this.prisma.user.updateMany({
+      where: { email: { not: exclude } },
+      data: { passwordHash: hash, mustChangePassword: true },
+    });
+    return { ok: true, updated: result.count, excludeEmail: exclude };
   }
 
   async register(params: {

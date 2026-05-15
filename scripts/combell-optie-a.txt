@@ -1,0 +1,56 @@
+================================================================================
+COMBELL OPTIE A — één Node-app voor www + api (classmodels-web)
+================================================================================
+
+WAT JIJ IN HET COMBELL-PANEEL ZET (Node.js → classmodels-web → Environment variables)
+--------------------------------------------------------------------------------
+COMBELL_HOST_ROUTER=1
+DB_URL=... (zie hieronder: volledige MySQL-URL van Combell)
+JWT_SECRET=... (lang willekeurig geheim)
+CORS_ORIGIN=https://www.class-models.be
+API_PUBLIC_URL=https://api.class-models.be
+NEXT_PUBLIC_API_URL=https://api.class-models.be
+NEXT_PUBLIC_APP_URL=https://www.class-models.be
+WEB_PUBLIC_URL=https://www.class-models.be
+WEB_APP_URL=https://www.class-models.be
+NODE_ENV=production
+
+Poort in Combell (veld "Poort"): meestal 3000 — NIET wijzigen tenzij Combell anders zegt.
+
+Website-backend (Websites & SSL → Beheer website):
+  www.class-models.be  → Node → classmodels-web
+  api.class-models.be → Node → classmodels-web  (zelfde app)
+
+Pipeline: alleen opnieuw na nieuwe code op GitHub of na wijziging van env hierboven.
+
+
+WAT JE VAN COMBELL MOET WETEN / VRAGEN (kopieer antwoorden hier)
+--------------------------------------------------------------------------------
+1. Volledige MySQL-gegevens voor DB_URL:
+   - host (bv. ....db.webhosting.be)
+   - poort (meestal 3306)
+   - databasenaam (VOLLEDIGE naam, niet afgekapt)
+   - gebruiker + wachtwoord
+   Voorbeeld: mysql://USER:PASS@HOST:3306/VOLLEDIGE_DB_NAAM
+
+2. Mag de Node-app vanaf het internet naar die MySQL? (externe toegang / remote MySQL)
+   Ja / Nee — als Nee: alleen DB op hetzelfde hostingpakket werkt.
+
+3. Welke poort geeft Combell aan de Node-app? (staat in paneel, vaak 3000)
+   Antwoord: ___________
+
+4. Zijn www én api gekoppeld aan DEZELFDE Node-app "classmodels-web"?
+   Ja / Nee — als Nee: beide laten wijzen naar classmodels-web.
+
+5. Kunnen jullie de serve-/runtime-logs sturen als /health faalt?
+   (niet alleen build-log)
+
+6. Welke Node.js-versie raden jullie aan? (wij: 22 LTS)
+   Antwoord: ___________
+
+
+TEST NA DEPLOY
+--------------------------------------------------------------------------------
+https://api.class-models.be/health  → JSON met status ok (geen api_not_ready, geen 502)
+https://www.class-models.be         → gewone site
+Inloggen/admin                      → via www, niet via api.

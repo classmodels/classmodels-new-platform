@@ -5,16 +5,14 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { Permissions } from './permissions.decorator';
 import { PermissionsGuard } from './permissions.guard';
 import { AuthService } from './auth.service';
+import {
+  ApplySharedPasswordDto,
+  ChangePasswordDto,
+  ForgotPasswordDto,
+  LoginBodyDto,
+  ResetPasswordDto,
+} from './dto/auth-password.dto';
 import { ImpersonateDto } from './dto/impersonate.dto';
-
-class LoginDto {
-  @IsEmail()
-  email!: string;
-
-  @IsString()
-  @MinLength(6)
-  password!: string;
-}
 
 class RegisterDto {
   @IsIn(['model', 'client'])
@@ -57,8 +55,9 @@ export class AuthController {
   }
 
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto.email, dto.password);
+  login(@Body() dto: LoginBodyDto) {
+    const identifier = (dto.identifier || dto.email || '').trim();
+    return this.auth.login(identifier, dto.password);
   }
 
   @Post('register')
@@ -72,5 +71,32 @@ export class AuthController {
       phone: dto.phone,
       companyName: dto.companyName,
     });
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  changePassword(@Req() req: { user: JwtPayload }, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(req.user.sub, dto.currentPassword, dto.newPassword);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.forgotPassword(dto.identifier);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPasswordWithToken(dto.token, dto.newPassword);
+  }
+
+  @Post('admin/apply-shared-password')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.users.write')
+  @HttpCode(HttpStatus.OK)
+  applySharedPassword(@Body() dto: ApplySharedPasswordDto) {
+    return this.auth.applySharedTemporaryPassword(dto.password, dto.excludeEmail);
   }
 }

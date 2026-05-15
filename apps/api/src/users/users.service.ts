@@ -1,4 +1,10 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  isEmailLike,
+  normalizeEmail,
+  phoneDigits,
+  phoneLookupVariants,
+} from '../auth/login-identifier.util';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { resolveMediaRoot } from '../config/resolve-media-root';
@@ -41,6 +47,36 @@ export class UsersService {
         },
       },
     });
+  }
+
+  /** Inloggen met e-mail of telefoonnummer. */
+  async findByLoginIdentifierWithRoles(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    if (isEmailLike(trimmed)) {
+      return this.findByEmailWithRoles(trimmed);
+    }
+    const variants = new Set(phoneLookupVariants(trimmed));
+    const needle = phoneDigits(trimmed);
+    if (needle.length < 8) return null;
+    const candidates = await this.prisma.user.findMany({
+      where: { phone: { not: null } },
+      include: {
+        roles: { include: { role: true } },
+        profilePhoto: {
+          select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
+        },
+      },
+    });
+    return (
+      candidates.find((u) => {
+        if (!u.phone) return false;
+        const stored = phoneDigits(u.phone);
+        if (!stored) return false;
+        if (variants.has(stored)) return true;
+        return stored.slice(-9) === needle.slice(-9);
+      }) ?? null
+    );
   }
 
   findById(id: string) {

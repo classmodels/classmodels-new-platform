@@ -36,6 +36,7 @@ export class UsersController {
       roles: req.user.roles,
       permissions: req.user.permissions,
       lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
+      mustChangePassword: u.mustChangePassword,
       push,
     };
   }

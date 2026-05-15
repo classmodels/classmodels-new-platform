@@ -10,6 +10,10 @@ export function redirectAfterPortalAuth(
   router: { replace: (href: string) => void },
   opts: AuthRedirectOptions = {},
 ) {
+  if (u.mustChangePassword) {
+    router.replace('/account/nieuw-wachtwoord');
+    return;
+  }
   const p = u.permissions ?? [];
   const toBackoffice = p.includes('*') || p.some((x) => x.startsWith('admin.'));
   const contentOnly = p.includes('content.strings.write') && !toBackoffice;

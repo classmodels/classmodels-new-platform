@@ -235,9 +235,9 @@ export function BeginLanding() {
                 <form className="mt-5 space-y-3" onSubmit={onModelLogin}>
                   <input
                     className={inputClass}
-                    type="email"
+                    type="text"
                     autoComplete="username"
-                    placeholder="E-mailadres"
+                    placeholder="E-mail of telefoonnummer"
                     value={mEmail}
                     onChange={(e) => setMEmail(e.target.value)}
                     required
@@ -252,6 +252,12 @@ export function BeginLanding() {
                     required
                     minLength={6}
                   />
+                  <a
+                    href="/wachtwoord-vergeten"
+                    className="block text-right text-xs text-white/90 underline underline-offset-2 hover:text-white"
+                  >
+                    Wachtwoord vergeten?
+                  </a>
                   <button
                     type="submit"
                     disabled={busy}
