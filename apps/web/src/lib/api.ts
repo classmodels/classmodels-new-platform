@@ -40,6 +40,11 @@ export async function apiFetch<T>(
   });
   if (!res.ok) {
     const text = await res.text();
+    if (text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
+      throw new Error(
+        'Server gaf een webpagina i.p.v. API-data. Wacht op deploy of controleer /__cm_api (zie Combell pipeline).',
+      );
+    }
     throw new Error(text || res.statusText);
   }
   if (res.status === 204) return undefined as T;
