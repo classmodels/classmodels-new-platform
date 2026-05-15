@@ -4,17 +4,14 @@ import { isAbsolute, join, resolve } from 'path';
 
 /**
  * Root-.env gebruikt vaak MEDIA_ROOT=./apps/api/uploads (t.o.v. monorepo-root).
- * Nest en scripts draaien met cwd apps/api — dan zou die relatieve pad dubbel apps/api worden.
- * We normaliseren naar één map: {cwd}/uploads wanneer cwd al apps/api is.
- *
- * Combell: uploads staan onder ~/www/cm-media/uploads; Node draait buiten www.
- * Zet MEDIA_ROOT=www/cm-media/uploads of laat leeg — we proberen HOME/www/cm-media/uploads.
+ * Nest draait met cwd apps/api → {cwd}/uploads.
+ * Combell: bron staat op shared hosting onder ~/www/cm-media/uploads; sync naar apps/api/uploads.
  */
-function hasMediaFiles(dir: string): boolean {
+function countMediaFiles(dir: string): number {
   try {
-    return readdirSync(dir).some((f) => /\.(jpe?g|webp|png|gif)$/i.test(f));
+    return readdirSync(dir).filter((f) => /\.(jpe?g|webp|png|gif)$/i.test(f)).length;
   } catch {
-    return false;
+    return 0;
   }
 }
 
@@ -48,24 +45,42 @@ function mediaRootCandidates(): string[] {
 
   if (raw) out.push(expandConfiguredRoot(raw));
 
+  const syncSrc = process.env.MEDIA_SYNC_SOURCE?.trim();
+  if (syncSrc) out.push(syncSrc);
+
   const home = hostingHome();
   if (home) out.push(join(home, 'www/cm-media/uploads'));
 
-  const cwd = process.cwd();
+  out.push('/home/ID460044/www/cm-media/uploads');
+
+  const cwd = process.cwd().replace(/\\/g, '/');
   out.push(join(cwd, 'uploads'));
-  out.push(join(cwd, 'apps/api/uploads'));
+  if (cwd.endsWith('/apps/api')) {
+    out.push(join(cwd, '..', '..', 'apps', 'api', 'uploads'));
+  } else {
+    out.push(join(cwd, 'apps/api/uploads'));
+  }
 
   return [...new Set(out)];
 }
 
 export function resolveMediaRoot(): string {
+  let bestDir: string | undefined;
+  let bestCount = 0;
+
   for (const dir of mediaRootCandidates()) {
-    if (hasMediaFiles(dir)) {
-      if (process.env.NODE_ENV === 'production') {
-        console.error(`[media] gebruik map: ${dir}`);
-      }
-      return dir;
+    const n = countMediaFiles(dir);
+    if (n > bestCount) {
+      bestCount = n;
+      bestDir = dir;
     }
+  }
+
+  if (bestDir && bestCount > 0) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error(`[media] gebruik map: ${bestDir} (${bestCount} bestanden)`);
+    }
+    return bestDir;
   }
 
   const raw = process.env.MEDIA_ROOT?.trim();
@@ -76,8 +91,8 @@ export function resolveMediaRoot(): string {
 /** Eén keer bij opstart (Combell-logs). */
 export function logResolvedMediaRoot(): void {
   const dir = resolveMediaRoot();
-  const ok = hasMediaFiles(dir);
+  const n = countMediaFiles(dir);
   console.error(
-    `[media] MEDIA_ROOT=${dir} (${ok ? 'bestanden gevonden' : 'GEEN mediabestanden — controleer www/cm-media/uploads'})`,
+    `[media] MEDIA_ROOT=${dir} (${n > 0 ? `${n} mediabestanden` : 'GEEN mediabestanden'})`,
   );
 }
