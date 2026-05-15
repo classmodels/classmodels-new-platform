@@ -16,7 +16,8 @@ function hostingMediaSources(root) {
   const fromEnv = process.env.MEDIA_SYNC_SOURCE?.trim();
   if (fromEnv) out.push(fromEnv);
   const home = process.env.HOME?.trim();
-  if (home) out.push(path.join(home, 'www/cm-media/uploads'));
+  const isContainerHome = home && (home.replace(/\\/g, '/').replace(/\/+$/, '') === '/app' || home.endsWith('/app'));
+  if (home && !isContainerHome) out.push(path.join(home, 'www/cm-media/uploads'));
   const user = process.env.USER?.trim();
   if (user) out.push(path.join('/home', user, 'www/cm-media/uploads'));
   out.push('/home/ID460044/www/cm-media/uploads');

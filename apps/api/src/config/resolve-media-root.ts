@@ -20,6 +20,13 @@ function hostingHome(): string | undefined {
   return home || undefined;
 }
 
+/** Combell-container: HOME=/app — geen echte hosting-www; www/cm-media bestaat daar niet. */
+function isContainerAppHome(home: string | undefined): boolean {
+  if (!home) return false;
+  const h = home.replace(/\\/g, '/').replace(/\/+$/, '');
+  return h === '/app' || h.endsWith('/app');
+}
+
 function expandConfiguredRoot(raw: string): string {
   if (isAbsolute(raw)) return raw;
 
@@ -32,8 +39,8 @@ function expandConfiguredRoot(raw: string): string {
 
   if (noDot === 'www/cm-media/uploads' || noDot.endsWith('www/cm-media/uploads')) {
     const home = hostingHome();
-    if (home) return join(home, 'www/cm-media/uploads');
-    return resolve(cwd, 'www/cm-media/uploads');
+    if (home && !isContainerAppHome(home)) return join(home, 'www/cm-media/uploads');
+    return join(cwd, 'uploads');
   }
 
   return resolve(cwd, raw);
@@ -49,7 +56,7 @@ function mediaRootCandidates(): string[] {
   if (syncSrc) out.push(syncSrc);
 
   const home = hostingHome();
-  if (home) out.push(join(home, 'www/cm-media/uploads'));
+  if (home && !isContainerAppHome(home)) out.push(join(home, 'www/cm-media/uploads'));
 
   out.push('/home/ID460044/www/cm-media/uploads');
 
@@ -84,7 +91,10 @@ export function resolveMediaRoot(): string {
   }
 
   const raw = process.env.MEDIA_ROOT?.trim();
-  if (raw) return expandConfiguredRoot(raw);
+  if (raw) {
+    const configured = expandConfiguredRoot(raw);
+    if (countMediaFiles(configured) > 0) return configured;
+  }
   return join(process.cwd(), 'uploads');
 }
 

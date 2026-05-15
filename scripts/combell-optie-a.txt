@@ -14,6 +14,13 @@ NEXT_PUBLIC_APP_URL=https://www.class-models.be
 WEB_PUBLIC_URL=https://www.class-models.be
 WEB_APP_URL=https://www.class-models.be
 NODE_ENV=production
+MEDIA_ROOT=uploads
+
+BELANGRIJK — foto’s op Combell:
+  - Zet GEEN www/cm-media/uploads als MEDIA_ROOT (in de container bestaat die map niet).
+  - Gebruik: MEDIA_ROOT=uploads  (→ apps/api/uploads in de app)
+  - Na elke deploy zijn bestanden in de container leeg; herstel met op je Mac:
+    npm run tool:push-media-live -- admin@class-models.local 'Demo123!'
 
 Poort in Combell (veld "Poort"): meestal 3000 — NIET wijzigen tenzij Combell anders zegt.
 
