@@ -41,4 +41,11 @@ function runPrismaMigrateDeploy(root) {
   return true;
 }
 
-module.exports = { runPrismaMigrateDeploy };
+function runCombellDbSetup(root) {
+  const migrated = runPrismaMigrateDeploy(root);
+  if (!migrated) return false;
+  const { runCombellBootstrapDb } = require('./combell-bootstrap-db.cjs');
+  return runCombellBootstrapDb(root);
+}
+
+module.exports = { runPrismaMigrateDeploy, runCombellDbSetup };

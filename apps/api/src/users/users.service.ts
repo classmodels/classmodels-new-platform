@@ -69,7 +69,11 @@ export class UsersService {
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new ConflictException('E-mail bestaat al');
     const role = await this.prisma.role.findUnique({ where: { slug: params.roleSlug } });
-    if (!role) throw new BadRequestException('Registratie is tijdelijk niet beschikbaar.');
+    if (!role) {
+      throw new BadRequestException(
+        'Registratie is nog niet geconfigureerd op de server (ontbrekende rol). Probeer later opnieuw of neem contact op.',
+      );
+    }
     const defaultPortal = params.roleSlug === 'model' ? 'model' : 'client';
     return this.prisma.user.create({
       data: {
