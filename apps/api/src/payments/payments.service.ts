@@ -128,9 +128,7 @@ export class PaymentsService {
     const hasApiKeyTest = Boolean(await this.rawKeyForMode('test'));
     const hasApiKeyLive = Boolean(await this.rawKeyForMode('live'));
     const webhook = this.resolveWebhookUrl(settings?.webhookUrl);
-    const apiPublic =
-      process.env.API_PUBLIC_URL?.replace(/\/$/, '') ||
-      `http://localhost:${process.env.API_PORT ?? '4000'}`;
+    const apiPublic = this.resolveApiPublicBase();
     const suggestedWebhookUrl = `${apiPublic}/payments/mollie/webhook`;
     return {
       activeMode,
@@ -142,6 +140,7 @@ export class PaymentsService {
       storedWebhookUrl: settings?.webhookUrl ?? null,
       suggestedWebhookUrl,
       apiPublicUrl: apiPublic,
+      webhookUsesLocalhost: /localhost|127\.0\.0\.1/i.test(webhook.url),
       modeSource:
         settings?.activeMode === 'live' || settings?.activeMode === 'test'
           ? ('database' as const)
@@ -280,11 +279,38 @@ export class PaymentsService {
     return { checkoutUrl, paymentId: payment.id, tryoutRegistrationId: reg.id };
   }
 
+  /**
+   * Publieke API-basis-URL. Zonder API_PUBLIC_URL op Combell: afleiden van WEB_APP_URL
+   * (class-models.be → https://api.class-models.be), anders valt Mollie terug op localhost.
+   */
+  resolveApiPublicBase(): string {
+    const fromApi = process.env.API_PUBLIC_URL?.trim().replace(/\/$/, '');
+    if (fromApi && !/localhost|127\.0\.0\.1/i.test(fromApi)) {
+      return fromApi;
+    }
+
+    const web = (
+      process.env.WEB_APP_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.WEB_PUBLIC_URL ||
+      ''
+    )
+      .trim()
+      .replace(/\/$/, '');
+
+    if (/class-models\.be/i.test(web)) {
+      return 'https://api.class-models.be';
+    }
+    if (web.startsWith('https://www.')) {
+      return web.replace('https://www.', 'https://api.');
+    }
+
+    if (fromApi) return fromApi;
+    return `http://localhost:${process.env.API_PORT ?? '4000'}`;
+  }
+
   private defaultWebhookUrl(): string {
-    const apiPublic =
-      process.env.API_PUBLIC_URL?.replace(/\/$/, '') ||
-      `http://localhost:${process.env.API_PORT ?? '4000'}`;
-    return `${apiPublic}/payments/mollie/webhook`;
+    return `${this.resolveApiPublicBase()}/payments/mollie/webhook`;
   }
 
   /** localhost-webhook in DB negeren op productie (anders weigert Mollie betalingen). */
@@ -296,7 +322,7 @@ export class PaymentsService {
     const fromDb = dbOverride?.trim();
     if (!fromDb) return { url: defaultUrl, ignoredLocalhostOverride: false };
     const isLocal = /localhost|127\.0\.0\.1/i.test(fromDb);
-    const apiPublic = process.env.API_PUBLIC_URL?.replace(/\/$/, '') ?? '';
+    const apiPublic = this.resolveApiPublicBase();
     if (isLocal && apiPublic.startsWith('https://')) {
       this.log.warn(`Webhook ${fromDb} genegeerd; gebruik ${defaultUrl}`);
       return { url: defaultUrl, ignoredLocalhostOverride: true };

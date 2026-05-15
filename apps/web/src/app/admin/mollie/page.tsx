@@ -15,6 +15,7 @@ type MollieSettings = {
   storedWebhookUrl?: string | null;
   suggestedWebhookUrl: string;
   apiPublicUrl: string;
+  webhookUsesLocalhost?: boolean;
   apiKeyTest: string | null;
   apiKeyLive: string | null;
   webhookUrl: string | null;
@@ -158,6 +159,13 @@ export default function AdminMolliePage() {
             <p className="text-xs font-medium text-amber-900">
               Let op: in de database staat nog een localhost-webhook. Die wordt op live genegeerd; wis het veld
               hieronder en klik Opslaan.
+            </p>
+          ) : null}
+          {data.webhookUsesLocalhost ? (
+            <p className="text-xs font-medium text-red-700">
+              Webhook wijst nog naar localhost — betalingen falen. Zet in Combell{' '}
+              <code className="rounded bg-white px-1">API_PUBLIC_URL=https://api.class-models.be</code> en deploy
+              opnieuw, of vul hieronder handmatig de webhook in.
             </p>
           ) : null}
           <p className="text-xs text-muted break-all">

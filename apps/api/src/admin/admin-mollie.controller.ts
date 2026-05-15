@@ -43,6 +43,7 @@ export class AdminMollieController {
       storedWebhookUrl: status.storedWebhookUrl,
       suggestedWebhookUrl: status.suggestedWebhookUrl,
       apiPublicUrl: status.apiPublicUrl,
+      webhookUsesLocalhost: status.webhookUsesLocalhost,
       apiKeyTest: maskKey(s.apiKeyTest),
       apiKeyLive: maskKey(s.apiKeyLive),
       webhookUrl: s.webhookUrl,
@@ -60,8 +61,16 @@ export class AdminMollieController {
     if (dto.webhookUrl !== undefined) {
       let webhookUrl = dto.webhookUrl?.trim() || null;
       if (webhookUrl && /localhost|127\.0\.0\.1/i.test(webhookUrl)) {
-        const apiPublic = process.env.API_PUBLIC_URL?.replace(/\/$/, '') ?? '';
-        if (apiPublic.startsWith('https://')) {
+        const web = (
+          process.env.WEB_APP_URL ||
+          process.env.NEXT_PUBLIC_APP_URL ||
+          process.env.WEB_PUBLIC_URL ||
+          ''
+        ).toLowerCase();
+        const onProduction =
+          /class-models\.be/.test(web) ||
+          (process.env.API_PUBLIC_URL?.replace(/\/$/, '') ?? '').startsWith('https://');
+        if (onProduction) {
           webhookUrl = null;
         }
       }
@@ -97,6 +106,7 @@ export class AdminMollieController {
       storedWebhookUrl: status.storedWebhookUrl,
       suggestedWebhookUrl: status.suggestedWebhookUrl,
       apiPublicUrl: status.apiPublicUrl,
+      webhookUsesLocalhost: status.webhookUsesLocalhost,
       apiKeyTest: maskKey(s.apiKeyTest),
       apiKeyLive: maskKey(s.apiKeyLive),
       webhookUrl: s.webhookUrl,
