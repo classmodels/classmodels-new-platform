@@ -1,7 +1,6 @@
-# Kopieer onderstaande regels één voor één naar Combell → Environment variables.
-# Vervang de waarden waar het zegt VERVANG_...
+# === Optie A: één Node-instance (www én api naar dezelfde app) ===
+# Zet dit op die ene instance. Website-backend van www én api wijzen naar dezelfde Node-app.
 
-# COMBELL_HOST_ROUTER: 1 of true (niet leeg / geen punt). Geneste workers forceren zelf 0.
 COMBELL_HOST_ROUTER=1
 DB_URL=VERVANG_DATABASE_CONNECTION_STRING
 JWT_SECRET=VERVANG_LANG_WILLEKEURIG_GEHEIM
@@ -12,3 +11,25 @@ NEXT_PUBLIC_APP_URL=https://www.class-models.be
 WEB_PUBLIC_URL=https://www.class-models.be
 WEB_APP_URL=https://www.class-models.be
 NODE_ENV=production
+
+# Gebruik GEEN tweede Node-instance voor api, of zet op de tweede instance alles uit (zie optie B).
+
+# === Optie B: twee Node-instances (aanbevolen als Combell twee apps geeft) ===
+#
+# Instance 1 — alleen website (backend van www.class-models.be):
+#   SERVE_APP=web   (of weglaten)
+#   COMBELL_HOST_ROUTER=0   (of variabele wissen)
+#   + NEXT_PUBLIC_* / geen dubbele Nest nodig
+#
+# Instance 2 — alleen API (backend van api.class-models.be):
+#   SERVE_APP=api
+#   COMBELL_HOST_ROUTER=0   (BELANGRIJK: geen dual proxy hier)
+#   DB_URL=...
+#   JWT_SECRET=...
+#   CORS_ORIGIN=https://www.class-models.be
+#   API_PUBLIC_URL=https://api.class-models.be
+#   API_HOST=0.0.0.0
+#   (Combell zet PORT; de app gebruikt die als API-poort)
+#
+# Fout die je nu ziet: op BEIDE instances COMBELL_HOST_ROUTER=1 → overal dual proxy,
+# terwijl api beter alleen Nest is (optie B instance 2).
