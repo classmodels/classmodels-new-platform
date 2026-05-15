@@ -29,7 +29,7 @@ import {
 } from '@/components/guest-portal/guest-portal-data';
 import { GuestTestshootSection } from '@/components/guest-portal/GuestTestshootSection';
 import { GuestSignatureTagline } from '@/components/guest-portal/GuestSignatureTagline';
-import { guestPortalPublicMediaUrl } from '@/lib/guest-portal-media';
+import { guestPortalPublicMediaUrl, guestPortalStaticPublicUrl } from '@/lib/guest-portal-media';
 
 const GUEST_MENU_IDS = GUEST_MENU.map((m) => m.id) as readonly GuestMenuId[];
 
@@ -229,22 +229,47 @@ function ModelWordenColumnCard({
 
 /** Alleen het onderste deel van de rode zone (Model worden). */
 function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
-  const videoSrc = guestPortalPublicMediaUrl(GUEST_PORTAL_PUBLIC_MEDIA.heroVideoBasename);
+  const basename = GUEST_PORTAL_PUBLIC_MEDIA.heroVideoBasename?.trim() || null;
+  const staticFallback = guestPortalStaticPublicUrl('/guest/film22.mp4');
+
+  /** Zelfde URL op server en eerste client-paint → geen hydration mismatch; daarna API als die er is. */
+  const [playSrc, setPlaySrc] = useState<string>(staticFallback);
+  const [videoDead, setVideoDead] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    const api = guestPortalPublicMediaUrl(basename);
+    setPlaySrc(api ?? staticFallback);
+    setVideoDead(false);
+  }, [basename, staticFallback]);
+
+  useEffect(() => {
     const el = videoRef.current;
-    if (!el || !videoSrc) return;
+    if (!el || videoDead) return;
     const tryPlay = () => void el.play().catch(() => {});
     tryPlay();
     el.addEventListener('loadeddata', tryPlay);
     return () => el.removeEventListener('loadeddata', tryPlay);
-  }, [videoSrc]);
+  }, [playSrc, videoDead]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || videoDead) return;
+    const onErr = () => {
+      setPlaySrc((cur) => {
+        if (cur !== staticFallback) return staticFallback;
+        setVideoDead(true);
+        return cur;
+      });
+    };
+    el.addEventListener('error', onErr);
+    return () => el.removeEventListener('error', onErr);
+  }, [playSrc, videoDead, staticFallback]);
 
   return (
     <div className="relative w-full overflow-hidden">
       <div className="relative z-10 mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
-        <div className="max-w-xl md:mr-[calc(70px+min(560px,52vw)+2rem)]">
+        <div className="max-w-xl sm:mr-[calc(70px+min(560px,52vw)+2rem)]">
           <CmText
             contentKey="portal.guest.hero.kicker"
             as="p"
@@ -290,12 +315,13 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
         </div>
       </div>
 
-      {videoSrc ? (
-        <div className="pointer-events-none hidden justify-center md:absolute md:bottom-[70px] md:right-[70px] md:top-[70px] md:flex md:justify-end">
+      {!videoDead ? (
+        <div className="pointer-events-none relative z-[5] mt-6 flex justify-center px-4 sm:absolute sm:bottom-[70px] sm:right-[70px] sm:top-[70px] sm:mt-0 sm:flex sm:justify-end sm:px-0">
           <video
+            key={playSrc}
             ref={videoRef}
-            src={videoSrc}
-            className="aspect-video w-full max-w-2xl select-none rounded-none border-0 object-contain shadow-none md:h-full md:w-auto md:max-w-[min(560px,52vw)]"
+            src={playSrc}
+            className="aspect-video w-full max-w-2xl select-none rounded-none border-0 object-contain shadow-none sm:h-full sm:w-auto sm:max-w-[min(560px,52vw)]"
             autoPlay
             muted
             loop
@@ -305,7 +331,7 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
           />
         </div>
       ) : (
-        <div className="mt-6 rounded-cm border border-white/25 bg-black/20 p-4 text-xs leading-relaxed text-white/90 md:absolute md:bottom-[70px] md:right-[70px] md:top-[70px] md:mt-0 md:max-w-[min(560px,52vw)] md:overflow-y-auto md:text-sm">
+        <div className="mt-6 rounded-cm border border-white/25 bg-black/20 p-4 text-xs leading-relaxed text-white/90 sm:absolute sm:bottom-[70px] sm:right-[70px] sm:top-[70px] sm:mt-0 sm:max-w-[min(560px,52vw)] sm:overflow-y-auto sm:text-sm">
           <CmText
             contentKey="portal.guest.hero.box.title"
             as="p"
