@@ -31,7 +31,17 @@ const nestPort = pickPort('NEST_INTERNAL_PORT', 4000);
 const webPort = pickPort('WEB_INTERNAL_PORT', 3001);
 
 const apiDir = path.join(root, 'apps', 'api');
-const nestMain = path.join(apiDir, 'dist', 'main.js');
+function resolveNestMain() {
+  const candidates = [
+    path.join(apiDir, 'dist', 'src', 'main.js'),
+    path.join(apiDir, 'dist', 'main.js'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+const nestMain = resolveNestMain();
 const webDir = path.join(root, 'apps', 'web');
 const webStart = path.join(webDir, 'start.cjs');
 
