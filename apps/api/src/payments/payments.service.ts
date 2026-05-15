@@ -12,6 +12,34 @@ import { ModelPortalHistoryService } from '../portal/model-portal-history.servic
 
 export type MollieMode = 'test' | 'live';
 
+function mollieErrorMessage(e: unknown): string {
+  if (e && typeof e === 'object') {
+    const o = e as { message?: string; field?: string; statusCode?: number };
+    if (typeof o.message === 'string' && o.message.trim()) {
+      return o.field ? `${o.message} (veld: ${o.field})` : o.message;
+    }
+  }
+  return 'onbekende fout bij Mollie';
+}
+
+function assertMollieKeyForMode(key: string, mode: MollieMode): void {
+  if (/…|\.\.\./.test(key)) {
+    throw new BadRequestException(
+      'De API key lijkt onvolledig (gemaskeerd). Kopieer de volledige key uit Mollie → Developers → API keys.',
+    );
+  }
+  if (mode === 'test' && !key.startsWith('test_')) {
+    throw new BadRequestException(
+      'Testmodus is actief maar de key begint niet met test_. Kies Test API of gebruik een test-key.',
+    );
+  }
+  if (mode === 'live' && !key.startsWith('live_')) {
+    throw new BadRequestException(
+      'Livemodus is actief maar de key begint niet met live_. Kies Live API of gebruik een live-key.',
+    );
+  }
+}
+
 @Injectable()
 export class PaymentsService {
   private readonly log = new Logger(PaymentsService.name);
@@ -55,10 +83,29 @@ export class PaymentsService {
     const key = await this.apiKeyForMode(mode);
     if (!key) {
       throw new ServiceUnavailableException(
-        'Mollie API key ontbreekt voor de gekozen modus. Zie backoffice → Mollie-instellingen.',
+        'Mollie API key ontbreekt voor de gekozen modus. Ga naar Admin → Mollie-instellingen en sla een key op.',
       );
     }
+    assertMollieKeyForMode(key, mode);
     return key;
+  }
+
+  private mollieFail(
+    action: string,
+    e: unknown,
+    extra?: { redirectUrl?: string; webhookUrl?: string; mode?: MollieMode },
+  ): never {
+    this.log.warn(
+      `Mollie ${action} failed (mode=${extra?.mode ?? '?'}): ${mollieErrorMessage(e)}` +
+        (extra?.redirectUrl ? ` redirect=${extra.redirectUrl}` : '') +
+        (extra?.webhookUrl ? ` webhook=${extra.webhookUrl}` : ''),
+    );
+    const detail = mollieErrorMessage(e);
+    const hint =
+      detail.includes('Authorization') || detail.includes('authentication')
+        ? ' De API key is ongeldig of hoort niet bij de gekozen modus (test/live).'
+        : '';
+    throw new BadRequestException(`Mollie: ${detail}.${hint} Controleer Admin → Mollie-instellingen.`);
   }
 
   private async fetchMolliePayment(paymentId: string): Promise<Payment | null> {
@@ -80,7 +127,7 @@ export class PaymentsService {
     const activeMode = await this.resolveActiveMode();
     const hasApiKeyTest = Boolean(await this.rawKeyForMode('test'));
     const hasApiKeyLive = Boolean(await this.rawKeyForMode('live'));
-    const effectiveWebhookUrl = await this.paymentWebhookUrl();
+    const webhook = this.resolveWebhookUrl(settings?.webhookUrl);
     const apiPublic =
       process.env.API_PUBLIC_URL?.replace(/\/$/, '') ||
       `http://localhost:${process.env.API_PORT ?? '4000'}`;
@@ -90,7 +137,9 @@ export class PaymentsService {
       hasApiKeyTest,
       hasApiKeyLive,
       activeKeyConfigured: activeMode === 'live' ? hasApiKeyLive : hasApiKeyTest,
-      effectiveWebhookUrl,
+      effectiveWebhookUrl: webhook.url,
+      webhookIgnoredLocalhost: webhook.ignoredLocalhostOverride,
+      storedWebhookUrl: settings?.webhookUrl ?? null,
       suggestedWebhookUrl,
       apiPublicUrl: apiPublic,
       modeSource:
@@ -103,31 +152,23 @@ export class PaymentsService {
   }
 
   async testMollieConnection(mode: MollieMode) {
-    const key = await this.apiKeyForMode(mode);
+    const key = await this.apiKeyForMode(mode, { required: false });
     if (!key) {
-      throw new BadRequestException(`Geen ${mode} API key geconfigureerd.`);
+      throw new BadRequestException(
+        `Geen ${mode} API key ingesteld. Vul eerst een ${mode === 'test' ? 'test_' : 'live_'} key in en klik Opslaan.`,
+      );
     }
-    if (mode === 'test' && !key.startsWith('test_')) {
-      throw new BadRequestException('Testmodus vereist een key die begint met test_.');
-    }
-    if (mode === 'live' && !key.startsWith('live_')) {
-      throw new BadRequestException('Livemodus vereist een key die begint met live_.');
-    }
+    assertMollieKeyForMode(key, mode);
     const mollie = createMollieClient({ apiKey: key });
     try {
       const profile = await mollie.profiles.getCurrent();
       return {
         ok: true as const,
         mode,
-        profileId: profile.id,
-        profileName: profile.name,
-        status: profile.status,
+        message: `API key OK — profiel "${profile.name ?? profile.id}" (${profile.status ?? 'onbekend'}).`,
       };
     } catch (e) {
-      this.log.warn(`Mollie test connection (${mode}) failed: ${e}`);
-      throw new BadRequestException(
-        `Verbinding met Mollie (${mode}) mislukt. Controleer de API key in je Mollie-dashboard.`,
-      );
+      this.mollieFail(`test-connection (${mode})`, e, { mode });
     }
   }
 
@@ -177,6 +218,7 @@ export class PaymentsService {
 
     const amount = await this.tryoutAmount();
     const value = amount.toFixed(2);
+    const mode = await this.resolveActiveMode();
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
     const webhookUrl = await this.paymentWebhookUrl();
 
@@ -218,8 +260,7 @@ export class PaymentsService {
         },
       });
     } catch (e) {
-      this.log.warn(`Mollie try-out payments.create failed: ${e}`);
-      throw new BadRequestException('Mollie kon geen betaling aanmaken. Controleer API key en dashboard.');
+      this.mollieFail('try-out payments.create', e, { mode, redirectUrl, webhookUrl });
     }
 
     await this.prisma.tryoutModeshowRegistration.update({
@@ -239,15 +280,34 @@ export class PaymentsService {
     return { checkoutUrl, paymentId: payment.id, tryoutRegistrationId: reg.id };
   }
 
-  /** Volledige webhook-URL voor Mollie (DB-override of standaard op API-public URL). */
-  private async paymentWebhookUrl(): Promise<string> {
-    const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
-    const fromDb = settings?.webhookUrl?.trim();
-    if (fromDb) return fromDb;
+  private defaultWebhookUrl(): string {
     const apiPublic =
       process.env.API_PUBLIC_URL?.replace(/\/$/, '') ||
       `http://localhost:${process.env.API_PORT ?? '4000'}`;
     return `${apiPublic}/payments/mollie/webhook`;
+  }
+
+  /** localhost-webhook in DB negeren op productie (anders weigert Mollie betalingen). */
+  private resolveWebhookUrl(dbOverride: string | null | undefined): {
+    url: string;
+    ignoredLocalhostOverride: boolean;
+  } {
+    const defaultUrl = this.defaultWebhookUrl();
+    const fromDb = dbOverride?.trim();
+    if (!fromDb) return { url: defaultUrl, ignoredLocalhostOverride: false };
+    const isLocal = /localhost|127\.0\.0\.1/i.test(fromDb);
+    const apiPublic = process.env.API_PUBLIC_URL?.replace(/\/$/, '') ?? '';
+    if (isLocal && apiPublic.startsWith('https://')) {
+      this.log.warn(`Webhook ${fromDb} genegeerd; gebruik ${defaultUrl}`);
+      return { url: defaultUrl, ignoredLocalhostOverride: true };
+    }
+    return { url: fromDb, ignoredLocalhostOverride: false };
+  }
+
+  /** Volledige webhook-URL voor Mollie (DB-override of standaard op API-public URL). */
+  private async paymentWebhookUrl(): Promise<string> {
+    const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
+    return this.resolveWebhookUrl(settings?.webhookUrl).url;
   }
 
   async getPremiumInfo() {
@@ -290,6 +350,7 @@ export class PaymentsService {
       },
     });
 
+    const mode = await this.resolveActiveMode();
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
 
     const redirectUrl =
@@ -308,12 +369,11 @@ export class PaymentsService {
         metadata: { userId: String(userId), subscriptionId: String(sub.id) },
       });
     } catch (e) {
-      this.log.warn(`Mollie payments.create failed: ${e}`);
       await this.prisma.subscription.update({
         where: { id: sub.id },
         data: { status: 'mollie_error' },
       });
-      throw new BadRequestException('Mollie kon geen betaling aanmaken. Controleer API key en dashboard.');
+      this.mollieFail('premium payments.create', e, { mode, redirectUrl, webhookUrl });
     }
 
     await this.prisma.subscription.update({

@@ -6,6 +6,20 @@ function isClassModelsSiteHost(host: string) {
   return h === 'www.class-models.be' || h === 'class-models.be';
 }
 
+/** Nest-fout JSON → leesbare tekst voor in de UI. */
+export function parseApiErrorBody(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return text;
+  try {
+    const j = JSON.parse(trimmed) as { message?: string | string[] };
+    if (typeof j.message === 'string') return j.message;
+    if (Array.isArray(j.message)) return j.message.join(', ');
+  } catch {
+    /* geen JSON */
+  }
+  return text;
+}
+
 export function getApiBase() {
   if (typeof window !== 'undefined') {
     if (isClassModelsSiteHost(window.location.hostname)) {
@@ -45,7 +59,7 @@ export async function apiFetch<T>(
         'Server gaf een webpagina i.p.v. API-data. Wacht op deploy of controleer /__cm_api (zie Combell pipeline).',
       );
     }
-    throw new Error(text || res.statusText);
+    throw new Error(parseApiErrorBody(text || res.statusText));
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

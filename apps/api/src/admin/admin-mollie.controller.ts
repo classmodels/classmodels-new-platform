@@ -39,6 +39,8 @@ export class AdminMollieController {
       hasApiKeyLive: status.hasApiKeyLive,
       activeKeyConfigured: status.activeKeyConfigured,
       effectiveWebhookUrl: status.effectiveWebhookUrl,
+      webhookIgnoredLocalhost: status.webhookIgnoredLocalhost,
+      storedWebhookUrl: status.storedWebhookUrl,
       suggestedWebhookUrl: status.suggestedWebhookUrl,
       apiPublicUrl: status.apiPublicUrl,
       apiKeyTest: maskKey(s.apiKeyTest),
@@ -55,7 +57,16 @@ export class AdminMollieController {
   async patch(@Body() dto: PatchMollieSettingsDto) {
     const data: Record<string, unknown> = {};
     if (dto.activeMode !== undefined) data.activeMode = dto.activeMode;
-    if (dto.webhookUrl !== undefined) data.webhookUrl = dto.webhookUrl || null;
+    if (dto.webhookUrl !== undefined) {
+      let webhookUrl = dto.webhookUrl?.trim() || null;
+      if (webhookUrl && /localhost|127\.0\.0\.1/i.test(webhookUrl)) {
+        const apiPublic = process.env.API_PUBLIC_URL?.replace(/\/$/, '') ?? '';
+        if (apiPublic.startsWith('https://')) {
+          webhookUrl = null;
+        }
+      }
+      data.webhookUrl = webhookUrl;
+    }
     if (dto.premiumPrice != null) {
       data.premiumPrice = new Prisma.Decimal(dto.premiumPrice);
     }
@@ -82,6 +93,8 @@ export class AdminMollieController {
       hasApiKeyLive: status.hasApiKeyLive,
       activeKeyConfigured: status.activeKeyConfigured,
       effectiveWebhookUrl: status.effectiveWebhookUrl,
+      webhookIgnoredLocalhost: status.webhookIgnoredLocalhost,
+      storedWebhookUrl: status.storedWebhookUrl,
       suggestedWebhookUrl: status.suggestedWebhookUrl,
       apiPublicUrl: status.apiPublicUrl,
       apiKeyTest: maskKey(s.apiKeyTest),

@@ -1,4 +1,4 @@
-import { getApiBase } from '@/lib/api';
+import { getApiBase, parseApiErrorBody } from '@/lib/api';
 
 export async function adminFetch<T>(
   path: string,
@@ -17,7 +17,7 @@ export async function adminFetch<T>(
   });
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(t || res.statusText);
+    throw new Error(parseApiErrorBody(t || res.statusText));
   }
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;

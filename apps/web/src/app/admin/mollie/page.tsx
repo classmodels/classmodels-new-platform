@@ -11,6 +11,8 @@ type MollieSettings = {
   hasApiKeyLive: boolean;
   activeKeyConfigured: boolean;
   effectiveWebhookUrl: string;
+  webhookIgnoredLocalhost?: boolean;
+  storedWebhookUrl?: string | null;
   suggestedWebhookUrl: string;
   apiPublicUrl: string;
   apiKeyTest: string | null;
@@ -20,7 +22,7 @@ type MollieSettings = {
   tryoutPrice: string;
 };
 
-type TestResult = { ok: true; mode: string; profileId: string; profileName: string; status: string };
+type TestResult = { ok: true; mode: string; message: string };
 
 export default function AdminMolliePage() {
   const { token, can } = useAuth();
@@ -84,6 +86,14 @@ export default function AdminMolliePage() {
 
   const runTest = async (mode: 'test' | 'live') => {
     if (!token) return;
+    if (mode === 'live' && data && !data.hasApiKeyLive) {
+      setTestErr('Geen live key ingesteld — gebruik eerst Test verbinding (test key), of vul een live_… key in.');
+      return;
+    }
+    if (mode === 'test' && data && !data.hasApiKeyTest && !form.apiKeyTest.trim()) {
+      setTestErr('Geen test key ingesteld — plak je test_… key uit Mollie en klik Opslaan.');
+      return;
+    }
     setTestBusy(mode);
     setTestResult(null);
     setTestErr(null);
@@ -142,6 +152,12 @@ export default function AdminMolliePage() {
           {!data.activeKeyConfigured ? (
             <p className="text-xs font-medium text-red-700">
               De actieve modus heeft nog geen API key — afrekenen werkt niet tot je een key opslaat.
+            </p>
+          ) : null}
+          {data.webhookIgnoredLocalhost ? (
+            <p className="text-xs font-medium text-amber-900">
+              Let op: in de database staat nog een localhost-webhook. Die wordt op live genegeerd; wis het veld
+              hieronder en klik Opslaan.
             </p>
           ) : null}
           <p className="text-xs text-muted break-all">
@@ -224,7 +240,8 @@ export default function AdminMolliePage() {
             </button>
             <button
               type="button"
-              disabled={testBusy !== null}
+              disabled={testBusy !== null || !data?.hasApiKeyLive}
+              title={!data?.hasApiKeyLive ? 'Eerst live key invullen en opslaan' : undefined}
               onClick={() => runTest('live')}
               className="rounded border border-line bg-white px-3 py-1.5 text-xs hover:bg-zinc-50 disabled:opacity-50"
             >
@@ -232,25 +249,45 @@ export default function AdminMolliePage() {
             </button>
           </div>
         ) : null}
+        <p className="text-xs text-muted">
+          Gebruik <strong>Test verbinding (test key)</strong> zolang je in testmodus betaalt.
+        </p>
 
         {testResult ? (
           <p className="text-xs text-emerald-800">
-            Verbinding OK ({testResult.mode}): profiel &quot;{testResult.profileName}&quot; ({testResult.status})
+            Verbinding OK ({testResult.mode}): {testResult.message}
           </p>
         ) : null}
         {testErr ? <p className="text-xs text-red-700">{testErr}</p> : null}
 
         <label className="block">
           <span className="text-xs text-muted">
-            Webhook-URL override (optioneel — leeg = {data?.suggestedWebhookUrl ?? '…/payments/mollie/webhook'})
+            Webhook-URL override (optioneel — <strong>laat leeg op live</strong>, dan:{' '}
+            {data?.suggestedWebhookUrl ?? '…/payments/mollie/webhook'})
           </span>
-          <input
-            className="mt-1 w-full rounded border border-line px-2 py-1 text-xs"
-            placeholder={data?.suggestedWebhookUrl}
-            value={form.webhookUrl}
-            disabled={!canWrite}
-            onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
-          />
+          {/localhost|127\.0\.0\.1/i.test(form.webhookUrl) ? (
+            <p className="mt-1 text-xs font-medium text-red-700">
+              localhost werkt niet op class-models.be. Maak het veld leeg en klik Opslaan.
+            </p>
+          ) : null}
+          <div className="mt-1 flex gap-2">
+            <input
+              className="min-w-0 flex-1 rounded border border-line px-2 py-1 text-xs"
+              placeholder="leeg laten op productie"
+              value={form.webhookUrl}
+              disabled={!canWrite}
+              onChange={(e) => setForm({ ...form, webhookUrl: e.target.value })}
+            />
+            {canWrite ? (
+              <button
+                type="button"
+                className="shrink-0 rounded border border-line px-2 py-1 text-xs hover:bg-zinc-50"
+                onClick={() => setForm({ ...form, webhookUrl: '' })}
+              >
+                Leegmaken
+              </button>
+            ) : null}
+          </div>
         </label>
         <label className="block">
           <span className="text-xs text-muted">Premieprijs (EUR)</span>
