@@ -5,9 +5,14 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const { combellHostRouterEnabled } = require('./combell-host-router.cjs');
+const { warnDbUrlIfSuspicious } = require('./combell-warn-db-url.cjs');
 
 const root = path.join(__dirname, '..');
 process.chdir(root);
+
+if (combellHostRouterEnabled()) {
+  warnDbUrlIfSuspicious();
+}
 
 console.error(
   '[combell-serve] root=',
@@ -37,6 +42,7 @@ function runNpmStartWorkspace(ws) {
 const serveApp = (process.env.SERVE_APP || 'web').trim();
 
 if (serveApp === 'api') {
+  warnDbUrlIfSuspicious();
   const p = process.env.PORT || '4000';
   process.env.API_PORT = process.env.API_PORT || String(p);
   process.env.API_HOST = process.env.API_HOST || '0.0.0.0';

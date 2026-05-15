@@ -37,6 +37,9 @@ const webStart = path.join(webDir, 'start.cjs');
 
 let proxyReady = false;
 let nestLive = false;
+let nestSpawnCount = 0;
+const NEST_MAX_SPAWNS = 10;
+const NEST_RESTART_DELAY_MS = 5000;
 
 function forward(req, res, port) {
   const headers = { ...req.headers };
@@ -100,11 +103,17 @@ function spawnNext() {
   return child;
 }
 
-function spawnNest() {
+function spawnNestOnce() {
   if (!fs.existsSync(nestMain)) {
     console.error('[combell-dual] Nest build ontbreekt (verwacht na pipeline build):', nestMain);
     return false;
   }
+  nestSpawnCount += 1;
+  if (nestSpawnCount > NEST_MAX_SPAWNS) {
+    console.error('[combell-dual] nest: max herstarts bereikt; controleer DB_URL en logs.');
+    return false;
+  }
+  console.error(`[combell-dual] nest start poging ${nestSpawnCount}/${NEST_MAX_SPAWNS} (intern :${nestPort})`);
   const child = spawn('npm', ['run', 'start', '-w', '@cm/api'], {
     cwd: root,
     stdio: 'inherit',
@@ -117,13 +126,24 @@ function spawnNest() {
     },
   });
   child.on('error', (err) => {
-    console.error('[combell-dual] nest spawn error (website blijft draaien):', err);
+    console.error('[combell-dual] nest spawn error:', err);
+    nestLive = false;
+    setTimeout(() => spawnNestOnce(), NEST_RESTART_DELAY_MS);
   });
   child.on('exit', (code, signal) => {
     nestLive = false;
-    console.error(`[combell-dual] nest gestopt (code=${code} signal=${signal}) — API tijdelijk onbereikbaar`);
+    console.error(`[combell-dual] nest gestopt (code=${code} signal=${signal})`);
+    if (nestSpawnCount < NEST_MAX_SPAWNS) {
+      console.error(`[combell-dual] nest herstart over ${NEST_RESTART_DELAY_MS / 1000}s…`);
+      setTimeout(() => spawnNestOnce(), NEST_RESTART_DELAY_MS);
+    }
   });
   return true;
+}
+
+function spawnNest() {
+  nestSpawnCount = 0;
+  return spawnNestOnce();
 }
 
 function stripFirstHost(h) {
