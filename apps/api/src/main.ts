@@ -6,8 +6,10 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { urlencoded } from 'express';
 import { AppModule } from './app.module';
+import { logResolvedMediaRoot } from './config/resolve-media-root';
 
 async function bootstrap() {
+  logResolvedMediaRoot();
   const uploadDir = join(process.cwd(), 'uploads', 'agenda');
   try {
     mkdirSync(uploadDir, { recursive: true });
