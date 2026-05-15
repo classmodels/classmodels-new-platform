@@ -5,8 +5,8 @@
  * - Anders → Next op interne poort
  *
  * Combell-deploy: meteen luisteren + warmup. Next moet op tijd reageren (anders exit 1).
- * Nest: start met `node dist/main.js` (geen `npm`-subproces). Als Nest crasht of /health uitblijft,
- * blijft het proces draaien (website werkt) — deploy kan alsnog slagen; API geeft 503 tot Nest ok is.
+ * Nest: `npm run start -w @cm/api` vanaf repo-root (module-resolutie zoals lokaal). Crasht Nest, dan
+ * blijft de site draaien; API geeft 503 of 502 tot Nest luistert.
  */
 const fs = require('fs');
 const http = require('http');
@@ -105,9 +105,10 @@ function spawnNest() {
     console.error('[combell-dual] Nest build ontbreekt (verwacht na pipeline build):', nestMain);
     return false;
   }
-  const child = spawn(process.execPath, [nestMain], {
-    cwd: apiDir,
+  const child = spawn('npm', ['run', 'start', '-w', '@cm/api'], {
+    cwd: root,
     stdio: 'inherit',
+    shell: true,
     env: {
       ...process.env,
       API_HOST: '127.0.0.1',
