@@ -5,7 +5,10 @@ import { isAbsolute, join, resolve } from 'path';
 /**
  * Root-.env gebruikt vaak MEDIA_ROOT=./apps/api/uploads (t.o.v. monorepo-root).
  * Nest draait met cwd apps/api → {cwd}/uploads.
- * Combell: bron staat op shared hosting onder ~/www/cm-media/uploads; sync naar apps/api/uploads.
+ *
+ * **Productie / CI:** zet `MEDIA_ROOT` op een **persistente** map (volume of bv.
+ * `www/cm-media/uploads` op Combell). Als die variabele gezet is, wint die altijd —
+ * ook als de map nog leeg is — zodat uploads niet terugvallen op een verse release-map.
  */
 function countMediaFiles(dir: string): number {
   try {
@@ -47,10 +50,7 @@ function expandConfiguredRoot(raw: string): string {
 }
 
 function mediaRootCandidates(): string[] {
-  const raw = process.env.MEDIA_ROOT?.trim();
   const out: string[] = [];
-
-  if (raw) out.push(expandConfiguredRoot(raw));
 
   const syncSrc = process.env.MEDIA_SYNC_SOURCE?.trim();
   if (syncSrc) out.push(syncSrc);
@@ -72,6 +72,11 @@ function mediaRootCandidates(): string[] {
 }
 
 export function resolveMediaRoot(): string {
+  const raw = process.env.MEDIA_ROOT?.trim();
+  if (raw) {
+    return expandConfiguredRoot(raw);
+  }
+
   let bestDir: string | undefined;
   let bestCount = 0;
 
@@ -85,24 +90,25 @@ export function resolveMediaRoot(): string {
 
   if (bestDir && bestCount > 0) {
     if (process.env.NODE_ENV === 'production') {
-      console.error(`[media] gebruik map: ${bestDir} (${bestCount} bestanden)`);
+      console.error(`[media] gebruik map (heuristiek): ${bestDir} (${bestCount} bestanden)`);
     }
     return bestDir;
   }
 
-  const raw = process.env.MEDIA_ROOT?.trim();
-  if (raw) {
-    const configured = expandConfiguredRoot(raw);
-    if (countMediaFiles(configured) > 0) return configured;
-  }
   return join(process.cwd(), 'uploads');
 }
 
 /** Eén keer bij opstart (Combell-logs). */
 export function logResolvedMediaRoot(): void {
+  const explicit = Boolean(process.env.MEDIA_ROOT?.trim());
   const dir = resolveMediaRoot();
   const n = countMediaFiles(dir);
+  if (process.env.NODE_ENV === 'production' && !explicit) {
+    console.error(
+      '[media] WAARSCHUWING: MEDIA_ROOT niet gezet — mediatheek staat onder cwd/uploads en gaat verloren bij een schone deploy. Zet MEDIA_ROOT op een persistente map (volume of bv. www/cm-media/uploads op Combell).',
+    );
+  }
   console.error(
-    `[media] MEDIA_ROOT=${dir} (${n > 0 ? `${n} mediabestanden` : 'GEEN mediabestanden'})`,
+    `[media] opslag=${explicit ? 'MEDIA_ROOT' : 'default/heuristiek'} → ${dir} (${n > 0 ? `${n} mediabestanden` : 'GEEN mediabestanden'})`,
   );
 }

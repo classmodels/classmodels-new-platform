@@ -1,14 +1,23 @@
 import './env.bootstrap';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { urlencoded } from 'express';
 import { AppModule } from './app.module';
-import { logResolvedMediaRoot } from './config/resolve-media-root';
+import { logResolvedMediaRoot, resolveMediaRoot } from './config/resolve-media-root';
 
 async function bootstrap() {
+  const mediaRoot = resolveMediaRoot();
+  try {
+    if (!existsSync(mediaRoot)) mkdirSync(mediaRoot, { recursive: true });
+  } catch (e) {
+    console.warn(
+      `[bootstrap] Kan mediamap niet aanmaken: ${mediaRoot}`,
+      e instanceof Error ? e.message : e,
+    );
+  }
   logResolvedMediaRoot();
   const uploadDir = join(process.cwd(), 'uploads', 'agenda');
   try {

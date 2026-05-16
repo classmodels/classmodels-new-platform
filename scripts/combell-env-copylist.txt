@@ -12,3 +12,5 @@ NEXT_PUBLIC_APP_URL=https://www.class-models.be
 WEB_PUBLIC_URL=https://www.class-models.be
 WEB_APP_URL=https://www.class-models.be
 NODE_ENV=production
+# Mediatheek: buiten de release-map (blijft staan bij deploy). Zie apps/api/src/config/resolve-media-root.ts
+MEDIA_ROOT=www/cm-media/uploads
