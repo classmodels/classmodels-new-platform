@@ -150,7 +150,6 @@ export function ModelOpleidingTab({
             variant="pro"
             authToken={token}
             bookUrl="/portal/model/agenda/book-form"
-            hideLeftCalendar
             autoBookOnPick
             onBookingSuccess={async () => {
               await load();
@@ -159,7 +158,7 @@ export function ModelOpleidingTab({
             onClose={() => setPanel('summary')}
           />
           <p className="mt-2 text-[11px] leading-snug text-zinc-600">
-            Klik op een dag (14:00 – 17:00) om je meteen in te schrijven. Er zijn geen extra velden nodig.
+            Klik op een vrij moment (14:00 – 17:00) om je meteen in te schrijven. Er zijn geen extra velden nodig.
           </p>
         </div>
       ) : booking ? (

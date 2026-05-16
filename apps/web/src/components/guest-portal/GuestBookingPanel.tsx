@@ -37,22 +37,6 @@ function colHeader(ymd: string): string {
   return `${wd} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
 }
 
-function monthMatrix(year: number, month: number): ({ ymd: string; inMonth: boolean; dayNum: number } | null)[][] {
-  const first = new Date(year, month - 1, 1);
-  const startPad = (first.getDay() + 6) % 7;
-  const lastDay = new Date(year, month, 0).getDate();
-  const cells: ({ ymd: string; inMonth: boolean; dayNum: number } | null)[] = [];
-  for (let i = 0; i < startPad; i++) cells.push(null);
-  for (let d = 1; d <= lastDay; d++) {
-    const ymd = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    cells.push({ ymd, inMonth: true, dayNum: d });
-  }
-  while (cells.length % 7 !== 0) cells.push(null);
-  const rows: typeof cells[] = [];
-  for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
-  return rows;
-}
-
 export function GuestBookingPanel({
   calendarSlug,
   heading,
@@ -61,7 +45,6 @@ export function GuestBookingPanel({
   authToken,
   bookUrl,
   onBookingSuccess,
-  hideLeftCalendar = false,
   autoBookOnPick = false,
 }: {
   calendarSlug: string;
@@ -73,8 +56,6 @@ export function GuestBookingPanel({
   /** Relatief pad, bv. `/portal/model/agenda/book-form` */
   bookUrl?: string;
   onBookingSuccess?: () => void | Promise<void>;
-  /** Alleen dagkolommen (geen maand-raster), bv. opleiding. */
-  hideLeftCalendar?: boolean;
   /** Eén klik boeken zonder formulier (opleiding). */
   autoBookOnPick?: boolean;
 }) {
@@ -91,9 +72,6 @@ export function GuestBookingPanel({
   const [busy, setBusy] = useState(false);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
 
-  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
-  const [viewMonth, setViewMonth] = useState(() => new Date().getMonth() + 1);
-  const [filterDayYmd, setFilterDayYmd] = useState<string | null>(null);
   /** Pagina voor pro-kolomweergave (0 = eerste 4 datums met sloten). */
   const [dayPage, setDayPage] = useState(0);
 
@@ -121,7 +99,6 @@ export function GuestBookingPanel({
       setForm({});
       setCancelUrl(null);
       setStep('slots');
-      setFilterDayYmd(null);
       setDayPage(0);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Laden mislukt');
@@ -142,13 +119,11 @@ export function GuestBookingPanel({
     return () => window.clearTimeout(t);
   }, [step, onClose, onBookingSuccess]);
 
-  const datesWithSlots = useMemo(() => {
+  const sortedDates = useMemo(() => {
     const s = new Set<string>();
     for (const x of slots) s.add(x.slotDate);
-    return s;
+    return [...s].sort();
   }, [slots]);
-
-  const sortedDates = useMemo(() => [...datesWithSlots].sort(), [datesWithSlots]);
 
   const totalPages = Math.max(1, Math.ceil(sortedDates.length / DAYS_PER_PAGE));
 
@@ -157,10 +132,9 @@ export function GuestBookingPanel({
   }, [dayPage, totalPages]);
 
   const visibleDates = useMemo(() => {
-    if (filterDayYmd && datesWithSlots.has(filterDayYmd)) return [filterDayYmd];
     const start = dayPage * DAYS_PER_PAGE;
     return sortedDates.slice(start, start + DAYS_PER_PAGE);
-  }, [sortedDates, filterDayYmd, datesWithSlots, dayPage]);
+  }, [sortedDates, dayPage]);
 
   const slotsByYmd = useMemo(() => {
     const m = new Map<string, SlotDto[]>();
@@ -354,12 +328,6 @@ export function GuestBookingPanel({
     );
   };
 
-  const shiftMonth = (delta: number) => {
-    const d = new Date(viewYear, viewMonth - 1 + delta, 1);
-    setViewYear(d.getFullYear());
-    setViewMonth(d.getMonth() + 1);
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-[200px] items-center justify-center text-sm text-zinc-500">Bezig met laden…</div>
@@ -498,74 +466,11 @@ export function GuestBookingPanel({
     );
   }
 
-  const calendarBlock = (
-    <div className="flex w-full shrink-0 flex-col border-b border-zinc-200 pb-4 lg:w-[32%] lg:border-b-0 lg:border-r lg:pr-4 lg:pb-0">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          aria-label="Vorige maand"
-          className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50"
-          onClick={() => shiftMonth(-1)}
-        >
-          ‹
-        </button>
-        <span className="text-center text-xs font-semibold capitalize text-zinc-800">
-          {new Intl.DateTimeFormat('nl-BE', { month: 'long', year: 'numeric' }).format(
-            new Date(viewYear, viewMonth - 1, 1),
-          )}
-        </span>
-        <button
-          type="button"
-          aria-label="Volgende maand"
-          className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50"
-          onClick={() => shiftMonth(1)}
-        >
-          ›
-        </button>
-      </div>
-      <div className="grid grid-cols-7 gap-0.5 text-[10px] font-medium text-zinc-500">
-        {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((d) => (
-          <div key={d} className="text-center py-0.5">
-            {d}
-          </div>
-        ))}
-        {monthMatrix(viewYear, viewMonth).map((row, ri) => (
-          <FragmentRow
-            key={ri}
-            row={row}
-            datesWithSlots={datesWithSlots}
-            filterDayYmd={filterDayYmd}
-            selectDay={(ymd) => {
-              setFilterDayYmd(ymd);
-              setDayPage(0);
-            }}
-          />
-        ))}
-      </div>
-      <p className="mt-2 text-[10px] leading-snug text-zinc-500">
-        <span className="mr-1 inline-block h-2 w-2 rounded-sm bg-emerald-500 align-middle" aria-hidden /> Groen = nog
-        vrije momenten. Tik op een dag om enkel die datum te tonen.
-      </p>
-      {filterDayYmd ? (
-        <button
-          type="button"
-          className="mt-2 text-left text-[11px] font-medium text-burgundy underline"
-          onClick={() => {
-            setFilterDayYmd(null);
-            setDayPage(0);
-          }}
-        >
-          Alle beschikbare dagen tonen
-        </button>
-      ) : null}
-    </div>
-  );
-
   const slotsBlock =
     step === 'slots' ? (
       <div className="min-h-0 min-w-0 flex-1">
         <div className="flex max-h-[min(480px,58vh)] flex-col overflow-hidden">
-          {!filterDayYmd && sortedDates.length > DAYS_PER_PAGE ? (
+          {sortedDates.length > DAYS_PER_PAGE ? (
             <div className="mb-2 flex items-center justify-between gap-2">
               <button
                 type="button"
@@ -713,55 +618,11 @@ export function GuestBookingPanel({
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div>
       ) : null}
 
-      <div className={`flex min-h-0 flex-1 flex-col gap-4 ${hideLeftCalendar ? '' : 'lg:flex-row'}`}>
-        {!hideLeftCalendar ? calendarBlock : null}
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">{slotsBlock}</div>
       </div>
 
       {footer}
     </div>
-  );
-}
-
-/** Rij in maandraster (Fragment vermijdt extra DOM bij map). */
-function FragmentRow({
-  row,
-  datesWithSlots,
-  filterDayYmd,
-  selectDay,
-}: {
-  row: ({ ymd: string; inMonth: boolean; dayNum: number } | null)[];
-  datesWithSlots: Set<string>;
-  filterDayYmd: string | null;
-  selectDay: (ymd: string) => void;
-}) {
-  return (
-    <>
-      {row.map((cell, i) => {
-        if (!cell) {
-          return <div key={`e-${i}`} className="aspect-square max-h-8" />;
-        }
-        const has = datesWithSlots.has(cell.ymd);
-        const sel = filterDayYmd === cell.ymd;
-        return (
-          <button
-            key={cell.ymd}
-            type="button"
-            disabled={!has}
-            onClick={() => has && selectDay(cell.ymd)}
-            className={[
-              'aspect-square max-h-8 rounded text-[10px] font-medium transition',
-              !has
-                ? 'text-zinc-300'
-                : sel
-                  ? 'bg-emerald-600 text-white ring-1 ring-zinc-900'
-                  : 'bg-emerald-500/20 text-emerald-900 ring-1 ring-emerald-600/40 hover:bg-emerald-500/30',
-            ].join(' ')}
-          >
-            {cell.dayNum}
-          </button>
-        );
-      })}
-    </>
   );
 }

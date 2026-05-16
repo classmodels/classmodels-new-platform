@@ -28,17 +28,6 @@ type Cal = {
   weekdayOpenMask?: number;
 };
 
-type SlotRow = {
-  id: string;
-  slotDate: string;
-  startTime: string;
-  endTime: string;
-  capacity: number;
-  status: string;
-  booked: number;
-  remaining: number;
-};
-
 type ClosedRow = { id: string; closedDate: string; reason: string | null };
 
 function toTimeInput(s?: string | null): string {
@@ -97,17 +86,6 @@ function parseOptionalLines(raw: string | null | undefined): Set<number> {
   return s;
 }
 
-const WEEK_OPTS = [
-  { v: 1, label: 'Ma' },
-  { v: 2, label: 'Di' },
-  { v: 3, label: 'Wo' },
-  { v: 4, label: 'Do' },
-  { v: 5, label: 'Vr' },
-  { v: 6, label: 'Za' },
-  { v: 0, label: 'Zo' },
-];
-
-/** Ma–zo volgorde; JS getDay(): zo=0 … za=6 */
 const WEEKDAY_TOGGLE: { dow: number; label: string }[] = [
   { dow: 1, label: 'Ma' },
   { dow: 2, label: 'Di' },
@@ -131,7 +109,8 @@ export default function AdminAgendaCalendarDetailPage() {
   const [slug, setSlug] = useState('');
   const [active, setActive] = useState(true);
   const [publicBooking, setPublicBooking] = useState(true);
-  const [weekdayMask, setWeekdayMask] = useState(62);
+  const [restrictOnlyOpen, setRestrictOnlyOpen] = useState(true);
+  const [weekdayMask, setWeekdayMask] = useState(0);
   const [showEndTimeOnPublic, setShowEndTimeOnPublic] = useState(true);
   const [durationMinutes, setDurationMinutes] = useState('60');
   const [slotStepMinutes, setSlotStepMinutes] = useState('');
@@ -145,18 +124,14 @@ export default function AdminAgendaCalendarDetailPage() {
   const [restrictStarts, setRestrictStarts] = useState(false);
   const [selectedStartsMin, setSelectedStartsMin] = useState<Set<number>>(() => new Set());
 
-  const [slots, setSlots] = useState<SlotRow[]>([]);
   const [closed, setClosed] = useState<ClosedRow[]>([]);
   const [slotDate, setSlotDate] = useState('');
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('11:00');
-  const [bulkFrom, setBulkFrom] = useState('');
-  const [bulkTo, setBulkTo] = useState('');
-  const [bulkStart, setBulkStart] = useState('10:00');
-  const [bulkEnd, setBulkEnd] = useState('11:00');
-  const [bulkDays, setBulkDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [closedDate, setClosedDate] = useState('');
   const [closedReason, setClosedReason] = useState('');
+
+  const settingsFormId = 'agenda-cal-settings-form';
 
   const chipStarts = useMemo(() => {
     const dur = parseInt(durationMinutes, 10) || 60;
@@ -168,7 +143,8 @@ export default function AdminAgendaCalendarDetailPage() {
     setSlug(c.slug);
     setActive(c.active);
     setPublicBooking(c.publicBooking);
-    setWeekdayMask(typeof c.weekdayOpenMask === 'number' ? c.weekdayOpenMask : 62);
+    setRestrictOnlyOpen(c.restrictToOpenDays !== false);
+    setWeekdayMask(typeof c.weekdayOpenMask === 'number' ? c.weekdayOpenMask : 0);
     setShowEndTimeOnPublic(c.showEndTimeOnPublic !== false);
     setDurationMinutes(String(c.durationMinutes));
     setSlotStepMinutes(c.slotStepMinutes != null ? String(c.slotStepMinutes) : '');
@@ -203,20 +179,6 @@ export default function AdminAgendaCalendarDetailPage() {
     }
   }, [token, calendarId, applyCalToForm]);
 
-  const loadSlots = useCallback(async () => {
-    if (!token || !calendarId) return;
-    const from = new Date();
-    const to = new Date();
-    to.setUTCDate(to.getUTCDate() + 120);
-    const fromStr = from.toISOString().slice(0, 10);
-    const toStr = to.toISOString().slice(0, 10);
-    const data = await adminFetch<{ slots: SlotRow[] }>(
-      `/admin/agenda/slots?calendarId=${encodeURIComponent(calendarId)}&from=${fromStr}&to=${toStr}`,
-      token,
-    );
-    setSlots(data.slots);
-  }, [token, calendarId]);
-
   const loadClosed = useCallback(async () => {
     if (!token || !calendarId) return;
     const rows = await adminFetch<ClosedRow[]>(
@@ -231,9 +193,8 @@ export default function AdminAgendaCalendarDetailPage() {
   }, [loadCal]);
 
   useEffect(() => {
-    loadSlots().catch(() => setSlots([]));
     loadClosed().catch(() => setClosed([]));
-  }, [loadSlots, loadClosed]);
+  }, [loadClosed]);
 
   const saveSettings = async (e: FormEvent) => {
     e.preventDefault();
@@ -261,8 +222,8 @@ export default function AdminAgendaCalendarDetailPage() {
           slug,
           active,
           publicBooking,
-          restrictToOpenDays: false,
-          weekdayOpenMask: weekdayMask,
+          restrictToOpenDays: restrictOnlyOpen,
+          weekdayOpenMask: restrictOnlyOpen ? 0 : weekdayMask,
           showEndTimeOnPublic,
           durationMinutes: dur,
           slotStepMinutes: stepParsed,
@@ -296,10 +257,6 @@ export default function AdminAgendaCalendarDetailPage() {
     setWeekdayMask((m) => m ^ (1 << dow));
   };
 
-  const toggleBulkDay = (v: number) => {
-    setBulkDays((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v].sort()));
-  };
-
   const addSlot = async (e: FormEvent) => {
     e.preventDefault();
     if (!token || !calendarId || !slotDate) return;
@@ -309,44 +266,8 @@ export default function AdminAgendaCalendarDetailPage() {
         method: 'POST',
         body: JSON.stringify({ calendarId, slotDate, startTime, endTime }),
       });
-      setMsg('Moment toegevoegd.');
+      setMsg('Moment toegevoegd. Bekijk of verwijder het onder Agenda → Momenten.');
       setSlotDate('');
-      await loadSlots();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Mislukt');
-    }
-  };
-
-  const addBulk = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!token || !calendarId || !bulkFrom || !bulkTo || bulkDays.length === 0) return;
-    setMsg(null);
-    try {
-      const res = await adminFetch<{ created: number }>('/admin/agenda/slots/bulk', token, {
-        method: 'POST',
-        body: JSON.stringify({
-          calendarId,
-          fromDate: bulkFrom,
-          toDate: bulkTo,
-          weekdays: bulkDays,
-          startTime: bulkStart,
-          endTime: bulkEnd,
-        }),
-      });
-      setMsg(`${res.created} momenten toegevoegd.`);
-      await loadSlots();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Mislukt');
-    }
-  };
-
-  const removeSlot = async (id: string) => {
-    if (!token) return;
-    setMsg(null);
-    try {
-      await adminFetch(`/admin/agenda/slots/${id}`, token, { method: 'DELETE' });
-      setMsg('Moment verwijderd.');
-      await loadSlots();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Mislukt');
     }
@@ -365,7 +286,6 @@ export default function AdminAgendaCalendarDetailPage() {
       setClosedReason('');
       setMsg('Dag gemarkeerd als gesloten.');
       await loadClosed();
-      await loadSlots();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Mislukt');
     }
@@ -378,11 +298,64 @@ export default function AdminAgendaCalendarDetailPage() {
       await adminFetch(`/admin/agenda/closed-days/${id}`, token, { method: 'DELETE' });
       setMsg('Gesloten dag verwijderd.');
       await loadClosed();
-      await loadSlots();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Mislukt');
     }
   };
+
+  const isDirty = useMemo(() => {
+    if (!cal) return false;
+    const savedOpen = cal.restrictToOpenDays !== false;
+    const savedMask = typeof cal.weekdayOpenMask === 'number' ? cal.weekdayOpenMask : 0;
+    const savedOptional = cal.optionalSlotStarts?.trim() ?? '';
+    const nextOptional =
+      restrictStarts ?
+        [...selectedStartsMin]
+            .sort((a, b) => a - b)
+            .map(minToLabel)
+            .join('\n')
+      : '';
+    return (
+      title !== cal.title ||
+      slug !== cal.slug ||
+      active !== cal.active ||
+      publicBooking !== cal.publicBooking ||
+      restrictOnlyOpen !== savedOpen ||
+      weekdayMask !== savedMask ||
+      showEndTimeOnPublic !== (cal.showEndTimeOnPublic !== false) ||
+      durationMinutes !== String(cal.durationMinutes) ||
+      slotStepMinutes !== (cal.slotStepMinutes != null ? String(cal.slotStepMinutes) : '') ||
+      capacity !== String(cal.capacity) ||
+      sortOrder !== String(cal.sortOrder) ||
+      color !== cal.color ||
+      dayStart !== (toTimeInput(cal.defaultDayStartTime) || '08:00') ||
+      dayEnd !== (toTimeInput(cal.defaultDayEndTime) || '18:00') ||
+      breakStart !== toTimeInput(cal.breakStart) ||
+      breakEnd !== toTimeInput(cal.breakEnd) ||
+      restrictStarts !== !!savedOptional ||
+      (restrictStarts && nextOptional !== savedOptional)
+    );
+  }, [
+    cal,
+    title,
+    slug,
+    active,
+    publicBooking,
+    restrictOnlyOpen,
+    weekdayMask,
+    showEndTimeOnPublic,
+    durationMinutes,
+    slotStepMinutes,
+    capacity,
+    sortOrder,
+    color,
+    dayStart,
+    dayEnd,
+    breakStart,
+    breakEnd,
+    restrictStarts,
+    selectedStartsMin,
+  ]);
 
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
   if (loadErr) {
@@ -398,7 +371,7 @@ export default function AdminAgendaCalendarDetailPage() {
   if (!cal) return <p className="text-sm text-muted">Laden…</p>;
 
   return (
-    <div className="space-y-8">
+    <div className={`relative space-y-8 ${isDirty ? 'pb-24' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <Link href="/admin/agenda" className="text-xs font-medium text-burgundy underline">
@@ -406,12 +379,21 @@ export default function AdminAgendaCalendarDetailPage() {
           </Link>
           <h2 className="mt-1 text-lg font-semibold text-ink">{cal.title}</h2>
           <p className="text-xs text-muted">{cal.slug}</p>
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+            <Link href="/admin/agenda/open-dagen" className="font-medium text-burgundy underline">
+              Open dagen (kalender)
+            </Link>
+            <Link href="/admin/agenda/momenten" className="font-medium text-burgundy underline">
+              Momenten beheren
+            </Link>
+          </p>
         </div>
       </div>
 
       {msg ? <p className="text-xs text-ink">{msg}</p> : null}
 
       <form
+        id={settingsFormId}
         onSubmit={saveSettings}
         className="space-y-4 rounded-md border border-line bg-white p-4 shadow-sm"
       >
@@ -420,6 +402,22 @@ export default function AdminAgendaCalendarDetailPage() {
           <strong>Duur</strong> = lengte van één afspraak (slot). <strong>Stap</strong> = elke hoeveel minuten een
           nieuwe start (kleiner dan de duur = overlappende blokken). Leeg bij stap = zelfde als duur.
         </p>
+        <label className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50/70 p-3 text-xs">
+          <input
+            type="checkbox"
+            checked={restrictOnlyOpen}
+            onChange={(e) => {
+              const v = e.target.checked;
+              setRestrictOnlyOpen(v);
+              if (v) setWeekdayMask(0);
+              else if (weekdayMask === 0) setWeekdayMask(62);
+            }}
+          />
+          <span>
+            <strong>Alleen dagen die ik als open markeer</strong> (Agenda → Open dagen). Aanbevolen: geen
+            automatische ma–vr-sloten; gasten zien enkel data die u daar oranje zet.
+          </span>
+        </label>
         <div className="grid gap-3 text-xs sm:grid-cols-2">
           <label className="flex flex-col gap-1">
             Titel
@@ -474,7 +472,7 @@ export default function AdminAgendaCalendarDetailPage() {
             <input type="color" className="h-9 rounded border border-line" value={color} onChange={(e) => setColor(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1">
-            Standaard van (auto-sloten op gekozen weekdagen)
+            Standaard van (voor open dagen / autovulling)
             <input type="time" className="rounded border border-line px-2 py-1.5" value={dayStart} onChange={(e) => setDayStart(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1">
@@ -491,29 +489,38 @@ export default function AdminAgendaCalendarDetailPage() {
           </label>
         </div>
 
-        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Weekdagen</h4>
-        <p className="text-xs text-muted">
-          Voor elke aangevinkte weekdag worden ontbrekende sloten automatisch aangemaakt (volgens van/tot, stap en
-          pauze) wanneer een gast de kalender bekijkt. Zet een dag uit om geen auto-sloten meer te maken op die dag.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {WEEKDAY_TOGGLE.map(({ dow, label }) => {
-            const on = (weekdayMask & (1 << dow)) !== 0;
-            return (
-              <button
-                key={dow}
-                type="button"
-                onClick={() => toggleWeekday(dow)}
-                className={[
-                  'rounded-md border px-3 py-2 text-xs font-medium',
-                  on ? 'border-burgundy bg-burgundy text-white' : 'border-line bg-white text-muted hover:bg-panel',
-                ].join(' ')}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        {!restrictOnlyOpen ? (
+          <>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Weekdag-autovulling (optioneel)</h4>
+            <p className="text-xs text-muted">
+              Uitgeschakeld zolang hierboven &quot;alleen open dagen&quot; aan staat. Als u dit gebruikt: voor elke
+              aangevinkte weekdag worden ontbrekende sloten automatisch aangemaakt wanneer een gast de agenda bekijkt.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAY_TOGGLE.map(({ dow, label }) => {
+                const on = (weekdayMask & (1 << dow)) !== 0;
+                return (
+                  <button
+                    key={dow}
+                    type="button"
+                    onClick={() => toggleWeekday(dow)}
+                    className={[
+                      'rounded-md border px-3 py-2 text-xs font-medium',
+                      on ? 'border-burgundy bg-burgundy text-white' : 'border-line bg-white text-muted hover:bg-panel',
+                    ].join(' ')}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <p className="rounded-md bg-zinc-50 px-2 py-2 text-[11px] text-muted">
+            Weekdag-autovulling staat uit. Markeer vrije dagen onder <strong>Open dagen</strong>; sloten worden dan
+            automatisch aangemaakt voor die data (volgens van/tot en starturen hierboven).
+          </p>
+        )}
 
         <label className="flex items-center gap-2 text-xs">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
@@ -598,42 +605,6 @@ export default function AdminAgendaCalendarDetailPage() {
       </section>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-ink">Bulk: vaste blok in periode</h3>
-        <p className="mt-1 text-xs text-muted">Per matchinge weekdag één tijdblok (UTC-weekdag).</p>
-        <form onSubmit={addBulk} className="mt-3 space-y-3 text-sm">
-          <div className="flex flex-wrap gap-2">
-            {WEEK_OPTS.map((w) => (
-              <label key={w.v} className="flex cursor-pointer items-center gap-1 rounded border border-line px-2 py-1 text-xs">
-                <input type="checkbox" checked={bulkDays.includes(w.v)} onChange={() => toggleBulkDay(w.v)} />
-                {w.label}
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1">
-              Van
-              <input type="date" className="rounded border border-line px-2 py-1.5" value={bulkFrom} required onChange={(e) => setBulkFrom(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1">
-              Tot
-              <input type="date" className="rounded border border-line px-2 py-1.5" value={bulkTo} required onChange={(e) => setBulkTo(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1">
-              Start
-              <input type="time" className="rounded border border-line px-2 py-1.5" value={bulkStart} onChange={(e) => setBulkStart(e.target.value)} />
-            </label>
-            <label className="flex flex-col gap-1">
-              Einde
-              <input type="time" className="rounded border border-line px-2 py-1.5" value={bulkEnd} onChange={(e) => setBulkEnd(e.target.value)} />
-            </label>
-            <button type="submit" className="rounded-md bg-burgundy px-4 py-2 text-white hover:bg-burgundyDeep">
-              Bulk toevoegen
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-ink">Gesloten dagen</h3>
         <form onSubmit={addClosed} className="mt-3 flex flex-wrap items-end gap-3 text-sm">
           <label className="flex flex-col gap-1">
@@ -664,32 +635,20 @@ export default function AdminAgendaCalendarDetailPage() {
         </ul>
       </section>
 
-      <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h3 className="text-sm font-semibold text-ink">Komende momenten (120 dagen)</h3>
-        <ul className="mt-3 max-h-[380px] divide-y divide-line overflow-y-auto text-xs">
-          {slots.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span>
-                <span className="font-medium text-ink">
-                  {s.slotDate} {s.startTime}–{s.endTime}
-                </span>
-                <span className="ml-2 text-muted">
-                  {s.booked}/{s.capacity} · {s.remaining} vrij
-                </span>
-              </span>
-              <button
-                type="button"
-                className="text-burgundy underline disabled:opacity-40"
-                disabled={s.booked > 0}
-                onClick={() => removeSlot(s.id)}
-              >
-                Verwijderen
-              </button>
-            </li>
-          ))}
-          {!slots.length ? <li className="py-4 text-muted">Geen momenten.</li> : null}
-        </ul>
-      </section>
+      {isDirty ? (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-line bg-white/95 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-sm">
+          <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3">
+            <p className="text-xs text-ink">U hebt niet-opgeslagen wijzigingen in de instellingen hierboven.</p>
+            <button
+              type="submit"
+              form={settingsFormId}
+              className="rounded-md bg-burgundy px-4 py-2 text-sm font-semibold text-white hover:bg-burgundyDeep"
+            >
+              Instellingen opslaan
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

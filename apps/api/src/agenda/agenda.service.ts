@@ -379,9 +379,31 @@ export class AgendaService {
     });
     const closedSet = new Set(closedRows.map((r) => r.closedDate.toISOString().slice(0, 10)));
 
-    /** Lazy slot-aanmaak op weekdagen (bit 0=zo … 6=za). 0 = uit. Geen filter meer op AgendaOpenDay. */
-    const mask = cal.weekdayOpenMask ?? 62;
-    if (mask !== 0) {
+    const restrictOpen = cal.restrictToOpenDays === true;
+    const openRows = restrictOpen
+      ? await this.prisma.agendaOpenDay.findMany({
+          where: { calendarId: cal.id },
+          select: { openDate: true, repeatYearly: true },
+        })
+      : [];
+    const openYmdSet = restrictOpen ? this.openDayYmdSetInRange(from, to, openRows) : null;
+
+    /** Lazy slot-aanmaak: bij restrictOpen alleen op expliciete open dagen; anders op weekdagen volgens mask (0 = uit). */
+    const mask = cal.weekdayOpenMask ?? 0;
+    if (restrictOpen && openYmdSet) {
+      for (const ymd of [...openYmdSet].sort()) {
+        if (closedSet.has(ymd)) continue;
+        const dateOnly = parseYmd(ymd);
+        if (cal.slug === 'opleiding') {
+          await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
+        } else {
+          const n = await this.prisma.agendaSlot.count({
+            where: { calendarId: cal.id, slotDate: dateOnly },
+          });
+          if (n === 0) await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
+        }
+      }
+    } else if (!restrictOpen && mask !== 0) {
       let cursor = new Date(from);
       const end = new Date(to);
       while (cursor.getTime() <= end.getTime()) {
@@ -422,6 +444,7 @@ export class AgendaService {
     for (const s of rows) {
       const ymd = s.slotDate.toISOString().slice(0, 10);
       if (closedSet.has(ymd)) continue;
+      if (openYmdSet && !openYmdSet.has(ymd)) continue;
 
       const startAt = combineUtc(s.slotDate, normTime(s.startTime));
       if (startAt < now) continue;
@@ -441,6 +464,17 @@ export class AgendaService {
       });
     }
 
+    const dedupKey = (s: (typeof out)[number]) =>
+      `${s.slotDate.toISOString().slice(0, 10)}|${normTime(s.startTime)}`;
+    const seenKeys = new Set<string>();
+    const deduped: typeof out = [];
+    for (const s of out) {
+      const k = dedupKey(s);
+      if (seenKeys.has(k)) continue;
+      seenKeys.add(k);
+      deduped.push(s);
+    }
+
     return {
       calendar: {
         id: cal.id,
@@ -451,7 +485,7 @@ export class AgendaService {
         capacityDefault: cal.capacity,
         showEndTimeOnPublic: cal.showEndTimeOnPublic,
       },
-      slots: out.map((s) => ({
+      slots: deduped.map((s) => ({
         id: s.id,
         slotDate: s.slotDate.toISOString().slice(0, 10),
         startTime: s.startTime.slice(0, 5),
@@ -476,6 +510,19 @@ export class AgendaService {
       where: { calendarId_closedDate: { calendarId: cal.id, closedDate: slot.slotDate } },
     });
     if (closed) throw new BadRequestException('Deze dag is niet beschikbaar.');
+
+    if (cal.restrictToOpenDays) {
+      const openRows = await this.prisma.agendaOpenDay.findMany({
+        where: { calendarId: cal.id },
+        select: { openDate: true, repeatYearly: true },
+      });
+      const ymd = slot.slotDate.toISOString().slice(0, 10);
+      const day = parseYmd(ymd);
+      const allowed = this.openDayYmdSetInRange(day, day, openRows);
+      if (!allowed.has(ymd)) {
+        throw new BadRequestException('Deze dag staat niet open voor online boekingen.');
+      }
+    }
 
     const myActiveBookings = userId
       ? await this.prisma.agendaBooking.findMany({
@@ -862,7 +909,7 @@ export class AgendaService {
         active: dto.active ?? true,
         publicBooking: dto.publicBooking ?? true,
         sortOrder: dto.sortOrder ?? 100,
-        restrictToOpenDays: dto.restrictToOpenDays ?? false,
+        restrictToOpenDays: dto.restrictToOpenDays ?? true,
         defaultDayStartTime: dto.defaultDayStartTime ? normTime(dto.defaultDayStartTime) : undefined,
         defaultDayEndTime: dto.defaultDayEndTime ? normTime(dto.defaultDayEndTime) : undefined,
         breakStart: dto.breakStart ? normTime(dto.breakStart) : undefined,
@@ -870,7 +917,7 @@ export class AgendaService {
         slotStepMinutes: dto.slotStepMinutes ?? undefined,
         optionalSlotStarts: dto.optionalSlotStarts?.trim() ? dto.optionalSlotStarts.trim() : undefined,
         showEndTimeOnPublic: dto.showEndTimeOnPublic ?? true,
-        weekdayOpenMask: dto.weekdayOpenMask ?? 62,
+        weekdayOpenMask: dto.weekdayOpenMask ?? 0,
       },
     });
 

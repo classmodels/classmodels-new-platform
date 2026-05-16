@@ -78,8 +78,10 @@ export default function AdminAgendaCalendarsPage() {
           slug: patch.slug ?? c.slug,
           active: patch.active ?? c.active,
           publicBooking: patch.publicBooking ?? c.publicBooking,
-          restrictToOpenDays: false,
-          weekdayOpenMask: patch.weekdayOpenMask !== undefined ? patch.weekdayOpenMask : (c.weekdayOpenMask ?? 62),
+          restrictToOpenDays:
+            patch.restrictToOpenDays !== undefined ? patch.restrictToOpenDays : c.restrictToOpenDays,
+          weekdayOpenMask:
+            patch.weekdayOpenMask !== undefined ? patch.weekdayOpenMask : (c.weekdayOpenMask ?? 0),
           durationMinutes: patch.durationMinutes ?? c.durationMinutes,
           capacity: patch.capacity ?? c.capacity,
           sortOrder: patch.sortOrder ?? c.sortOrder,
@@ -202,7 +204,8 @@ function EditRow({
   const [slug, setSlug] = useState(cal.slug);
   const [active, setActive] = useState(cal.active);
   const [publicBooking, setPublicBooking] = useState(cal.publicBooking);
-  const [weekdayMask, setWeekdayMask] = useState(typeof cal.weekdayOpenMask === 'number' ? cal.weekdayOpenMask : 62);
+  const [restrictOnlyOpen, setRestrictOnlyOpen] = useState(cal.restrictToOpenDays !== false);
+  const [weekdayMask, setWeekdayMask] = useState(typeof cal.weekdayOpenMask === 'number' ? cal.weekdayOpenMask : 0);
   const [durationMinutes, setDurationMinutes] = useState(String(cal.durationMinutes));
   const [capacity, setCapacity] = useState(String(cal.capacity));
   const [sortOrder, setSortOrder] = useState(String(cal.sortOrder));
@@ -276,11 +279,28 @@ function EditRow({
         <input type="checkbox" checked={publicBooking} onChange={(e) => setPublicBooking(e.target.checked)} />
         Publiek boekbaar
       </label>
+      <label className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50/60 p-2">
+        <input
+          type="checkbox"
+          checked={restrictOnlyOpen}
+          onChange={(e) => {
+            const v = e.target.checked;
+            setRestrictOnlyOpen(v);
+            if (v) setWeekdayMask(0);
+            else if (weekdayMask === 0) setWeekdayMask(62);
+          }}
+        />
+        <span className="text-[11px] leading-snug">
+          <strong>Alleen open dagen</strong> — online alleen op data die u onder Open dagen markeert.
+        </span>
+      </label>
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={showEndTime} onChange={(e) => setShowEndTime(e.target.checked)} />
         Einduur tonen aan gasten
       </label>
-      <p className="col-span-full text-[11px] font-medium text-ink">Auto-sloten op weekdagen (zoals op de agenda-pagina)</p>
+      {!restrictOnlyOpen ? (
+        <>
+          <p className="col-span-full text-[11px] font-medium text-ink">Weekdag-autovulling (optioneel)</p>
       <div className="col-span-full flex flex-wrap gap-1">
         {[
           { dow: 1, label: 'Ma' },
@@ -307,8 +327,14 @@ function EditRow({
           );
         })}
       </div>
+        </>
+      ) : (
+        <p className="col-span-full text-[11px] text-muted">
+          Weekdag-autovulling uit (alleen open dagen). Standaard uren vindt u bij Uren &amp; dagen per agenda.
+        </p>
+      )}
       <p className="col-span-full text-[11px] text-muted">
-        Standaard van/tot en pauze hieronder gelden voor automatisch aangemaakte sloten op de aangevinkte dagen.
+        Standaard van/tot en pauze gelden voor automatisch aangemaakte sloten (open dagen of weekdag-modus).
       </p>
       <label className="flex flex-col gap-1">
         Standaard van
@@ -336,8 +362,8 @@ function EditRow({
               slug,
               active,
               publicBooking,
-              restrictToOpenDays: false,
-              weekdayOpenMask: weekdayMask,
+              restrictToOpenDays: restrictOnlyOpen,
+              weekdayOpenMask: restrictOnlyOpen ? 0 : weekdayMask,
               showEndTimeOnPublic: showEndTime,
               durationMinutes: parseInt(durationMinutes, 10),
               slotStepMinutes: slotStep.trim() ? parseInt(slotStep, 10) : null,

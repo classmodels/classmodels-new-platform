@@ -483,7 +483,7 @@ model AgendaCalendar {
   active          Boolean          @default(true)
   publicBooking   Boolean          @default(true)
   /// Alleen dagen in AgendaOpenDay tonen (Agenda Pro: oranje = geopend voor publiek).
-  restrictToOpenDays Boolean       @default(false)
+  restrictToOpenDays Boolean       @default(true)
   /// Standaardvenster voor automatische sloten bij open dagen (HH:mm:ss).
   defaultDayStartTime String       @default("08:00:00")
   defaultDayEndTime   String         @default("18:00:00")
@@ -497,7 +497,7 @@ model AgendaCalendar {
   /// Gastenkalender: einduur tonen (bv. casting uit).
   showEndTimeOnPublic Boolean        @default(true)
   /// Bit 0=zo … 6=za: op welke weekdagen ontbrekende sloten automatisch worden aangemaakt (lazy). 0 = uit.
-  weekdayOpenMask Int              @default(62)
+  weekdayOpenMask Int              @default(0)
   sortOrder       Int              @default(100)
   slots           AgendaSlot[]
   fields          AgendaField[]

@@ -94,14 +94,13 @@ export default function AdminAgendaOpenDagenPage() {
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Open dagen per agenda</h2>
         <p className="mt-1 text-xs text-muted">
-          Wit = niet als &quot;geopend&quot; gemarkeerd. <span className="font-medium text-amber-800">Oranje</span> =
-          dag staat open voor online boekingen (enkel van toepassing als u bij de agenda{' '}
-          <strong>alleen open dagen</strong> hebt aangevinkt).
+          Markeer hier de dagen waarop online geboekt mag worden (oranje). Dit geldt wanneer de agenda op{' '}
+          <strong>alleen open dagen</strong> staat — de standaard; zie anders de melding hieronder.
         </p>
         {selectedCal?.restrictToOpenDays === false ? (
           <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
-            Deze agenda staat nog op &quot;alle dagen met sloten&quot;. Vink &quot;alleen open dagen&quot; aan bij{' '}
-            <strong>Agenda&apos;s</strong> om dit te laten gelden.
+            Deze agenda staat op automatische weekdagen i.p.v. alleen open dagen. Schakel &quot;alleen open dagen&quot;
+            in bij <strong>Agenda&apos;s → Bewerken</strong> of bij <strong>Uren &amp; dagen</strong> voor de agenda.
           </p>
         ) : null}
         <label className="mt-3 block text-sm">

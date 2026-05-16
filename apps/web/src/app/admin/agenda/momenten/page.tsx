@@ -19,16 +19,6 @@ type SlotRow = {
 
 type ClosedRow = { id: string; closedDate: string; reason: string | null };
 
-const WEEK_OPTS = [
-  { v: 1, label: 'Ma' },
-  { v: 2, label: 'Di' },
-  { v: 3, label: 'Wo' },
-  { v: 4, label: 'Do' },
-  { v: 5, label: 'Vr' },
-  { v: 6, label: 'Za' },
-  { v: 0, label: 'Zo' },
-];
-
 export default function AdminAgendaMomentenPage() {
   const { token } = useAuth();
   const [calendars, setCalendars] = useState<Cal[]>([]);
@@ -40,12 +30,6 @@ export default function AdminAgendaMomentenPage() {
   const [slotDate, setSlotDate] = useState('');
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('11:00');
-
-  const [bulkFrom, setBulkFrom] = useState('');
-  const [bulkTo, setBulkTo] = useState('');
-  const [bulkStart, setBulkStart] = useState('10:00');
-  const [bulkEnd, setBulkEnd] = useState('11:00');
-  const [bulkDays, setBulkDays] = useState<number[]>([1, 2, 3, 4, 5]);
 
   const [closedDate, setClosedDate] = useState('');
   const [closedReason, setClosedReason] = useState('');
@@ -94,10 +78,6 @@ export default function AdminAgendaMomentenPage() {
     [calendars],
   );
 
-  const toggleBulkDay = (v: number) => {
-    setBulkDays((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v].sort()));
-  };
-
   const addSlot = async (e: FormEvent) => {
     e.preventDefault();
     setMsg(null);
@@ -114,29 +94,6 @@ export default function AdminAgendaMomentenPage() {
       });
       setMsg('Moment toegevoegd.');
       setSlotDate('');
-      await loadSlots();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Mislukt');
-    }
-  };
-
-  const addBulk = async (e: FormEvent) => {
-    e.preventDefault();
-    setMsg(null);
-    if (!token || !calendarId || !bulkFrom || !bulkTo || bulkDays.length === 0) return;
-    try {
-      const res = await adminFetch<{ created: number }>('/admin/agenda/slots/bulk', token, {
-        method: 'POST',
-        body: JSON.stringify({
-          calendarId,
-          fromDate: bulkFrom,
-          toDate: bulkTo,
-          weekdays: bulkDays,
-          startTime: bulkStart,
-          endTime: bulkEnd,
-        }),
-      });
-      setMsg(`${res.created} momenten toegevoegd (dubbele combinaties overgeslagen).`);
       await loadSlots();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Mislukt');
@@ -248,70 +205,6 @@ export default function AdminAgendaMomentenPage() {
           <button type="submit" className="rounded-md bg-burgundy px-4 py-2 text-white hover:bg-burgundyDeep">
             Toevoegen
           </button>
-        </form>
-      </section>
-
-      <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-ink">Bulk: vaste dag(en) in periode</h2>
-        <p className="mt-1 text-xs text-muted">
-          Kies weekdagen (UTC) en een datumbereik; er wordt per matchinge dag één blok van–tot aangemaakt.
-        </p>
-        <form onSubmit={addBulk} className="mt-3 space-y-3 text-sm">
-          <div className="flex flex-wrap gap-2">
-            {WEEK_OPTS.map((w) => (
-              <label key={w.v} className="flex cursor-pointer items-center gap-1 rounded border border-line px-2 py-1">
-                <input
-                  type="checkbox"
-                  checked={bulkDays.includes(w.v)}
-                  onChange={() => toggleBulkDay(w.v)}
-                />
-                {w.label}
-              </label>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1">
-              Van datum
-              <input
-                type="date"
-                className="rounded border border-line px-2 py-1.5"
-                value={bulkFrom}
-                required
-                onChange={(e) => setBulkFrom(e.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              Tot datum
-              <input
-                type="date"
-                className="rounded border border-line px-2 py-1.5"
-                value={bulkTo}
-                required
-                onChange={(e) => setBulkTo(e.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              Starttijd
-              <input
-                type="time"
-                className="rounded border border-line px-2 py-1.5"
-                value={bulkStart}
-                onChange={(e) => setBulkStart(e.target.value)}
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              Eindtijd
-              <input
-                type="time"
-                className="rounded border border-line px-2 py-1.5"
-                value={bulkEnd}
-                onChange={(e) => setBulkEnd(e.target.value)}
-              />
-            </label>
-            <button type="submit" className="rounded-md bg-burgundy px-4 py-2 text-white hover:bg-burgundyDeep">
-              Bulk toevoegen
-            </button>
-          </div>
         </form>
       </section>
 
