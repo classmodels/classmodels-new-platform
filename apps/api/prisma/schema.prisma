@@ -594,6 +594,36 @@ model AgendaBooking {
   @@index([slotId])
 }
 
+/// Eén rij: BulkSMS-credentials voor agenda-SMS (backoffice).
+model AgendaMessagingSettings {
+  id              Int      @id @default(1)
+  bulksmsUsername String?
+  bulksmsPassword String?  @db.Text
+  updatedAt       DateTime @updatedAt
+}
+
+/// E-mail- of SMS-sjablonen gekoppeld aan triggers (o.a. bij nieuwe boeking).
+model AgendaNotificationTemplate {
+  id            String   @id @default(uuid())
+  /// `email` | `sms`
+  channel       String   @default("email")
+  name          String
+  enabled       Boolean  @default(true)
+  /// `booking_created` | `booking_cancelled` | `booking_confirmed` | `reminder` | `followup`
+  trigger       String   @default("booking_created")
+  /// 0 = meteen bij trigger; negatief = minuten vóór start (alleen reminder); positief = minuten na start (follow-up) — planning via aparte job.
+  offsetMinutes Int      @default(0)
+  subject       String?
+  body          String   @db.Text
+  /// JSON-array van agenda-slugs; `[]` = alle agenda's
+  calendarSlugs Json     @default("[]")
+  sortOrder     Int      @default(100)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([enabled, trigger, channel])
+}
+
 model PasswordResetToken {
   id        String   @id @default(uuid())
   userId    String

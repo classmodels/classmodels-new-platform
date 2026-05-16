@@ -89,7 +89,6 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/agenda', label: 'Agenda', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/boekingen', label: 'Boekingen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/open-dagen', label: 'Open dagen', permission: 'admin.agenda.read' },
-      { href: '/admin/agenda/agendas', label: "Agenda's", permission: 'admin.agenda.read' },
       { href: '/admin/agenda/planning', label: 'Planning', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/mail-preview', label: 'Mail / SMS', permission: 'admin.agenda.read' },
     ],

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type AgendaConfirmationPayload = {
   toEmail: string | null;
@@ -12,9 +13,54 @@ export type AgendaConfirmationPayload = {
   confirmUrl: string;
 };
 
+export type AgendaLifecycleTrigger =
+  | 'booking_created'
+  | 'booking_cancelled'
+  | 'booking_confirmed'
+  | 'reminder'
+  | 'followup';
+
+export type DispatchBookingCtx = AgendaConfirmationPayload & {
+  calendarSlug: string;
+};
+
+function escHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** Belgische GSM → E.164 +32… voor BulkSMS. */
+export function normalizeBelgiumMsisdn(raw: string | null | undefined): string | null {
+  if (!raw?.trim()) return null;
+  let d = raw.replace(/\s+/g, '').replace(/[^\d+]/g, '');
+  if (d.startsWith('00')) d = `+${d.slice(2)}`;
+  if (d.startsWith('0') && d.length >= 9) d = `+32${d.slice(1)}`;
+  if (d.startsWith('32') && !d.startsWith('+')) d = `+${d}`;
+  if (!d.startsWith('+')) return null;
+  if (!/^\+[1-9]\d{7,14}$/.test(d)) return null;
+  return d;
+}
+
+function parseSlugList(raw: unknown): string[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
+  return [];
+}
+
+function applyTemplatePlaceholders(template: string, vars: Record<string, string>): string {
+  let out = template;
+  for (const [k, v] of Object.entries(vars)) {
+    const safe = v ?? '';
+    out = out.split(`{{${k}}}`).join(safe);
+    out = out.split(`{${k}}`).join(safe);
+  }
+  return out;
+}
+
 @Injectable()
 export class AgendaNotificationService {
   private readonly log = new Logger(AgendaNotificationService.name);
+
+  constructor(private prisma: PrismaService) {}
 
   /** Voorbeeld-HTML voor admin (zelfde template als echte mail). */
   previewBookingConfirmationHtml(): string {
@@ -30,12 +76,11 @@ export class AgendaNotificationService {
     });
   }
 
-  /** Agenda + testshoot-docs: zelfde SMTP (`SMTP_HOST`, …). Retourneert false als niet geconfigureerd of geen adres. */
+  /** Zelfde SMTP (`SMTP_HOST`, …). Retourneert false als niet geconfigureerd of geen adres. */
   async sendHtmlMail(to: string, subject: string, html: string): Promise<boolean> {
     return this.trySendSmtp(to, subject, html);
   }
 
-  /** Zelfde SMTP met bijlagen (bv. PDF-contract). */
   async sendHtmlMailWithAttachments(
     to: string,
     subject: string,
@@ -45,17 +90,119 @@ export class AgendaNotificationService {
     return this.trySendSmtp(to, subject, html, attachments);
   }
 
+  /**
+   * Sjablonen uit DB (offset 0 = meteen). Geen matchende e-mailtemplate → standaardbevestiging.
+   * SMS: sjablonen + anders korte standaard via BulkSMS indien geconfigureerd.
+   */
+  async dispatchBookingLifecycle(trigger: AgendaLifecycleTrigger, ctx: DispatchBookingCtx): Promise<void> {
+    const rows = await this.prisma.agendaNotificationTemplate.findMany({
+      where: { enabled: true, trigger },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+
+    const vars: Record<string, string> = {
+      client_name: ctx.displayName || 'klant',
+      calendar_title: ctx.calendarTitle,
+      appointment_date: ctx.dateLabel,
+      appointment_time: ctx.timeLabel,
+      cancel_url: ctx.cancelUrl,
+      confirm_url: ctx.confirmUrl,
+      cancel_link_html: `<a href="${escHtml(ctx.cancelUrl)}">Afspraak annuleren</a>`,
+      confirm_link_html: `<a href="${escHtml(ctx.confirmUrl)}">Ik bevestig mijn komst</a>`,
+    };
+
+    const matches = rows.filter((t) => {
+      const slugs = parseSlugList(t.calendarSlugs);
+      return !slugs.length || slugs.includes(ctx.calendarSlug);
+    });
+
+    const dueNow = matches.filter((t) => t.offsetMinutes === 0);
+    const deferred = matches.filter((t) => t.offsetMinutes !== 0);
+    if (deferred.length) {
+      this.log.debug(`${deferred.length} sjabloon(nen) met offset≠0: geplande herinnering volgt later (cron).`);
+    }
+
+    let emailSent = false;
+    for (const t of dueNow.filter((x) => x.channel === 'email')) {
+      const to = ctx.toEmail?.trim();
+      if (!to) continue;
+      const subject =
+        applyTemplatePlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
+        `Melding: ${ctx.calendarTitle}`;
+      const html = applyTemplatePlaceholders(t.body, vars);
+      const ok = await this.trySendSmtp(to, subject, html);
+      if (ok) emailSent = true;
+    }
+    if (!emailSent && ctx.toEmail?.trim()) {
+      await this.sendBookingConfirmation(ctx);
+    }
+
+    const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
+    const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
+    const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
+
+    let smsSent = false;
+    for (const t of dueNow.filter((x) => x.channel === 'sms')) {
+      const msisdn = normalizeBelgiumMsisdn(ctx.phone);
+      if (!msisdn) continue;
+      const text = applyTemplatePlaceholders(t.body, vars);
+      const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
+      if (ok) smsSent = true;
+    }
+    if (!smsSent) {
+      const msisdn = normalizeBelgiumMsisdn(ctx.phone);
+      if (msisdn && buUser && buPass) {
+        const fallback = this.buildSms(ctx);
+        await this.trySendBulksms(buUser, buPass, msisdn, fallback);
+      } else {
+        this.log.log(`SMS → ${ctx.phone ?? '(geen GSM)'}\n${this.buildSms(ctx)}`);
+      }
+    }
+  }
+
+  /** @deprecated Gebruik dispatchBookingLifecycle; behouden voor interne fallback. */
   async sendBookingConfirmation(p: AgendaConfirmationPayload): Promise<void> {
     const subject = `Bevestiging: ${p.calendarTitle} — Class Models`;
     const html = this.buildEmailHtml(p);
-    const sms = this.buildSms(p);
-
     const mailed = await this.trySendSmtp(p.toEmail, subject, html);
     if (!mailed) {
       this.log.log(`E-mail (niet verstuurd — zet SMTP_HOST): ${subject} → ${p.toEmail ?? '(geen e-mail)'}`);
       this.log.debug(html);
     }
-    this.log.log(`SMS → ${p.phone ?? '(geen GSM)'}\n${sms}`);
+  }
+
+  private async trySendBulksms(
+    username: string | undefined,
+    password: string,
+    to: string,
+    body: string,
+  ): Promise<boolean> {
+    if (!username?.trim() || !password) return false;
+    const auth = Buffer.from(`${username.trim()}:${password}`, 'utf8').toString('base64');
+    try {
+      const res = await fetch('https://api.bulksms.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to,
+          body: body.slice(0, 640),
+          encoding: 'UNICODE',
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => '');
+        this.log.warn(`BulkSMS HTTP ${res.status}: ${t}`);
+        return false;
+      }
+      this.log.log(`BulkSMS verstuurd naar ${to}`);
+      return true;
+    } catch (e) {
+      this.log.warn(`BulkSMS mislukt: ${e instanceof Error ? e.message : String(e)}`);
+      return false;
+    }
   }
 
   private async trySendSmtp(
@@ -112,8 +259,7 @@ export class AgendaNotificationService {
   }
 
   private buildEmailHtml(p: AgendaConfirmationPayload): string {
-    const esc = (s: string) =>
-      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const esc = (s: string) => escHtml(s);
     return `<!DOCTYPE html>
 <html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>${esc(p.calendarTitle)}</title></head>

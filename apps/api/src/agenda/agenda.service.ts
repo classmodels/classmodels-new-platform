@@ -21,6 +21,9 @@ import {
   CreateClosedDayDto,
   CreateOpenDayDto,
   CreateManualBookingDto,
+  CreateAgendaNotificationTemplateDto,
+  UpdateAgendaNotificationTemplateDto,
+  UpdateAgendaMessagingSettingsDto,
   UpdateAdminBookingDto,
   UpdateAgendaCalendarDto,
 } from './dto/agenda.dto';
@@ -199,6 +202,201 @@ export class AgendaService {
     return set;
   }
 
+  private async closedDayYmdSet(calendarId: string, from: Date, to: Date): Promise<Set<string>> {
+    const closedRows = await this.prisma.agendaClosedDay.findMany({
+      where: { calendarId, closedDate: { gte: from, lte: to } },
+      select: { closedDate: true },
+    });
+    return new Set(closedRows.map((r) => r.closedDate.toISOString().slice(0, 10)));
+  }
+
+  private async openDayYmdSetForCalendarIfRestricted(
+    cal: { id: string; restrictToOpenDays: boolean | null },
+    from: Date,
+    to: Date,
+  ): Promise<Set<string> | null> {
+    if (!cal.restrictToOpenDays) return null;
+    const openRows = await this.prisma.agendaOpenDay.findMany({
+      where: { calendarId: cal.id },
+      select: { openDate: true, repeatYearly: true },
+    });
+    return this.openDayYmdSetInRange(from, to, openRows);
+  }
+
+  private async materializeGuestSlotsInRange(
+    cal: {
+      id: string;
+      slug: string;
+      restrictToOpenDays: boolean | null;
+      weekdayOpenMask: number | null;
+      durationMinutes: number;
+      slotStepMinutes?: number | null;
+      optionalSlotStarts?: string | null;
+      capacity: number;
+      defaultDayStartTime: string;
+      defaultDayEndTime: string;
+      breakStart: string | null;
+      breakEnd: string | null;
+    },
+    from: Date,
+    to: Date,
+    closedSet: Set<string>,
+    openYmdSet: Set<string> | null,
+  ): Promise<void> {
+    const restrictOpen = cal.restrictToOpenDays === true;
+    const mask = cal.weekdayOpenMask ?? 0;
+    if (restrictOpen && openYmdSet) {
+      for (const ymd of [...openYmdSet].sort()) {
+        if (closedSet.has(ymd)) continue;
+        const dateOnly = parseYmd(ymd);
+        if (cal.slug === 'opleiding') {
+          await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
+        } else {
+          const n = await this.prisma.agendaSlot.count({
+            where: { calendarId: cal.id, slotDate: dateOnly },
+          });
+          if (n === 0) await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
+        }
+      }
+    } else if (!restrictOpen && mask !== 0) {
+      let cursor = new Date(from);
+      const end = new Date(to);
+      while (cursor.getTime() <= end.getTime()) {
+        const ymd = cursor.toISOString().slice(0, 10);
+        const dow = cursor.getUTCDay();
+        const bit = 1 << dow;
+        if ((mask & bit) !== 0 && !closedSet.has(ymd)) {
+          const dateOnly = parseYmd(ymd);
+          if (cal.slug === 'opleiding') {
+            await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
+          } else {
+            const n = await this.prisma.agendaSlot.count({
+              where: { calendarId: cal.id, slotDate: dateOnly },
+            });
+            if (n === 0) {
+              await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
+            }
+          }
+        }
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+    }
+  }
+
+  private dedupeKeyForSlot(slotDate: Date, startTime: string): string {
+    return `${slotDate.toISOString().slice(0, 10)}|${normTime(startTime)}`;
+  }
+
+  /** Zelfde filters als publieke slotlijst: sluitingen, open dagen, capaciteit, dedupe op dag+startuur. */
+  private async collectGuestVisibleBookableSlotsDeduped(
+    cal: { id: string; capacity: number },
+    from: Date,
+    to: Date,
+    now: Date,
+    closedSet: Set<string>,
+    openYmdSet: Set<string> | null,
+  ): Promise<
+    Array<{
+      id: string;
+      slotDate: Date;
+      startTime: string;
+      endTime: string;
+      capacity: number;
+      booked: number;
+      remaining: number;
+    }>
+  > {
+    const rows = await this.prisma.agendaSlot.findMany({
+      where: {
+        calendarId: cal.id,
+        status: 'open',
+        slotDate: { gte: from, lte: to },
+      },
+      orderBy: [{ slotDate: 'asc' }, { startTime: 'asc' }],
+    });
+
+    type Row = (typeof rows)[number];
+    const withCap: Array<Row & { booked: number; remaining: number; capacity: number }> = [];
+
+    for (const s of rows) {
+      const ymd = s.slotDate.toISOString().slice(0, 10);
+      if (closedSet.has(ymd)) continue;
+      if (openYmdSet && !openYmdSet.has(ymd)) continue;
+
+      let startNorm: string;
+      try {
+        startNorm = normTime(s.startTime);
+      } catch {
+        continue;
+      }
+      const startAt = combineUtc(s.slotDate, startNorm);
+      if (startAt < now) continue;
+
+      const booked = await this.prisma.agendaBooking.count({
+        where: { slotId: s.id, ...activeBookingFilter },
+      });
+      const cap = effectiveSlotCapacity(s.capacity, cal.capacity);
+      const remaining = Math.max(0, cap - booked);
+      if (remaining <= 0) continue;
+
+      withCap.push({
+        ...s,
+        capacity: cap,
+        booked,
+        remaining,
+      });
+    }
+
+    const seenKeys = new Set<string>();
+    const deduped: typeof withCap = [];
+    for (const s of withCap) {
+      const k = this.dedupeKeyForSlot(s.slotDate, s.startTime);
+      if (seenKeys.has(k)) continue;
+      seenKeys.add(k);
+      deduped.push(s);
+    }
+
+    return deduped.map((s) => ({
+      id: s.id,
+      slotDate: s.slotDate,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      capacity: s.capacity,
+      booked: s.booked,
+      remaining: s.remaining,
+    }));
+  }
+
+  private async countGuestBookableSlotStarts(
+    cal: {
+      id: string;
+      active: boolean;
+      publicBooking: boolean;
+      restrictToOpenDays: boolean | null;
+      weekdayOpenMask: number | null;
+      slug: string;
+      durationMinutes: number;
+      slotStepMinutes?: number | null;
+      optionalSlotStarts?: string | null;
+      capacity: number;
+      defaultDayStartTime: string;
+      defaultDayEndTime: string;
+      breakStart: string | null;
+      breakEnd: string | null;
+    },
+    now: Date,
+  ): Promise<number> {
+    if (!cal.active || !cal.publicBooking) return 0;
+    const todayYmd = now.toISOString().slice(0, 10);
+    const from = parseYmd(todayYmd);
+    const to = new Date(from.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const closedSet = await this.closedDayYmdSet(cal.id, from, to);
+    const openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
+    await this.materializeGuestSlotsInRange(cal, from, to, closedSet, openYmdSet);
+    const slots = await this.collectGuestVisibleBookableSlotsDeduped(cal, from, to, now, closedSet, openYmdSet);
+    return slots.length;
+  }
+
   /** Maakt ontbrekende sloten voor één dag (open-dag workflow + lazy generatie). */
   async ensureSlotsForCalendarDate(
     calendarId: string,
@@ -374,107 +572,12 @@ export class AgendaService {
 
     if (to < from) throw new BadRequestException('Datum tot moet na vanaf liggen');
 
-    const closedRows = await this.prisma.agendaClosedDay.findMany({
-      where: { calendarId: cal.id, closedDate: { gte: from, lte: to } },
-      select: { closedDate: true },
-    });
-    const closedSet = new Set(closedRows.map((r) => r.closedDate.toISOString().slice(0, 10)));
-
-    const restrictOpen = cal.restrictToOpenDays === true;
-    const openRows = restrictOpen
-      ? await this.prisma.agendaOpenDay.findMany({
-          where: { calendarId: cal.id },
-          select: { openDate: true, repeatYearly: true },
-        })
-      : [];
-    const openYmdSet = restrictOpen ? this.openDayYmdSetInRange(from, to, openRows) : null;
-
-    /** Lazy slot-aanmaak: bij restrictOpen alleen op expliciete open dagen; anders op weekdagen volgens mask (0 = uit). */
-    const mask = cal.weekdayOpenMask ?? 0;
-    if (restrictOpen && openYmdSet) {
-      for (const ymd of [...openYmdSet].sort()) {
-        if (closedSet.has(ymd)) continue;
-        const dateOnly = parseYmd(ymd);
-        if (cal.slug === 'opleiding') {
-          await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
-        } else {
-          const n = await this.prisma.agendaSlot.count({
-            where: { calendarId: cal.id, slotDate: dateOnly },
-          });
-          if (n === 0) await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
-        }
-      }
-    } else if (!restrictOpen && mask !== 0) {
-      let cursor = new Date(from);
-      const end = new Date(to);
-      while (cursor.getTime() <= end.getTime()) {
-        const ymd = cursor.toISOString().slice(0, 10);
-        const dow = cursor.getUTCDay();
-        const bit = 1 << dow;
-        if ((mask & bit) !== 0 && !closedSet.has(ymd)) {
-          const dateOnly = parseYmd(ymd);
-          if (cal.slug === 'opleiding') {
-            await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
-          } else {
-            const n = await this.prisma.agendaSlot.count({
-              where: { calendarId: cal.id, slotDate: dateOnly },
-            });
-            if (n === 0) {
-              await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
-            }
-          }
-        }
-        cursor.setUTCDate(cursor.getUTCDate() + 1);
-      }
-    }
+    const closedSet = await this.closedDayYmdSet(cal.id, from, to);
+    const openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
+    await this.materializeGuestSlotsInRange(cal, from, to, closedSet, openYmdSet);
 
     const now = new Date();
-    const rows = await this.prisma.agendaSlot.findMany({
-      where: {
-        calendarId: cal.id,
-        status: 'open',
-        slotDate: { gte: from, lte: to },
-      },
-      orderBy: [{ slotDate: 'asc' }, { startTime: 'asc' }],
-    });
-
-    const out: Array<
-      (typeof rows)[number] & { booked: number; remaining: number }
-    > = [];
-
-    for (const s of rows) {
-      const ymd = s.slotDate.toISOString().slice(0, 10);
-      if (closedSet.has(ymd)) continue;
-      if (openYmdSet && !openYmdSet.has(ymd)) continue;
-
-      const startAt = combineUtc(s.slotDate, normTime(s.startTime));
-      if (startAt < now) continue;
-
-      const booked = await this.prisma.agendaBooking.count({
-        where: { slotId: s.id, ...activeBookingFilter },
-      });
-      const cap = effectiveSlotCapacity(s.capacity, cal.capacity);
-      const remaining = Math.max(0, cap - booked);
-      if (remaining <= 0) continue;
-
-      out.push({
-        ...s,
-        capacity: cap,
-        booked,
-        remaining,
-      });
-    }
-
-    const dedupKey = (s: (typeof out)[number]) =>
-      `${s.slotDate.toISOString().slice(0, 10)}|${normTime(s.startTime)}`;
-    const seenKeys = new Set<string>();
-    const deduped: typeof out = [];
-    for (const s of out) {
-      const k = dedupKey(s);
-      if (seenKeys.has(k)) continue;
-      seenKeys.add(k);
-      deduped.push(s);
-    }
+    const deduped = await this.collectGuestVisibleBookableSlotsDeduped(cal, from, to, now, closedSet, openYmdSet);
 
     return {
       calendar: {
@@ -634,11 +737,12 @@ export class AgendaService {
     }).format(slot.slotDate);
     const timeLabel = `${slot.startTime.slice(0, 5)} – ${slot.endTime.slice(0, 5)}`;
 
-    await this.notifications.sendBookingConfirmation({
+    await this.notifications.dispatchBookingLifecycle('booking_created', {
       toEmail: email || null,
       phone: phone || null,
       displayName: name || firstname || 'klant',
       calendarTitle: cal.title,
+      calendarSlug: cal.slug,
       dateLabel,
       timeLabel,
       cancelUrl,
@@ -699,12 +803,38 @@ export class AgendaService {
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     const booking = await this.prisma.agendaBooking.findFirst({
       where: { userId, calendarId: cal.id, ...activeBookingFilter },
-      include: { slot: true },
+      include: { slot: true, calendar: { select: { slug: true, title: true } } },
     });
     if (!booking) throw new NotFoundException('Geen actieve afspraak.');
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
       data: { status: 'cancelled' },
+    });
+    const dateLabel = new Intl.DateTimeFormat('nl-BE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(booking.slot.slotDate);
+    const timeLabel = `${booking.slot.startTime.slice(0, 5)} – ${booking.slot.endTime.slice(0, 5)}`;
+    const tok = booking.cancelToken?.trim() || '';
+    const cancelUrl = tok
+      ? `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(tok)}`
+      : `${webPublicBase()}/portal/guest`;
+    const confirmUrl = tok
+      ? `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(tok)}`
+      : `${webPublicBase()}/portal/guest`;
+    void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
+      toEmail: booking.email,
+      phone: booking.phone,
+      displayName:
+        booking.name || [booking.firstname, booking.lastname].filter(Boolean).join(' ').trim() || 'klant',
+      calendarTitle: booking.calendar.title,
+      calendarSlug: booking.calendar.slug,
+      dateLabel,
+      timeLabel,
+      cancelUrl,
+      confirmUrl,
     });
     const ymd = booking.slot.slotDate.toISOString().slice(0, 10);
     void this.modelHistory.log(userId, 'agenda_cancelled', {
@@ -735,6 +865,28 @@ export class AgendaService {
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
       data: { status: 'cancelled' },
+    });
+
+    const dateLabel = new Intl.DateTimeFormat('nl-BE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(booking.slot.slotDate);
+    const timeLabel = `${booking.slot.startTime.slice(0, 5)} – ${booking.slot.endTime.slice(0, 5)}`;
+    const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(token)}`;
+    const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(token)}`;
+    void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
+      toEmail: booking.email,
+      phone: booking.phone,
+      displayName:
+        booking.name || [booking.firstname, booking.lastname].filter(Boolean).join(' ').trim() || 'klant',
+      calendarTitle: booking.calendar.title,
+      calendarSlug: booking.calendar.slug,
+      dateLabel,
+      timeLabel,
+      cancelUrl,
+      confirmUrl,
     });
 
     if (booking.userId && booking.slot) {
@@ -786,6 +938,28 @@ export class AgendaService {
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
       data: { status: 'acknowledged' },
+    });
+
+    const dateLabel = new Intl.DateTimeFormat('nl-BE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(booking.slot.slotDate);
+    const timeLabel = `${booking.slot.startTime.slice(0, 5)} – ${booking.slot.endTime.slice(0, 5)}`;
+    const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(token)}`;
+    const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(token)}`;
+    void this.notifications.dispatchBookingLifecycle('booking_confirmed', {
+      toEmail: booking.email,
+      phone: booking.phone,
+      displayName:
+        booking.name || [booking.firstname, booking.lastname].filter(Boolean).join(' ').trim() || 'klant',
+      calendarTitle: booking.calendar.title,
+      calendarSlug: booking.calendar.slug,
+      dateLabel,
+      timeLabel,
+      cancelUrl,
+      confirmUrl,
     });
 
     if (booking.userId) {
@@ -858,48 +1032,15 @@ export class AgendaService {
     return { ok: true };
   }
 
-  /**
-   * Telt unieke toekomstige open momenten (zelfde dedupe als publieke slotlijst):
-   * geen verleden op vandaag, geen dubbele rijen met dezelfde dag + startuur.
-   */
-  private async countOpenSlotsFutureDistinct(calendarId: string, now: Date, todayDate: Date): Promise<number> {
-    const rows = await this.prisma.agendaSlot.findMany({
-      where: {
-        calendarId,
-        status: 'open',
-        slotDate: { gte: todayDate },
-      },
-      select: { slotDate: true, startTime: true },
-    });
-    const seen = new Set<string>();
-    for (const r of rows) {
-      let startNorm: string;
-      try {
-        startNorm = normTime(r.startTime);
-      } catch {
-        continue;
-      }
-      const startAt = combineUtc(r.slotDate, startNorm);
-      if (startAt < now) continue;
-      const ymd = r.slotDate.toISOString().slice(0, 10);
-      const key = `${ymd}|${startNorm}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-    }
-    return seen.size;
-  }
-
   async adminOverview() {
     const calendars = await this.prisma.agendaCalendar.findMany({
       orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
     });
     const now = new Date();
-    const todayYmd = now.toISOString().slice(0, 10);
-    const todayDate = parseYmd(todayYmd);
 
     const enriched = await Promise.all(
       calendars.map(async (c) => {
-        const openSlotsFuture = await this.countOpenSlotsFutureDistinct(c.id, now, todayDate);
+        const openSlotsFuture = await this.countGuestBookableSlotStarts(c, now);
         const bookingsCount = await this.prisma.agendaBooking.count({
           where: { calendarId: c.id, ...activeBookingFilter },
         });
@@ -994,33 +1135,51 @@ export class AgendaService {
     return { ok: true };
   }
 
+  /** Admin: exact tijdvenster (start+eind); maakt een open slot aan indien nodig. */
+  private async findOrCreateExactAdminSlot(
+    cal: { id: string; capacity: number },
+    slotDate: Date,
+    start: string,
+    end: string,
+  ) {
+    const startN = normTime(start);
+    const endN = normTime(end);
+    const candidates = await this.prisma.agendaSlot.findMany({
+      where: { calendarId: cal.id, slotDate },
+    });
+    const exact = candidates.find(
+      (s) => normTime(s.startTime) === startN && normTime(s.endTime) === endN,
+    );
+    if (exact) return exact;
+    return this.prisma.agendaSlot.create({
+      data: {
+        calendarId: cal.id,
+        slotDate,
+        startTime: startN,
+        endTime: endN,
+        capacity: cal.capacity,
+        status: 'open',
+      },
+    });
+  }
+
   /** Handmatige boeking door admin (planning); maakt slot aan indien nodig. */
   async adminManualBooking(dto: CreateManualBookingDto) {
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id: dto.calendarId } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     const slotDate = parseYmd(dto.slotDate);
     const start = normTime(dto.startTime);
-    const [h0, m0] = start.split(':').map((x) => parseInt(x, 10));
-    let endMinTotal = h0 * 60 + m0 + cal.durationMinutes;
-    if (endMinTotal >= 24 * 60) endMinTotal = 24 * 60 - 1;
-    const end = normTime(`${Math.floor(endMinTotal / 60)}:${endMinTotal % 60}:00`);
-
-    const candidates = await this.prisma.agendaSlot.findMany({
-      where: { calendarId: cal.id, slotDate },
-    });
-    let slot = candidates.find((s) => normTime(s.startTime) === start);
-    if (!slot) {
-      slot = await this.prisma.agendaSlot.create({
-        data: {
-          calendarId: cal.id,
-          slotDate,
-          startTime: start,
-          endTime: end,
-          capacity: cal.capacity,
-          status: 'open',
-        },
-      });
+    let end: string;
+    if (dto.endTime?.trim()) {
+      end = normTime(dto.endTime);
+    } else {
+      const [h0, m0] = start.split(':').map((x) => parseInt(x, 10));
+      let endMinTotal = h0 * 60 + m0 + cal.durationMinutes;
+      if (endMinTotal >= 24 * 60) endMinTotal = 24 * 60 - 1;
+      end = normTime(`${Math.floor(endMinTotal / 60)}:${endMinTotal % 60}:00`);
     }
+
+    const slot = await this.findOrCreateExactAdminSlot(cal, slotDate, start, end);
 
     const booked = await this.prisma.agendaBooking.count({
       where: { slotId: slot.id, ...activeBookingFilter },
@@ -1064,11 +1223,12 @@ export class AgendaService {
       const timeLabel = `${slot.startTime.slice(0, 5)} – ${slot.endTime.slice(0, 5)}`;
       const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
       const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
-      await this.notifications.sendBookingConfirmation({
+      await this.notifications.dispatchBookingLifecycle('booking_created', {
         toEmail: email,
         phone: dto.phone?.trim() || null,
         displayName: name,
         calendarTitle: cal.title,
+        calendarSlug: cal.slug,
         dateLabel,
         timeLabel,
         cancelUrl,
@@ -1376,10 +1536,54 @@ export class AgendaService {
   }
 
   async adminPatchBooking(id: string, dto: UpdateAdminBookingDto) {
-    const b = await this.prisma.agendaBooking.findUnique({ where: { id } });
+    const b = await this.prisma.agendaBooking.findUnique({
+      where: { id },
+      include: { slot: true },
+    });
     if (!b) throw new NotFoundException('Boeking niet gevonden');
 
+    const wantsMove =
+      dto.calendarId !== undefined ||
+      dto.slotDate !== undefined ||
+      dto.startTime !== undefined ||
+      dto.endTime !== undefined;
+
     const data: Prisma.AgendaBookingUpdateInput = {};
+
+    if (wantsMove) {
+      const targetCalId = dto.calendarId ?? b.calendarId;
+      const cal = await this.prisma.agendaCalendar.findUnique({ where: { id: targetCalId } });
+      if (!cal) throw new NotFoundException('Agenda niet gevonden');
+
+      const slotDate = dto.slotDate ? parseYmd(dto.slotDate) : b.slot.slotDate;
+      const startT = dto.startTime !== undefined ? normTime(dto.startTime) : normTime(b.slot.startTime);
+      let endT: string;
+      if (dto.endTime !== undefined) {
+        endT = normTime(dto.endTime);
+      } else if (dto.startTime !== undefined || dto.slotDate !== undefined || dto.calendarId !== undefined) {
+        const [h0, m0] = startT.split(':').map((x) => parseInt(x, 10));
+        let endMinTotal = h0 * 60 + m0 + cal.durationMinutes;
+        if (endMinTotal >= 24 * 60) endMinTotal = 24 * 60 - 1;
+        endT = normTime(`${Math.floor(endMinTotal / 60)}:${endMinTotal % 60}:00`);
+      } else {
+        endT = normTime(b.slot.endTime);
+      }
+
+      const slot = await this.findOrCreateExactAdminSlot(cal, slotDate, startT, endT);
+      const bookedOthers = await this.prisma.agendaBooking.count({
+        where: { slotId: slot.id, id: { not: b.id }, ...activeBookingFilter },
+      });
+      const cap = effectiveSlotCapacity(slot.capacity, cal.capacity);
+      if (bookedOthers >= cap) throw new ConflictException('Dit tijdslot is vol.');
+
+      const startNorm = normTime(slot.startTime);
+      const endNorm = normTime(slot.endTime);
+      data.slot = { connect: { id: slot.id } };
+      data.calendar = { connect: { id: cal.id } };
+      data.startAt = combineUtc(slot.slotDate, startNorm);
+      data.endAt = combineUtc(slot.slotDate, endNorm);
+    }
+
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.firstname !== undefined) data.firstname = dto.firstname;
@@ -1400,6 +1604,108 @@ export class AgendaService {
       throw new NotFoundException('Boeking niet gevonden');
     }
     return { ok: true };
+  }
+
+  async adminBulkDeleteBookings(ids: string[]) {
+    const uniq = [...new Set(ids.filter(Boolean))];
+    if (!uniq.length) return { ok: true as const, deleted: 0 };
+    const res = await this.prisma.agendaBooking.deleteMany({ where: { id: { in: uniq } } });
+    return { ok: true as const, deleted: res.count };
+  }
+
+  async adminListNotificationTemplates() {
+    return this.prisma.agendaNotificationTemplate.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+  }
+
+  async adminCreateNotificationTemplate(dto: CreateAgendaNotificationTemplateDto) {
+    const slugs = dto.calendarSlugs ?? [];
+    return this.prisma.agendaNotificationTemplate.create({
+      data: {
+        channel: dto.channel,
+        name: dto.name,
+        enabled: dto.enabled ?? true,
+        trigger: dto.trigger,
+        offsetMinutes: dto.offsetMinutes ?? 0,
+        subject: dto.subject ?? null,
+        body: dto.body,
+        calendarSlugs: slugs as unknown as Prisma.InputJsonValue,
+        sortOrder: dto.sortOrder ?? 100,
+      },
+    });
+  }
+
+  async adminUpdateNotificationTemplate(id: string, dto: UpdateAgendaNotificationTemplateDto) {
+    const row = await this.prisma.agendaNotificationTemplate.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Sjabloon niet gevonden');
+    const data: Prisma.AgendaNotificationTemplateUpdateInput = {};
+    if (dto.channel !== undefined) data.channel = dto.channel;
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.enabled !== undefined) data.enabled = dto.enabled;
+    if (dto.trigger !== undefined) data.trigger = dto.trigger;
+    if (dto.offsetMinutes !== undefined) data.offsetMinutes = dto.offsetMinutes;
+    if (dto.subject !== undefined) data.subject = dto.subject;
+    if (dto.body !== undefined) data.body = dto.body;
+    if (dto.calendarSlugs !== undefined) {
+      data.calendarSlugs = dto.calendarSlugs as unknown as Prisma.InputJsonValue;
+    }
+    if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
+    return this.prisma.agendaNotificationTemplate.update({ where: { id }, data });
+  }
+
+  async adminDeleteNotificationTemplate(id: string) {
+    try {
+      await this.prisma.agendaNotificationTemplate.delete({ where: { id } });
+    } catch {
+      throw new NotFoundException('Sjabloon niet gevonden');
+    }
+    return { ok: true as const };
+  }
+
+  async adminDuplicateNotificationTemplate(id: string) {
+    const src = await this.prisma.agendaNotificationTemplate.findUnique({ where: { id } });
+    if (!src) throw new NotFoundException('Sjabloon niet gevonden');
+    return this.prisma.agendaNotificationTemplate.create({
+      data: {
+        channel: src.channel,
+        name: `${src.name} (kopie)`,
+        enabled: src.enabled,
+        trigger: src.trigger,
+        offsetMinutes: src.offsetMinutes,
+        subject: src.subject,
+        body: src.body,
+        calendarSlugs: src.calendarSlugs as Prisma.InputJsonValue,
+        sortOrder: src.sortOrder + 1,
+      },
+    });
+  }
+
+  async adminGetMessagingSettings() {
+    const row = await this.prisma.agendaMessagingSettings.upsert({
+      where: { id: 1 },
+      create: { id: 1 },
+      update: {},
+    });
+    return {
+      bulksmsUsername: row.bulksmsUsername,
+      hasBulksmsPassword: !!(row.bulksmsPassword && row.bulksmsPassword.length > 0),
+    };
+  }
+
+  async adminPatchMessagingSettings(dto: UpdateAgendaMessagingSettingsDto) {
+    return this.prisma.agendaMessagingSettings.upsert({
+      where: { id: 1 },
+      create: {
+        id: 1,
+        bulksmsUsername: dto.bulksmsUsername ?? null,
+        bulksmsPassword: dto.bulksmsPassword ?? null,
+      },
+      update: {
+        ...(dto.bulksmsUsername !== undefined ? { bulksmsUsername: dto.bulksmsUsername } : {}),
+        ...(dto.bulksmsPassword !== undefined ? { bulksmsPassword: dto.bulksmsPassword } : {}),
+      },
+    });
   }
 
   async adminListOpenDays(q: AdminOpenDaysQueryDto) {

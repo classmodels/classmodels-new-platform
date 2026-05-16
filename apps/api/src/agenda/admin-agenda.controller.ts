@@ -30,6 +30,10 @@ import {
   UpdateAdminBookingDto,
   UpdateAgendaCalendarDto,
   CreateManualBookingDto,
+  CreateAgendaNotificationTemplateDto,
+  UpdateAgendaNotificationTemplateDto,
+  UpdateAgendaMessagingSettingsDto,
+  BulkDeleteAgendaBookingsDto,
 } from './dto/agenda.dto';
 
 @Controller('admin/agenda')
@@ -93,6 +97,12 @@ export class AdminAgendaController {
     return this.agenda.adminBookingsRange(q);
   }
 
+  @Post('bookings/bulk-delete')
+  @Permissions('admin.agenda.write')
+  bulkDeleteBookings(@Body() dto: BulkDeleteAgendaBookingsDto) {
+    return this.agenda.adminBulkDeleteBookings(dto.ids);
+  }
+
   @Get('bookings/:id')
   @Permissions('admin.agenda.read')
   getBooking(@Param('id', ParseUUIDPipe) id: string) {
@@ -109,6 +119,48 @@ export class AdminAgendaController {
   @Permissions('admin.agenda.write')
   deleteBooking(@Param('id', ParseUUIDPipe) id: string) {
     return this.agenda.adminDeleteBooking(id);
+  }
+
+  @Get('notification-templates')
+  @Permissions('admin.agenda.read')
+  listNotificationTemplates() {
+    return this.agenda.adminListNotificationTemplates();
+  }
+
+  @Post('notification-templates')
+  @Permissions('admin.agenda.write')
+  createNotificationTemplate(@Body() dto: CreateAgendaNotificationTemplateDto) {
+    return this.agenda.adminCreateNotificationTemplate(dto);
+  }
+
+  @Patch('notification-templates/:id')
+  @Permissions('admin.agenda.write')
+  patchNotificationTemplate(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAgendaNotificationTemplateDto) {
+    return this.agenda.adminUpdateNotificationTemplate(id, dto);
+  }
+
+  @Delete('notification-templates/:id')
+  @Permissions('admin.agenda.write')
+  deleteNotificationTemplate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.agenda.adminDeleteNotificationTemplate(id);
+  }
+
+  @Post('notification-templates/:id/duplicate')
+  @Permissions('admin.agenda.write')
+  duplicateNotificationTemplate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.agenda.adminDuplicateNotificationTemplate(id);
+  }
+
+  @Get('messaging-settings')
+  @Permissions('admin.agenda.read')
+  getMessagingSettings() {
+    return this.agenda.adminGetMessagingSettings();
+  }
+
+  @Patch('messaging-settings')
+  @Permissions('admin.agenda.write')
+  patchMessagingSettings(@Body() dto: UpdateAgendaMessagingSettingsDto) {
+    return this.agenda.adminPatchMessagingSettings(dto);
   }
 
   @Get('slots')

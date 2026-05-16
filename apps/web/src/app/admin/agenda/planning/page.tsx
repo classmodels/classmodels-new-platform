@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
-type Cal = { id: string; slug: string; title: string; color: string };
+type Cal = { id: string; slug: string; title: string; color: string; durationMinutes: number };
 
 type BookingRow = {
   id: string;
@@ -179,15 +179,25 @@ export default function AdminAgendaPlanningPage() {
   const [mailTo, setMailTo] = useState('');
   const [pickerYmd, setPickerYmd] = useState(() => ymd(new Date()));
   const [detail, setDetail] = useState<BookingDetail | null>(null);
+  const [schedCalId, setSchedCalId] = useState('');
+  const [schedYmd, setSchedYmd] = useState('');
+  const [schedStart, setSchedStart] = useState('');
+  const [schedEnd, setSchedEnd] = useState('');
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailErr, setDetailErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [manual, setManual] = useState<null | { ymd: string; hour: number; minute: number }>(null);
-  const [manualCalId, setManualCalId] = useState('');
-  const [manualName, setManualName] = useState('Handmatig');
-  const [manualEmail, setManualEmail] = useState('');
-  const [manualBusy, setManualBusy] = useState(false);
-  const [manualErr, setManualErr] = useState<string | null>(null);
+  const [draft, setDraft] = useState<null | {
+    calendarId: string;
+    slotDate: string;
+    startTime: string;
+    endTime: string;
+    name: string;
+    email: string;
+    firstname: string;
+    lastname: string;
+    phone: string;
+  }>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
 
   const weekStart = useMemo(() => startOfWeekMonday(anchor), [anchor]);
 
@@ -399,12 +409,17 @@ export default function AdminAgendaPlanningPage() {
 
   const openDetail = async (id: string) => {
     if (!token) return;
+    setDraft(null);
     setDetailLoading(true);
     setDetailErr(null);
     setDetail(null);
     try {
       const b = await adminFetch<BookingDetail>(`/admin/agenda/bookings/${id}`, token);
       setDetail(b);
+      setSchedCalId(b.calendar.id);
+      setSchedYmd(b.slot.slotDate.slice(0, 10));
+      setSchedStart(b.slot.startTime.slice(0, 5));
+      setSchedEnd(b.slot.endTime.slice(0, 5));
     } catch (e) {
       setDetailErr(e instanceof Error ? e.message : 'Laden mislukt');
     } finally {
@@ -427,6 +442,10 @@ export default function AdminAgendaPlanningPage() {
           email: detail.email,
           phone: detail.phone,
           fieldsJson: detail.fieldsJson as Record<string, string>,
+          calendarId: schedCalId,
+          slotDate: schedYmd,
+          startTime: schedStart,
+          endTime: schedEnd,
         }),
       });
       setDetail(null);
@@ -447,6 +466,7 @@ export default function AdminAgendaPlanningPage() {
     try {
       await adminFetch(`/admin/agenda/bookings/${detail.id}`, token, { method: 'DELETE' });
       setDetail(null);
+      setDraft(null);
       await loadBookings();
       router.refresh();
     } catch (e) {
@@ -473,38 +493,59 @@ export default function AdminAgendaPlanningPage() {
       H = GRID_END_H - 1;
       M = 30;
     }
-    const firstCal = [...selected][0] ?? calendars[0]?.id ?? '';
-    setManualCalId(firstCal);
-    setManualName('Handmatig');
-    setManualEmail('');
-    setManualErr(null);
-    setManual({ ymd: dayYmd, hour: H, minute: M });
+    const firstCal = calendars.find((c) => selected.has(c.id)) ?? calendars[0];
+    if (!firstCal) return;
+    const hh = pad2(H);
+    const mm = pad2(M);
+    const startTime = `${parseInt(hh, 10)}:${mm}`;
+    const dur = firstCal.durationMinutes ?? 60;
+    const [h0, m0] = [H, M];
+    let endMinTotal = h0 * 60 + m0 + dur;
+    if (endMinTotal >= 24 * 60) endMinTotal = 24 * 60 - 1;
+    const endH = Math.floor(endMinTotal / 60);
+    const endM = endMinTotal % 60;
+    const endTime = `${endH}:${pad2(endM)}`;
+    setDetail(null);
+    setDetailErr(null);
+    setDraft({
+      calendarId: firstCal.id,
+      slotDate: dayYmd,
+      startTime,
+      endTime,
+      name: 'Handmatig',
+      email: '',
+      firstname: '',
+      lastname: '',
+      phone: '',
+    });
   };
 
-  const submitManual = async () => {
-    if (!token || !manual || !manualCalId) return;
-    setManualBusy(true);
-    setManualErr(null);
-    const hh = pad2(manual.hour);
-    const mm = pad2(manual.minute);
+  const submitDraft = async () => {
+    if (!token || !draft) return;
+    setDraftBusy(true);
+    setDetailErr(null);
     try {
       await adminFetch('/admin/agenda/manual-booking', token, {
         method: 'POST',
         body: JSON.stringify({
-          calendarId: manualCalId,
-          slotDate: manual.ymd,
-          startTime: `${hh}:${mm}`,
-          name: manualName.trim() || 'Handmatig',
-          email: manualEmail.trim() || undefined,
+          calendarId: draft.calendarId,
+          slotDate: draft.slotDate,
+          startTime: draft.startTime,
+          endTime: draft.endTime,
+          name: draft.name.trim() || 'Handmatig',
+          email: draft.email.trim() || undefined,
+          firstname: draft.firstname.trim() || undefined,
+          lastname: draft.lastname.trim() || undefined,
+          phone: draft.phone.trim() || undefined,
         }),
       });
-      setManual(null);
+      setDraft(null);
       await loadBookings();
       router.refresh();
     } catch (e) {
-      setManualErr(e instanceof Error ? e.message : 'Mislukt');
+      setDetailErr(e instanceof Error ? e.message : 'Mislukt');
     } finally {
-      setManualBusy(false);
+      setDraftBusy(false);
     }
   };
 
@@ -934,85 +975,137 @@ export default function AdminAgendaPlanningPage() {
         </>
       )}
 
-      {manual ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" role="dialog">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <div className="flex items-start justify-between gap-2 border-b border-line pb-3">
-              <h3 className="text-base font-bold text-ink">Handmatige afspraak</h3>
-              <button
-                type="button"
-                className="text-2xl leading-none text-zinc-400 hover:text-ink"
-                onClick={() => setManual(null)}
-              >
-                ×
-              </button>
-            </div>
-            <p className="mt-3 text-xs text-muted">
-              {manual.ymd} om {pad2(manual.hour)}:{pad2(manual.minute)} — kies agenda en naam, daarna opslaan.
-            </p>
-            {manualErr ? <p className="mt-2 text-sm text-red-600">{manualErr}</p> : null}
-            <div className="mt-4 space-y-3 text-sm">
-              <label className="block text-xs text-muted">
-                Agenda
-                <select
-                  className="mt-1 w-full rounded border border-line px-2 py-2"
-                  value={manualCalId}
-                  onChange={(e) => setManualCalId(e.target.value)}
-                >
-                  {(calendars.some((c) => selected.has(c.id)) ?
-                    calendars.filter((c) => selected.has(c.id))
-                  : calendars
-                  ).map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-xs text-muted">
-                Naam op de planning
-                <input
-                  className="mt-1 w-full rounded border border-line px-2 py-2"
-                  value={manualName}
-                  onChange={(e) => setManualName(e.target.value)}
-                />
-              </label>
-              <label className="block text-xs text-muted">
-                E-mail (optioneel — bij invullen wordt bevestigingsmail verstuurd)
-                <input
-                  type="email"
-                  className="mt-1 w-full rounded border border-line px-2 py-2"
-                  value={manualEmail}
-                  onChange={(e) => setManualEmail(e.target.value)}
-                />
-              </label>
-            </div>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={manualBusy || !manualCalId}
-                className="rounded-md bg-burgundy px-4 py-2 text-sm font-semibold text-white hover:bg-burgundyDeep disabled:opacity-50"
-                onClick={() => void submitManual()}
-              >
-                {manualBusy ? 'Bezig…' : 'Opslaan'}
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-line px-4 py-2 text-sm"
-                onClick={() => setManual(null)}
-              >
-                Annuleren
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {detail || detailLoading ? (
+      {detail || detailLoading || draft ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog">
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             {detailLoading ? <p className="text-sm text-muted">Laden…</p> : null}
             {detailErr ? <p className="text-sm text-red-600">{detailErr}</p> : null}
+            {draft ? (
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-2 border-b border-line pb-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-ink">Nieuwe handmatige afspraak</h3>
+                    <p className="mt-1 text-xs text-muted">Pas datum, uren en agenda aan — ook buiten het vaste rooster.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-2xl leading-none text-zinc-400 hover:text-ink"
+                    onClick={() => {
+                      setDraft(null);
+                      setDetailErr(null);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <label className="text-xs text-muted">
+                    Agenda
+                    <select
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.calendarId}
+                      onChange={(e) => setDraft({ ...draft, calendarId: e.target.value })}
+                    >
+                      {(calendars.some((c) => selected.has(c.id)) ? calendars.filter((c) => selected.has(c.id)) : calendars).map(
+                        (c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.title}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </label>
+                  <label className="text-xs text-muted">
+                    Dag
+                    <input
+                      type="date"
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.slotDate}
+                      onChange={(e) => setDraft({ ...draft, slotDate: e.target.value })}
+                    />
+                  </label>
+                  <label className="text-xs text-muted">
+                    Van (HH:mm)
+                    <input
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.startTime}
+                      onChange={(e) => setDraft({ ...draft, startTime: e.target.value })}
+                    />
+                  </label>
+                  <label className="text-xs text-muted">
+                    Tot (HH:mm)
+                    <input
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.endTime}
+                      onChange={(e) => setDraft({ ...draft, endTime: e.target.value })}
+                    />
+                  </label>
+                  <label className="text-xs text-muted">
+                    Naam op de planning
+                    <input
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.name}
+                      onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    />
+                  </label>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <label className="text-xs text-muted">
+                    Voornaam
+                    <input
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.firstname}
+                      onChange={(e) => setDraft({ ...draft, firstname: e.target.value })}
+                    />
+                  </label>
+                  <label className="text-xs text-muted">
+                    Familienaam
+                    <input
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.lastname}
+                      onChange={(e) => setDraft({ ...draft, lastname: e.target.value })}
+                    />
+                  </label>
+                  <label className="text-xs text-muted">
+                    E-mail (optioneel)
+                    <input
+                      type="email"
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.email}
+                      onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                    />
+                  </label>
+                  <label className="text-xs text-muted">
+                    Telefoon (optioneel)
+                    <input
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={draft.phone}
+                      onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+                    />
+                  </label>
+                </div>
+                <div className="mt-6 flex flex-wrap justify-end gap-2 border-t border-line pt-4">
+                  <button
+                    type="button"
+                    className="rounded-lg border border-line px-4 py-2 text-sm"
+                    onClick={() => {
+                      setDraft(null);
+                      setDetailErr(null);
+                    }}
+                  >
+                    Annuleren
+                  </button>
+                  <button
+                    type="button"
+                    disabled={draftBusy}
+                    className="rounded-lg bg-[#000b2b] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    onClick={() => void submitDraft()}
+                  >
+                    {draftBusy ? 'Bezig…' : 'Opslaan'}
+                  </button>
+                </div>
+              </>
+            ) : null}
             {detail ? (
               <>
                 <div className="flex flex-wrap items-start justify-between gap-2 border-b border-line pb-3">
@@ -1025,12 +1118,15 @@ export default function AdminAgendaPlanningPage() {
                   <button
                     type="button"
                     className="text-2xl leading-none text-zinc-400 hover:text-ink"
-                    onClick={() => setDetail(null)}
+                    onClick={() => {
+                      setDetail(null);
+                      setDetailErr(null);
+                    }}
                   >
                     ×
                   </button>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <label className="text-xs text-muted">
                     Status
                     <select
@@ -1046,27 +1142,42 @@ export default function AdminAgendaPlanningPage() {
                     </select>
                   </label>
                   <label className="text-xs text-muted">
+                    Agenda
+                    <select
+                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                      value={schedCalId}
+                      onChange={(e) => setSchedCalId(e.target.value)}
+                    >
+                      {calendars.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-xs text-muted">
                     Dag
                     <input
+                      type="date"
                       className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={detail.slot.slotDate}
-                      readOnly
+                      value={schedYmd}
+                      onChange={(e) => setSchedYmd(e.target.value)}
                     />
                   </label>
                   <label className="text-xs text-muted">
-                    Van
+                    Van (HH:mm)
                     <input
                       className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={detail.slot.startTime.slice(0, 5)}
-                      readOnly
+                      value={schedStart}
+                      onChange={(e) => setSchedStart(e.target.value)}
                     />
                   </label>
                   <label className="text-xs text-muted">
-                    Tot
+                    Tot (HH:mm)
                     <input
                       className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={detail.slot.endTime.slice(0, 5)}
-                      readOnly
+                      value={schedEnd}
+                      onChange={(e) => setSchedEnd(e.target.value)}
                     />
                   </label>
                 </div>

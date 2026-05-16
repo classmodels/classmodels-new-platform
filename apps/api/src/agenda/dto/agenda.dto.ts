@@ -2,6 +2,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsObject,
@@ -408,6 +409,27 @@ export class UpdateAdminBookingDto {
   @IsOptional()
   @IsObject()
   fieldsJson?: Record<string, string>;
+
+  @IsOptional()
+  @IsUUID()
+  calendarId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  slotDate?: string;
+
+  /** Startuur HH:mm */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,2}:\d{2}$/)
+  startTime?: string;
+
+  /** Einduur HH:mm (admin kan afwijken van standaardduur) */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,2}:\d{2}$/)
+  endTime?: string;
 }
 
 export class CreateOpenDayDto {
@@ -443,6 +465,12 @@ export class CreateManualBookingDto {
   @Matches(/^\d{1,2}:\d{2}$/)
   startTime!: string;
 
+  /** Optioneel einduur HH:mm; anders agenda-duur vanaf start. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,2}:\d{2}$/)
+  endTime?: string;
+
   @IsOptional()
   @IsString()
   name?: string;
@@ -462,4 +490,115 @@ export class CreateManualBookingDto {
   @IsOptional()
   @IsString()
   phone?: string;
+}
+
+export class BulkDeleteAgendaBookingsDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  ids!: string[];
+}
+
+const NOTIFICATION_TRIGGERS = [
+  'booking_created',
+  'booking_cancelled',
+  'booking_confirmed',
+  'reminder',
+  'followup',
+] as const;
+
+const NOTIFICATION_CHANNELS = ['email', 'sms'] as const;
+
+export class CreateAgendaNotificationTemplateDto {
+  @IsIn(NOTIFICATION_CHANNELS)
+  channel!: (typeof NOTIFICATION_CHANNELS)[number];
+
+  @IsString()
+  @MinLength(1)
+  name!: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsIn(NOTIFICATION_TRIGGERS)
+  trigger!: (typeof NOTIFICATION_TRIGGERS)[number];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  offsetMinutes?: number;
+
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
+  @IsString()
+  @MinLength(1)
+  body!: string;
+
+  /** Agenda-slugs; leeg = alle agenda's */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  calendarSlugs?: string[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+}
+
+export class UpdateAgendaNotificationTemplateDto {
+  @IsOptional()
+  @IsIn(NOTIFICATION_CHANNELS)
+  channel?: (typeof NOTIFICATION_CHANNELS)[number];
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  name?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsOptional()
+  @IsIn(NOTIFICATION_TRIGGERS)
+  trigger?: (typeof NOTIFICATION_TRIGGERS)[number];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  offsetMinutes?: number;
+
+  @IsOptional()
+  @IsString()
+  subject?: string | null;
+
+  @IsOptional()
+  @IsString()
+  body?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  calendarSlugs?: string[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  sortOrder?: number;
+}
+
+export class UpdateAgendaMessagingSettingsDto {
+  @IsOptional()
+  @IsString()
+  bulksmsUsername?: string | null;
+
+  @IsOptional()
+  @IsString()
+  bulksmsPassword?: string | null;
 }
