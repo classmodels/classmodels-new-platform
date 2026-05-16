@@ -234,42 +234,36 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
 
   /** Zelfde URL op server en eerste client-paint → geen hydration mismatch; daarna API als die er is. */
   const [playSrc, setPlaySrc] = useState<string>(staticFallback);
-  const [videoDead, setVideoDead] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const api = guestPortalPublicMediaUrl(basename);
     setPlaySrc(api ?? staticFallback);
-    setVideoDead(false);
   }, [basename, staticFallback]);
 
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || videoDead) return;
+    if (!el) return;
     const tryPlay = () => void el.play().catch(() => {});
     tryPlay();
     el.addEventListener('loadeddata', tryPlay);
     return () => el.removeEventListener('loadeddata', tryPlay);
-  }, [playSrc, videoDead]);
+  }, [playSrc]);
 
   useEffect(() => {
     const el = videoRef.current;
-    if (!el || videoDead) return;
+    if (!el) return;
     const onErr = () => {
-      setPlaySrc((cur) => {
-        if (cur !== staticFallback) return staticFallback;
-        setVideoDead(true);
-        return cur;
-      });
+      setPlaySrc((cur) => (cur !== staticFallback ? staticFallback : cur));
     };
     el.addEventListener('error', onErr);
     return () => el.removeEventListener('error', onErr);
-  }, [playSrc, videoDead, staticFallback]);
+  }, [playSrc, staticFallback]);
 
   return (
     <div className="relative w-full overflow-hidden">
       <div className="relative z-10 mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
-        <div className="max-w-xl sm:mr-[calc(70px+min(560px,52vw)+2rem)]">
+        <div className="max-w-xl sm:mr-[calc(50px+min(560px,52vw)+2rem)]">
           <CmText
             contentKey="portal.guest.hero.kicker"
             as="p"
@@ -315,37 +309,21 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
         </div>
       </div>
 
-      {!videoDead ? (
-        <div className="pointer-events-none relative z-[5] mt-6 flex justify-center px-4 sm:absolute sm:bottom-[70px] sm:right-[70px] sm:top-[70px] sm:mt-0 sm:flex sm:justify-end sm:px-0">
-          <video
-            key={playSrc}
-            ref={videoRef}
-            src={playSrc}
-            className="aspect-video w-full max-w-2xl select-none rounded-none border-0 object-contain shadow-none sm:h-full sm:w-auto sm:max-w-[min(560px,52vw)]"
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="auto"
-            aria-label="Class-Models promotiefilm"
-          />
-        </div>
-      ) : (
-        <div className="mt-6 rounded-cm border border-white/25 bg-black/20 p-4 text-xs leading-relaxed text-white/90 sm:absolute sm:bottom-[70px] sm:right-[70px] sm:top-[70px] sm:mt-0 sm:max-w-[min(560px,52vw)] sm:overflow-y-auto sm:text-sm">
-          <CmText
-            contentKey="portal.guest.hero.box.title"
-            as="p"
-            className="font-medium text-white"
-            fallback="Class-Models — gastenportaal"
-          />
-          <CmText
-            contentKey="portal.guest.hero.box.body"
-            as="p"
-            className="mt-2"
-            fallback="Hier lees je hoe je start als model: van gratis testshoot tot casting en intake. Gebruik het menu links voor alle onderwerpen; hieronder vind je een overzicht in drie stappen."
-          />
-        </div>
-      )}
+      <div className="pointer-events-none relative z-[5] mt-6 flex justify-center px-4 sm:absolute sm:bottom-[50px] sm:right-[50px] sm:top-[50px] sm:mt-0 sm:flex sm:justify-end sm:px-0">
+        <video
+          key={playSrc}
+          ref={videoRef}
+          src={playSrc}
+          className="aspect-video w-full max-w-2xl select-none rounded-none border-0 bg-transparent object-contain shadow-none outline-none ring-0 sm:h-full sm:w-auto sm:max-w-[min(560px,52vw)]"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          controls={false}
+          aria-label="Class-Models promotiefilm"
+        />
+      </div>
     </div>
   );
 }

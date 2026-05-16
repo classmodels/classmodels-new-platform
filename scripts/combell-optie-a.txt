@@ -19,8 +19,8 @@ MEDIA_ROOT=uploads
 BELANGRIJK — foto’s op Combell:
   - Zet GEEN www/cm-media/uploads als MEDIA_ROOT (in de container bestaat die map niet).
   - Gebruik: MEDIA_ROOT=uploads  (→ apps/api/uploads in de app)
-  - Na elke deploy zijn bestanden in de container leeg; herstel met op je Mac:
-    npm run tool:push-media-live -- admin@class-models.local 'Demo123!'
+  - Na deploy is de container-apps/uploads leeg; bij start (combell-dual-proxy) wordt gekopieerd van een vaste hosting-map (zie scripts/combell-sync-media-uploads.cjs). Zet bij problemen env MEDIA_SYNC_SOURCE=/vol/pad/naar/uploads op je persistent volume.
+  - Zonder persistente bron: herstel media met op je Mac bv. npm run tool:push-media-live — admin@class-models.local 'Demo123!'
 
 Poort in Combell (veld "Poort"): meestal 3000 — NIET wijzigen tenzij Combell anders zegt.
 

@@ -3,12 +3,38 @@
 const fs = require('fs');
 const path = require('path');
 
+/** Telt bestanden recursief (cap tegen enorme bomen). Zo worden o.a. mp4 en nested uploads meeteld voor bronkeuze. */
 function countMediaFiles(dir) {
+  let n = 0;
+  const max = 20000;
+  function walk(d) {
+    if (n >= max) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      if (e.name.startsWith('.')) continue;
+      const p = path.join(d, e.name);
+      try {
+        if (e.isDirectory()) walk(p);
+        else if (e.isFile()) {
+          n += 1;
+          if (n >= max) return;
+        }
+      } catch {
+        /* symlink / rechten */
+      }
+    }
+  }
   try {
-    return fs.readdirSync(dir).filter((f) => /\.(jpe?g|webp|png|gif)$/i.test(f)).length;
+    walk(dir);
   } catch {
     return 0;
   }
+  return n;
 }
 
 function hostingMediaSources(root) {
