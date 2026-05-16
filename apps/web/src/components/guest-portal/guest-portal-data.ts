@@ -204,6 +204,10 @@ export const GUEST_PORTAL_PUBLIC_MEDIA = {
    * Zet hier de exacte bestandsnaam na upload in Admin → Media (zelfde als op schijf in uploads).
    */
   gratisFotoshootImageBasename: '',
+  /** Casting-pagina banner. Leeg = `/guest/casting-hero.png`. */
+  castingHeroImageBasename: '',
+  /** Intake-pagina banner. Leeg = `/guest/intake-gesprek-hero.png`. */
+  intakeGesprekHeroImageBasename: '',
 } as const;
 
 /** Publieke contactgegevens (gastenportaal). */

@@ -262,7 +262,7 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
 
   return (
     <div className="relative w-full overflow-hidden">
-      <div className="relative z-10 mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
+      <div className="relative z-10 w-full px-[50px] py-8 md:py-10">
         <div className="max-w-xl sm:mr-[calc(50px+min(560px,52vw)+2rem)]">
           <CmText
             contentKey="portal.guest.hero.kicker"
@@ -314,7 +314,7 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
           key={playSrc}
           ref={videoRef}
           src={playSrc}
-          className="aspect-video w-full max-w-2xl select-none rounded-none border-0 bg-transparent object-contain shadow-none outline-none ring-0 sm:h-full sm:w-auto sm:max-w-[min(560px,52vw)]"
+            className="aspect-video w-full max-w-2xl appearance-none select-none rounded-none border-0 bg-transparent object-contain shadow-none outline-none ring-0 sm:h-full sm:w-auto sm:max-w-[min(560px,52vw)]"
           autoPlay
           muted
           loop
@@ -422,9 +422,16 @@ type GuestOfferPageDef = {
   ctaButton: string;
 };
 
-function GuestGratisFotoshootPromoBanner() {
-  const apiImg = guestPortalPublicMediaUrl(GUEST_PORTAL_PUBLIC_MEDIA.gratisFotoshootImageBasename);
-  const imgSrc = apiImg ?? '/guest/gratis-fotoshoot-hero.png';
+function GuestPortalPromoBanner({
+  staticSrc,
+  apiBasename,
+}: {
+  staticSrc: string;
+  apiBasename?: string | null;
+}) {
+  const b = apiBasename?.trim();
+  const apiImg = b ? guestPortalPublicMediaUrl(b) : null;
+  const imgSrc = apiImg ?? staticSrc;
 
   /**
    * Volle breedte wit paneel + tegen de rode titelbalk: compenseert horizontaal én verticaal
@@ -439,6 +446,33 @@ function GuestGratisFotoshootPromoBanner() {
         className="block min-h-[200px] w-full max-w-none object-cover object-center md:min-h-[min(42vw,380px)]"
       />
     </div>
+  );
+}
+
+function GuestGratisFotoshootPromoBanner() {
+  return (
+    <GuestPortalPromoBanner
+      staticSrc="/guest/gratis-fotoshoot-hero.png"
+      apiBasename={GUEST_PORTAL_PUBLIC_MEDIA.gratisFotoshootImageBasename}
+    />
+  );
+}
+
+function GuestCastingPromoBanner() {
+  return (
+    <GuestPortalPromoBanner
+      staticSrc="/guest/casting-hero.png"
+      apiBasename={GUEST_PORTAL_PUBLIC_MEDIA.castingHeroImageBasename}
+    />
+  );
+}
+
+function GuestIntakeGesprekPromoBanner() {
+  return (
+    <GuestPortalPromoBanner
+      staticSrc="/guest/intake-gesprek-hero.png"
+      apiBasename={GUEST_PORTAL_PUBLIC_MEDIA.intakeGesprekHeroImageBasename}
+    />
   );
 }
 
@@ -795,11 +829,16 @@ export function GuestPortalLayout() {
   const renderContact = () => <GuestContactSection />;
 
   const renderIntakeGesprek = () => (
-    <GuestServiceTwoColumnPage
-      page={INTAKE_GESPREK_PAGE}
-      onMenuSelect={goMenu}
-      onStartBooking={startBooking}
-    />
+    <div>
+      <GuestIntakeGesprekPromoBanner />
+      <div className="space-y-5 pt-5 md:pt-6">
+        <GuestServiceTwoColumnPage
+          page={INTAKE_GESPREK_PAGE}
+          onMenuSelect={goMenu}
+          onStartBooking={startBooking}
+        />
+      </div>
+    </div>
   );
 
   const renderGratisFotoshoot = () => (
@@ -816,7 +855,12 @@ export function GuestPortalLayout() {
   );
 
   const renderCasting = () => (
-    <GuestOfferWithDoelgroepenPage page={CASTING_PAGE} onMenuSelect={goMenu} onStartBooking={startBooking} />
+    <div>
+      <GuestCastingPromoBanner />
+      <div className="space-y-5 pt-5 md:pt-6">
+        <GuestOfferWithDoelgroepenPage page={CASTING_PAGE} onMenuSelect={goMenu} onStartBooking={startBooking} />
+      </div>
+    </div>
   );
 
   const mainContent = () => {
