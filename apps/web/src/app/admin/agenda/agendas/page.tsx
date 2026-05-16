@@ -330,7 +330,8 @@ function EditRow({
         </>
       ) : (
         <p className="col-span-full text-[11px] text-muted">
-          Weekdag-autovulling uit (alleen open dagen). Standaard uren vindt u bij Uren &amp; dagen per agenda.
+          Weekdag-autovulling uit (alleen open dagen). Standaard uren stelt u per agenda in via Agenda&apos;s →
+          agenda kiezen.
         </p>
       )}
       <p className="col-span-full text-[11px] text-muted">

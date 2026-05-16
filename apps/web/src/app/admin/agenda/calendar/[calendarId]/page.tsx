@@ -311,12 +311,9 @@ export default function AdminAgendaCalendarDetailPage() {
           </Link>
           <h2 className="mt-1 text-lg font-semibold text-ink">{cal.title}</h2>
           <p className="text-xs text-muted">{cal.slug}</p>
-          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          <p className="mt-2 text-xs">
             <Link href="/admin/agenda/open-dagen" className="font-medium text-burgundy underline">
-              Open dagen (kalender)
-            </Link>
-            <Link href="/admin/agenda/momenten" className="font-medium text-burgundy underline">
-              Momenten beheren
+              Open dagen
             </Link>
           </p>
         </div>
@@ -380,8 +377,11 @@ export default function AdminAgendaCalendarDetailPage() {
               onChange={(e) => setSlotStepMinutes(e.target.value)}
             />
           </label>
-          <label className="flex flex-col gap-1">
-            Capaciteit per slot
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="font-medium text-ink">Aantal openingen per tijdslot</span>
+            <span className="text-[11px] font-normal text-muted">
+              Hoeveel afspraken op hetzelfde startuur tegelijk mogelijk zijn (standaard voor nieuwe sloten).
+            </span>
             <input
               type="number"
               min={1}
@@ -548,9 +548,6 @@ export default function AdminAgendaCalendarDetailPage() {
         <p>
           <strong className="text-ink">Open dagen</strong> stelt u in onder Agenda → Open dagen. Daarna worden
           automatisch momenten gemaakt volgens de uren hierboven (geen aparte tijden invoeren).
-        </p>
-        <p className="mt-2">
-          Ter controle of opruimen: <Link href="/admin/agenda/momenten" className="font-medium text-burgundy underline">Momenten</Link>.
         </p>
       </section>
 

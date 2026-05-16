@@ -87,11 +87,9 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     icon: 'calendar',
     items: [
       { href: '/admin/agenda', label: 'Overzicht', permission: 'admin.agenda.read' },
-      { href: '/admin/agenda/kalender', label: 'Kalender', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/boekingen', label: 'Boekingen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/open-dagen', label: 'Open dagen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/agendas', label: "Agenda's", permission: 'admin.agenda.read' },
-      { href: '/admin/agenda/momenten', label: 'Dagen & uren', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/planning', label: 'Planning', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/mail-preview', label: 'Mail / SMS', permission: 'admin.agenda.read' },
     ],

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { getApiBase } from '@/lib/api';
 
@@ -146,6 +146,13 @@ export function GuestBookingPanel({
     for (const [, list] of m) list.sort((a, b) => a.startTime.localeCompare(b.startTime));
     return m;
   }, [slots]);
+
+  /** Dagkolommen: 1 dag = volle breedte, 2 = 50%, 3 of meer = max. 3 kolommen per rij (±33%). */
+  const defaultDayColumnsStyle = useMemo((): CSSProperties => {
+    const n = sortedDates.length;
+    const cols = Math.min(Math.max(n, 1), 3);
+    return { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` };
+  }, [sortedDates.length]);
 
   const picked = slots.find((s) => s.id === slotId);
 
@@ -403,38 +410,58 @@ export function GuestBookingPanel({
           <div className="rounded-cm border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{err}</div>
         ) : null}
         {step === 'slots' ? (
-          <div className="max-h-[min(520px,62vh)] space-y-4 overflow-y-auto pr-1">
-            {sortedDates.map((ymd) => (
-              <div key={ymd}>
-                <p className="text-xs font-semibold capitalize text-ink">
-                  {new Intl.DateTimeFormat('nl-BE', {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                  }).format(new Date(`${ymd}T12:00:00`))}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {(slotsByYmd.get(ymd) ?? []).map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className="rounded-full border border-line bg-panel px-3 py-2 text-xs font-medium text-ink transition hover:border-burgundy hover:bg-burgundy/5"
-                      onClick={() => {
-                        if (autoBookOnPick) {
-                          void quickBook(s.id);
-                          return;
-                        }
-                        setSlotId(s.id);
-                        setStep('form');
-                        setErr(null);
-                      }}
-                    >
-                      {slotTimeLabel(s)}
-                    </button>
-                  ))}
+          <div className="max-h-[min(520px,62vh)] overflow-y-auto pr-1">
+            <div className="grid gap-4" style={defaultDayColumnsStyle}>
+              {sortedDates.map((ymd) => (
+                <div key={ymd} className="min-w-0">
+                  <p className="text-xs font-semibold capitalize text-ink">
+                    {new Intl.DateTimeFormat('nl-BE', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                    }).format(new Date(`${ymd}T12:00:00`))}
+                  </p>
+                  <div className="mt-2 flex max-h-[min(460px,50vh)] flex-col gap-1.5 overflow-y-auto pr-0.5">
+                    {(slotsByYmd.get(ymd) ?? []).map((s) => {
+                      const sel = slotId === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={[
+                            'flex w-full min-w-0 items-center gap-2 rounded-md border bg-panel px-3 py-2 text-left text-xs font-medium tabular-nums transition',
+                            sel ? 'border-burgundy ring-1 ring-burgundy' : 'border-line hover:border-burgundy/45',
+                          ].join(' ')}
+                          onClick={() => {
+                            if (autoBookOnPick) {
+                              void quickBook(s.id);
+                              return;
+                            }
+                            setSlotId(s.id);
+                            setStep('form');
+                            setErr(null);
+                          }}
+                        >
+                          <span
+                            className={[
+                              'flex h-3.5 w-3.5 shrink-0 rounded-full border',
+                              sel ? 'border-burgundy bg-burgundy' : 'border-zinc-300',
+                            ].join(' ')}
+                            aria-hidden
+                          />
+                          <span className="text-ink">
+                            {slotTimeLabel(s)}
+                            {typeof s.remaining === 'number' && s.remaining > 1 ? (
+                              <span className="ml-1 text-[10px] font-normal text-muted"> ({s.remaining} vrij)</span>
+                            ) : null}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-5">
@@ -505,7 +532,9 @@ export function GuestBookingPanel({
             className="grid min-h-0 flex-1 gap-1.5 pb-1"
             style={
               visibleDates.length
-                ? { gridTemplateColumns: `repeat(${visibleDates.length}, minmax(0, 1fr))` }
+                ? {
+                    gridTemplateColumns: `repeat(${Math.min(visibleDates.length, 3)}, minmax(0, 1fr))`,
+                  }
                 : undefined
             }
           >
