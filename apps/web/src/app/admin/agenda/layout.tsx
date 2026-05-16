@@ -7,11 +7,8 @@ import type { ReactNode } from 'react';
 const SUBNAV = [
   { href: '/admin/agenda', label: 'Overzicht' },
   { href: '/admin/agenda/agendas', label: "Agenda's" },
-  { href: '/admin/agenda/open-dagen', label: 'Open dagen' },
-  { href: '/admin/agenda/momenten', label: 'Momenten & dagen' },
   { href: '/admin/agenda/planning', label: 'Planning' },
   { href: '/admin/agenda/boekingen', label: 'Boekingen' },
-  { href: '/admin/agenda/kalender', label: 'Kalender' },
   { href: '/admin/agenda/mail-preview', label: 'Mail voorbeeld' },
 ] as const;
 
@@ -23,15 +20,15 @@ export default function AdminAgendaLayout({ children }: { children: ReactNode })
       <div>
         <h1 className="text-xl font-semibold text-ink">Agenda / afspraken</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Beheer agenda&apos;s per categorie (zoals intake, casting, gratis fotoshoot), momenten, gesloten dagen en
-          ingeschreven personen. Gasten boeken via het gastenportaal.
+          Kies een agenda op het overzicht om uren, open dagen en zichtbaarheid in te stellen. Planning en boekingen
+          vindt u hieronder. Gasten boeken via het gastenportaal.
         </p>
       </div>
       <nav className="flex flex-wrap gap-1 border-b border-zinc-200 pb-2 text-[13px]">
         {SUBNAV.map((item) => {
           const active =
             item.href === '/admin/agenda'
-              ? pathname === '/admin/agenda'
+              ? pathname === '/admin/agenda' || pathname.startsWith('/admin/agenda/calendar/')
               : pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link

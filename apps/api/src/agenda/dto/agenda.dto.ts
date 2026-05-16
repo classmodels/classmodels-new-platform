@@ -12,6 +12,7 @@ import {
   Max,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -152,6 +153,24 @@ export class CreateAgendaCalendarDto {
   @IsString()
   @Matches(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/)
   breakEnd?: string;
+
+  /** Tussen starttijden op open dagen (min). Leeg = zelfde als duur (geen overlap). */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(5)
+  slotStepMinutes?: number | null;
+
+  /** HH:mm per regel; overschrijft de stap-tijdlijn als niet leeg. */
+  @IsOptional()
+  @IsString()
+  optionalSlotStarts?: string | null;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  showEndTimeOnPublic?: boolean;
 }
 
 export class UpdateAgendaCalendarDto {
@@ -225,6 +244,22 @@ export class UpdateAgendaCalendarDto {
   @IsString()
   @Matches(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/)
   breakEnd?: string;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null && v !== undefined)
+  @Type(() => Number)
+  @IsInt()
+  @Min(5)
+  slotStepMinutes?: number | null;
+
+  @IsOptional()
+  @IsString()
+  optionalSlotStarts?: string | null;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  showEndTimeOnPublic?: boolean;
 }
 
 export class AdminSlotsQueryDto {

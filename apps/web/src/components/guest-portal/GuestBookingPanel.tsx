@@ -84,6 +84,7 @@ export function GuestBookingPanel({
   const [calTitle, setCalTitle] = useState('');
   const [fields, setFields] = useState<FieldDto[]>([]);
   const [slots, setSlots] = useState<SlotDto[]>([]);
+  const [showEndTimeOnPublic, setShowEndTimeOnPublic] = useState(true);
   const [slotId, setSlotId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
@@ -108,10 +109,14 @@ export function GuestBookingPanel({
       if (!fRes.ok) throw new Error('Kon agenda niet laden');
       if (!sRes.ok) throw new Error('Kon momenten niet laden');
       const fJson = (await fRes.json()) as { calendar?: { title?: string }; fields: FieldDto[] };
-      const sJson = (await sRes.json()) as { slots: SlotDto[] };
+      const sJson = (await sRes.json()) as {
+        slots: SlotDto[];
+        calendar?: { showEndTimeOnPublic?: boolean };
+      };
       setCalTitle(fJson.calendar?.title ?? '');
       setFields((fJson.fields ?? []).filter((x) => x.type !== 'file'));
       setSlots(sJson.slots ?? []);
+      setShowEndTimeOnPublic(sJson.calendar?.showEndTimeOnPublic !== false);
       setSlotId(null);
       setForm({});
       setCancelUrl(null);
@@ -169,6 +174,9 @@ export function GuestBookingPanel({
   }, [slots]);
 
   const picked = slots.find((s) => s.id === slotId);
+
+  const slotTimeLabel = (s: SlotDto) =>
+    showEndTimeOnPublic ? `${s.startTime} – ${s.endTime}` : s.startTime;
 
   const setField = (key: string, val: string) => setForm((prev) => ({ ...prev, [key]: val }));
   const setFileField = (key: string, file: File | undefined) =>
@@ -449,7 +457,7 @@ export function GuestBookingPanel({
                         setErr(null);
                       }}
                     >
-                      {s.startTime} – {s.endTime}
+                      {slotTimeLabel(s)}
                     </button>
                   ))}
                 </div>
@@ -461,7 +469,8 @@ export function GuestBookingPanel({
             <div className="flex flex-wrap items-center gap-2 rounded-cm bg-panel px-3 py-2 text-xs">
               <span className="font-medium text-ink">Gekozen:</span>
               <span>
-                {picked?.slotDate} om {picked?.startTime}
+                {picked?.slotDate}
+                {picked ? ` · ${slotTimeLabel(picked)}` : ''}
               </span>
               <button
                 type="button"
@@ -627,7 +636,7 @@ export function GuestBookingPanel({
                           aria-hidden
                         />
                         <span className="tabular-nums text-zinc-900">
-                          {s.startTime} – {s.endTime}
+                          {slotTimeLabel(s)}
                           {typeof s.remaining === 'number' && s.remaining > 1 ? (
                             <span className="ml-1 text-[10px] font-normal text-zinc-500"> ({s.remaining})</span>
                           ) : null}
@@ -650,7 +659,7 @@ export function GuestBookingPanel({
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
           <span className="font-medium">Gekozen:</span>
           <span className="tabular-nums">
-            {picked?.slotDate} {picked ? `${picked.startTime} – ${picked.endTime}` : ''}
+            {picked?.slotDate} {picked ? slotTimeLabel(picked) : ''}
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{fields.map(renderField)}</div>

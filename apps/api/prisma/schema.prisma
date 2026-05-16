@@ -490,6 +490,12 @@ model AgendaCalendar {
   /// Pauze (optioneel): geen sloten die dit interval kruisen.
   breakStart          String?
   breakEnd            String?
+  /// Tussen twee starttijden op open dagen (min). Leeg = zelfde als durationMinutes (niet-overlappend).
+  slotStepMinutes     Int?
+  /// Alleen deze starttijden (HH:mm per regel) bij auto-sloten op open dagen; leeg = alle starttijden volgens stap.
+  optionalSlotStarts  String?        @db.Text
+  /// Gastenkalender: einduur tonen (bv. casting uit).
+  showEndTimeOnPublic Boolean        @default(true)
   sortOrder       Int              @default(100)
   slots           AgendaSlot[]
   fields          AgendaField[]

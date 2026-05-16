@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
@@ -20,6 +21,9 @@ type Cal = {
   defaultDayEndTime?: string;
   breakStart?: string | null;
   breakEnd?: string | null;
+  slotStepMinutes?: number | null;
+  optionalSlotStarts?: string | null;
+  showEndTimeOnPublic?: boolean;
 };
 
 export default function AdminAgendaCalendarsPage() {
@@ -83,6 +87,9 @@ export default function AdminAgendaCalendarsPage() {
           defaultDayEndTime: patch.defaultDayEndTime ?? c.defaultDayEndTime,
           breakStart: patch.breakStart !== undefined ? patch.breakStart : c.breakStart,
           breakEnd: patch.breakEnd !== undefined ? patch.breakEnd : c.breakEnd,
+          slotStepMinutes: patch.slotStepMinutes !== undefined ? patch.slotStepMinutes : c.slotStepMinutes,
+          optionalSlotStarts: patch.optionalSlotStarts !== undefined ? patch.optionalSlotStarts : c.optionalSlotStarts,
+          showEndTimeOnPublic: patch.showEndTimeOnPublic !== undefined ? patch.showEndTimeOnPublic : c.showEndTimeOnPublic,
         }),
       });
       setEditId(null);
@@ -150,6 +157,12 @@ export default function AdminAgendaCalendarsPage() {
                     ) : null}
                   </div>
                   <div className="flex items-center gap-2">
+                    <Link
+                      href={`/admin/agenda/calendar/${c.id}`}
+                      className="text-xs font-medium text-burgundy underline"
+                    >
+                      Uren &amp; dagen
+                    </Link>
                     <span className={c.active ? 'text-xs text-emerald-700' : 'text-xs text-zinc-500'}>
                       {c.active ? 'actief' : 'inactief'}
                     </span>
@@ -199,6 +212,8 @@ function EditRow({
   const [dayEnd, setDayEnd] = useState(toTimeInput(cal.defaultDayEndTime) || '18:00');
   const [breakStart, setBreakStart] = useState(toTimeInput(cal.breakStart));
   const [breakEnd, setBreakEnd] = useState(toTimeInput(cal.breakEnd));
+  const [slotStep, setSlotStep] = useState(cal.slotStepMinutes != null ? String(cal.slotStepMinutes) : '');
+  const [showEndTime, setShowEndTime] = useState(cal.showEndTimeOnPublic !== false);
 
   return (
     <div className="grid gap-2 rounded-md bg-zinc-50 p-3 text-xs sm:grid-cols-2">
@@ -218,6 +233,17 @@ function EditRow({
           className="rounded border border-line px-2 py-1"
           value={durationMinutes}
           onChange={(e) => setDurationMinutes(e.target.value)}
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        Start elke … min (optioneel)
+        <input
+          type="number"
+          min={5}
+          placeholder="= duur"
+          className="rounded border border-line px-2 py-1"
+          value={slotStep}
+          onChange={(e) => setSlotStep(e.target.value)}
         />
       </label>
       <label className="flex flex-col gap-1">
@@ -250,6 +276,10 @@ function EditRow({
       <label className="flex items-center gap-2">
         <input type="checkbox" checked={publicBooking} onChange={(e) => setPublicBooking(e.target.checked)} />
         Publiek boekbaar
+      </label>
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={showEndTime} onChange={(e) => setShowEndTime(e.target.checked)} />
+        Einduur tonen aan gasten
       </label>
       <label className="flex items-start gap-2 sm:col-span-2">
         <input
@@ -293,7 +323,9 @@ function EditRow({
               active,
               publicBooking,
               restrictToOpenDays,
+              showEndTimeOnPublic: showEndTime,
               durationMinutes: parseInt(durationMinutes, 10),
+              slotStepMinutes: slotStep.trim() ? parseInt(slotStep, 10) : null,
               capacity: parseInt(capacity, 10),
               sortOrder: parseInt(sortOrder, 10),
               color,

@@ -129,6 +129,7 @@ export default function AdminAgendaPlanningPage() {
   const { token } = useAuth();
   const [calendars, setCalendars] = useState<Cal[]>([]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [selectedInitialized, setSelectedInitialized] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('week');
   const [rows, setRows] = useState<BookingRow[]>([]);
@@ -207,6 +208,16 @@ export default function AdminAgendaPlanningPage() {
   useEffect(() => {
     loadCals().catch(() => {});
   }, [loadCals]);
+
+  useEffect(() => {
+    setSelectedInitialized(false);
+  }, [token]);
+
+  useEffect(() => {
+    if (!calendars.length || selectedInitialized) return;
+    setSelected(new Set(calendars.map((c) => c.id)));
+    setSelectedInitialized(true);
+  }, [calendars, selectedInitialized]);
 
   useEffect(() => {
     setPickerYmd(ymd(anchor));
@@ -415,7 +426,9 @@ export default function AdminAgendaPlanningPage() {
 
       <section className="no-print rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Agenda&apos;s in beeld</h2>
-        <p className="mt-1 text-xs text-muted">Vink één of meer agenda&apos;s aan.</p>
+        <p className="mt-1 text-xs text-muted">
+          Standaard staan alle agenda&apos;s aan; vink uit om te verbergen in het rooster.
+        </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {calendars.map((c) => {
             const on = selected.has(c.id);

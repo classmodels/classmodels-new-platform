@@ -141,6 +141,23 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
+/** HH:mm-regels → minuten sinds middernacht; leeg = null. */
+function parseOptionalSlotStartsLines(raw: string | null | undefined): number[] | null {
+  if (!raw?.trim()) return null;
+  const mins: number[] = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) continue;
+    try {
+      mins.push(timeToMinutes(t));
+    } catch {
+      /** ongeldige regel overslaan */
+    }
+  }
+  if (!mins.length) return null;
+  return [...new Set(mins)].sort((a, b) => a - b);
+}
+
 @Injectable()
 export class AgendaService {
   constructor(
@@ -187,6 +204,8 @@ export class AgendaService {
     slotDate: Date,
     cal: {
       durationMinutes: number;
+      slotStepMinutes?: number | null;
+      optionalSlotStarts?: string | null;
       capacity: number;
       defaultDayStartTime: string;
       defaultDayEndTime: string;
@@ -203,6 +222,8 @@ export class AgendaService {
     const startM = timeToMinutes(cal.defaultDayStartTime ?? '08:00:00');
     const endM = timeToMinutes(cal.defaultDayEndTime ?? '18:00:00');
     const dur = cal.durationMinutes;
+    const step = cal.slotStepMinutes ?? dur;
+    const explicitStarts = parseOptionalSlotStartsLines(cal.optionalSlotStarts ?? undefined);
     let breakA: number | null = null;
     let breakB: number | null = null;
     if (cal.breakStart && cal.breakEnd) {
@@ -215,22 +236,39 @@ export class AgendaService {
     }
 
     const rows: { startTime: string; endTime: string }[] = [];
-    let cur = startM;
-    while (cur + dur <= endM) {
-      if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) {
-        cur = breakB;
-        continue;
-      }
+
+    const slotFitsPause = (cur: number): boolean => {
+      if (cur + dur > endM) return false;
+      if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) return false;
+      return true;
+    };
+
+    const pushRow = (cur: number) => {
+      const endMin = cur + dur;
       const sh = Math.floor(cur / 60);
       const sm = cur % 60;
-      const endMin = cur + dur;
       const eh = Math.floor(endMin / 60);
       const em = endMin % 60;
       rows.push({
         startTime: `${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`,
         endTime: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`,
       });
-      cur += dur;
+    };
+
+    if (explicitStarts?.length) {
+      for (const cur of explicitStarts) {
+        if (slotFitsPause(cur)) pushRow(cur);
+      }
+    } else {
+      let cur = startM;
+      while (cur + dur <= endM) {
+        if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) {
+          cur = breakB;
+          continue;
+        }
+        pushRow(cur);
+        cur += step;
+      }
     }
 
     if (rows.length === 0) return;
@@ -252,6 +290,8 @@ export class AgendaService {
     slotDate: Date,
     cal: {
       durationMinutes: number;
+      slotStepMinutes?: number | null;
+      optionalSlotStarts?: string | null;
       capacity: number;
       defaultDayStartTime: string;
       defaultDayEndTime: string;
@@ -411,6 +451,7 @@ export class AgendaService {
         color: cal.color,
         durationMinutes: cal.durationMinutes,
         capacityDefault: cal.capacity,
+        showEndTimeOnPublic: cal.showEndTimeOnPublic,
       },
       slots: out.map((s) => ({
         id: s.id,
@@ -838,6 +879,9 @@ export class AgendaService {
         defaultDayEndTime: dto.defaultDayEndTime ? normTime(dto.defaultDayEndTime) : undefined,
         breakStart: dto.breakStart ? normTime(dto.breakStart) : undefined,
         breakEnd: dto.breakEnd ? normTime(dto.breakEnd) : undefined,
+        slotStepMinutes: dto.slotStepMinutes ?? undefined,
+        optionalSlotStarts: dto.optionalSlotStarts?.trim() ? dto.optionalSlotStarts.trim() : undefined,
+        showEndTimeOnPublic: dto.showEndTimeOnPublic ?? true,
       },
     });
 
@@ -883,6 +927,11 @@ export class AgendaService {
     if (dto.defaultDayEndTime !== undefined) data.defaultDayEndTime = normTime(dto.defaultDayEndTime);
     if (dto.breakStart !== undefined) data.breakStart = dto.breakStart ? normTime(dto.breakStart) : null;
     if (dto.breakEnd !== undefined) data.breakEnd = dto.breakEnd ? normTime(dto.breakEnd) : null;
+    if (dto.slotStepMinutes !== undefined) data.slotStepMinutes = dto.slotStepMinutes;
+    if (dto.optionalSlotStarts !== undefined) {
+      data.optionalSlotStarts = dto.optionalSlotStarts?.trim() ? dto.optionalSlotStarts.trim() : null;
+    }
+    if (dto.showEndTimeOnPublic !== undefined) data.showEndTimeOnPublic = dto.showEndTimeOnPublic;
 
     return this.prisma.agendaCalendar.update({ where: { id }, data });
   }

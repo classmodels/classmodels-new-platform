@@ -59,9 +59,10 @@ export default function AdminAgendaOverviewPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {calendars.map((c) => (
-          <div
+          <Link
             key={c.id}
-            className="rounded-md border border-line bg-white p-4 shadow-sm"
+            href={`/admin/agenda/calendar/${c.id}`}
+            className="block rounded-md border border-line bg-white p-4 shadow-sm transition-colors hover:border-burgundy/40 hover:bg-zinc-50/80"
           >
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -87,15 +88,8 @@ export default function AdminAgendaOverviewPage() {
                 <dd className="font-medium text-ink">{c.bookingsCount}</dd>
               </div>
             </dl>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              <Link href="/admin/agenda/momenten" className="text-burgundy underline underline-offset-2">
-                Momenten
-              </Link>
-              <Link href="/admin/agenda/kalender" className="text-burgundy underline underline-offset-2">
-                Kalender
-              </Link>
-            </div>
-          </div>
+            <p className="mt-3 text-xs font-medium text-burgundy">Configureren →</p>
+          </Link>
         ))}
       </section>
 
