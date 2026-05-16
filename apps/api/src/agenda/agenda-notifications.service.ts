@@ -133,7 +133,7 @@ export class AgendaNotificationService {
       const ok = await this.trySendSmtp(to, subject, html);
       if (ok) emailSent = true;
     }
-    if (!emailSent && ctx.toEmail?.trim()) {
+    if (!emailSent && ctx.toEmail?.trim() && trigger === 'booking_created') {
       await this.sendBookingConfirmation(ctx);
     }
 
@@ -151,7 +151,7 @@ export class AgendaNotificationService {
     }
     if (!smsSent) {
       const msisdn = normalizeBelgiumMsisdn(ctx.phone);
-      if (msisdn && buUser && buPass) {
+      if (msisdn && buUser && buPass && trigger === 'booking_created') {
         const fallback = this.buildSms(ctx);
         await this.trySendBulksms(buUser, buPass, msisdn, fallback);
       } else {
