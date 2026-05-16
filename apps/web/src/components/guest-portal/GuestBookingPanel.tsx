@@ -403,7 +403,7 @@ export function GuestBookingPanel({
           <div className="rounded-cm border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{err}</div>
         ) : null}
         {step === 'slots' ? (
-          <div className="max-h-[min(420px,55vh)] space-y-4 overflow-y-auto pr-1">
+          <div className="max-h-[min(520px,62vh)] space-y-4 overflow-y-auto pr-1">
             {sortedDates.map((ymd) => (
               <div key={ymd}>
                 <p className="text-xs font-semibold capitalize text-ink">
@@ -420,6 +420,10 @@ export function GuestBookingPanel({
                       type="button"
                       className="rounded-full border border-line bg-panel px-3 py-2 text-xs font-medium text-ink transition hover:border-burgundy hover:bg-burgundy/5"
                       onClick={() => {
+                        if (autoBookOnPick) {
+                          void quickBook(s.id);
+                          return;
+                        }
                         setSlotId(s.id);
                         setStep('form');
                         setErr(null);
@@ -469,9 +473,9 @@ export function GuestBookingPanel({
   const slotsBlock =
     step === 'slots' ? (
       <div className="min-h-0 min-w-0 flex-1">
-        <div className="flex max-h-[min(480px,58vh)] flex-col overflow-hidden">
+        <div className="flex min-h-0 max-h-[min(520px,62vh)] flex-1 flex-col">
           {sortedDates.length > DAYS_PER_PAGE ? (
-            <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
               <button
                 type="button"
                 aria-label="Vorige dagen"
@@ -498,7 +502,7 @@ export function GuestBookingPanel({
             </div>
           ) : null}
           <div
-            className="grid flex-1 gap-1.5 overflow-hidden pb-1"
+            className="grid min-h-0 flex-1 gap-1.5 pb-1"
             style={
               visibleDates.length
                 ? { gridTemplateColumns: `repeat(${visibleDates.length}, minmax(0, 1fr))` }
@@ -506,11 +510,11 @@ export function GuestBookingPanel({
             }
           >
             {visibleDates.map((ymd) => (
-              <div key={ymd} className="min-w-0 text-center">
-                <div className="rounded-t-md bg-zinc-900 py-2 text-[11px] font-semibold uppercase tracking-wide text-white">
+              <div key={ymd} className="flex min-h-0 min-w-0 flex-col text-center">
+                <div className="shrink-0 rounded-t-md bg-zinc-900 py-2 text-[11px] font-semibold uppercase tracking-wide text-white">
                   {colHeader(ymd)}
                 </div>
-                <div className="space-y-1.5 rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5">
+                <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5">
                   {(slotsByYmd.get(ymd) ?? []).map((s) => {
                     const sel = slotId === s.id;
                     return (
@@ -527,7 +531,7 @@ export function GuestBookingPanel({
                           setErr(null);
                         }}
                         className={[
-                          'flex w-full min-w-0 items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-left text-xs font-medium transition',
+                          'flex w-full min-w-0 max-w-md items-center gap-2 self-center rounded-md border bg-white px-2 py-1.5 text-left text-xs font-medium transition',
                           sel
                             ? 'border-zinc-900 ring-1 ring-zinc-900'
                             : 'border-zinc-200 hover:border-zinc-400',

@@ -857,23 +857,48 @@ export class AgendaService {
     return { ok: true };
   }
 
+  /**
+   * Telt unieke toekomstige open momenten (zelfde dedupe als publieke slotlijst):
+   * geen verleden op vandaag, geen dubbele rijen met dezelfde dag + startuur.
+   */
+  private async countOpenSlotsFutureDistinct(calendarId: string, now: Date, todayDate: Date): Promise<number> {
+    const rows = await this.prisma.agendaSlot.findMany({
+      where: {
+        calendarId,
+        status: 'open',
+        slotDate: { gte: todayDate },
+      },
+      select: { slotDate: true, startTime: true },
+    });
+    const seen = new Set<string>();
+    for (const r of rows) {
+      let startNorm: string;
+      try {
+        startNorm = normTime(r.startTime);
+      } catch {
+        continue;
+      }
+      const startAt = combineUtc(r.slotDate, startNorm);
+      if (startAt < now) continue;
+      const ymd = r.slotDate.toISOString().slice(0, 10);
+      const key = `${ymd}|${startNorm}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    return seen.size;
+  }
+
   async adminOverview() {
     const calendars = await this.prisma.agendaCalendar.findMany({
       orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
     });
-    const today = new Date();
-    const todayYmd = today.toISOString().slice(0, 10);
+    const now = new Date();
+    const todayYmd = now.toISOString().slice(0, 10);
     const todayDate = parseYmd(todayYmd);
 
     const enriched = await Promise.all(
       calendars.map(async (c) => {
-        const openSlotsFuture = await this.prisma.agendaSlot.count({
-          where: {
-            calendarId: c.id,
-            status: 'open',
-            slotDate: { gte: todayDate },
-          },
-        });
+        const openSlotsFuture = await this.countOpenSlotsFutureDistinct(c.id, now, todayDate);
         const bookingsCount = await this.prisma.agendaBooking.count({
           where: { calendarId: c.id, ...activeBookingFilter },
         });

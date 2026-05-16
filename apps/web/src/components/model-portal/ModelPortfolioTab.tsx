@@ -201,7 +201,7 @@ export function ModelPortfolioTab({
           <GuestBookingPanel
             calendarSlug="portfolio"
             heading="Portfolio"
-            variant="pro"
+            variant="default"
             authToken={token}
             bookUrl="/portal/model/agenda/book-form"
             autoBookOnPick

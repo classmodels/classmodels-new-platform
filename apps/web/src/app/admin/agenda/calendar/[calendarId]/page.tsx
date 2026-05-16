@@ -327,10 +327,10 @@ export default function AdminAgendaCalendarDetailPage() {
       <form
         id={settingsFormId}
         onSubmit={saveSettings}
-        className="space-y-4 rounded-md border border-line bg-white p-4 shadow-sm"
+        className="mx-auto max-w-2xl space-y-4 rounded-md border border-line bg-white p-4 shadow-sm"
       >
         <h3 className="text-sm font-semibold text-ink">Uren &amp; boekingen</h3>
-        <p className="text-xs text-muted">
+        <p className="max-w-xl text-xs text-muted">
           <strong>Duur</strong> = lengte van één afspraak (slot). <strong>Stap</strong> = elke hoeveel minuten een
           nieuwe start (kleiner dan de duur = overlappende blokken). Leeg bij stap = zelfde als duur.
         </p>
@@ -351,20 +351,20 @@ export default function AdminAgendaCalendarDetailPage() {
           </span>
         </label>
         <div className="grid gap-3 text-xs sm:grid-cols-2">
-          <label className="flex flex-col gap-1">
+          <label className="flex flex-col gap-1 sm:col-span-2">
             Titel
-            <input className="rounded border border-line px-2 py-1.5" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input className="max-w-xl rounded border border-line px-2 py-1.5" value={title} onChange={(e) => setTitle(e.target.value)} />
           </label>
-          <label className="flex flex-col gap-1">
+          <label className="flex flex-col gap-1 sm:col-span-2">
             Slug
-            <input className="rounded border border-line px-2 py-1.5" value={slug} onChange={(e) => setSlug(e.target.value)} />
+            <input className="max-w-md rounded border border-line px-2 py-1.5" value={slug} onChange={(e) => setSlug(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1">
             Afspraakduur (min)
             <input
               type="number"
               min={5}
-              className="rounded border border-line px-2 py-1.5"
+              className="max-w-[8rem] rounded border border-line px-2 py-1.5"
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(e.target.value)}
             />
@@ -375,7 +375,7 @@ export default function AdminAgendaCalendarDetailPage() {
               type="number"
               min={5}
               placeholder="zelfde als duur"
-              className="rounded border border-line px-2 py-1.5"
+              className="max-w-[8rem] rounded border border-line px-2 py-1.5"
               value={slotStepMinutes}
               onChange={(e) => setSlotStepMinutes(e.target.value)}
             />
@@ -385,7 +385,7 @@ export default function AdminAgendaCalendarDetailPage() {
             <input
               type="number"
               min={1}
-              className="rounded border border-line px-2 py-1.5"
+              className="max-w-[8rem] rounded border border-line px-2 py-1.5"
               value={capacity}
               onChange={(e) => setCapacity(e.target.value)}
             />
@@ -394,31 +394,59 @@ export default function AdminAgendaCalendarDetailPage() {
             Sorteervolgorde
             <input
               type="number"
-              className="rounded border border-line px-2 py-1.5"
+              className="max-w-[8rem] rounded border border-line px-2 py-1.5"
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
             />
           </label>
           <label className="flex flex-col gap-1">
             Kleur
-            <input type="color" className="h-9 rounded border border-line" value={color} onChange={(e) => setColor(e.target.value)} />
+            <input type="color" className="h-9 w-14 rounded border border-line" value={color} onChange={(e) => setColor(e.target.value)} />
           </label>
-          <label className="flex flex-col gap-1">
-            Standaard van (voor open dagen / autovulling)
-            <input type="time" className="rounded border border-line px-2 py-1.5" value={dayStart} onChange={(e) => setDayStart(e.target.value)} />
-          </label>
-          <label className="flex flex-col gap-1">
-            Standaard tot
-            <input type="time" className="rounded border border-line px-2 py-1.5" value={dayEnd} onChange={(e) => setDayEnd(e.target.value)} />
-          </label>
-          <label className="flex flex-col gap-1">
-            Pauze van
-            <input type="time" className="rounded border border-line px-2 py-1.5" value={breakStart} onChange={(e) => setBreakStart(e.target.value)} />
-          </label>
-          <label className="flex flex-col gap-1">
-            Pauze tot
-            <input type="time" className="rounded border border-line px-2 py-1.5" value={breakEnd} onChange={(e) => setBreakEnd(e.target.value)} />
-          </label>
+        </div>
+
+        <div className="max-w-lg space-y-3 rounded-md border border-line bg-panel/40 p-3 text-xs">
+          <p className="text-[11px] font-semibold text-ink">Standaarduren &amp; pauze (open dagen / autovulling)</p>
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+            <label className="grid gap-0.5">
+              <span className="text-muted">Van</span>
+              <input
+                type="time"
+                className="h-9 w-[7.25rem] rounded border border-line px-2 py-1 font-medium tabular-nums"
+                value={dayStart}
+                onChange={(e) => setDayStart(e.target.value)}
+              />
+            </label>
+            <label className="grid gap-0.5">
+              <span className="text-muted">Tot</span>
+              <input
+                type="time"
+                className="h-9 w-[7.25rem] rounded border border-line px-2 py-1 font-medium tabular-nums"
+                value={dayEnd}
+                onChange={(e) => setDayEnd(e.target.value)}
+              />
+            </label>
+          </div>
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-2 border-t border-line/60 pt-3">
+            <label className="grid gap-0.5">
+              <span className="text-muted">Pauze van</span>
+              <input
+                type="time"
+                className="h-9 w-[7.25rem] rounded border border-line px-2 py-1 font-medium tabular-nums"
+                value={breakStart}
+                onChange={(e) => setBreakStart(e.target.value)}
+              />
+            </label>
+            <label className="grid gap-0.5">
+              <span className="text-muted">Pauze tot</span>
+              <input
+                type="time"
+                className="h-9 w-[7.25rem] rounded border border-line px-2 py-1 font-medium tabular-nums"
+                value={breakEnd}
+                onChange={(e) => setBreakEnd(e.target.value)}
+              />
+            </label>
+          </div>
         </div>
 
         {!restrictOnlyOpen ? (
@@ -469,10 +497,11 @@ export default function AdminAgendaCalendarDetailPage() {
           </span>
         </label>
 
-        <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
-          <label className="flex items-start gap-2 text-xs">
+        <div className="max-w-xl rounded-md border border-zinc-200 bg-zinc-50 p-3">
+          <label className="flex items-start gap-2 text-xs leading-snug">
             <input
               type="checkbox"
+              className="mt-0.5 shrink-0"
               checked={restrictStarts}
               onChange={(e) => {
                 const on = e.target.checked;
@@ -489,14 +518,14 @@ export default function AdminAgendaCalendarDetailPage() {
             </span>
           </label>
           {restrictStarts ? (
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-2.5 flex max-w-lg flex-wrap gap-1">
               {chipStarts.map((m) => (
                 <button
                   key={m}
                   type="button"
                   onClick={() => toggleStartChip(m)}
                   className={[
-                    'rounded px-2 py-1 text-[11px] font-medium',
+                    'min-w-[3.25rem] rounded px-1.5 py-0.5 text-[11px] font-medium tabular-nums',
                     selectedStartsMin.has(m) ? 'bg-burgundy text-white' : 'bg-white text-zinc-600 ring-1 ring-zinc-300',
                   ].join(' ')}
                 >
