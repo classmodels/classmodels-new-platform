@@ -1,6 +1,7 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -17,22 +18,12 @@ type SlotRow = {
   remaining: number;
 };
 
-type ClosedRow = { id: string; closedDate: string; reason: string | null };
-
 export default function AdminAgendaMomentenPage() {
   const { token } = useAuth();
   const [calendars, setCalendars] = useState<Cal[]>([]);
   const [calendarId, setCalendarId] = useState('');
   const [slots, setSlots] = useState<SlotRow[]>([]);
-  const [closed, setClosed] = useState<ClosedRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
-
-  const [slotDate, setSlotDate] = useState('');
-  const [startTime, setStartTime] = useState('10:00');
-  const [endTime, setEndTime] = useState('11:00');
-
-  const [closedDate, setClosedDate] = useState('');
-  const [closedReason, setClosedReason] = useState('');
 
   const loadCals = useCallback(async () => {
     if (!token) return;
@@ -55,50 +46,18 @@ export default function AdminAgendaMomentenPage() {
     setSlots(data.slots);
   }, [token, calendarId]);
 
-  const loadClosed = useCallback(async () => {
-    if (!token || !calendarId) return;
-    const rows = await adminFetch<ClosedRow[]>(
-      `/admin/agenda/closed-days?calendarId=${encodeURIComponent(calendarId)}`,
-      token,
-    );
-    setClosed(rows);
-  }, [token, calendarId]);
-
   useEffect(() => {
     loadCals().catch(() => {});
   }, [loadCals]);
 
   useEffect(() => {
     loadSlots().catch(() => setSlots([]));
-    loadClosed().catch(() => setClosed([]));
-  }, [loadSlots, loadClosed]);
+  }, [loadSlots]);
 
   const calOptions = useMemo(
     () => calendars.map((c) => ({ id: c.id, label: `${c.title} (${c.slug})` })),
     [calendars],
   );
-
-  const addSlot = async (e: FormEvent) => {
-    e.preventDefault();
-    setMsg(null);
-    if (!token || !calendarId || !slotDate) return;
-    try {
-      await adminFetch('/admin/agenda/slots', token, {
-        method: 'POST',
-        body: JSON.stringify({
-          calendarId,
-          slotDate,
-          startTime,
-          endTime,
-        }),
-      });
-      setMsg('Moment toegevoegd.');
-      setSlotDate('');
-      await loadSlots();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Mislukt');
-    }
-  };
 
   const removeSlot = async (id: string) => {
     if (!token) return;
@@ -112,47 +71,19 @@ export default function AdminAgendaMomentenPage() {
     }
   };
 
-  const addClosed = async (e: FormEvent) => {
-    e.preventDefault();
-    setMsg(null);
-    if (!token || !calendarId || !closedDate) return;
-    try {
-      await adminFetch('/admin/agenda/closed-days', token, {
-        method: 'POST',
-        body: JSON.stringify({
-          calendarId,
-          closedDate,
-          reason: closedReason || undefined,
-        }),
-      });
-      setClosedDate('');
-      setClosedReason('');
-      setMsg('Dag gemarkeerd als gesloten.');
-      await loadClosed();
-      await loadSlots();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Mislukt');
-    }
-  };
-
-  const removeClosed = async (id: string) => {
-    if (!token) return;
-    setMsg(null);
-    try {
-      await adminFetch(`/admin/agenda/closed-days/${id}`, token, { method: 'DELETE' });
-      setMsg('Gesloten dag verwijderd.');
-      await loadClosed();
-      await loadSlots();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Mislukt');
-    }
-  };
-
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
 
   return (
     <div className="space-y-8">
       {msg ? <p className="text-xs text-ink">{msg}</p> : null}
+
+      <section className="rounded-md border border-line bg-zinc-50 p-4 text-xs text-muted shadow-sm">
+        <p>
+          Nieuwe momenten komen <strong className="text-ink">alleen</strong> van <strong className="text-ink">Open dagen</strong> plus de
+          standaarduren op de pagina <Link href="/admin/agenda" className="text-burgundy underline">Uren &amp; dagen</Link> per agenda. Hier
+          alleen overzicht en verwijderen (bv. oude testdata).
+        </p>
+      </section>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <label className="text-sm font-semibold text-ink">
@@ -169,84 +100,6 @@ export default function AdminAgendaMomentenPage() {
             ))}
           </select>
         </label>
-      </section>
-
-      <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-ink">Enkel moment</h2>
-        <form onSubmit={addSlot} className="mt-3 flex flex-wrap items-end gap-3 text-sm">
-          <label className="flex flex-col gap-1">
-            Datum
-            <input
-              type="date"
-              className="rounded border border-line px-2 py-1.5"
-              value={slotDate}
-              required
-              onChange={(e) => setSlotDate(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            Van
-            <input
-              type="time"
-              className="rounded border border-line px-2 py-1.5"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            Tot
-            <input
-              type="time"
-              className="rounded border border-line px-2 py-1.5"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="rounded-md bg-burgundy px-4 py-2 text-white hover:bg-burgundyDeep">
-            Toevoegen
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-ink">Gesloten dagen</h2>
-        <form onSubmit={addClosed} className="mt-3 flex flex-wrap items-end gap-3 text-sm">
-          <label className="flex flex-col gap-1">
-            Datum
-            <input
-              type="date"
-              className="rounded border border-line px-2 py-1.5"
-              value={closedDate}
-              required
-              onChange={(e) => setClosedDate(e.target.value)}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            Reden (optioneel)
-            <input
-              className="rounded border border-line px-2 py-1.5"
-              value={closedReason}
-              onChange={(e) => setClosedReason(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="rounded-md border border-zinc-300 px-4 py-2 hover:bg-zinc-50">
-            Dag sluiten
-          </button>
-        </form>
-        <ul className="mt-3 divide-y divide-line text-xs">
-          {closed.map((r) => (
-            <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-              <span>
-                {r.closedDate}
-                {r.reason ? <span className="text-muted"> — {r.reason}</span> : null}
-              </span>
-              <button type="button" className="text-burgundy underline" onClick={() => removeClosed(r.id)}>
-                Verwijderen
-              </button>
-            </li>
-          ))}
-          {!closed.length ? <li className="py-2 text-muted">Geen gesloten dagen.</li> : null}
-        </ul>
       </section>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
