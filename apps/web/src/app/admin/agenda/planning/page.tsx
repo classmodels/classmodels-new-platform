@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -158,6 +159,7 @@ function clusterBookingsSameSlot(bookings: BookingRow[]): BookingRow[][] {
 
 export default function AdminAgendaPlanningPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [calendars, setCalendars] = useState<Cal[]>([]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [selectedInitialized, setSelectedInitialized] = useState(false);
@@ -180,6 +182,12 @@ export default function AdminAgendaPlanningPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailErr, setDetailErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [manual, setManual] = useState<null | { ymd: string; hour: number; minute: number }>(null);
+  const [manualCalId, setManualCalId] = useState('');
+  const [manualName, setManualName] = useState('Handmatig');
+  const [manualEmail, setManualEmail] = useState('');
+  const [manualBusy, setManualBusy] = useState(false);
+  const [manualErr, setManualErr] = useState<string | null>(null);
 
   const weekStart = useMemo(() => startOfWeekMonday(anchor), [anchor]);
 
@@ -423,6 +431,7 @@ export default function AdminAgendaPlanningPage() {
       });
       setDetail(null);
       await loadBookings();
+      router.refresh();
     } catch (e) {
       setDetailErr(e instanceof Error ? e.message : 'Opslaan mislukt');
     } finally {
@@ -432,13 +441,14 @@ export default function AdminAgendaPlanningPage() {
 
   const deleteDetail = async () => {
     if (!token || !detail) return;
-    if (!window.confirm('Deze afspraak annuleren (status geannuleerd)?')) return;
+    if (!window.confirm('Deze boeking definitief verwijderen?')) return;
     setSaving(true);
     setDetailErr(null);
     try {
       await adminFetch(`/admin/agenda/bookings/${detail.id}`, token, { method: 'DELETE' });
       setDetail(null);
       await loadBookings();
+      router.refresh();
     } catch (e) {
       setDetailErr(e instanceof Error ? e.message : 'Verwijderen mislukt');
     } finally {
@@ -447,6 +457,56 @@ export default function AdminAgendaPlanningPage() {
   };
 
   const gridHeightPx = (GRID_END_H - GRID_START_H) * PX_PER_HOUR;
+
+  const openManualSlot = (dayYmd: string, e: MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const pct = Math.max(0, Math.min(1, y / rect.height));
+    const totalGridMin = (GRID_END_H - GRID_START_H) * 60;
+    const minutesFromGridStart = pct * totalGridMin;
+    const snapped = Math.round(minutesFromGridStart / 30) * 30;
+    const absMin = GRID_START_H * 60 + snapped;
+    let H = Math.floor(absMin / 60);
+    let M = absMin % 60;
+    if (H >= GRID_END_H) {
+      H = GRID_END_H - 1;
+      M = 30;
+    }
+    const firstCal = [...selected][0] ?? calendars[0]?.id ?? '';
+    setManualCalId(firstCal);
+    setManualName('Handmatig');
+    setManualEmail('');
+    setManualErr(null);
+    setManual({ ymd: dayYmd, hour: H, minute: M });
+  };
+
+  const submitManual = async () => {
+    if (!token || !manual || !manualCalId) return;
+    setManualBusy(true);
+    setManualErr(null);
+    const hh = pad2(manual.hour);
+    const mm = pad2(manual.minute);
+    try {
+      await adminFetch('/admin/agenda/manual-booking', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          calendarId: manualCalId,
+          slotDate: manual.ymd,
+          startTime: `${hh}:${mm}`,
+          name: manualName.trim() || 'Handmatig',
+          email: manualEmail.trim() || undefined,
+        }),
+      });
+      setManual(null);
+      await loadBookings();
+      router.refresh();
+    } catch (e) {
+      setManualErr(e instanceof Error ? e.message : 'Mislukt');
+    } finally {
+      setManualBusy(false);
+    }
+  };
 
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
 
@@ -769,7 +829,12 @@ export default function AdminAgendaPlanningPage() {
                             <div className="sticky top-0 z-10 border-b border-line bg-white/90 px-1 py-1 text-center text-[10px] font-semibold capitalize">
                               {dfDay.format(d)}
                             </div>
-                            <div className="relative" style={{ height: gridHeightPx }}>
+                            <div
+                              className="relative cursor-crosshair"
+                              style={{ height: gridHeightPx }}
+                              role="presentation"
+                              onClick={(e) => openManualSlot(key, e)}
+                            >
                               {Array.from({ length: (GRID_END_H - GRID_START_H) * 2 }, (_, i) => i).map((i) => (
                                 <div
                                   key={i}
@@ -868,6 +933,80 @@ export default function AdminAgendaPlanningPage() {
             </div>
         </>
       )}
+
+      {manual ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" role="dialog">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between gap-2 border-b border-line pb-3">
+              <h3 className="text-base font-bold text-ink">Handmatige afspraak</h3>
+              <button
+                type="button"
+                className="text-2xl leading-none text-zinc-400 hover:text-ink"
+                onClick={() => setManual(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-muted">
+              {manual.ymd} om {pad2(manual.hour)}:{pad2(manual.minute)} — kies agenda en naam, daarna opslaan.
+            </p>
+            {manualErr ? <p className="mt-2 text-sm text-red-600">{manualErr}</p> : null}
+            <div className="mt-4 space-y-3 text-sm">
+              <label className="block text-xs text-muted">
+                Agenda
+                <select
+                  className="mt-1 w-full rounded border border-line px-2 py-2"
+                  value={manualCalId}
+                  onChange={(e) => setManualCalId(e.target.value)}
+                >
+                  {(calendars.some((c) => selected.has(c.id)) ?
+                    calendars.filter((c) => selected.has(c.id))
+                  : calendars
+                  ).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-xs text-muted">
+                Naam op de planning
+                <input
+                  className="mt-1 w-full rounded border border-line px-2 py-2"
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                />
+              </label>
+              <label className="block text-xs text-muted">
+                E-mail (optioneel — bij invullen wordt bevestigingsmail verstuurd)
+                <input
+                  type="email"
+                  className="mt-1 w-full rounded border border-line px-2 py-2"
+                  value={manualEmail}
+                  onChange={(e) => setManualEmail(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={manualBusy || !manualCalId}
+                className="rounded-md bg-burgundy px-4 py-2 text-sm font-semibold text-white hover:bg-burgundyDeep disabled:opacity-50"
+                onClick={() => void submitManual()}
+              >
+                {manualBusy ? 'Bezig…' : 'Opslaan'}
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-line px-4 py-2 text-sm"
+                onClick={() => setManual(null)}
+              >
+                Annuleren
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {detail || detailLoading ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -27,6 +28,7 @@ type BookingRow = {
 
 export default function AdminAgendaBoekingenPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [calendars, setCalendars] = useState<Cal[]>([]);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [filterSlug, setFilterSlug] = useState('');
@@ -51,6 +53,18 @@ export default function AdminAgendaBoekingenPage() {
   useEffect(() => {
     loadBookings().catch(() => setBookings([]));
   }, [loadBookings]);
+
+  const removeBooking = async (id: string) => {
+    if (!token) return;
+    if (!window.confirm('Deze boeking definitief verwijderen?')) return;
+    try {
+      await adminFetch(`/admin/agenda/bookings/${id}`, token, { method: 'DELETE' });
+      await loadBookings();
+      router.refresh();
+    } catch {
+      /**/
+    }
+  };
 
   const df = useMemo(() => new Intl.DateTimeFormat('nl-BE', { dateStyle: 'medium', timeStyle: 'short' }), []);
 
@@ -82,7 +96,8 @@ export default function AdminAgendaBoekingenPage() {
                 <th className="py-2 pr-3 font-medium">Agenda</th>
                 <th className="py-2 pr-3 font-medium">Naam</th>
                 <th className="py-2 pr-3 font-medium">Contact</th>
-                <th className="py-2 font-medium">Status</th>
+                <th className="py-2 pr-3 font-medium">Status</th>
+                <th className="py-2 font-medium">Actie</th>
               </tr>
             </thead>
             <tbody>
@@ -109,6 +124,15 @@ export default function AdminAgendaBoekingenPage() {
                       {b.phone ? <div>{b.phone}</div> : null}
                     </td>
                     <td className="py-2 align-top">{b.status}</td>
+                    <td className="py-2 align-top">
+                      <button
+                        type="button"
+                        className="rounded border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-medium text-red-800 hover:bg-red-100"
+                        onClick={() => void removeBooking(b.id)}
+                      >
+                        Verwijderen
+                      </button>
+                    </td>
                   </tr>
                 );
               })}

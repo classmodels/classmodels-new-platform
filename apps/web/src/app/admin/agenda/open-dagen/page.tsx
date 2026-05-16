@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -25,6 +26,7 @@ function monthGrid(year: number, month: number) {
 
 export default function AdminAgendaOpenDagenPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [calendars, setCalendars] = useState<Cal[]>([]);
   const [calendarId, setCalendarId] = useState('');
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
@@ -80,6 +82,7 @@ export default function AdminAgendaOpenDagenPage() {
         setMsg(repeatNext ? 'Open gezet (jaarlijks).' : 'Open gezet.');
       }
       await loadOpen();
+      router.refresh();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Mislukt');
     }
@@ -89,7 +92,11 @@ export default function AdminAgendaOpenDagenPage() {
 
   return (
     <div className="space-y-6 print:hidden">
-      {msg ? <p className="text-xs text-ink">{msg}</p> : null}
+      {msg ? (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
+          {msg}
+        </p>
+      ) : null}
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Open dagen per agenda</h2>
@@ -100,7 +107,7 @@ export default function AdminAgendaOpenDagenPage() {
         {selectedCal?.restrictToOpenDays === false ? (
           <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
             Deze agenda staat op automatische weekdagen i.p.v. alleen open dagen. Schakel &quot;alleen open dagen&quot;
-            in bij <strong>Agenda&apos;s → Bewerken</strong> of bij <strong>Uren &amp; dagen</strong> voor de agenda.
+            in bij de agenda-instellingen (menu Agenda&apos;s → bewerken of uren-pagina).
           </p>
         ) : null}
         <label className="mt-3 block text-sm">

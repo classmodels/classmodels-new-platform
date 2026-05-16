@@ -132,7 +132,7 @@ export const messagesFr = {
     reviews: 'Avis',
     testshoot: 'Testshoot',
     sectionAgenda: 'Agenda / rendez-vous',
-    agendaOverview: 'Vue d’ensemble',
+    agendaOverview: 'Agenda',
     agendaCalendar: 'Calendrier',
     agendaBookings: 'Réservations',
     agendaOpenDays: 'Jours ouverts',

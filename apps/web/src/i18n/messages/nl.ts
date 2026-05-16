@@ -132,7 +132,7 @@ export const messagesNl = {
     reviews: 'Reviews',
     testshoot: 'Testshoot',
     sectionAgenda: 'Agenda / afspraken',
-    agendaOverview: 'Overzicht',
+    agendaOverview: 'Agenda',
     agendaCalendar: 'Kalender',
     agendaBookings: 'Boekingen',
     agendaOpenDays: 'Open dagen',

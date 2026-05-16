@@ -428,3 +428,38 @@ export class AdminOpenDaysQueryDto {
   @IsUUID()
   calendarId!: string;
 }
+
+/** Handmatige afspraak in de planning (admin). */
+export class CreateManualBookingDto {
+  @IsUUID()
+  calendarId!: string;
+
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  slotDate!: string;
+
+  /** Startuur HH:mm (lokaal volgens opgeslagen slot-datum). */
+  @IsString()
+  @Matches(/^\d{1,2}:\d{2}$/)
+  startTime!: string;
+
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  firstname?: string;
+
+  @IsOptional()
+  @IsString()
+  lastname?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}

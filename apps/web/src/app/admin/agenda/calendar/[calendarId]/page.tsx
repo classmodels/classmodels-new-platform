@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
@@ -96,6 +95,7 @@ const WEEKDAY_TOGGLE: { dow: number; label: string }[] = [
 
 export default function AdminAgendaCalendarDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const calendarId = typeof params.calendarId === 'string' ? params.calendarId : '';
   const { token } = useAuth();
 
@@ -217,6 +217,7 @@ export default function AdminAgendaCalendarDetailPage() {
       });
       setMsg('Instellingen opgeslagen.');
       await loadCal();
+      router.refresh();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Opslaan mislukt');
     }
@@ -294,9 +295,13 @@ export default function AdminAgendaCalendarDetailPage() {
     return (
       <div className="space-y-3">
         <p className="text-sm text-red-600">{loadErr}</p>
-        <Link href="/admin/agenda" className="text-sm text-burgundy underline">
-          Terug naar overzicht
-        </Link>
+        <button
+          type="button"
+          className="rounded border border-line bg-panel px-3 py-1.5 text-sm text-ink"
+          onClick={() => router.push('/admin/agenda')}
+        >
+          Terug
+        </button>
       </div>
     );
   }
@@ -306,20 +311,16 @@ export default function AdminAgendaCalendarDetailPage() {
     <div className={`relative space-y-8 ${isDirty ? 'pb-24' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <Link href="/admin/agenda" className="text-xs font-medium text-burgundy underline">
-            ← Overzicht
-          </Link>
-          <h2 className="mt-1 text-lg font-semibold text-ink">{cal.title}</h2>
+          <h2 className="text-lg font-semibold text-ink">{cal.title}</h2>
           <p className="text-xs text-muted">{cal.slug}</p>
-          <p className="mt-2 text-xs">
-            <Link href="/admin/agenda/open-dagen" className="font-medium text-burgundy underline">
-              Open dagen
-            </Link>
-          </p>
         </div>
       </div>
 
-      {msg ? <p className="text-xs text-ink">{msg}</p> : null}
+      {msg ? (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
+          {msg}
+        </p>
+      ) : null}
 
       <form
         id={settingsFormId}

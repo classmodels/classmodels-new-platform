@@ -29,6 +29,7 @@ import {
   CreateOpenDayDto,
   UpdateAdminBookingDto,
   UpdateAgendaCalendarDto,
+  CreateManualBookingDto,
 } from './dto/agenda.dto';
 
 @Controller('admin/agenda')
@@ -66,6 +67,18 @@ export class AdminAgendaController {
   @Permissions('admin.agenda.write')
   patchCalendar(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAgendaCalendarDto) {
     return this.agenda.adminUpdateCalendar(id, dto);
+  }
+
+  @Delete('calendars/:id')
+  @Permissions('admin.agenda.write')
+  deleteCalendar(@Param('id', ParseUUIDPipe) id: string) {
+    return this.agenda.adminDeleteCalendar(id);
+  }
+
+  @Post('manual-booking')
+  @Permissions('admin.agenda.write')
+  manualBooking(@Body() dto: CreateManualBookingDto) {
+    return this.agenda.adminManualBooking(dto);
   }
 
   @Get('bookings')

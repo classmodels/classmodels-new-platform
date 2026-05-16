@@ -86,7 +86,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     label: 'Agenda / afspraken',
     icon: 'calendar',
     items: [
-      { href: '/admin/agenda', label: 'Overzicht', permission: 'admin.agenda.read' },
+      { href: '/admin/agenda', label: 'Agenda', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/boekingen', label: 'Boekingen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/open-dagen', label: 'Open dagen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/agendas', label: "Agenda's", permission: 'admin.agenda.read' },
@@ -131,6 +131,7 @@ export function filterNavSections(
 /** Exacte actieve route (subpaden niet op “ouder” laten matchen). */
 export function isAdminNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
+  if (href === '/admin/agenda' && pathname.startsWith('/admin/agenda/calendar/')) return true;
   return false;
 }
 

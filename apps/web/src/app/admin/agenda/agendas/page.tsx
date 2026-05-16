@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -29,12 +29,10 @@ type Cal = {
 
 export default function AdminAgendaCalendarsPage() {
   const { token } = useAuth();
+  const router = useRouter();
   const [rows, setRows] = useState<Cal[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-
-  const [newSlug, setNewSlug] = useState('');
-  const [newTitle, setNewTitle] = useState('');
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -45,27 +43,6 @@ export default function AdminAgendaCalendarsPage() {
   useEffect(() => {
     load().catch(() => setRows([]));
   }, [load]);
-
-  const create = async (e: FormEvent) => {
-    e.preventDefault();
-    setMsg(null);
-    if (!token || !newSlug.trim() || !newTitle.trim()) return;
-    try {
-      await adminFetch('/admin/agenda/calendars', token, {
-        method: 'POST',
-        body: JSON.stringify({
-          slug: newSlug.trim().toLowerCase(),
-          title: newTitle.trim(),
-        }),
-      });
-      setNewSlug('');
-      setNewTitle('');
-      setMsg('Agenda aangemaakt (met standaardformulier).');
-      await load();
-    } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Mislukt');
-    }
-  };
 
   const patch = async (c: Cal, patch: Partial<Cal>) => {
     if (!token) return;
@@ -99,8 +76,24 @@ export default function AdminAgendaCalendarsPage() {
       setEditId(null);
       setMsg('Opgeslagen.');
       await load();
+      router.refresh();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Mislukt');
+    }
+  };
+
+  const deleteCal = async (c: Cal) => {
+    if (!token) return;
+    if (!window.confirm(`Agenda «${c.title}» en alle gekoppelde data definitief verwijderen?`)) return;
+    setMsg(null);
+    try {
+      await adminFetch(`/admin/agenda/calendars/${c.id}`, token, { method: 'DELETE' });
+      setEditId(null);
+      setMsg('Agenda verwijderd.');
+      await load();
+      router.refresh();
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Verwijderen mislukt');
     }
   };
 
@@ -108,40 +101,11 @@ export default function AdminAgendaCalendarsPage() {
 
   return (
     <div className="space-y-8">
-      {msg ? <p className="text-xs text-ink">{msg}</p> : null}
-
-      <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-ink">Nieuwe agenda (categorie)</h2>
-        <p className="mt-1 text-xs text-muted">
-          Slug wordt gebruikt in de URL/API (kleine letters, koppeltekens). Standaard krijgt de agenda hetzelfde
-          contactformulier als de andere categorieën.
+      {msg ? (
+        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
+          {msg}
         </p>
-        <form onSubmit={create} className="mt-3 flex flex-wrap items-end gap-3 text-sm">
-          <label className="flex flex-col gap-1">
-            Slug
-            <input
-              className="rounded border border-line px-2 py-1.5"
-              value={newSlug}
-              onChange={(e) => setNewSlug(e.target.value)}
-              placeholder="bv. workshop"
-              required
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            Titel
-            <input
-              className="min-w-[220px] rounded border border-line px-2 py-1.5"
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Weergavenaam"
-              required
-            />
-          </label>
-          <button type="submit" className="rounded-md bg-burgundy px-4 py-2 text-white hover:bg-burgundyDeep">
-            Aanmaken
-          </button>
-        </form>
-      </section>
+      ) : null}
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Bestaande agenda&apos;s</h2>
@@ -157,22 +121,30 @@ export default function AdminAgendaCalendarsPage() {
                     <span className="ml-2 text-xs text-muted">{c.slug}</span>
                     <span className="ml-2 text-xs text-muted">{c.durationMinutes} min · cap {c.capacity}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Link
-                      href={`/admin/agenda/calendar/${c.id}`}
-                      className="text-xs font-medium text-burgundy underline"
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="rounded border border-line bg-panel px-2 py-1 text-xs font-medium text-ink hover:bg-zinc-100"
+                      onClick={() => router.push(`/admin/agenda/calendar/${c.id}`)}
                     >
-                      Uren &amp; dagen
-                    </Link>
+                      Uren &amp; boekingen
+                    </button>
                     <span className={c.active ? 'text-xs text-emerald-700' : 'text-xs text-zinc-500'}>
                       {c.active ? 'actief' : 'inactief'}
                     </span>
                     <button
                       type="button"
-                      className="text-xs font-medium text-burgundy underline"
+                      className="rounded border border-line bg-panel px-2 py-1 text-xs font-medium text-ink hover:bg-zinc-100"
                       onClick={() => setEditId(c.id)}
                     >
                       Bewerken
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs font-medium text-red-800 hover:bg-red-100"
+                      onClick={() => void deleteCal(c)}
+                    >
+                      Verwijderen
                     </button>
                   </div>
                 </div>
