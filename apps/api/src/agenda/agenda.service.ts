@@ -379,17 +379,16 @@ export class AgendaService {
     });
     const closedSet = new Set(closedRows.map((r) => r.closedDate.toISOString().slice(0, 10)));
 
-    const openRows = cal.restrictToOpenDays
-      ? await this.prisma.agendaOpenDay.findMany({ where: { calendarId: cal.id } })
-      : [];
-    const openDaySet = cal.restrictToOpenDays ? this.openDayYmdSetInRange(from, to, openRows) : null;
-
-    if (cal.restrictToOpenDays && openDaySet) {
+    /** Lazy slot-aanmaak op weekdagen (bit 0=zo … 6=za). 0 = uit. Geen filter meer op AgendaOpenDay. */
+    const mask = cal.weekdayOpenMask ?? 62;
+    if (mask !== 0) {
       let cursor = new Date(from);
       const end = new Date(to);
       while (cursor.getTime() <= end.getTime()) {
         const ymd = cursor.toISOString().slice(0, 10);
-        if (openDaySet.has(ymd) && !closedSet.has(ymd)) {
+        const dow = cursor.getUTCDay();
+        const bit = 1 << dow;
+        if ((mask & bit) !== 0 && !closedSet.has(ymd)) {
           const dateOnly = parseYmd(ymd);
           if (cal.slug === 'opleiding') {
             await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
@@ -423,7 +422,6 @@ export class AgendaService {
     for (const s of rows) {
       const ymd = s.slotDate.toISOString().slice(0, 10);
       if (closedSet.has(ymd)) continue;
-      if (openDaySet && !openDaySet.has(ymd)) continue;
 
       const startAt = combineUtc(s.slotDate, normTime(s.startTime));
       if (startAt < now) continue;
@@ -478,16 +476,6 @@ export class AgendaService {
       where: { calendarId_closedDate: { calendarId: cal.id, closedDate: slot.slotDate } },
     });
     if (closed) throw new BadRequestException('Deze dag is niet beschikbaar.');
-
-    if (cal.restrictToOpenDays) {
-      const openRows = await this.prisma.agendaOpenDay.findMany({ where: { calendarId: cal.id } });
-      const ymd = slot.slotDate.toISOString().slice(0, 10);
-      const dayStart = parseYmd(ymd);
-      const set = this.openDayYmdSetInRange(dayStart, dayStart, openRows);
-      if (!set.has(ymd)) {
-        throw new BadRequestException('Deze dag is niet geopend voor boekingen.');
-      }
-    }
 
     const myActiveBookings = userId
       ? await this.prisma.agendaBooking.findMany({
@@ -882,6 +870,7 @@ export class AgendaService {
         slotStepMinutes: dto.slotStepMinutes ?? undefined,
         optionalSlotStarts: dto.optionalSlotStarts?.trim() ? dto.optionalSlotStarts.trim() : undefined,
         showEndTimeOnPublic: dto.showEndTimeOnPublic ?? true,
+        weekdayOpenMask: dto.weekdayOpenMask ?? 62,
       },
     });
 
@@ -932,6 +921,7 @@ export class AgendaService {
       data.optionalSlotStarts = dto.optionalSlotStarts?.trim() ? dto.optionalSlotStarts.trim() : null;
     }
     if (dto.showEndTimeOnPublic !== undefined) data.showEndTimeOnPublic = dto.showEndTimeOnPublic;
+    if (dto.weekdayOpenMask !== undefined) data.weekdayOpenMask = dto.weekdayOpenMask;
 
     return this.prisma.agendaCalendar.update({ where: { id }, data });
   }

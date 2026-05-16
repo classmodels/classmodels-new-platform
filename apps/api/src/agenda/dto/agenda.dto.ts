@@ -171,6 +171,14 @@ export class CreateAgendaCalendarDto {
   @Type(() => Boolean)
   @IsBoolean()
   showEndTimeOnPublic?: boolean;
+
+  /** Bit 0=zo … 6=za; 0 = geen auto-sloten. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(127)
+  weekdayOpenMask?: number;
 }
 
 export class UpdateAgendaCalendarDto {
@@ -260,6 +268,13 @@ export class UpdateAgendaCalendarDto {
   @Type(() => Boolean)
   @IsBoolean()
   showEndTimeOnPublic?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(127)
+  weekdayOpenMask?: number;
 }
 
 export class AdminSlotsQueryDto {

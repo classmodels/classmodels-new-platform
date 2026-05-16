@@ -496,6 +496,8 @@ model AgendaCalendar {
   optionalSlotStarts  String?        @db.Text
   /// Gastenkalender: einduur tonen (bv. casting uit).
   showEndTimeOnPublic Boolean        @default(true)
+  /// Bit 0=zo … 6=za: op welke weekdagen ontbrekende sloten automatisch worden aangemaakt (lazy). 0 = uit.
+  weekdayOpenMask Int              @default(62)
   sortOrder       Int              @default(100)
   slots           AgendaSlot[]
   fields          AgendaField[]

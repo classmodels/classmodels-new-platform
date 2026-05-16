@@ -64,10 +64,7 @@ const MODEL_FIELDS: FieldSeed[] = [
   ['foto', 'Foto', 'file', false, '2', 'Upload een foto', 'above', 60, ''],
 ];
 
-/** Gast-agenda’s: alleen dagen uit “open dagen” + automatische slotgeneratie. */
-const AGENDA_RESTRICT_OPEN_DAYS = new Set(['opleiding', 'intake-gesprek', 'casting', 'gratis-fotoshoot']);
-
-/** Agenda Pro-equivalent — zelfde slugs/colors als WP-plugin defaults. Geen demo-sloten meer: open dagen + API genereren momenten. */
+/** Agenda Pro-equivalent — zelfde slugs/colors als WP-plugin defaults. Geen demo-sloten: sloten komen van weekdagen + API. */
 async function seedAgenda(p: PrismaClient) {
   const defs: {
     slug: string;
@@ -130,7 +127,6 @@ async function seedAgenda(p: PrismaClient) {
   ];
 
   for (const d of defs) {
-    const restrict = AGENDA_RESTRICT_OPEN_DAYS.has(d.slug);
     const dayStart = d.defaultDayStartTime ?? '08:00:00';
     const dayEnd = d.defaultDayEndTime ?? '18:00:00';
     const cal = await p.agendaCalendar.upsert({
@@ -143,7 +139,8 @@ async function seedAgenda(p: PrismaClient) {
         sortOrder: d.sortOrder,
         active: true,
         publicBooking: true,
-        restrictToOpenDays: restrict,
+        restrictToOpenDays: false,
+        weekdayOpenMask: 62,
         defaultDayStartTime: dayStart,
         defaultDayEndTime: dayEnd,
       },
@@ -157,7 +154,8 @@ async function seedAgenda(p: PrismaClient) {
         active: true,
         publicBooking: true,
         sortOrder: d.sortOrder,
-        restrictToOpenDays: restrict,
+        restrictToOpenDays: false,
+        weekdayOpenMask: 62,
         defaultDayStartTime: dayStart,
         defaultDayEndTime: dayEnd,
       },

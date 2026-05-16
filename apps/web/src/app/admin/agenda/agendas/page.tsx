@@ -24,6 +24,7 @@ type Cal = {
   slotStepMinutes?: number | null;
   optionalSlotStarts?: string | null;
   showEndTimeOnPublic?: boolean;
+  weekdayOpenMask?: number;
 };
 
 export default function AdminAgendaCalendarsPage() {
@@ -77,7 +78,8 @@ export default function AdminAgendaCalendarsPage() {
           slug: patch.slug ?? c.slug,
           active: patch.active ?? c.active,
           publicBooking: patch.publicBooking ?? c.publicBooking,
-          restrictToOpenDays: patch.restrictToOpenDays ?? c.restrictToOpenDays,
+          restrictToOpenDays: false,
+          weekdayOpenMask: patch.weekdayOpenMask !== undefined ? patch.weekdayOpenMask : (c.weekdayOpenMask ?? 62),
           durationMinutes: patch.durationMinutes ?? c.durationMinutes,
           capacity: patch.capacity ?? c.capacity,
           sortOrder: patch.sortOrder ?? c.sortOrder,
@@ -152,9 +154,6 @@ export default function AdminAgendaCalendarsPage() {
                     <span className="font-medium text-ink">{c.title}</span>
                     <span className="ml-2 text-xs text-muted">{c.slug}</span>
                     <span className="ml-2 text-xs text-muted">{c.durationMinutes} min · cap {c.capacity}</span>
-                    {c.restrictToOpenDays ? (
-                      <span className="ml-2 text-xs font-medium text-amber-700">alleen oranje dagen</span>
-                    ) : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <Link
@@ -203,7 +202,7 @@ function EditRow({
   const [slug, setSlug] = useState(cal.slug);
   const [active, setActive] = useState(cal.active);
   const [publicBooking, setPublicBooking] = useState(cal.publicBooking);
-  const [restrictToOpenDays, setRestrictToOpenDays] = useState(cal.restrictToOpenDays ?? false);
+  const [weekdayMask, setWeekdayMask] = useState(typeof cal.weekdayOpenMask === 'number' ? cal.weekdayOpenMask : 62);
   const [durationMinutes, setDurationMinutes] = useState(String(cal.durationMinutes));
   const [capacity, setCapacity] = useState(String(cal.capacity));
   const [sortOrder, setSortOrder] = useState(String(cal.sortOrder));
@@ -281,23 +280,38 @@ function EditRow({
         <input type="checkbox" checked={showEndTime} onChange={(e) => setShowEndTime(e.target.checked)} />
         Einduur tonen aan gasten
       </label>
-      <label className="flex items-start gap-2 sm:col-span-2">
-        <input
-          type="checkbox"
-          checked={restrictToOpenDays}
-          onChange={(e) => setRestrictToOpenDays(e.target.checked)}
-        />
-        <span>
-          Alleen <strong>open dagen</strong> (oranje in backoffice) tonen aan gasten. Zonder open dagen zijn er geen
-          boekbare momenten, ook al bestaan er sloten.
-        </span>
-      </label>
+      <p className="col-span-full text-[11px] font-medium text-ink">Auto-sloten op weekdagen (zoals op de agenda-pagina)</p>
+      <div className="col-span-full flex flex-wrap gap-1">
+        {[
+          { dow: 1, label: 'Ma' },
+          { dow: 2, label: 'Di' },
+          { dow: 3, label: 'Wo' },
+          { dow: 4, label: 'Do' },
+          { dow: 5, label: 'Vr' },
+          { dow: 6, label: 'Za' },
+          { dow: 0, label: 'Zo' },
+        ].map(({ dow, label }) => {
+          const on = (weekdayMask & (1 << dow)) !== 0;
+          return (
+            <button
+              key={dow}
+              type="button"
+              onClick={() => setWeekdayMask((m) => m ^ (1 << dow))}
+              className={[
+                'rounded border px-2 py-1 text-[11px] font-medium',
+                on ? 'border-burgundy bg-burgundy text-white' : 'border-line bg-white text-muted',
+              ].join(' ')}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
       <p className="col-span-full text-[11px] text-muted">
-        Bij het toevoegen van een open dag worden automatisch sloten gegenereerd volgens dit venster en de pauze (leeg =
-        geen pauze).
+        Standaard van/tot en pauze hieronder gelden voor automatisch aangemaakte sloten op de aangevinkte dagen.
       </p>
       <label className="flex flex-col gap-1">
-        Dag start (open-dag sloten)
+        Standaard van
         <input type="time" className="rounded border border-line px-2 py-1" value={dayStart} onChange={(e) => setDayStart(e.target.value)} />
       </label>
       <label className="flex flex-col gap-1">
@@ -322,7 +336,8 @@ function EditRow({
               slug,
               active,
               publicBooking,
-              restrictToOpenDays,
+              restrictToOpenDays: false,
+              weekdayOpenMask: weekdayMask,
               showEndTimeOnPublic: showEndTime,
               durationMinutes: parseInt(durationMinutes, 10),
               slotStepMinutes: slotStep.trim() ? parseInt(slotStep, 10) : null,

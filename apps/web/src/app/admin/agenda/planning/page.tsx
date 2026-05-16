@@ -64,6 +64,12 @@ function addDays(d: Date, n: number): Date {
   return x;
 }
 
+function addMonths(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setMonth(x.getMonth() + n);
+  return x;
+}
+
 function ymd(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -73,6 +79,31 @@ function ymd(d: Date): string {
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
+}
+
+type ListPresetId = 'day' | 'week' | 'month' | 'year' | 'all';
+
+function listRangeForPreset(preset: ListPresetId, refYmd: string): { from: string; to: string } {
+  if (preset === 'all') return { from: '2000-01-01', to: '2100-12-31' };
+  const [y, mo, d] = refYmd.split('-').map((x) => parseInt(x, 10));
+  if (!y || !mo || !d) return { from: refYmd, to: refYmd };
+  const ref = new Date(y, mo - 1, d);
+  if (preset === 'day') {
+    const x = ymd(ref);
+    return { from: x, to: x };
+  }
+  if (preset === 'week') {
+    const ws = startOfWeekMonday(ref);
+    return { from: ymd(ws), to: ymd(addDays(ws, 6)) };
+  }
+  if (preset === 'month') {
+    const yr = ref.getFullYear();
+    const m = ref.getMonth() + 1;
+    const last = new Date(yr, m, 0).getDate();
+    return { from: `${yr}-${pad2(m)}-01`, to: `${yr}-${pad2(m)}-${pad2(last)}` };
+  }
+  const yr = ref.getFullYear();
+  return { from: `${yr}-01-01`, to: `${yr}-12-31` };
 }
 
 function bookingLabel(status: string): string {
@@ -134,7 +165,7 @@ export default function AdminAgendaPlanningPage() {
   const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('week');
   const [rows, setRows] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [openYmd, setOpenYmd] = useState<Set<string>>(() => new Set());
+  const [listPreset, setListPreset] = useState<ListPresetId>('week');
   const [listFrom, setListFrom] = useState(() => ymd(startOfWeekMonday(new Date())));
   const [listTo, setListTo] = useState(() => ymd(addDays(startOfWeekMonday(new Date()), 6)));
   const [statusSel, setStatusSel] = useState<Set<string>>(
@@ -227,29 +258,6 @@ export default function AdminAgendaPlanningPage() {
     loadBookings().catch(() => setRows([]));
   }, [loadBookings]);
 
-  useEffect(() => {
-    if (!token || selected.size === 0) {
-      setOpenYmd(new Set());
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const set = new Set<string>();
-      for (const id of selected) {
-        try {
-          const list = await adminFetch<{ openDate: string }[]>(`/admin/agenda/open-days?calendarId=${id}`, token);
-          for (const o of list) set.add(o.openDate);
-        } catch {
-          /**/
-        }
-      }
-      if (!cancelled) setOpenYmd(set);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [token, selected]);
-
   const toggleCal = (id: string) => {
     setSelected((prev) => {
       const n = new Set(prev);
@@ -314,19 +322,45 @@ export default function AdminAgendaPlanningPage() {
     if (!y || !m || !d) return;
     setAnchor(new Date(y, m - 1, d));
     if (view === 'list') {
-      const ws = startOfWeekMonday(new Date(y, m - 1, d));
-      setListFrom(ymd(ws));
-      setListTo(ymd(addDays(ws, 6)));
+      const r = listRangeForPreset(listPreset, pickerYmd);
+      setListFrom(r.from);
+      setListTo(r.to);
+      return;
     }
+    const ws = startOfWeekMonday(new Date(y, m - 1, d));
+    setListFrom(ymd(ws));
+    setListTo(ymd(addDays(ws, 6)));
   };
 
   const goToday = () => {
     const t = new Date();
     setAnchor(t);
-    setPickerYmd(ymd(t));
-    const ws = startOfWeekMonday(t);
-    setListFrom(ymd(ws));
-    setListTo(ymd(addDays(ws, 6)));
+    const py = ymd(t);
+    setPickerYmd(py);
+    if (view === 'list') {
+      const r = listRangeForPreset(listPreset, py);
+      setListFrom(r.from);
+      setListTo(r.to);
+    } else {
+      const ws = startOfWeekMonday(t);
+      setListFrom(ymd(ws));
+      setListTo(ymd(addDays(ws, 6)));
+    }
+  };
+
+  const listNavShift = (dir: -1 | 1) => {
+    if (listPreset === 'all') return;
+    const [y, m, d] = pickerYmd.split('-').map((x) => parseInt(x, 10));
+    let ref = new Date(y, m - 1, d);
+    if (listPreset === 'day') ref = addDays(ref, dir);
+    else if (listPreset === 'week') ref = addDays(ref, dir * 7);
+    else if (listPreset === 'month') ref = addMonths(ref, dir);
+    else ref = new Date(y + dir, m - 1, d);
+    const nextYmd = ymd(ref);
+    setPickerYmd(nextYmd);
+    const r = listRangeForPreset(listPreset, nextYmd);
+    setListFrom(r.from);
+    setListTo(r.to);
   };
 
   const mailBodyLines = useMemo(() => {
@@ -460,7 +494,13 @@ export default function AdminAgendaPlanningPage() {
                 type="button"
                 className="rounded border border-line px-2 py-1 text-xs"
                 onClick={() => {
-                  setAnchor((a) => addDays(a, view === 'day' ? -1 : -7));
+                  if (view === 'list') listNavShift(-1);
+                  else
+                    setAnchor((a) => {
+                      if (view === 'day') return addDays(a, -1);
+                      if (view === 'month') return addMonths(a, -1);
+                      return addDays(a, -7);
+                    });
                 }}
               >
                 ‹
@@ -478,7 +518,13 @@ export default function AdminAgendaPlanningPage() {
                 type="button"
                 className="rounded border border-line px-2 py-1 text-xs"
                 onClick={() => {
-                  setAnchor((a) => addDays(a, view === 'day' ? 1 : 7));
+                  if (view === 'list') listNavShift(1);
+                  else
+                    setAnchor((a) => {
+                      if (view === 'day') return addDays(a, 1);
+                      if (view === 'month') return addMonths(a, 1);
+                      return addDays(a, 7);
+                    });
                 }}
               >
                 ›
@@ -490,7 +536,14 @@ export default function AdminAgendaPlanningPage() {
                     key={v}
                     type="button"
                     className={`rounded px-2 py-1 text-xs capitalize ${view === v ? 'bg-zinc-200 font-semibold' : 'border border-line'}`}
-                    onClick={() => setView(v)}
+                    onClick={() => {
+                      setView(v);
+                      if (v === 'list') {
+                        const r = listRangeForPreset(listPreset, pickerYmd);
+                        setListFrom(r.from);
+                        setListTo(r.to);
+                      }
+                    }}
                   >
                     {v === 'month' ? 'Maand' : v === 'week' ? 'Week' : v === 'day' ? 'Dag' : 'Lijst'}
                   </button>
@@ -506,142 +559,124 @@ export default function AdminAgendaPlanningPage() {
             </div>
 
             {view === 'list' ? (
-              <div className="flex flex-wrap items-end gap-3 border-t border-line pt-3">
-                <label className="text-[11px] text-muted">
-                  Van
-                  <input
-                    type="date"
-                    className="ml-1 rounded border border-line px-2 py-1 text-xs text-ink"
-                    value={listFrom}
-                    onChange={(e) => setListFrom(e.target.value)}
-                  />
-                </label>
-                <label className="text-[11px] text-muted">
-                  Tot
-                  <input
-                    type="date"
-                    className="ml-1 rounded border border-line px-2 py-1 text-xs text-ink"
-                    value={listTo}
-                    onChange={(e) => setListTo(e.target.value)}
-                  />
-                </label>
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded border border-line bg-panel px-2 py-0.5 text-[11px] font-medium text-ink"
-                      onClick={() => setStatusSel(new Set(STATUS_OPTS.map((o) => o.v)))}
-                    >
-                      Alle statussen tonen
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded border border-line bg-panel px-2 py-0.5 text-[11px] font-medium text-ink"
-                      onClick={() =>
-                        setStatusSel(new Set(['pending', 'confirmed', 'acknowledged', 'attended']))
-                      }
-                    >
-                      Alleen actieve
-                    </button>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {STATUS_OPTS.map((o) => (
-                      <label key={o.v} className="flex items-center gap-1 text-[11px] text-ink">
-                        <input
-                          type="checkbox"
-                          checked={statusSel.has(o.v)}
-                          onChange={() => toggleStatus(o.v)}
-                        />
-                        {o.label}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-2 border-t border-line pt-3">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded border border-line bg-panel px-2 py-0.5 text-[11px] font-medium text-ink"
-                    onClick={() => setStatusSel(new Set(STATUS_OPTS.map((o) => o.v)))}
-                  >
-                    Alle statussen tonen
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded border border-line bg-panel px-2 py-0.5 text-[11px] font-medium text-ink"
-                    onClick={() =>
-                      setStatusSel(new Set(['pending', 'confirmed', 'acknowledged', 'attended']))
-                    }
-                  >
-                    Alleen actieve
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {STATUS_OPTS.map((o) => (
-                    <label key={o.v} className="flex items-center gap-1 text-[11px] text-ink">
-                      <input type="checkbox" checked={statusSel.has(o.v)} onChange={() => toggleStatus(o.v)} />
-                      {o.label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {view === 'list' ? (
-              <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
-                <label className="text-[11px] text-muted">
-                  Mail lijst naar
-                  <input
-                    type="email"
-                    className="ml-1 w-48 rounded border border-line px-2 py-1 text-xs"
-                    placeholder="e-mailadres"
-                    value={mailTo}
-                    onChange={(e) => setMailTo(e.target.value)}
-                  />
-                </label>
+              <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                <span className="text-[11px] font-medium text-muted">Lijst — periode</span>
                 {(
                   [
-                    ['afspraak', 'Afspraak'],
-                    ['naam', 'Naam'],
-                    ['voornaam', 'Voornaam'],
-                    ['email', 'E-mail'],
-                    ['phone', 'Telefoon/GSM'],
-                    ['leeftijd', 'Leeftijd'],
+                    { id: 'day' as const, label: 'Deze dag' },
+                    { id: 'week' as const, label: 'Week' },
+                    { id: 'month' as const, label: 'Maand' },
+                    { id: 'year' as const, label: 'Jaar' },
+                    { id: 'all' as const, label: 'Alles' },
                   ] as const
-                ).map(([k, lab]) => (
-                  <label key={k} className="flex items-center gap-1 text-[11px]">
-                    <input
-                      type="checkbox"
-                      checked={mailCols.has(k)}
-                      onChange={() =>
-                        setMailCols((prev) => {
-                          const n = new Set(prev);
-                          if (n.has(k)) n.delete(k);
-                          else n.add(k);
-                          return n;
-                        })
-                      }
-                    />
-                    {lab}
-                  </label>
+                ).map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={[
+                      'rounded px-2 py-1 text-[11px] font-medium',
+                      listPreset === o.id ? 'bg-zinc-200 text-ink' : 'border border-line bg-white text-ink hover:bg-panel',
+                    ].join(' ')}
+                    onClick={() => {
+                      setListPreset(o.id);
+                      const r = listRangeForPreset(o.id, pickerYmd);
+                      setListFrom(r.from);
+                      setListTo(r.to);
+                    }}
+                  >
+                    {o.label}
+                  </button>
                 ))}
-                <button
-                  type="button"
-                  className="ml-auto rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white"
-                  onClick={mailList}
-                >
-                  Mail geselecteerde lijst
-                </button>
+                <span className="text-[10px] text-muted">Datum hierboven = referentie voor dag/week/maand/jaar.</span>
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-2 border-t border-line pt-3">
-              <button type="button" className="rounded border border-line px-2 py-1 text-xs" onClick={print}>
-                Afdrukken
-              </button>
+            <div className="flex flex-col gap-2 border-t border-line pt-3">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded border border-line bg-panel px-2 py-0.5 text-[11px] font-medium text-ink"
+                  onClick={() => setStatusSel(new Set(STATUS_OPTS.map((x) => x.v)))}
+                >
+                  Alle statussen tonen
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-line bg-panel px-2 py-0.5 text-[11px] font-medium text-ink"
+                  onClick={() =>
+                    setStatusSel(new Set(['pending', 'confirmed', 'acknowledged', 'attended']))
+                  }
+                >
+                  Alleen actieve
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {STATUS_OPTS.map((o) => (
+                  <label key={o.v} className="flex items-center gap-1 text-[11px] text-ink">
+                    <input type="checkbox" checked={statusSel.has(o.v)} onChange={() => toggleStatus(o.v)} />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
             </div>
+
+            <details className="no-print border-t border-line pt-3">
+              <summary className="cursor-pointer text-xs font-medium text-burgundy underline underline-offset-2">
+                Acties — mail &amp; afdrukken
+              </summary>
+              <div className="mt-3 flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-[11px] text-muted">
+                    Mail lijst naar
+                    <input
+                      type="email"
+                      className="ml-1 w-48 rounded border border-line px-2 py-1 text-xs"
+                      placeholder="e-mailadres"
+                      value={mailTo}
+                      onChange={(e) => setMailTo(e.target.value)}
+                    />
+                  </label>
+                  {(
+                    [
+                      ['afspraak', 'Afspraak'],
+                      ['naam', 'Naam'],
+                      ['voornaam', 'Voornaam'],
+                      ['email', 'E-mail'],
+                      ['phone', 'Telefoon/GSM'],
+                      ['leeftijd', 'Leeftijd'],
+                    ] as const
+                  ).map(([k, lab]) => (
+                    <label key={k} className="flex items-center gap-1 text-[11px]">
+                      <input
+                        type="checkbox"
+                        checked={mailCols.has(k)}
+                        onChange={() =>
+                          setMailCols((prev) => {
+                            const n = new Set(prev);
+                            if (n.has(k)) n.delete(k);
+                            else n.add(k);
+                            return n;
+                          })
+                        }
+                      />
+                      {lab}
+                    </label>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white"
+                    onClick={mailList}
+                  >
+                    Mail geselecteerde lijst
+                  </button>
+                  <button type="button" className="rounded border border-line px-3 py-1.5 text-xs" onClick={print}>
+                    Afdrukken
+                  </button>
+                </div>
+              </div>
+            </details>
           </section>
 
           {loading ? <p className="text-xs text-muted">Laden…</p> : null}
@@ -652,42 +687,7 @@ export default function AdminAgendaPlanningPage() {
             </p>
           ) : null}
 
-          <div className="flex gap-3">
-            <aside className="no-print hidden w-[200px] shrink-0 rounded-md border border-line bg-white p-2 shadow-sm md:block">
-              <p className="mb-2 text-[10px] font-semibold uppercase text-muted">Open dagen</p>
-              <div className="grid grid-cols-7 gap-0.5 text-[9px] text-muted">
-                {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'].map((d) => (
-                  <span key={d} className="text-center">
-                    {d}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-1 space-y-1">
-                {monthMatrix.map((week, wi) => (
-                  <div key={wi} className="grid grid-cols-7 gap-0.5">
-                    {week.map((cell, ci) =>
-                      cell ? (
-                        <div
-                          key={ci}
-                          className={[
-                            'flex h-6 items-center justify-center rounded text-[10px]',
-                            cell.inMonth ? 'text-ink' : 'text-zinc-300',
-                            openYmd.has(cell.ymd) ? 'bg-emerald-200 font-semibold' : 'bg-zinc-50',
-                            ymd(anchor) === cell.ymd ? 'ring-1 ring-zinc-900' : '',
-                          ].join(' ')}
-                        >
-                          {parseInt(cell.ymd.slice(8), 10)}
-                        </div>
-                      ) : (
-                        <div key={ci} />
-                      ),
-                    )}
-                  </div>
-                ))}
-              </div>
-            </aside>
-
-            <div className="min-w-0 flex-1 space-y-4">
+          <div className="min-w-0 space-y-4">
               {view === 'month' ? (
                 <div className="overflow-x-auto rounded-md border border-line bg-white shadow-sm">
                   <div className="grid grid-cols-7 border-b border-line bg-panel text-center text-[11px] font-semibold">
@@ -866,7 +866,6 @@ export default function AdminAgendaPlanningPage() {
                 </div>
               ) : null}
             </div>
-          </div>
         </>
       )}
 
