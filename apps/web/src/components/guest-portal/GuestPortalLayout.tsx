@@ -179,6 +179,7 @@ function IntakeStepNumber({ n }: { n: number }) {
 }
 
 type ContentCardProps = {
+  cardIndex: number;
   kicker: string;
   title: string;
   bullets: readonly string[];
@@ -197,22 +198,32 @@ function TrustBarIcon({ kind }: { kind: (typeof MODEL_WORDEN_TRUST_BAR)[number][
 
 /** Drie kolommen — compactere typografie zodat de kolommen minder hoog worden. */
 function ModelWordenColumnCard({
+  cardIndex,
   kicker,
   title,
   bullets,
   cta,
   onCta,
 }: ContentCardProps) {
+  const p = `portal.guest.modelworden.card.${cardIndex}`;
   return (
     <article className="flex h-full flex-col rounded-cm border border-line bg-white px-3 py-4 shadow-sm md:px-4 md:py-4">
-      <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-ink md:text-[10px]">{kicker}</p>
-      <h3 className="mt-1.5 font-serif text-base font-semibold leading-snug text-ink md:text-[1.05rem]">
-        {title}
-      </h3>
+      <CmText
+        contentKey={`${p}.kicker`}
+        as="p"
+        className="text-[9px] font-bold uppercase tracking-[0.16em] text-ink md:text-[10px]"
+        fallback={kicker}
+      />
+      <CmText
+        contentKey={`${p}.title`}
+        as="h3"
+        className="mt-1.5 font-serif text-base font-semibold leading-snug text-ink md:text-[1.05rem]"
+        fallback={title}
+      />
       <ul className="mt-3 min-h-0 flex-1 list-outside list-disc space-y-1.5 pl-4 text-xs leading-snug text-ink/80 marker:text-muted md:pl-[1.1rem]">
-        {bullets.map((b) => (
-          <li key={b} className="pl-0.5">
-            {b}
+        {bullets.map((b, bi) => (
+          <li key={bi} className="pl-0.5">
+            <CmText contentKey={`${p}.bullet.${bi}`} as="span" fallback={b} />
           </li>
         ))}
       </ul>
@@ -221,7 +232,7 @@ function ModelWordenColumnCard({
         onClick={onCta}
         className="mt-6 w-full shrink-0 rounded-cm bg-ink py-2 text-center text-xs font-semibold text-white hover:bg-ink/90 md:mt-7 md:text-[13px]"
       >
-        {cta}
+        <CmText contentKey={`${p}.cta`} as="span" fallback={cta} />
       </button>
     </article>
   );
@@ -288,21 +299,21 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
               onClick={() => onNav('gratis-fotoshoot')}
               className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
             >
-              Gratis fotoshoot
+              <CmText contentKey="portal.guest.hero.btn.gratis" as="span" fallback="Gratis fotoshoot" />
             </button>
             <button
               type="button"
               onClick={() => onNav('casting')}
               className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
             >
-              Casting
+              <CmText contentKey="portal.guest.hero.btn.casting" as="span" fallback="Casting" />
             </button>
             <button
               type="button"
               onClick={() => onNav('intake-gesprek')}
               className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
             >
-              Intakegesprek
+              <CmText contentKey="portal.guest.hero.btn.intake" as="span" fallback="Intakegesprek" />
             </button>
           </div>
           <GuestSignatureTagline variant="light" className="mt-6 max-w-md" />
@@ -346,8 +357,18 @@ function ModelWordenTrustBarStrip() {
             <div className="flex min-w-[8.75rem] flex-1 items-center justify-center gap-2 px-2 py-2 sm:min-w-0 sm:px-2.5 md:gap-2.5 md:px-3">
               <TrustBarIcon kind={row.icon} />
               <div className="min-w-0 text-left font-serif text-[10px] font-bold leading-[1.18] text-ink md:text-[11px]">
-                <span className="block">{row.line1}</span>
-                <span className="block">{row.line2}</span>
+                <CmText
+                  contentKey={`portal.guest.trust.${i}.line1`}
+                  as="span"
+                  className="block"
+                  fallback={row.line1}
+                />
+                <CmText
+                  contentKey={`portal.guest.trust.${i}.line2`}
+                  as="span"
+                  className="block"
+                  fallback={row.line2}
+                />
               </div>
             </div>
           </Fragment>
@@ -373,12 +394,20 @@ function GuestPortalCtaHeading() {
   return (
     <div className="min-w-0 border-l-4 border-burgundy pl-3 md:pl-4">
       <h3 className="font-serif text-xl font-semibold leading-[1.12] text-ink md:text-2xl lg:text-[1.7rem] lg:leading-[1.1]">
-        <span className="block">Ben jij klaar om de eerste</span>
-        <span className="block">stap te zetten?</span>
+        <CmText
+          contentKey="portal.guest.cta.heading.line1"
+          as="span"
+          className="block"
+          fallback="Ben jij klaar om de eerste"
+        />
+        <CmText contentKey="portal.guest.cta.heading.line2" as="span" className="block" fallback="stap te zetten?" />
       </h3>
-      <p className="mt-3.5 max-w-xl text-[10px] leading-snug text-muted md:mt-4 md:text-[11px]">
-        Kies wat het best bij jou past: gratis testshoot, casting of intakegesprek.
-      </p>
+      <CmText
+        contentKey="portal.guest.cta.heading.sub"
+        as="p"
+        className="mt-3.5 max-w-xl text-[10px] leading-snug text-muted md:mt-4 md:text-[11px]"
+        fallback="Kies wat het best bij jou past: gratis testshoot, casting of intakegesprek."
+      />
     </div>
   );
 }
@@ -398,13 +427,13 @@ function GuestPortalCtaRow({ onSelect }: { onSelect: (id: GuestMenuId) => void }
         </div>
         <div className={ctaBtnRowClass}>
           <button type="button" onClick={() => onSelect('gratis-fotoshoot')} className={ctaBtnBurgundyClass}>
-            Gratis fotoshoot
+            <CmText contentKey="portal.guest.cta.btn.gratis" as="span" fallback="Gratis fotoshoot" />
           </button>
           <button type="button" onClick={() => onSelect('casting')} className={ctaBtnBurgundyClass}>
-            Casting
+            <CmText contentKey="portal.guest.cta.btn.casting" as="span" fallback="Casting" />
           </button>
           <button type="button" onClick={() => onSelect('intake-gesprek')} className={ctaBtnBurgundyClass}>
-            Intake
+            <CmText contentKey="portal.guest.cta.btn.intake" as="span" fallback="Intake" />
           </button>
         </div>
       </div>
@@ -478,29 +507,47 @@ function GuestIntakeGesprekPromoBanner() {
 
 function GuestOfferWithDoelgroepenPage({
   page,
+  cmsScope,
   onMenuSelect,
   onStartBooking,
 }: {
   page: GuestOfferPageDef;
+  cmsScope: 'gratis-fotoshoot' | 'casting';
   onMenuSelect: (id: GuestMenuId) => void;
   onStartBooking?: (calendarSlug: string, title: string) => void;
 }) {
   const mailHref = guestMailtoHref(page.bookingSubject);
+  const P = `portal.guest.page.${cmsScope}`;
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(260px,34%)] lg:items-start">
         <SectionBlock>
-          <h3 className="font-serif text-xl font-semibold text-ink">{page.expectTitle}</h3>
+          <CmText
+            contentKey={`${P}.expectTitle`}
+            as="h3"
+            className="font-serif text-xl font-semibold text-ink"
+            fallback={page.expectTitle}
+          />
           <ul className="mt-4 space-y-2.5 text-sm leading-relaxed text-ink/90">
-            {page.expectBullets.map((line) => (
-              <li key={line} className="flex gap-3">
+            {page.expectBullets.map((line, i) => (
+              <li key={i} className="flex gap-3">
                 <CheckDisc />
-                <span>{line}</span>
+                <CmText contentKey={`${P}.expectBullet.${i}`} as="span" fallback={line} />
               </li>
             ))}
           </ul>
-          <h3 className="mt-6 font-serif text-xl font-semibold text-ink">{page.whyTitle}</h3>
-          <p className="mt-3 text-sm leading-relaxed text-muted">{page.whyParagraph}</p>
+          <CmText
+            contentKey={`${P}.whyTitle`}
+            as="h3"
+            className="mt-6 font-serif text-xl font-semibold text-ink"
+            fallback={page.whyTitle}
+          />
+          <CmText
+            contentKey={`${P}.whyParagraph`}
+            as="p"
+            className="mt-3 text-sm leading-relaxed text-muted"
+            fallback={page.whyParagraph}
+          />
           {page.agendaSlug && onStartBooking ? (
             <>
               <button
@@ -508,12 +555,12 @@ function GuestOfferWithDoelgroepenPage({
                 onClick={() => onStartBooking(page.agendaSlug!, page.ctaButton)}
                 className="mt-5 w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
               >
-                {page.ctaButton}
+                <CmText contentKey={`${P}.ctaButton`} as="span" fallback={page.ctaButton} />
               </button>
               <p className="mt-3 text-center text-xs text-muted">
-                Liever mailen?{' '}
+                <CmText contentKey="portal.guest.mail.preface" as="span" fallback="Liever mailen? " />
                 <a href={mailHref} className="font-medium text-burgundy underline underline-offset-2 hover:text-burgundyDeep">
-                  Stuur een bericht
+                  <CmText contentKey="portal.guest.mail.cta" as="span" fallback="Stuur een bericht" />
                 </a>
               </p>
             </>
@@ -522,20 +569,35 @@ function GuestOfferWithDoelgroepenPage({
               href={mailHref}
               className="mt-5 block w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
             >
-              {page.ctaButton}
+              <CmText contentKey={`${P}.ctaButton`} as="span" fallback={page.ctaButton} />
             </a>
           )}
         </SectionBlock>
         <div className="min-w-0 space-y-3 lg:sticky lg:top-4">
-          <h3 className="font-serif text-lg font-semibold text-ink">Doelgroepen</h3>
+          <CmText
+            contentKey="portal.guest.doelgroepen.sidebarTitle"
+            as="h3"
+            className="font-serif text-lg font-semibold text-ink"
+            fallback="Doelgroepen"
+          />
           <div className="space-y-2.5">
-            {DOELGROEPEN_CARDS.map((c) => (
+            {DOELGROEPEN_CARDS.map((c, i) => (
               <div
                 key={c.title}
                 className="rounded-cm border border-line bg-panel px-3 py-3 shadow-sm md:px-4 md:py-3"
               >
-                <p className="font-serif text-sm font-semibold text-ink">{c.title}</p>
-                <p className="mt-1 text-xs leading-snug text-muted">{c.body}</p>
+                <CmText
+                  contentKey={`portal.guest.doelgroepen.card.${i}.title`}
+                  as="p"
+                  className="font-serif text-sm font-semibold text-ink"
+                  fallback={c.title}
+                />
+                <CmText
+                  contentKey={`portal.guest.doelgroepen.card.${i}.body`}
+                  as="p"
+                  className="mt-1 text-xs leading-snug text-muted"
+                  fallback={c.body}
+                />
               </div>
             ))}
           </div>
@@ -557,24 +619,32 @@ type GuestServicePageDef = {
 
 function GuestServiceTwoColumnPage({
   page,
+  cmsScope,
   onMenuSelect,
   onStartBooking,
 }: {
   page: GuestServicePageDef;
+  cmsScope: 'intake-gesprek';
   onMenuSelect: (id: GuestMenuId) => void;
   onStartBooking?: (calendarSlug: string, title: string) => void;
 }) {
   const mailHref = guestMailtoHref(page.bookingSubject);
+  const P = `portal.guest.page.${cmsScope}`;
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start">
         <SectionBlock>
-          <h3 className="font-serif text-xl font-semibold text-ink">{page.howTitle}</h3>
+          <CmText
+            contentKey={`${P}.howTitle`}
+            as="h3"
+            className="font-serif text-xl font-semibold text-ink"
+            fallback={page.howTitle}
+          />
           <ol className="mt-4 list-none space-y-3">
             {page.steps.map((text, i) => (
-              <li key={text} className="flex gap-3 text-sm leading-relaxed text-ink/90">
+              <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink/90">
                 <IntakeStepNumber n={i + 1} />
-                <span>{text}</span>
+                <CmText contentKey={`${P}.step.${i}`} as="span" fallback={text} />
               </li>
             ))}
           </ol>
@@ -585,12 +655,12 @@ function GuestServiceTwoColumnPage({
                 onClick={() => onStartBooking(page.agendaSlug!, page.ctaButton)}
                 className="mt-5 w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
               >
-                {page.ctaButton}
+                <CmText contentKey={`${P}.ctaButton`} as="span" fallback={page.ctaButton} />
               </button>
               <p className="mt-3 text-center text-xs text-muted">
-                Liever mailen?{' '}
+                <CmText contentKey="portal.guest.mail.preface" as="span" fallback="Liever mailen? " />
                 <a href={mailHref} className="font-medium text-burgundy underline underline-offset-2 hover:text-burgundyDeep">
-                  Stuur een bericht
+                  <CmText contentKey="portal.guest.mail.cta" as="span" fallback="Stuur een bericht" />
                 </a>
               </p>
             </>
@@ -599,17 +669,22 @@ function GuestServiceTwoColumnPage({
               href={mailHref}
               className="mt-5 block w-full rounded-cm bg-burgundy py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
             >
-              {page.ctaButton}
+              <CmText contentKey={`${P}.ctaButton`} as="span" fallback={page.ctaButton} />
             </a>
           )}
         </SectionBlock>
         <SectionBlock>
-          <h3 className="font-serif text-xl font-semibold text-ink">{page.whyTitle}</h3>
+          <CmText
+            contentKey={`${P}.whyTitle`}
+            as="h3"
+            className="font-serif text-xl font-semibold text-ink"
+            fallback={page.whyTitle}
+          />
           <ul className="mt-4 space-y-2.5 text-sm leading-relaxed text-ink/90">
-            {WAAROM_CHECKLIST.map((line) => (
-              <li key={line} className="flex gap-3">
+            {WAAROM_CHECKLIST.map((line, i) => (
+              <li key={i} className="flex gap-3">
                 <CheckDisc />
-                <span>{line}</span>
+                <CmText contentKey={`portal.guest.waarom.bullet.${i}`} as="span" fallback={line} />
               </li>
             ))}
           </ul>
@@ -700,6 +775,11 @@ export function GuestPortalLayout() {
 
   const menuLabel = GUEST_MENU.find((m) => m.id === active)?.label ?? '';
   const rightPanelTitle = bookingFlow ? 'Online afspraak' : contentSlug ? 'Pagina' : menuLabel;
+  const rightPanelContentKey = bookingFlow
+    ? 'portal.guest.panel.title.booking'
+    : contentSlug
+      ? `container.${contentSlug}.hero.title`
+      : `portal.guest.panel.title.${active}`;
 
   const ctaFor = (target: GuestMenuId) => () => goMenu(target);
 
@@ -709,6 +789,7 @@ export function GuestPortalLayout() {
         {CARD_MODEL_WORDEN.map((c, i) => (
           <ModelWordenColumnCard
             key={c.kicker}
+            cardIndex={i}
             kicker={c.kicker}
             title={c.title}
             bullets={c.bullets}
@@ -728,46 +809,96 @@ export function GuestPortalLayout() {
 
       <div className="grid grid-cols-1 gap-4 md:gap-5 lg:grid-cols-[minmax(0,1.28fr)_minmax(0,0.82fr)] lg:items-start">
         <SectionBlock>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink">WAAROM CLASS-MODELS</p>
-          <h3 className="mt-2 font-serif text-2xl font-semibold text-ink">Iedereen verdient het om te schitteren</h3>
+          <CmText
+            contentKey="portal.guest.modelworden.waarom.kicker"
+            as="p"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink"
+            fallback="WAAROM CLASS-MODELS"
+          />
+          <CmText
+            contentKey="portal.guest.modelworden.waarom.title"
+            as="h3"
+            className="mt-2 font-serif text-2xl font-semibold text-ink"
+            fallback="Iedereen verdient het om te schitteren"
+          />
           <div className="mt-4 space-y-3 font-serif text-sm leading-relaxed text-muted">
-            {WAAROM_PARAGRAPHS.map((p, i) => (
-              <p key={i}>{p}</p>
+            {WAAROM_PARAGRAPHS.map((para, i) => (
+              <CmText
+                key={i}
+                contentKey={`portal.guest.waarom.paragraph.${i}`}
+                as="p"
+                fallback={para}
+              />
             ))}
           </div>
           <ul className="mt-5 space-y-3">
-            {WAAROM_CHECKLIST.map((line) => (
-              <li key={line} className="flex gap-3 text-sm leading-relaxed text-ink/90">
+            {WAAROM_CHECKLIST.map((line, i) => (
+              <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink/90">
                 <CheckDisc />
-                <span>{line}</span>
+                <CmText contentKey={`portal.guest.waarom.bullet.${i}`} as="span" fallback={line} />
               </li>
             ))}
           </ul>
           <div className="mt-6 grid grid-cols-2 gap-2.5 md:gap-3">
-            {MODEL_WORDEN_STATS.map((s) => (
+            {MODEL_WORDEN_STATS.map((s, i) => (
               <div
                 key={s.label}
                 className="rounded-cm border border-burgundyDeep/40 bg-burgundy px-3 py-3 text-center shadow-sm md:px-4 md:py-3.5"
               >
-                <p className="font-serif text-xl font-bold text-white md:text-2xl">{s.value}</p>
-                <p className="mt-0.5 text-[10px] font-semibold text-white md:text-xs">{s.label}</p>
+                <CmText
+                  contentKey={`portal.guest.stats.${i}.value`}
+                  as="p"
+                  className="font-serif text-xl font-bold text-white md:text-2xl"
+                  fallback={s.value}
+                />
+                <CmText
+                  contentKey={`portal.guest.stats.${i}.label`}
+                  as="p"
+                  className="mt-0.5 text-[10px] font-semibold text-white md:text-xs"
+                  fallback={s.label}
+                />
               </div>
             ))}
           </div>
         </SectionBlock>
 
         <SectionBlock>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink">DOELGROEPEN</p>
-          <h3 className="mt-2 font-serif text-2xl font-semibold text-ink">Voor wie?</h3>
-          <p className="mt-3 text-sm leading-relaxed text-muted">{DOELGROEPEN_INTRO}</p>
+          <CmText
+            contentKey="portal.guest.modelworden.doelgroepen.kicker"
+            as="p"
+            className="text-[11px] font-bold uppercase tracking-[0.18em] text-ink"
+            fallback="DOELGROEPEN"
+          />
+          <CmText
+            contentKey="portal.guest.modelworden.doelgroepen.title"
+            as="h3"
+            className="mt-2 font-serif text-2xl font-semibold text-ink"
+            fallback="Voor wie?"
+          />
+          <CmText
+            contentKey="portal.guest.doelgroepen.intro"
+            as="p"
+            className="mt-3 text-sm leading-relaxed text-muted"
+            fallback={DOELGROEPEN_INTRO}
+          />
           <div className="mt-5 space-y-3">
-            {DOELGROEPEN_CARDS.map((c) => (
+            {DOELGROEPEN_CARDS.map((c, i) => (
               <div
                 key={c.title}
                 className="rounded-cm border border-burgundy/18 bg-gradient-to-br from-burgundy/[0.08] via-burgundy/[0.03] to-white/90 px-4 py-3 shadow-[0_0_18px_-6px_rgba(111,18,27,0.14)]"
               >
-                <p className="font-serif text-base font-semibold text-ink">{c.title}</p>
-                <p className="mt-1 text-sm text-muted">{c.body}</p>
+                <CmText
+                  contentKey={`portal.guest.doelgroepen.card.${i}.title`}
+                  as="p"
+                  className="font-serif text-base font-semibold text-ink"
+                  fallback={c.title}
+                />
+                <CmText
+                  contentKey={`portal.guest.doelgroepen.card.${i}.body`}
+                  as="p"
+                  className="mt-1 text-sm text-muted"
+                  fallback={c.body}
+                />
               </div>
             ))}
           </div>
@@ -781,10 +912,20 @@ export function GuestPortalLayout() {
   const renderDoelgroepen = () => (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {DOELGROEPEN_CARDS.map((c) => (
+        {DOELGROEPEN_CARDS.map((c, i) => (
           <div key={c.title} className="rounded-cm border border-line bg-white px-4 py-4 shadow-sm">
-            <p className="font-serif text-base font-semibold text-ink">{c.title}</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted">{c.body}</p>
+            <CmText
+              contentKey={`portal.guest.doelgroepen.card.${i}.title`}
+              as="p"
+              className="font-serif text-base font-semibold text-ink"
+              fallback={c.title}
+            />
+            <CmText
+              contentKey={`portal.guest.doelgroepen.card.${i}.body`}
+              as="p"
+              className="mt-1 text-sm leading-relaxed text-muted"
+              fallback={c.body}
+            />
           </div>
         ))}
       </div>
@@ -794,9 +935,9 @@ export function GuestPortalLayout() {
 
   const renderVeelgesteldeVragen = () => (
     <div className="space-y-4">
-      {GUEST_FAQ.map((item) => (
+      {GUEST_FAQ.map((item, i) => (
         <div
-          key={item.q}
+          key={i}
           className="flex gap-3 rounded-cm border border-line bg-white px-4 py-4 shadow-sm md:gap-4 md:px-5 md:py-4"
         >
           <span
@@ -804,8 +945,18 @@ export function GuestPortalLayout() {
             aria-hidden
           />
           <div className="min-w-0">
-            <p className="font-serif text-base font-bold leading-snug text-ink">{item.q}</p>
-            <p className="mt-2 font-serif text-sm leading-relaxed text-muted">{item.a}</p>
+            <CmText
+              contentKey={`portal.guest.faq.${i}.q`}
+              as="p"
+              className="font-serif text-base font-bold leading-snug text-ink"
+              fallback={item.q}
+            />
+            <CmText
+              contentKey={`portal.guest.faq.${i}.a`}
+              as="p"
+              className="mt-2 font-serif text-sm leading-relaxed text-muted"
+              fallback={item.a}
+            />
           </div>
         </div>
       ))}
@@ -814,13 +965,13 @@ export function GuestPortalLayout() {
           href="/portal/guest?p=contact"
           className="rounded-cm bg-burgundy px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-burgundyDeep"
         >
-          Stel je vraag via contact
+          <CmText contentKey="portal.guest.faq.cta.contact" as="span" fallback="Stel je vraag via contact" />
         </Link>
         <Link
           href="/"
           className="rounded-cm border-2 border-burgundy bg-white px-5 py-2.5 text-sm font-semibold text-burgundy transition hover:bg-burgundy/[0.06]"
         >
-          Beginpagina
+          <CmText contentKey="portal.guest.faq.cta.home" as="span" fallback="Beginpagina" />
         </Link>
       </div>
     </div>
@@ -834,6 +985,7 @@ export function GuestPortalLayout() {
       <div className="space-y-5 pt-5 md:pt-6">
         <GuestServiceTwoColumnPage
           page={INTAKE_GESPREK_PAGE}
+          cmsScope="intake-gesprek"
           onMenuSelect={goMenu}
           onStartBooking={startBooking}
         />
@@ -847,6 +999,7 @@ export function GuestPortalLayout() {
       <div className="space-y-5 pt-5 md:pt-6">
         <GuestOfferWithDoelgroepenPage
           page={GRATIS_FOTOSHOOT_PAGE}
+          cmsScope="gratis-fotoshoot"
           onMenuSelect={goMenu}
           onStartBooking={startBooking}
         />
@@ -858,7 +1011,12 @@ export function GuestPortalLayout() {
     <div>
       <GuestCastingPromoBanner />
       <div className="space-y-5 pt-5 md:pt-6">
-        <GuestOfferWithDoelgroepenPage page={CASTING_PAGE} onMenuSelect={goMenu} onStartBooking={startBooking} />
+        <GuestOfferWithDoelgroepenPage
+          page={CASTING_PAGE}
+          cmsScope="casting"
+          onMenuSelect={goMenu}
+          onStartBooking={startBooking}
+        />
       </div>
     </div>
   );
@@ -957,7 +1115,12 @@ export function GuestPortalLayout() {
                       className={rowClass}
                       scroll={false}
                     >
-                      <span className="text-ink">{item.label}</span>
+                      <CmText
+                        contentKey={`portal.guest.nav.embedded.${item.id}`}
+                        as="span"
+                        className="text-ink"
+                        fallback={item.label}
+                      />
                       <span className="text-muted" aria-hidden>
                         ›
                       </span>
@@ -973,9 +1136,7 @@ export function GuestPortalLayout() {
             <div className="cm-red-titlebar shrink-0 border-b border-line">
               <div className="cm-red-titlebar-inner">
                 <CmText
-                  contentKey={
-                    contentSlug ? `container.${contentSlug}.hero.title` : `portal.guest.panel.title.${active}`
-                  }
+                  contentKey={rightPanelContentKey}
                   as="h2"
                   className="cm-red-titlebar-title"
                   fallback={rightPanelTitle}

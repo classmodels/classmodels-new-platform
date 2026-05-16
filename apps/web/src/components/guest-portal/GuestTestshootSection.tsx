@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch, getApiBase } from '@/lib/api';
+import { CmText } from '@/components/CmText';
 import { TESTSHOOT_PAGE } from '@/components/guest-portal/guest-portal-data';
 
 type PublicPhoto = { id: string; thumbFile: string; fullFile: string };
@@ -204,21 +205,46 @@ export function GuestTestshootSection() {
       }
     >
       <div className="space-y-2">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/80">{TESTSHOOT_PAGE.kicker}</p>
-        <h2 className="font-serif text-xl font-semibold text-ink md:text-2xl">{TESTSHOOT_PAGE.title}</h2>
-        <p className="text-sm leading-relaxed text-muted">{TESTSHOOT_PAGE.intro}</p>
+        <CmText
+          contentKey="portal.guest.testshoot.kicker"
+          as="p"
+          className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink/80"
+          fallback={TESTSHOOT_PAGE.kicker}
+        />
+        <CmText
+          contentKey="portal.guest.testshoot.title"
+          as="h2"
+          className="font-serif text-xl font-semibold text-ink md:text-2xl"
+          fallback={TESTSHOOT_PAGE.title}
+        />
+        <CmText
+          contentKey="portal.guest.testshoot.intro"
+          as="p"
+          className="text-sm leading-relaxed text-muted"
+          fallback={TESTSHOOT_PAGE.intro}
+        />
         <p className="text-xs text-muted">
-          Backstage: foto’s uploaden kan in de backoffice onder{' '}
-          <span className="font-medium text-ink">Admin → Testshoot</span> (rechten: testshoot beheren).
+          <CmText contentKey="portal.guest.testshoot.backstage.before" as="span" fallback="Backstage: foto’s uploaden kan in de backoffice onder " />
+          <span className="font-medium text-ink">
+            <CmText contentKey="portal.guest.testshoot.backstage.path" as="span" fallback="Admin → Testshoot" />
+          </span>
+          <CmText contentKey="portal.guest.testshoot.backstage.after" as="span" fallback=" (rechten: testshoot beheren)." />
         </p>
       </div>
 
       {loadError && (
         <p className="rounded-cm border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{loadError}</p>
       )}
-      {!models && !loadError && <p className="text-sm text-muted">Laden…</p>}
+      {!models && !loadError && (
+        <CmText contentKey="portal.guest.testshoot.loading" as="p" className="text-sm text-muted" fallback="Laden…" />
+      )}
       {models && !hasAny && (
-        <p className="text-sm text-muted">Nog geen testshoot-foto’s om te tonen. Kom later terug.</p>
+        <CmText
+          contentKey="portal.guest.testshoot.empty"
+          as="p"
+          className="text-sm text-muted"
+          fallback="Nog geen testshoot-foto’s om te tonen. Kom later terug."
+        />
       )}
 
       <div className="space-y-8">

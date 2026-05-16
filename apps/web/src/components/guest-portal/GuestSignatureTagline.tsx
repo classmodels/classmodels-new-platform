@@ -1,5 +1,7 @@
 'use client';
 
+import { CmText } from '@/components/CmText';
+
 /** Handschrift-achtige tagline zoals op het flyer-ontwerp. */
 export function GuestSignatureTagline({
   variant = 'dark',
@@ -14,14 +16,15 @@ export function GuestSignatureTagline({
       : 'text-[clamp(1.05rem,2.6vw,1.5rem)] text-[#b8942f]';
 
   return (
-    <p
+    <CmText
+      contentKey="portal.guest.signature"
+      as="p"
       className={`italic leading-snug ${tone} ${className}`}
       style={{
         fontFamily:
           "'Segoe Script', 'Snell Roundhand', 'Bradley Hand ITC', 'Apple Chancery', 'Lucida Handwriting', cursive",
       }}
-    >
-      Jij bent uniek. Wij zien het.
-    </p>
+      fallback="Jij bent uniek. Wij zien het."
+    />
   );
 }

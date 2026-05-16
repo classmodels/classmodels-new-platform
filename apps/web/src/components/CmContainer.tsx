@@ -72,21 +72,16 @@ export function CmContainer({ contentKey, className, fallback }: CmContainerProp
           <div key={`${contentKey}-col-${i}`} className="space-y-3">
             {(col.blocks ?? []).map((block, j) => {
               if (block.type === 'text') {
-                if (block.contentKey) {
-                  return (
-                    <CmText
-                      key={`${contentKey}-txt-${i}-${j}`}
-                      contentKey={block.contentKey}
-                      as="p"
-                      className={block.className ?? 'text-sm leading-relaxed text-ink'}
-                      fallback={block.text ?? ''}
-                    />
-                  );
-                }
+                const autoKey =
+                  block.contentKey ?? `container.embed.${contentKey}.c${i}.b${j}`;
                 return (
-                  <p key={`${contentKey}-txt-${i}-${j}`} className={block.className ?? 'text-sm leading-relaxed text-ink'}>
-                    {block.text ?? ''}
-                  </p>
+                  <CmText
+                    key={`${contentKey}-txt-${i}-${j}`}
+                    contentKey={autoKey}
+                    as="p"
+                    className={block.className ?? 'text-sm leading-relaxed text-ink'}
+                    fallback={block.text ?? ''}
+                  />
                 );
               }
 
