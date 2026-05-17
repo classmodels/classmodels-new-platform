@@ -4,6 +4,9 @@
  * - Host begint met `api.` → Nest op interne poort
  * - Anders → Next op interne poort
  *
+ * `/__cm_api/*` en GET `/media/*` worden rechtstreeks naar Nest gestuurd (prefix strip),
+ * zodat media niet afhangt van Next standalone-rewrites.
+ *
  * Combell-deploy: meteen luisteren + warmup. Next moet op tijd reageren (anders exit 1).
  * Nest: `node apps/api/dist/main.js` met NODE_PATH naar monorepo-root (Combell). Crasht Nest, dan
  * blijft de site draaien; API geeft 503 of 502 tot Nest luistert.
@@ -57,15 +60,29 @@ let nestSpawnCount = 0;
 const NEST_MAX_SPAWNS = 10;
 const NEST_RESTART_DELAY_MS = 5000;
 
+/** `/__cm_api/catalog/models` → `/catalog/models` (Nest kent geen `__cm_api`-prefix). */
+function stripCmApiProxyPrefix(urlPath) {
+  const raw = urlPath || '/';
+  const q = raw.indexOf('?');
+  const pathname = q === -1 ? raw : raw.slice(0, q);
+  const search = q === -1 ? '' : raw.slice(q);
+  if (!pathname.startsWith('/__cm_api')) return raw;
+  let stripped = pathname.slice('/__cm_api'.length);
+  if (!stripped || stripped === '') stripped = '/';
+  else if (!stripped.startsWith('/')) stripped = `/${stripped}`;
+  return stripped + search;
+}
+
 function forward(req, res, port) {
   const headers = { ...req.headers };
   headers.host = `127.0.0.1:${port}`;
+  const pathOut = port === nestPort ? stripCmApiProxyPrefix(req.url || '/') : req.url;
   const opts = {
     protocol: 'http:',
     hostname: '127.0.0.1',
     port,
     method: req.method,
-    path: req.url,
+    path: pathOut || '/',
     headers,
   };
   const p = http.request(opts, (pr) => {
@@ -224,6 +241,17 @@ function shouldRouteToNest(req) {
   if (
     (req.method === 'GET' || req.method === 'HEAD') &&
     (pathOnly === '/health' || pathOnly.startsWith('/health/'))
+  ) {
+    return true;
+  }
+  /** Same-origin `/__cm_api` (alle methodes) → Nest; `forward` strip het prefix. */
+  if (pathOnly.startsWith('/__cm_api/') || pathOnly === '/__cm_api') {
+    return true;
+  }
+  /** Publieke media op www zonder proxy-prefix (e-mail / oude links). */
+  if (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    pathOnly.startsWith('/media/')
   ) {
     return true;
   }

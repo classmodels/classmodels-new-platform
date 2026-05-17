@@ -54,7 +54,15 @@ export class MediaController {
   @Get('public/:filename')
   serve(@Param('filename') filename: string, @Res() res: Response) {
     const safe = basename(filename);
-    const full = this.media.resolveAbsolutePathForPublicFilename(safe);
+    let full = this.media.resolveAbsolutePathForPublicFilename(safe);
+    if (!full && /%[0-9a-fA-F]{2}/.test(filename)) {
+      try {
+        const dec = basename(decodeURIComponent(filename));
+        if (dec && dec !== safe) full = this.media.resolveAbsolutePathForPublicFilename(dec);
+      } catch {
+        /**/
+      }
+    }
     if (!safe || safe === '.' || !full) throw new NotFoundException();
     const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
     if (mime) res.setHeader('Content-Type', mime);

@@ -25,6 +25,12 @@
 
 **Docker / VPS:** zet `MEDIA_ROOT` op een **gemount volume** (bv. `/data/media`), niet op een map binnen de image.
 
+## Combell dual-proxy en zichtbare foto’s (www)
+
+- De browser vraagt bestanden aan via **`/__cm_api/media/public/{bestandsnaam}`** (zelfde origin als de site).
+- De dual-proxy stuurt **`/__cm_api/*`** en **`GET /media/*`** **rechtstreeks naar Nest** en verwijdert het prefix `__cm_api`, zodat media **niet** afhangt van Next standalone-rewrites (die kunnen voor binaire responses problemen geven).
+- Controle na deploy: `curl -I "https://www…/__cm_api/media/public/EEN_KEY_UIT_DE_DB"` → `200` en `Content-Type: image/…`. Bij `404` ontbreekt het bestand onder `MEDIA_ROOT` of klopt de naam niet t.o.v. de database.
+
 ## Upload (admin)
 
 `POST /media/upload`  
