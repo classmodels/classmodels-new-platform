@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { apiFetch, getApiBase } from '@/lib/api';
 import type { AuthUser, ModelPushSummary } from '@/context/auth-context';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
@@ -60,6 +60,13 @@ export function ModelPortalPushTab({
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [devicePushActive, setDevicePushActive] = useState(false);
   const [pushFilter, setPushFilter] = useState<'all' | 'read' | 'unread'>('all');
+
+  const refreshedPushSummary = useRef(false);
+  useEffect(() => {
+    if (!token || !canRead || refreshedPushSummary.current) return;
+    refreshedPushSummary.current = true;
+    void refreshMe();
+  }, [token, canRead, refreshMe]);
 
   const syncAppBadge = useCallback((n: number) => {
     if (typeof navigator === 'undefined' || !('setAppBadge' in navigator)) return;
@@ -376,11 +383,13 @@ export function ModelPortalPushTab({
         {canSubscribe ? (
           <button
             type="button"
-            disabled={busy || (!devicePushActive && !vapidOk)}
+            role="switch"
+            aria-checked={devicePushActive}
+            disabled={busy}
             onClick={pushBarClick}
             className="shrink-0 border border-zinc-900 bg-zinc-950 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-black disabled:opacity-50 sm:px-3 sm:text-[11px]"
           >
-            {devicePushActive ? 'Push uit' : 'Push inschakelen'}
+            {devicePushActive ? 'Push uit' : 'Push aan'}
           </button>
         ) : null}
         <span className="min-w-1 shrink-0" aria-hidden />
@@ -463,7 +472,6 @@ export function ModelPortalPushTab({
     countRead,
     unreadFromApi,
     devicePushActive,
-    vapidOk,
   ]);
 
   if (!canRead) {
@@ -480,29 +488,64 @@ export function ModelPortalPushTab({
 
   return (
     <div className="text-sm">
-      {showPushIntro ? (
-        <div className="mb-5 space-y-2 text-xs leading-relaxed text-zinc-700">
-          <p>
-            Onderaan kun je bepalen welke <strong>soorten berichten</strong> in je inbox terechtkomen. Voor{' '}
-            <strong>systeemmeldingen op dit toestel</strong> gebruik je de knop <strong className="text-ink">Push inschakelen</strong> in de rode
-            titelbalk; <strong className="text-ink">Push uit</strong> schakelt enkel de melding op dit apparaat uit (je voorkeuren blijven bewaard).
-          </p>
-          <p className="text-muted">
-            Op iPhone: voeg de site toe aan het beginscherm via Safari → Deel → Zet op beginscherm, en sta meldingen toe.
-          </p>
-          {pushMsg ? <p className="font-medium text-red-700">{pushMsg}</p> : null}
+      {canSubscribe ? (
+        <div className="mb-5 rounded-cm border border-line bg-panel px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold text-ink">Push op dit toestel</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={devicePushActive}
+              aria-label={devicePushActive ? 'Pushmeldingen uitschakelen' : 'Pushmeldingen inschakelen'}
+              disabled={busy}
+              onClick={() => {
+                if (devicePushActive) {
+                  if (confirm('Pushmeldingen op dit toestel uitschakelen?')) void disablePushOnDevice();
+                } else {
+                  void enablePushOnDevice();
+                }
+              }}
+              className={[
+                'relative h-8 w-14 shrink-0 rounded-full border-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-burgundy focus-visible:ring-offset-2',
+                devicePushActive ? 'border-emerald-600 bg-emerald-500' : 'border-zinc-300 bg-zinc-200',
+                busy ? 'cursor-wait opacity-60' : 'cursor-pointer',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'absolute top-0.5 block h-6 w-6 rounded-full bg-white shadow transition-transform',
+                  devicePushActive ? 'translate-x-6' : 'translate-x-0.5',
+                ].join(' ')}
+              />
+            </button>
+            <span className="text-xs font-medium text-muted">{devicePushActive ? 'Aan' : 'Uit'}</span>
+          </div>
+          {pushMsg ? <p className="mt-2 text-xs font-medium text-red-700">{pushMsg}</p> : null}
           {!vapidOk ? (
-            <p className="text-amber-800">
-              Server mist geldige VAPID-sleutels. Genereer met{' '}
-              <code className="bg-amber-100 px-1">npx web-push generate-vapid-keys</code> en zet{' '}
-              <code className="bg-amber-100 px-1">VAPID_PUBLIC_KEY</code> /{' '}
-              <code className="bg-amber-100 px-1">VAPID_PRIVATE_KEY</code> in de API-.env.
+            <p className="mt-2 text-xs text-amber-900">
+              De server heeft (nog) geen werkende VAPID-sleutels. Zonder sleutels kan de browser geen push activeren.
+              Genereer met <code className="rounded bg-amber-100 px-1">npx web-push generate-vapid-keys</code> en zet{' '}
+              <code className="rounded bg-amber-100 px-1">VAPID_PUBLIC_KEY</code> /{' '}
+              <code className="rounded bg-amber-100 px-1">VAPID_PRIVATE_KEY</code> in de API-.env — of laat de API een
+              sleutelpaar aanmaken (bestand <code className="rounded bg-amber-100 px-1">apps/api/data/vapid-keys.json</code>) en herstart.
             </p>
           ) : null}
         </div>
       ) : null}
 
-      {!showPushIntro && pushMsg ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
+      {showPushIntro ? (
+        <div className="mb-5 space-y-2 text-xs leading-relaxed text-zinc-700">
+          <p>
+            Hierboven zet je <strong>systeemmeldingen</strong> op dit apparaat aan of uit. Onderaan kies je welke{' '}
+            <strong>soorten berichten</strong> in je inbox terechtkomen (je voorkeuren blijven bewaard).
+          </p>
+          <p className="text-muted">
+            Op iPhone: voeg de site toe aan het beginscherm via Safari → Deel → Zet op beginscherm, en sta meldingen toe.
+          </p>
+        </div>
+      ) : null}
+
+      {pushMsg && !canSubscribe ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
 
       {pushSummary ? (
         <div className="mb-4 space-y-2 rounded border border-line bg-zinc-50/80 p-3 text-xs leading-snug text-zinc-800">

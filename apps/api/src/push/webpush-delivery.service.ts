@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as webpush from 'web-push';
@@ -15,30 +17,74 @@ export type WebPushPayload = {
 export class WebPushDeliveryService {
   private readonly log = new Logger(WebPushDeliveryService.name);
   private readonly vapidOk: boolean;
+  /** Genormaliseerde publieke sleutel (ook als die uit vapid-keys.json kwam i.p.v. env). */
+  private readonly vapidPublicNormalized: string | null;
 
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    const pubRaw = this.config.get<string>('VAPID_PUBLIC_KEY')?.trim();
-    const privRaw = this.config.get<string>('VAPID_PRIVATE_KEY')?.trim();
+    let pubRaw = this.config.get<string>('VAPID_PUBLIC_KEY')?.trim();
+    let privRaw = this.config.get<string>('VAPID_PRIVATE_KEY')?.trim();
+
+    if (!pubRaw || !privRaw) {
+      const keysPath = join(process.cwd(), 'data', 'vapid-keys.json');
+      try {
+        if (existsSync(keysPath)) {
+          const parsed = JSON.parse(readFileSync(keysPath, 'utf8')) as {
+            publicKey?: string;
+            privateKey?: string;
+          };
+          if (parsed.publicKey?.trim() && parsed.privateKey?.trim()) {
+            pubRaw = parsed.publicKey.trim();
+            privRaw = parsed.privateKey.trim();
+          }
+        }
+      } catch (e) {
+        this.log.warn(`Lezen vapid-keys.json mislukt: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
+    if (!pubRaw || !privRaw) {
+      const keys = webpush.generateVAPIDKeys();
+      pubRaw = keys.publicKey;
+      privRaw = keys.privateKey;
+      try {
+        const dir = join(process.cwd(), 'data');
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          join(dir, 'vapid-keys.json'),
+          JSON.stringify({ publicKey: pubRaw, privateKey: privRaw }, null, 2),
+          { encoding: 'utf8', mode: 0o600 },
+        );
+        this.log.warn(
+          `VAPID ontbrak in env — nieuw sleutelpaar opgeslagen in ${join(dir, 'vapid-keys.json')}. Voor productie met meerdere servers: zet VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY in .env (zelfde paar overal).`,
+        );
+      } catch (e) {
+        this.log.warn(
+          `Kon VAPID niet wegschrijven (${e instanceof Error ? e.message : String(e)}) — sleutels gelden enkel voor dit proces.`,
+        );
+      }
+    }
+
     const contact = this.config.get<string>('VAPID_CONTACT_EMAIL')?.trim() ?? 'mailto:info@class-models.be';
     const pub = pubRaw ? this.normalizeVapidPublicKeyForWebPush(pubRaw) : null;
     const priv = privRaw ? this.normalizeVapidPrivateKey(privRaw) : null;
+    let ok = false;
     if (pub && priv) {
       try {
         webpush.setVapidDetails(contact.startsWith('mailto:') ? contact : `mailto:${contact}`, pub, priv);
-        this.vapidOk = true;
+        ok = true;
       } catch (e) {
-        this.vapidOk = false;
         this.log.warn(
           `VAPID-sleutels zijn ongeldig (${e instanceof Error ? e.message : String(e)}). Zet sleutels van \`npx web-push generate-vapid-keys\` in VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY (URL-safe base64, geen PEM).`,
         );
       }
     } else {
-      this.vapidOk = false;
       this.log.warn('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY ontbreken of public key is onleesbaar — geen Web Push naar apparaten.');
     }
+    this.vapidOk = ok;
+    this.vapidPublicNormalized = ok && pub ? pub : null;
   }
 
   isConfigured(): boolean {
@@ -46,9 +92,8 @@ export class WebPushDeliveryService {
   }
 
   getPublicKey(): string | null {
-    const pubRaw = this.config.get<string>('VAPID_PUBLIC_KEY')?.trim();
-    if (!pubRaw || !this.vapidOk) return null;
-    return this.normalizeVapidPublicKeyForWebPush(pubRaw);
+    if (!this.vapidOk) return null;
+    return this.vapidPublicNormalized;
   }
 
   /** 65 bytes voor `applicationServerKey` — vermijd browser-base64 edge cases. */
