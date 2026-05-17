@@ -1,3 +1,4 @@
+import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML } from '@cm/shared';
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
@@ -49,12 +50,68 @@ function parseSlugList(raw: unknown): string[] {
 
 function applyTemplatePlaceholders(template: string, vars: Record<string, string>): string {
   let out = template;
-  for (const [k, v] of Object.entries(vars)) {
+  const entries = Object.entries(vars).sort((a, b) => b[0].length - a[0].length);
+  for (const [k, v] of entries) {
     const safe = v ?? '';
     out = out.split(`{{${k}}}`).join(safe);
+  }
+  for (const [k, v] of entries) {
+    const safe = v ?? '';
     out = out.split(`{${k}}`).join(safe);
   }
   return out;
+}
+
+/** Knoppen + links voor placeholders in agenda-sjablonen. */
+function buildBookingPlaceholderVars(
+  ctx: AgendaConfirmationPayload,
+  mode: 'html' | 'plain',
+): Record<string, string> {
+  if (mode === 'plain') {
+    return {
+      client_name: ctx.displayName || 'klant',
+      calendar_title: ctx.calendarTitle,
+      appointment_date: ctx.dateLabel,
+      appointment_time: ctx.timeLabel,
+      cancel_url: ctx.cancelUrl,
+      confirm_url: ctx.confirmUrl,
+      cancel_link_html: ctx.cancelUrl,
+      confirm_link_html: ctx.confirmUrl,
+      cancel_button_html: '',
+      confirm_button_html: '',
+    };
+  }
+  const esc = (s: string) => escHtml(s);
+  const cancelU = esc(ctx.cancelUrl);
+  const confirmU = esc(ctx.confirmUrl);
+  return {
+    client_name: esc(ctx.displayName || 'klant'),
+    calendar_title: esc(ctx.calendarTitle),
+    appointment_date: esc(ctx.dateLabel),
+    appointment_time: esc(ctx.timeLabel),
+    cancel_url: cancelU,
+    confirm_url: confirmU,
+    cancel_link_html: `<a href="${cancelU}">Afspraak annuleren</a>`,
+    confirm_link_html: `<a href="${confirmU}">Ik bevestig mijn komst</a>`,
+    cancel_button_html: `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:6px;background:#6f121b;"><a href="${cancelU}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Afspraak annuleren</a></td></tr></table>`,
+    confirm_button_html: `<table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:20px;"><tr><td style="border-radius:6px;background:#0f766e;"><a href="${confirmU}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Ik bevestig mijn komst</a></td></tr></table>`,
+  };
+}
+
+/**
+ * Zorgt dat platte tekst of een HTML-fragment netjes in een document staat (betere weergave in clients).
+ */
+function coerceOutgoingEmailHtml(inner: string): string {
+  const t = inner.trim();
+  if (!t) {
+    return '<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"/></head><body></body></html>';
+  }
+  if (/^<!DOCTYPE/i.test(t) || /^<html/i.test(t)) return t;
+  if (!t.includes('<')) {
+    const body = escHtml(t).replace(/\r\n/g, '\n').replace(/\n/g, '<br/>\n');
+    return `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="margin:0;background:#f4f4f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;padding:24px 12px;"><tr><td align="center"><div style="max-width:560px;text-align:left;background:#ffffff;border-radius:8px;padding:24px;border:1px solid #e4e4e7;color:#18181b;font-size:15px;line-height:1.55;">${body}</div></td></tr></table></body></html>`;
+  }
+  return `<!DOCTYPE html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/></head><body style="margin:0;background:#f4f4f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;padding:24px 12px;"><tr><td align="center">${t}</td></tr></table></body></html>`;
 }
 
 @Injectable()
@@ -101,16 +158,7 @@ export class AgendaNotificationService {
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
 
-    const vars: Record<string, string> = {
-      client_name: ctx.displayName || 'klant',
-      calendar_title: ctx.calendarTitle,
-      appointment_date: ctx.dateLabel,
-      appointment_time: ctx.timeLabel,
-      cancel_url: ctx.cancelUrl,
-      confirm_url: ctx.confirmUrl,
-      cancel_link_html: `<a href="${escHtml(ctx.cancelUrl)}">Afspraak annuleren</a>`,
-      confirm_link_html: `<a href="${escHtml(ctx.confirmUrl)}">Ik bevestig mijn komst</a>`,
-    };
+    const vars = buildBookingPlaceholderVars(ctx, 'html');
 
     const matches = rows.filter((t) => {
       const slugs = parseSlugList(t.calendarSlugs);
@@ -130,7 +178,7 @@ export class AgendaNotificationService {
       const subject =
         applyTemplatePlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
         `Melding: ${ctx.calendarTitle}`;
-      const html = applyTemplatePlaceholders(t.body, vars);
+      const html = coerceOutgoingEmailHtml(applyTemplatePlaceholders(t.body, vars));
       const ok = await this.trySendSmtp(to, subject, html);
       if (ok) emailSent = true;
     }
@@ -146,7 +194,7 @@ export class AgendaNotificationService {
     for (const t of dueNow.filter((x) => x.channel === 'sms')) {
       const msisdn = normalizeBelgiumMsisdn(ctx.phone);
       if (!msisdn) continue;
-      const text = applyTemplatePlaceholders(t.body, vars);
+      const text = applyTemplatePlaceholders(t.body, buildBookingPlaceholderVars(ctx, 'plain'));
       const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
       if (ok) smsSent = true;
     }
@@ -253,40 +301,6 @@ export class AgendaNotificationService {
   }
 
   private buildEmailHtml(p: AgendaConfirmationPayload): string {
-    const esc = (s: string) => escHtml(s);
-    return `<!DOCTYPE html>
-<html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>${esc(p.calendarTitle)}</title></head>
-<body style="margin:0;background:#f4f4f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f4f5;padding:24px 12px;">
-<tr><td align="center">
-<table role="presentation" width="560" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:8px;overflow:hidden;border:1px solid #e4e4e7;">
-<tr><td style="background:#111827;color:#ffffff;padding:20px 24px;font-size:18px;font-weight:600;">Class Models</td></tr>
-<tr><td style="padding:24px;color:#18181b;font-size:15px;line-height:1.55;">
-<p style="margin:0 0 12px;">Beste ${esc(p.displayName || 'klant')},</p>
-<p style="margin:0 0 16px;">Uw afspraak is ingepland. Hieronder vindt u de gegevens en knoppen om te annuleren of — op de dag vóór uw bezoek — uw komst te bevestigen.</p>
-<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #e4e4e7;border-radius:6px;margin-bottom:20px;">
-<tr><td style="padding:14px 16px;">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;margin-bottom:4px;">Type</div>
-<div style="font-weight:600;">${esc(p.calendarTitle)}</div>
-<div style="margin-top:12px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;">Datum &amp; uur</div>
-<div style="font-weight:600;">${esc(p.dateLabel)} om ${esc(p.timeLabel)}</div>
-</td></tr></table>
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;"><strong>Komst bevestigen</strong><br/>
-Op de dag <em>vóór</em> uw afspraak kunt u via onderstaande knop laten weten dat u komt. De knop werkt alleen op die dag (Belgische tijd).</p>
-<table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:20px;"><tr><td style="border-radius:6px;background:#0f766e;">
-<a href="${esc(p.confirmUrl)}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Ik bevestig mijn komst</a>
-</td></tr></table>
-<p style="margin:0 0 12px;font-size:14px;color:#52525b;"><strong>Afspraak annuleren</strong></p>
-<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:6px;background:#6f121b;">
-<a href="${esc(p.cancelUrl)}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Afspraak annuleren</a>
-</td></tr></table>
-<p style="margin:20px 0 0;font-size:12px;color:#a1a1aa;">Werkt een knop niet? Kopieer de link in uw browser:<br/>
-<span style="word-break:break-all;color:#52525b;">Annuleren: ${esc(p.cancelUrl)}<br/>Bevestigen: ${esc(p.confirmUrl)}</span></p>
-</td></tr>
-<tr><td style="padding:16px 24px;background:#fafafa;border-top:1px solid #e4e4e7;font-size:12px;color:#71717a;">Class Models · Dit is een automatische bevestiging.</td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
+    return applyTemplatePlaceholders(AGENDA_DEFAULT_BOOKING_EMAIL_HTML, buildBookingPlaceholderVars(p, 'html'));
   }
 }

@@ -623,7 +623,7 @@ model AgendaNotificationTemplate {
   enabled       Boolean  @default(true)
   /// `booking_created` | `booking_cancelled` | `booking_confirmed` | `reminder` | `followup`
   trigger       String   @default("booking_created")
-  /// 0 = meteen bij trigger; negatief = minuten vóór start (alleen reminder); positief = minuten na start (follow-up) — planning via aparte job.
+  /// 0 = meteen bij trigger; in DB opgeslagen als minuten. Admin UI: uren (negatief = vóór start voor herinnering; positief = na start voor follow-up) — planning via aparte job.
   offsetMinutes Int      @default(0)
   subject       String?
   body          String   @db.Text

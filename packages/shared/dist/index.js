@@ -17,3 +17,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./portals"), exports);
 __exportStar(require("./roles"), exports);
 __exportStar(require("./design-tokens"), exports);
+__exportStar(require("./agenda-booking-email-template"), exports);

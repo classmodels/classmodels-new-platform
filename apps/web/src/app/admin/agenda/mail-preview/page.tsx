@@ -1,5 +1,6 @@
 'use client';
 
+import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML } from '@cm/shared';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
@@ -24,18 +25,27 @@ const PLACEHOLDERS = [
   ['calendar_title', 'Titel agenda'],
   ['appointment_date', 'Datum (tekst)'],
   ['appointment_time', 'Uur (tekst)'],
-  ['cancel_url', 'Annuleer-URL'],
-  ['confirm_url', 'Bevestig-URL'],
+  ['cancel_url', 'Annuleer-URL (ge-escaped; gebruik in href of tekst)'],
+  ['confirm_url', 'Bevestig-URL (ge-escaped)'],
   ['cancel_link_html', 'HTML-link annuleren'],
   ['confirm_link_html', 'HTML-link komst bevestigen'],
+  ['cancel_button_html', 'Knop “Afspraak annuleren” (tabel + stijl)'],
+  ['confirm_button_html', 'Knop “Ik bevestig mijn komst” (tabel + stijl)'],
 ] as const;
+
+function offsetMinutesToHoursInput(m: number): string {
+  const x = m / 60;
+  if (Number.isInteger(x)) return String(x);
+  const r = Math.round(x * 1000) / 1000;
+  return String(r);
+}
 
 const TRIGGERS = [
   ['booking_created', 'Bij nieuwe boeking'],
   ['booking_cancelled', 'Bij annulatie'],
   ['booking_confirmed', 'Bij komst bevestigd'],
-  ['reminder', 'Herinnering (offset minuten)'],
-  ['followup', 'Opvolging (offset minuten)'],
+  ['reminder', 'Herinnering (offset in uren; negatief = vóór start)'],
+  ['followup', 'Opvolging (offset in uren; positief = na start)'],
 ] as const;
 
 export default function AdminAgendaMailSmsPage() {
@@ -116,8 +126,8 @@ export default function AdminAgendaMailSmsPage() {
       enabled: true,
       trigger: 'booking_created',
       offsetMinutes: 0,
-      subject: '',
-      body: '<p>Beste {{client_name}},</p><p>Uw afspraak {{calendar_title}} op {{appointment_date}} om {{appointment_time}}.</p>',
+      subject: 'Bevestiging: {{calendar_title}} — Class Models',
+      body: AGENDA_DEFAULT_BOOKING_EMAIL_HTML,
       sortOrder: 100,
     });
     setSlugPick(new Set());
@@ -256,8 +266,9 @@ export default function AdminAgendaMailSmsPage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted">
-              Sjablonen met <strong>trigger</strong> en optioneel <strong>offset in minuten</strong> (0 = meteen). Herinneringen met
-              offset ≠ 0 worden later via een planner verstuurd.
+              Sjablonen met <strong>trigger</strong> en <strong>offset in uren</strong> (0 = meteen). Bij herinnering/opvolging:
+              negatieve uren = vóór de start van de afspraak, positieve = erna. Waarde wordt als minuten opgeslagen; offset ≠ 0
+              volgt later via een planner.
             </p>
             <button type="button" className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white" onClick={openNew}>
               + Nieuw sjabloon
@@ -270,7 +281,7 @@ export default function AdminAgendaMailSmsPage() {
                   <th className="p-2">Naam</th>
                   <th className="p-2">Kanaal</th>
                   <th className="p-2">Trigger</th>
-                  <th className="p-2">Offset</th>
+                  <th className="p-2">Offset (uur)</th>
                   <th className="p-2">Actief</th>
                   <th className="p-2">Acties</th>
                 </tr>
@@ -281,7 +292,7 @@ export default function AdminAgendaMailSmsPage() {
                     <td className="p-2 font-medium text-ink">{t.name}</td>
                     <td className="p-2">{t.channel}</td>
                     <td className="p-2">{t.trigger}</td>
-                    <td className="p-2">{t.offsetMinutes}</td>
+                    <td className="p-2">{offsetMinutesToHoursInput(t.offsetMinutes)}</td>
                     <td className="p-2">{t.enabled ? 'ja' : 'nee'}</td>
                     <td className="p-2">
                       <button type="button" className="mr-2 text-burgundy underline" onClick={() => openEdit(t)}>
@@ -310,6 +321,12 @@ export default function AdminAgendaMailSmsPage() {
                 </li>
               ))}
             </ul>
+            <p className="mt-2 text-xs text-muted">
+              Tip: voor knoppen gebruik je <code className="rounded bg-white px-1">{'{{confirm_button_html}}'}</code> en{' '}
+              <code className="rounded bg-white px-1">{'{{cancel_button_html}}'}</code>. Zelf een knop maken:{' '}
+              <code className="rounded bg-white px-1">&lt;a href=&quot;{'{{confirm_url}}'}&quot;&gt;…&lt;/a&gt;</code> (URL is al
+              ge-escaped).
+            </p>
           </div>
 
           {editing ? (
@@ -351,12 +368,16 @@ export default function AdminAgendaMailSmsPage() {
                   </select>
                 </label>
                 <label className="text-xs text-muted">
-                  Offset (minuten)
+                  Offset (uren)
                   <input
                     type="number"
+                    step={0.25}
                     className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
-                    value={editing.offsetMinutes ?? 0}
-                    onChange={(e) => setEditing({ ...editing, offsetMinutes: parseInt(e.target.value, 10) || 0 })}
+                    value={(editing.offsetMinutes ?? 0) / 60}
+                    onChange={(e) => {
+                      const v = e.target.valueAsNumber;
+                      setEditing({ ...editing, offsetMinutes: Number.isFinite(v) ? Math.round(v * 60) : 0 });
+                    }}
                   />
                 </label>
                 {editing.channel !== 'sms' ? (
@@ -373,12 +394,25 @@ export default function AdminAgendaMailSmsPage() {
               <label className="text-xs text-muted">
                 Inhoud (HTML of SMS-tekst)
                 <textarea
-                  className="mt-1 min-h-[180px] w-full rounded border border-line px-2 py-2 font-mono text-xs"
+                  className="mt-1 min-h-[220px] w-full rounded border border-line px-2 py-2 font-mono text-xs leading-relaxed"
                   value={editing.body ?? ''}
                   onChange={(e) => setEditing({ ...editing, body: e.target.value })}
                   required
                 />
               </label>
+              {editing.channel === 'email' ? (
+                <button
+                  type="button"
+                  className="rounded border border-line bg-panel px-3 py-1.5 text-xs font-medium text-ink hover:bg-zinc-100"
+                  onClick={() =>
+                    setEditing((prev) =>
+                      prev ? { ...prev, body: AGENDA_DEFAULT_BOOKING_EMAIL_HTML } : prev,
+                    )
+                  }
+                >
+                  Standaard HTML (Class Models) invoegen
+                </button>
+              ) : null}
               <div>
                 <p className="text-xs font-medium text-ink">Geldt voor agenda&apos;s (leeg = alle)</p>
                 <div className="mt-2 flex flex-wrap gap-2">

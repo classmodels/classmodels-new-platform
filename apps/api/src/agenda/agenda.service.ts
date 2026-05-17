@@ -105,7 +105,7 @@ const DEFAULT_AGENDA_FIELD_SEED: Array<{
 ];
 
 function webPublicBase(): string {
-  return (process.env.WEB_PUBLIC_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '');
+  return (process.env.WEB_PUBLIC_URL || process.env.WEB_APP_URL || 'https://www.class-models.be').replace(/\/$/, '');
 }
 
 function normTime(t: string): string {
