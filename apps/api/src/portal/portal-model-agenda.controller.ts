@@ -46,9 +46,14 @@ export class PortalModelAgendaController {
     AnyFilesInterceptor({
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          const dir = join(resolveMediaRoot(), 'agenda');
-          mkdirSync(dir, { recursive: true });
-          cb(null, dir);
+          try {
+            const dir = join(resolveMediaRoot(), 'agenda');
+            mkdirSync(dir, { recursive: true });
+            cb(null, dir);
+          } catch (e) {
+            const err = e instanceof Error ? e : new Error(String(e));
+            cb(err, '');
+          }
         },
         filename: (_req, file, cb) => cb(null, `${randomUUID()}${extname(file.originalname) || ''}`),
       }),

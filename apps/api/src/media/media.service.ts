@@ -470,6 +470,47 @@ export class MediaService {
     };
   }
 
+  /** Platte JSON-response na upload (vermijdt Prisma-proxy / serialisatie-surprises in productie). */
+  private uploadResponseDto(created: {
+    id: string;
+    originalName: string;
+    storageKey: string;
+    mimeType: string;
+    sizeBytes: number;
+    width: number | null;
+    height: number | null;
+    webpKey: string | null;
+    thumbKey: string | null;
+    folderId: string | null;
+    linkedModelUserId: string | null;
+    uploadedById: string | null;
+    modelDownloadedAt: Date | null;
+    scheduledHardDeleteAt: Date | null;
+    hardDeleted: boolean;
+    createdAt: Date;
+  }) {
+    return {
+      id: created.id,
+      originalName: created.originalName,
+      storageKey: created.storageKey,
+      mimeType: created.mimeType,
+      sizeBytes: created.sizeBytes,
+      width: created.width,
+      height: created.height,
+      webpKey: created.webpKey,
+      thumbKey: created.thumbKey,
+      folderId: created.folderId,
+      linkedModelUserId: created.linkedModelUserId,
+      uploadedById: created.uploadedById,
+      modelDownloadedAt: created.modelDownloadedAt ? created.modelDownloadedAt.toISOString() : null,
+      scheduledHardDeleteAt: created.scheduledHardDeleteAt ? created.scheduledHardDeleteAt.toISOString() : null,
+      hardDeleted: created.hardDeleted,
+      createdAt: created.createdAt.toISOString(),
+      publicKey: this.resolvePublicFilename(created),
+      detailKey: this.resolveDetailFilename(created),
+    };
+  }
+
   async saveFile(
     file: Express.Multer.File,
     userId: string,
@@ -609,11 +650,31 @@ export class MediaService {
         },
       });
       this.invalidateDiskBasenameIndex();
-      return {
-        ...created,
-        publicKey: this.resolvePublicFilename(created),
-        detailKey: this.resolveDetailFilename(created),
-      };
+      try {
+        return this.uploadResponseDto(created);
+      } catch (e) {
+        console.error('[media] uploadResponseDto mislukt na DB-create — minimale JSON:', e);
+        return {
+          id: created.id,
+          originalName: created.originalName,
+          storageKey: created.storageKey,
+          mimeType: created.mimeType,
+          sizeBytes: created.sizeBytes,
+          width: created.width,
+          height: created.height,
+          webpKey: created.webpKey,
+          thumbKey: created.thumbKey,
+          folderId: created.folderId,
+          linkedModelUserId: created.linkedModelUserId,
+          uploadedById: created.uploadedById,
+          modelDownloadedAt: created.modelDownloadedAt?.toISOString() ?? null,
+          scheduledHardDeleteAt: created.scheduledHardDeleteAt?.toISOString() ?? null,
+          hardDeleted: created.hardDeleted,
+          createdAt: created.createdAt.toISOString(),
+          publicKey: created.storageKey,
+          detailKey: created.storageKey,
+        };
+      }
     } finally {
       if (tmpDiskPath) {
         try {

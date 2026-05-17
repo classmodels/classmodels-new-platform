@@ -88,70 +88,84 @@ export class AgendaNotificationService {
    * SMS: sjablonen + anders korte standaard via BulkSMS indien geconfigureerd.
    */
   async dispatchBookingLifecycle(trigger: AgendaLifecycleTrigger, ctx: DispatchBookingCtx): Promise<void> {
-    const rows = await this.prisma.agendaNotificationTemplate.findMany({
-      where: { enabled: true, trigger },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    });
+    try {
+      const rows = await this.prisma.agendaNotificationTemplate.findMany({
+        where: { enabled: true, trigger },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      });
 
-    const vars = buildAgendaMailPlaceholderVars(ctx, 'html');
+      const vars = buildAgendaMailPlaceholderVars(ctx, 'html');
 
-    const matches = rows.filter((t) => {
-      const slugs = parseSlugList(t.calendarSlugs);
-      return !slugs.length || slugs.includes(ctx.calendarSlug);
-    });
+      const matches = rows.filter((t) => {
+        const slugs = parseSlugList(t.calendarSlugs);
+        return !slugs.length || slugs.includes(ctx.calendarSlug);
+      });
 
-    const dueNow = matches.filter((t) => t.offsetMinutes === 0);
-    const deferred = matches.filter((t) => t.offsetMinutes !== 0);
-    if (deferred.length) {
-      this.log.debug(`${deferred.length} sjabloon(nen) met offset≠0: geplande herinnering volgt later (cron).`);
-    }
-
-    let emailSent = false;
-    for (const t of dueNow.filter((x) => x.channel === 'email')) {
-      const to = ctx.toEmail?.trim();
-      if (!to) continue;
-      const subject =
-        applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
-        `Melding: ${ctx.calendarTitle}`;
-      const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(t.body, vars));
-      const ok = await this.trySendSmtp(to, subject, html);
-      if (ok) emailSent = true;
-    }
-    if (!emailSent && ctx.toEmail?.trim() && trigger === 'booking_created') {
-      await this.sendBookingConfirmation(ctx);
-    }
-
-    const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
-    const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
-    const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
-
-    let smsSent = false;
-    for (const t of dueNow.filter((x) => x.channel === 'sms')) {
-      const msisdn = normalizeBelgiumMsisdn(ctx.phone);
-      if (!msisdn) continue;
-      const text = applyAgendaMailPlaceholders(t.body, buildAgendaMailPlaceholderVars(ctx, 'plain'));
-      const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
-      if (ok) smsSent = true;
-    }
-    if (!smsSent) {
-      const msisdn = normalizeBelgiumMsisdn(ctx.phone);
-      if (msisdn && buUser && buPass && trigger === 'booking_created') {
-        const fallback = this.buildSms(ctx);
-        await this.trySendBulksms(buUser, buPass, msisdn, fallback);
-      } else {
-        this.log.log(`SMS → ${ctx.phone ?? '(geen GSM)'}\n${this.buildSms(ctx)}`);
+      const dueNow = matches.filter((t) => t.offsetMinutes === 0);
+      const deferred = matches.filter((t) => t.offsetMinutes !== 0);
+      if (deferred.length) {
+        this.log.debug(`${deferred.length} sjabloon(nen) met offset≠0: geplande herinnering volgt later (cron).`);
       }
+
+      let emailSent = false;
+      for (const t of dueNow.filter((x) => x.channel === 'email')) {
+        const to = ctx.toEmail?.trim();
+        if (!to) continue;
+        const subject =
+          applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
+          `Melding: ${ctx.calendarTitle}`;
+        const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(t.body, vars));
+        const ok = await this.trySendSmtp(to, subject, html);
+        if (ok) emailSent = true;
+      }
+      if (!emailSent && ctx.toEmail?.trim() && trigger === 'booking_created') {
+        await this.sendBookingConfirmation(ctx);
+      }
+
+      const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
+      const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
+      const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
+
+      let smsSent = false;
+      for (const t of dueNow.filter((x) => x.channel === 'sms')) {
+        const msisdn = normalizeBelgiumMsisdn(ctx.phone);
+        if (!msisdn) continue;
+        const text = applyAgendaMailPlaceholders(t.body, buildAgendaMailPlaceholderVars(ctx, 'plain'));
+        const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
+        if (ok) smsSent = true;
+      }
+      if (!smsSent) {
+        const msisdn = normalizeBelgiumMsisdn(ctx.phone);
+        if (msisdn && buUser && buPass && trigger === 'booking_created') {
+          const fallback = this.buildSms(ctx);
+          await this.trySendBulksms(buUser, buPass, msisdn, fallback);
+        } else {
+          this.log.log(`SMS → ${ctx.phone ?? '(geen GSM)'}\n${this.buildSms(ctx)}`);
+        }
+      }
+    } catch (e) {
+      this.log.error(
+        `Agenda "${trigger}" (${ctx.calendarSlug}): melding/SMS-pad gefaald — boeking of actie blijft geldig: ${e instanceof Error ? e.message : String(e)}`,
+        e instanceof Error ? e.stack : undefined,
+      );
     }
   }
 
   /** @deprecated Gebruik dispatchBookingLifecycle; behouden voor interne fallback. */
   async sendBookingConfirmation(p: AgendaConfirmationPayload): Promise<void> {
-    const subject = `Bevestiging: ${p.calendarTitle} — Class Models`;
-    const html = this.buildEmailHtml(p);
-    const mailed = await this.trySendSmtp(p.toEmail, subject, html);
-    if (!mailed) {
-      this.log.log(`E-mail (niet verstuurd — zet SMTP_HOST): ${subject} → ${p.toEmail ?? '(geen e-mail)'}`);
-      this.log.debug(html);
+    try {
+      const subject = `Bevestiging: ${p.calendarTitle} — Class Models`;
+      const html = this.buildEmailHtml(p);
+      const mailed = await this.trySendSmtp(p.toEmail, subject, html);
+      if (!mailed) {
+        this.log.log(`E-mail (niet verstuurd — zet SMTP_HOST): ${subject} → ${p.toEmail ?? '(geen e-mail)'}`);
+        this.log.debug(html);
+      }
+    } catch (e) {
+      this.log.error(
+        `Standaard bevestigingsmail kon niet worden opgebouwd of verstuurd: ${e instanceof Error ? e.message : String(e)}`,
+        e instanceof Error ? e.stack : undefined,
+      );
     }
   }
 
@@ -198,31 +212,50 @@ export class AgendaNotificationService {
     const addr = to?.trim();
     if (!addr) return false;
 
-    const cfg = await resolveSmtpConfig(this.prisma);
+    let cfg: Awaited<ReturnType<typeof resolveSmtpConfig>>;
+    try {
+      cfg = await resolveSmtpConfig(this.prisma);
+    } catch (e) {
+      this.log.warn(`SMTP-config lezen mislukt: ${e instanceof Error ? e.message : String(e)}`);
+      return false;
+    }
     if (!cfg) return false;
 
-    const transporter = nodemailer.createTransport({
-      host: cfg.host,
-      port: cfg.port,
-      secure: cfg.secure,
-      auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
-    });
+    let transporter: nodemailer.Transporter;
+    try {
+      transporter = nodemailer.createTransport({
+        host: cfg.host,
+        port: cfg.port,
+        secure: cfg.secure,
+        auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+      });
+    } catch (e) {
+      this.log.warn(`SMTP-transport ongeldig: ${e instanceof Error ? e.message : String(e)}`);
+      return false;
+    }
 
-    await transporter.sendMail({
-      from: cfg.from,
-      to: addr,
-      subject,
-      html,
-      ...(attachments?.length
-        ? {
-            attachments: attachments.map((a) => ({
-              filename: a.filename,
-              content: a.content,
-              contentType: 'application/pdf',
-            })),
-          }
-        : {}),
-    });
+    try {
+      await transporter.sendMail({
+        from: cfg.from,
+        to: addr,
+        subject,
+        html,
+        ...(attachments?.length
+          ? {
+              attachments: attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: 'application/pdf',
+              })),
+            }
+          : {}),
+      });
+    } catch (e) {
+      this.log.warn(
+        `SMTP sendMail mislukt → ${addr}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return false;
+    }
     this.log.log(
       attachments?.length
         ? `E-mail met ${attachments.length} bijlage(n) verstuurd naar ${addr}`

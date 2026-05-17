@@ -36,7 +36,8 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: true,
+      /** `true` geeft vaker 500/“Internal server error” bij multipart, proxies of extra form-keys. */
+      forbidNonWhitelisted: false,
     }),
   );
   const origin = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()) ?? [

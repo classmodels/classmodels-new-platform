@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -164,6 +165,8 @@ function parseOptionalSlotStartsLines(raw: string | null | undefined): number[] 
 
 @Injectable()
 export class AgendaService {
+  private readonly log = new Logger(AgendaService.name);
+
   constructor(
     private prisma: PrismaService,
     private notifications: AgendaNotificationService,
@@ -727,49 +730,80 @@ export class AgendaService {
       });
     });
 
-    const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
-    const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
-    const dateLabel = new Intl.DateTimeFormat('nl-BE', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(slot.slotDate);
-    const timeLabel = `${slot.startTime.slice(0, 5)} – ${slot.endTime.slice(0, 5)}`;
-
-    await this.notifications.dispatchBookingLifecycle('booking_created', {
-      toEmail: email || null,
-      phone: phone || null,
-      displayName: name || firstname || 'klant',
-      calendarTitle: cal.title,
-      calendarSlug: cal.slug,
-      dateLabel,
-      timeLabel,
-      cancelUrl,
-      confirmUrl,
-    });
-
-    const out: {
+    const hideCancelLink = process.env.AGENDA_HIDE_CANCEL_LINK === '1';
+    const bookingSuccessPayload = (): {
       success: true;
       bookingId: string;
       cancelUrl?: string;
-    } = { success: true, bookingId: booking.id };
-    if (process.env.AGENDA_HIDE_CANCEL_LINK !== '1') {
-      out.cancelUrl = cancelUrl;
-    }
-    if (userId) {
-      const ymd = slot.slotDate.toISOString().slice(0, 10);
-      void this.modelHistory.log(userId, 'agenda_booked', {
-        calendarSlug: cal.slug,
-        calendarTitle: cal.title,
-        slotDate: ymd,
-        startTime: slot.startTime.slice(0, 5),
-        endTime: slot.endTime.slice(0, 5),
+    } => {
+      const out: { success: true; bookingId: string; cancelUrl?: string } = {
+        success: true,
         bookingId: booking.id,
-        source: 'portal-model',
-      });
+      };
+      if (!hideCancelLink) {
+        out.cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
+      }
+      return out;
+    };
+
+    /** Na commit: mail/SMS/labels mogen NOOIT meer een 500 geven (Nest → “Internal server error”). */
+    try {
+      const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
+      const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
+      let dateLabel: string;
+      try {
+        dateLabel = new Intl.DateTimeFormat('nl-BE', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).format(slot.slotDate);
+      } catch {
+        dateLabel = slot.slotDate.toISOString().slice(0, 10);
+      }
+      const st = String(slot.startTime ?? '');
+      const et = String(slot.endTime ?? '');
+      const timeLabel = `${st.slice(0, 5)} – ${et.slice(0, 5)}`;
+
+      void this.notifications
+        .dispatchBookingLifecycle('booking_created', {
+          toEmail: email || null,
+          phone: phone || null,
+          displayName: name || firstname || 'klant',
+          calendarTitle: String(cal.title ?? ''),
+          calendarSlug: String(cal.slug ?? ''),
+          dateLabel,
+          timeLabel,
+          cancelUrl,
+          confirmUrl,
+        })
+        .catch((err) => {
+          this.log.warn(
+            `dispatchBookingLifecycle (async): ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+
+      if (userId) {
+        const ymd = slot.slotDate.toISOString().slice(0, 10);
+        void this.modelHistory.log(userId, 'agenda_booked', {
+          calendarSlug: cal.slug,
+          calendarTitle: cal.title,
+          slotDate: ymd,
+          startTime: st.slice(0, 5),
+          endTime: et.slice(0, 5),
+          bookingId: booking.id,
+          source: 'portal-model',
+        });
+      }
+
+      return bookingSuccessPayload();
+    } catch (e) {
+      this.log.error(
+        `Agenda book: post-commit pad gefaald — boeking ${booking.id} staat wél in de database: ${e instanceof Error ? e.message : String(e)}`,
+        e instanceof Error ? e.stack : undefined,
+      );
+      return bookingSuccessPayload();
     }
-    return out;
   }
 
   async getMyBooking(userId: string, slug: string) {
@@ -1214,26 +1248,41 @@ export class AgendaService {
 
     const email = dto.email?.trim();
     if (email) {
-      const dateLabel = new Intl.DateTimeFormat('nl-BE', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      }).format(slotDate);
-      const timeLabel = `${slot.startTime.slice(0, 5)} – ${slot.endTime.slice(0, 5)}`;
-      const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
-      const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
-      await this.notifications.dispatchBookingLifecycle('booking_created', {
-        toEmail: email,
-        phone: dto.phone?.trim() || null,
-        displayName: name,
-        calendarTitle: cal.title,
-        calendarSlug: cal.slug,
-        dateLabel,
-        timeLabel,
-        cancelUrl,
-        confirmUrl,
-      });
+      try {
+        const dateLabel = new Intl.DateTimeFormat('nl-BE', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).format(slotDate);
+        const st = String(slot.startTime ?? '');
+        const et = String(slot.endTime ?? '');
+        const timeLabel = `${st.slice(0, 5)} – ${et.slice(0, 5)}`;
+        const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
+        const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
+        void this.notifications
+          .dispatchBookingLifecycle('booking_created', {
+            toEmail: email,
+            phone: dto.phone?.trim() || null,
+            displayName: name,
+            calendarTitle: String(cal.title ?? ''),
+            calendarSlug: String(cal.slug ?? ''),
+            dateLabel,
+            timeLabel,
+            cancelUrl,
+            confirmUrl,
+          })
+          .catch((err) => {
+            this.log.warn(
+              `adminManualBooking dispatch (async): ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      } catch (e) {
+        this.log.error(
+          `adminManualBooking: melding na DB-create mislukt (boeking ${booking.id} bestaat wél): ${e instanceof Error ? e.message : String(e)}`,
+          e instanceof Error ? e.stack : undefined,
+        );
+      }
     }
 
     return { bookingId: booking.id, slotId: slot.id };
