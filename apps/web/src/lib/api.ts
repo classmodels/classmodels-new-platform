@@ -1,9 +1,12 @@
-/** Zelfde domein als de site → geen CORS (Combell www + api op één Node). */
+/** Zelfde domein als de site → geen CORS (Combell: Next + API op één origin). */
 export const CM_API_PROXY_PREFIX = '/__cm_api';
 
-function isClassModelsSiteHost(host: string) {
-  const h = host.toLowerCase();
-  return h === 'www.class-models.be' || h === 'class-models.be';
+/** Lokaal: rechtstreeks naar Nest. Overal elders: same-origin `/__cm_api` (Next rewrite → API). */
+function shouldUseSameOriginApiProxy(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') return false;
+  if (h.endsWith('.local')) return false;
+  return true;
 }
 
 /** Nest-fout JSON → leesbare tekst voor in de UI. */
@@ -21,10 +24,8 @@ export function parseApiErrorBody(text: string): string {
 }
 
 export function getApiBase() {
-  if (typeof window !== 'undefined') {
-    if (isClassModelsSiteHost(window.location.hostname)) {
-      return CM_API_PROXY_PREFIX;
-    }
+  if (typeof window !== 'undefined' && shouldUseSameOriginApiProxy(window.location.hostname)) {
+    return CM_API_PROXY_PREFIX;
   }
 
   const internal = process.env.CM_API_INTERNAL_URL?.replace(/\/$/, '');

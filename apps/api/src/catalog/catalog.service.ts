@@ -120,11 +120,17 @@ export class CatalogService {
     const rows = await this.prisma.user.findMany({
       where: {
         status: 'active',
-        roles: {
-          some: {
-            role: { slug: { in: [ROLE_MODEL, ROLE_NEWFACE, ROLE_TRYOUT, ROLE_INACTIEF] } },
+        OR: [
+          {
+            roles: {
+              some: {
+                role: { slug: { in: [ROLE_MODEL, ROLE_NEWFACE, ROLE_TRYOUT, ROLE_INACTIEF] } },
+              },
+            },
           },
-        },
+          /** Accounts gemarkeerd als modelportaal maar zonder UserRole (import / oude data). */
+          { defaultPortal: 'model' },
+        ],
       },
       select: {
         id: true,
