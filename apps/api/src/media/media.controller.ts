@@ -19,7 +19,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import type { Response } from 'express';
 import { basename, extname, join } from 'path';
-import { existsSync } from 'fs';
 import {
   CreateMediaFolderDto,
   MoveAssetsFolderDto,
@@ -55,8 +54,8 @@ export class MediaController {
   @Get('public/:filename')
   serve(@Param('filename') filename: string, @Res() res: Response) {
     const safe = basename(filename);
-    const full = join(this.media.root(), safe);
-    if (!safe || safe === '.' || !existsSync(full)) throw new NotFoundException();
+    const full = this.media.resolveAbsolutePathForPublicFilename(safe);
+    if (!safe || safe === '.' || !full) throw new NotFoundException();
     const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
     if (mime) res.setHeader('Content-Type', mime);
     /** Range-requests: nodig voor betrouwbare `<video>`-playback (o.a. Safari). */

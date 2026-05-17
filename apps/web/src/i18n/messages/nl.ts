@@ -127,6 +127,7 @@ export const messagesNl = {
     premium: 'Premium & abonnementen',
     tryout: 'Try-out modeshow',
     mollie: 'Mollie-instellingen',
+    mailSmtp: 'E-mail (SMTP)',
     sectionMedia: 'Media & reviews',
     mediaLibrary: 'Media Library',
     reviews: 'Reviews',

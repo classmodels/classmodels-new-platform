@@ -18,6 +18,7 @@ import { AdminPluginsController } from './admin-plugins.controller';
 import { AdminBriefsController } from './admin-briefs.controller';
 import { AdminTryoutModeshowController } from './admin-tryout-modeshow.controller';
 import { AdminTryoutModeshowService } from './admin-tryout-modeshow.service';
+import { AdminSiteSmtpController } from './admin-site-smtp.controller';
 import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { PaymentsModule } from '../payments/payments.module';
     AdminRolesController,
     AdminReviewsController,
     AdminMollieController,
+    AdminSiteSmtpController,
     AdminAuditController,
     AdminSubscriptionsController,
     AdminPremiumController,

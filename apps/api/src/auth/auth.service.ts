@@ -141,7 +141,7 @@ export class AuthService {
       <p>Werkt de link niet? Kopieer: ${link}</p>
       <p>Heb je dit niet aangevraagd? Negeer deze mail.</p>
     `;
-    const sent = await sendHtmlMail(user.email, 'Nieuw wachtwoord — Class Models', html);
+    const sent = await sendHtmlMail(this.prisma, user.email, 'Nieuw wachtwoord — Class Models', html);
     if (!sent) {
       this.log.warn(`Wachtwoord-reset niet gemaild (SMTP?): ${user.email}`);
     }

@@ -349,6 +349,7 @@ export function ModelPortalPushTab({
   const allSelected = inboxIds.length > 0 && inboxIds.every((id) => selected[id]);
 
   const vapidOk = pushSummary?.webPushConfigured && !!pushSummary?.vapidPublicKey;
+  const compactPushTitleBar = canSubscribe && devicePushActive;
 
   useEffect(() => {
     if (!onTitleBar || !canRead) {
@@ -392,65 +393,69 @@ export function ModelPortalPushTab({
             {devicePushActive ? 'Push uit' : 'Push aan'}
           </button>
         ) : null}
-        <span className="min-w-1 shrink-0" aria-hidden />
-        <PushFilterPill
-          label="Alle"
-          count={countAll}
-          active={pushFilter === 'all'}
-          disabled={busy}
-          compact
-          onClick={() => setPushFilter('all')}
-        />
-        <PushFilterPill
-          label="Gelezen"
-          count={countRead}
-          active={pushFilter === 'read'}
-          disabled={busy}
-          compact
-          onClick={() => setPushFilter('read')}
-        />
-        <PushFilterPill
-          label="Nieuw"
-          count={unreadFromApi}
-          active={pushFilter === 'unread'}
-          disabled={busy}
-          compact
-          onClick={() => setPushFilter('unread')}
-        />
-        <span className="mx-0.5 hidden h-5 w-px shrink-0 self-center bg-white/30 sm:block" aria-hidden />
-        <button
-          type="button"
-          disabled={busy || !inboxIds.length}
-          onClick={allSelected ? clearSel : selectAll}
-          className={pillCompact}
-        >
-          {allSelected ? 'Geen' : 'Alles aanwijzen'}
-        </button>
-        <button
-          type="button"
-          disabled={busy || !selectedIds.length}
-          onClick={() => void markReadMany(selectedIds)}
-          className={`shrink-0 ${countPill}`}
-        >
-          <span className="inline-block whitespace-nowrap pr-0.5">Selectie gelezen</span>
-          {selectedIds.length > 0 ? (
-            <PushCountBadge count={selectedIds.length} variant="titlebar" aria-hidden />
-          ) : null}
-        </button>
-        <button type="button" disabled={busy} onClick={() => void markAllRead()} className={pillCompact}>
-          Alles gelezen
-        </button>
-        <button
-          type="button"
-          disabled={busy || !selectedIds.length}
-          onClick={() => void deleteMany(selectedIds)}
-          className={`shrink-0 ${countPill}`}
-        >
-          <span className="inline-block whitespace-nowrap pr-0.5">Verwijderen</span>
-          {selectedIds.length > 0 ? (
-            <PushCountBadge count={selectedIds.length} variant="titlebar" aria-hidden />
-          ) : null}
-        </button>
+        {!compactPushTitleBar ? (
+          <>
+            <span className="min-w-1 shrink-0" aria-hidden />
+            <PushFilterPill
+              label="Alle"
+              count={countAll}
+              active={pushFilter === 'all'}
+              disabled={busy}
+              compact
+              onClick={() => setPushFilter('all')}
+            />
+            <PushFilterPill
+              label="Gelezen"
+              count={countRead}
+              active={pushFilter === 'read'}
+              disabled={busy}
+              compact
+              onClick={() => setPushFilter('read')}
+            />
+            <PushFilterPill
+              label="Nieuw"
+              count={unreadFromApi}
+              active={pushFilter === 'unread'}
+              disabled={busy}
+              compact
+              onClick={() => setPushFilter('unread')}
+            />
+            <span className="mx-0.5 hidden h-5 w-px shrink-0 self-center bg-white/30 sm:block" aria-hidden />
+            <button
+              type="button"
+              disabled={busy || !inboxIds.length}
+              onClick={allSelected ? clearSel : selectAll}
+              className={pillCompact}
+            >
+              {allSelected ? 'Geen' : 'Alles aanwijzen'}
+            </button>
+            <button
+              type="button"
+              disabled={busy || !selectedIds.length}
+              onClick={() => void markReadMany(selectedIds)}
+              className={`shrink-0 ${countPill}`}
+            >
+              <span className="inline-block whitespace-nowrap pr-0.5">Selectie gelezen</span>
+              {selectedIds.length > 0 ? (
+                <PushCountBadge count={selectedIds.length} variant="titlebar" aria-hidden />
+              ) : null}
+            </button>
+            <button type="button" disabled={busy} onClick={() => void markAllRead()} className={pillCompact}>
+              Alles gelezen
+            </button>
+            <button
+              type="button"
+              disabled={busy || !selectedIds.length}
+              onClick={() => void deleteMany(selectedIds)}
+              className={`shrink-0 ${countPill}`}
+            >
+              <span className="inline-block whitespace-nowrap pr-0.5">Verwijderen</span>
+              {selectedIds.length > 0 ? (
+                <PushCountBadge count={selectedIds.length} variant="titlebar" aria-hidden />
+              ) : null}
+            </button>
+          </>
+        ) : null}
       </div>,
     );
     return () => onTitleBar(null);
@@ -472,6 +477,7 @@ export function ModelPortalPushTab({
     countRead,
     unreadFromApi,
     devicePushActive,
+    compactPushTitleBar,
   ]);
 
   if (!canRead) {
@@ -488,43 +494,38 @@ export function ModelPortalPushTab({
 
   return (
     <div className="text-sm">
-      {canSubscribe ? (
-        <div className="mb-5 rounded-cm border border-line bg-panel px-4 py-3 shadow-sm">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold text-ink">Push op dit toestel</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={devicePushActive}
-              aria-label={devicePushActive ? 'Pushmeldingen uitschakelen' : 'Pushmeldingen inschakelen'}
-              disabled={busy}
-              onClick={() => {
-                if (devicePushActive) {
-                  if (confirm('Pushmeldingen op dit toestel uitschakelen?')) void disablePushOnDevice();
-                } else {
-                  void enablePushOnDevice();
-                }
-              }}
-              className={[
-                'relative h-8 w-14 shrink-0 rounded-full border-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-burgundy focus-visible:ring-offset-2',
-                devicePushActive ? 'border-emerald-600 bg-emerald-500' : 'border-zinc-300 bg-zinc-200',
-                busy ? 'cursor-wait opacity-60' : 'cursor-pointer',
-              ].join(' ')}
-            >
-              <span
-                className={[
-                  'absolute top-0.5 block h-6 w-6 rounded-full bg-white shadow transition-transform',
-                  devicePushActive ? 'translate-x-6' : 'translate-x-0.5',
-                ].join(' ')}
-              />
-            </button>
-            <span className="text-xs font-medium text-muted">{devicePushActive ? 'Aan' : 'Uit'}</span>
-          </div>
-          {pushMsg ? <p className="mt-2 text-xs font-medium text-red-700">{pushMsg}</p> : null}
+      {pushMsg ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
+
+      {compactPushTitleBar ? (
+        <div className="mb-4 space-y-2 text-xs leading-relaxed text-muted">
+          <p>
+            Push op dit apparaat staat <strong className="text-ink">aan</strong>. Voorkeuren en inbox staan hier uit de
+            weg; schakel uit met <strong className="text-ink">Push uit</strong> in de rode titelbalk om alles terug te
+            zien.
+          </p>
           {!vapidOk ? (
-            <p className="mt-2 text-xs text-amber-900">
-              De server heeft (nog) geen werkende VAPID-sleutels. Zonder sleutels kan de browser geen push activeren.
-              Genereer met <code className="rounded bg-amber-100 px-1">npx web-push generate-vapid-keys</code> en zet{' '}
+            <p className="text-amber-900">
+              Server-VAPID ontbreekt of is ongeldig — dan werkt inschakelen niet. Laat de beheerder de API-.env of{' '}
+              <code className="rounded bg-amber-100 px-1">apps/api/data/vapid-keys.json</code> controleren.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!compactPushTitleBar && showPushIntro ? (
+        <div className="mb-5 space-y-2 text-xs leading-relaxed text-zinc-700">
+          <p>
+            Zet <strong>systeemmeldingen</strong> aan of uit met <strong className="text-ink">Push aan</strong> in de
+            rode titelbalk. Hieronder kies je welke <strong>soorten berichten</strong> in je inbox terechtkomen (je
+            voorkeuren blijven bewaard).
+          </p>
+          <p className="text-muted">
+            Op iPhone: voeg de site toe aan het beginscherm via Safari → Deel → Zet op beginscherm, en sta meldingen toe.
+          </p>
+          {!vapidOk ? (
+            <p className="text-amber-900">
+              De server heeft (nog) geen werkende VAPID-sleutels. Genereer met{' '}
+              <code className="rounded bg-amber-100 px-1">npx web-push generate-vapid-keys</code> en zet{' '}
               <code className="rounded bg-amber-100 px-1">VAPID_PUBLIC_KEY</code> /{' '}
               <code className="rounded bg-amber-100 px-1">VAPID_PRIVATE_KEY</code> in de API-.env — of laat de API een
               sleutelpaar aanmaken (bestand <code className="rounded bg-amber-100 px-1">apps/api/data/vapid-keys.json</code>) en herstart.
@@ -533,21 +534,7 @@ export function ModelPortalPushTab({
         </div>
       ) : null}
 
-      {showPushIntro ? (
-        <div className="mb-5 space-y-2 text-xs leading-relaxed text-zinc-700">
-          <p>
-            Hierboven zet je <strong>systeemmeldingen</strong> op dit apparaat aan of uit. Onderaan kies je welke{' '}
-            <strong>soorten berichten</strong> in je inbox terechtkomen (je voorkeuren blijven bewaard).
-          </p>
-          <p className="text-muted">
-            Op iPhone: voeg de site toe aan het beginscherm via Safari → Deel → Zet op beginscherm, en sta meldingen toe.
-          </p>
-        </div>
-      ) : null}
-
-      {pushMsg && !canSubscribe ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
-
-      {pushSummary ? (
+      {!compactPushTitleBar && pushSummary ? (
         <div className="mb-4 space-y-2 rounded border border-line bg-zinc-50/80 p-3 text-xs leading-snug text-zinc-800">
           <p className="font-medium text-ink">Meldingen in je account</p>
           <label className="flex cursor-pointer items-start gap-2">
@@ -576,67 +563,69 @@ export function ModelPortalPushTab({
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        {loadErr ? <p className="text-xs text-red-700">{loadErr}</p> : null}
-        <ul className="space-y-2">
-          {filteredInbox.map((row) => (
-            <li
-              key={row.id}
-              className={`border px-3 py-2 shadow-sm ${
-                row.readAt ? 'border-zinc-100 bg-zinc-50/50' : 'border-burgundy/25 bg-burgundy/[0.04]'
-              }`}
-            >
-              <div className="flex flex-wrap items-start gap-2">
-                <label className="flex shrink-0 cursor-pointer items-center pt-0.5">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4"
-                    checked={!!selected[row.id]}
-                    onChange={(e) =>
-                      setSelected((s) => ({
-                        ...s,
-                        [row.id]: e.target.checked,
-                      }))
-                    }
-                  />
-                </label>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-ink">{row.title}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-700">{row.body}</p>
-                  <p className="mt-1 text-[10px] text-muted">
-                    {new Date(row.createdAt).toLocaleString('nl-BE')} — {row.source === 'agency' ? 'Bureau' : 'Historiek'}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center">
-                  {!row.readAt ? (
+      {!compactPushTitleBar ? (
+        <div className="space-y-3">
+          {loadErr ? <p className="text-xs text-red-700">{loadErr}</p> : null}
+          <ul className="space-y-2">
+            {filteredInbox.map((row) => (
+              <li
+                key={row.id}
+                className={`border px-3 py-2 shadow-sm ${
+                  row.readAt ? 'border-zinc-100 bg-zinc-50/50' : 'border-burgundy/25 bg-burgundy/[0.04]'
+                }`}
+              >
+                <div className="flex flex-wrap items-start gap-2">
+                  <label className="flex shrink-0 cursor-pointer items-center pt-0.5">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={!!selected[row.id]}
+                      onChange={(e) =>
+                        setSelected((s) => ({
+                          ...s,
+                          [row.id]: e.target.checked,
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-ink">{row.title}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-700">{row.body}</p>
+                    <p className="mt-1 text-[10px] text-muted">
+                      {new Date(row.createdAt).toLocaleString('nl-BE')} — {row.source === 'agency' ? 'Bureau' : 'Historiek'}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-center">
+                    {!row.readAt ? (
+                      <button
+                        type="button"
+                        onClick={() => void markRead(row.id)}
+                        className="text-[10px] font-semibold uppercase text-burgundy hover:underline"
+                      >
+                        Gelezen
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      onClick={() => void markRead(row.id)}
-                      className="text-[10px] font-semibold uppercase text-burgundy hover:underline"
+                      onClick={() => void deleteOne(row.id)}
+                      className="text-[10px] font-semibold uppercase text-red-700 hover:underline"
                     >
-                      Gelezen
+                      Verwijderen
                     </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => void deleteOne(row.id)}
-                    className="text-[10px] font-semibold uppercase text-red-700 hover:underline"
-                  >
-                    Verwijderen
-                  </button>
+                  </div>
                 </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-        {filteredInbox.length === 0 && !loadErr ? (
-          <p className="text-sm text-muted">
-            {inbox.length === 0
-              ? 'Nog geen pushberichten in je inbox.'
-              : 'Geen berichten in deze weergave — kies een andere tab in de titelbalk.'}
-          </p>
-        ) : null}
-      </div>
+              </li>
+            ))}
+          </ul>
+          {filteredInbox.length === 0 && !loadErr ? (
+            <p className="text-sm text-muted">
+              {inbox.length === 0
+                ? 'Nog geen pushberichten in je inbox.'
+                : 'Geen berichten in deze weergave — kies een andere tab in de titelbalk (of zet Push uit om de lijst hier te tonen).'}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

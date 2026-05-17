@@ -62,12 +62,48 @@ function expandConfiguredRoot(raw: string): string {
   }
 
   if (noDot === 'www/cm-media/uploads' || noDot.endsWith('www/cm-media/uploads')) {
+    const walked = findCmMediaUploadsWalkingAncestors(cwd);
+    if (walked) return walked;
+    const siteRoot = process.env.CM_SITE_ROOT?.trim();
+    if (siteRoot) {
+      const abs = isAbsolute(siteRoot) ? siteRoot : resolve(cwd, siteRoot);
+      const candidate = join(abs, 'www', 'cm-media', 'uploads');
+      try {
+        if (existsSync(candidate) && statSync(candidate).isDirectory()) return candidate;
+      } catch {
+        /**/
+      }
+    }
     const home = hostingHome();
-    if (home && !isContainerAppHome(home)) return join(home, 'www/cm-media/uploads');
+    if (home && !isContainerAppHome(home)) {
+      const h = join(home, 'www/cm-media/uploads');
+      try {
+        if (existsSync(h) && statSync(h).isDirectory()) return h;
+      } catch {
+        /**/
+      }
+    }
     return join(cwd, 'uploads');
   }
 
   return resolve(cwd, raw);
+}
+
+/** Zoekt `www/cm-media/uploads` omhoog vanaf cwd (Combell: Node draait vaak in release-submap). */
+function findCmMediaUploadsWalkingAncestors(startCwd: string): string | undefined {
+  let cur = resolve(startCwd.replace(/\\/g, '/'));
+  for (let i = 0; i < 14; i++) {
+    const candidate = join(cur, 'www', 'cm-media', 'uploads');
+    try {
+      if (existsSync(candidate) && statSync(candidate).isDirectory()) return candidate;
+    } catch {
+      /**/
+    }
+    const parent = resolve(join(cur, '..'));
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return undefined;
 }
 
 /** Vaste hostingpaden vóór app-release-map — zo komen bestanden in `www/cm-media/uploads` op Combell wél in beeld. */

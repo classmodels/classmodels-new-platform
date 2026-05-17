@@ -3,7 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createReadStream, createWriteStream, mkdirSync, existsSync, unlinkSync, statSync, writeFileSync } from 'fs';
+import { createReadStream, createWriteStream, mkdirSync, existsSync, unlinkSync, statSync, writeFileSync, readdirSync } from 'fs';
+import type { Dirent } from 'fs';
 import { basename, extname, join } from 'path';
 import { pipeline } from 'stream/promises';
 import type { Response } from 'express';
@@ -76,10 +77,72 @@ type AssetWithFolder = {
 
 @Injectable()
 export class MediaService {
+  /** Cache: basename → pad relatief t.o.v. MEDIA_ROOT (lege map = geen cache). */
+  private diskBasenameIndex: { root: string; map: Map<string, string> } | null = null;
+
   constructor(
     private prisma: PrismaService,
     private modelHistory: ModelPortalHistoryService,
   ) {}
+
+  private invalidateDiskBasenameIndex() {
+    this.diskBasenameIndex = null;
+  }
+
+  /** Bestand in submap van MEDIA_ROOT: relatief pad, of null. */
+  lookupDiskRelativePath(fileBase: string): string | null {
+    if (!fileBase || fileBase.includes('/') || fileBase.includes('..')) return null;
+    const root = this.root();
+    if (!this.diskBasenameIndex || this.diskBasenameIndex.root !== root) {
+      this.diskBasenameIndex = { root, map: this.buildDiskBasenameIndex(root) };
+    }
+    return this.diskBasenameIndex.map.get(fileBase) ?? null;
+  }
+
+  private buildDiskBasenameIndex(root: string): Map<string, string> {
+    const m = new Map<string, string>();
+    let visited = 0;
+    const maxVisit = 50000;
+    const maxDepth = 14;
+    const walk = (dir: string, relFromRoot: string, depth: number) => {
+      if (depth > maxDepth || visited >= maxVisit) return;
+      let ents: Dirent[];
+      try {
+        ents = readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of ents) {
+        visited += 1;
+        if (visited >= maxVisit) return;
+        const subRel = relFromRoot ? `${relFromRoot}/${e.name}` : e.name;
+        if (e.isFile()) {
+          if (!m.has(e.name)) m.set(e.name, subRel);
+        } else if (e.isDirectory()) {
+          walk(join(dir, e.name), subRel, depth + 1);
+        }
+      }
+    };
+    try {
+      walk(root, '', 0);
+    } catch {
+      /**/
+    }
+    return m;
+  }
+
+  /** Absoluut pad voor GET /media/public/:bestand (ook in submappen van MEDIA_ROOT). */
+  resolveAbsolutePathForPublicFilename(filename: string): string | null {
+    const safe = basename(filename);
+    if (!safe || safe === '.') return null;
+    const root = this.root();
+    const direct = join(root, safe);
+    if (existsSync(direct)) return direct;
+    const rel = this.lookupDiskRelativePath(safe);
+    if (!rel) return null;
+    const nested = join(root, rel);
+    return existsSync(nested) ? nested : null;
+  }
 
   root() {
     return resolveMediaRoot();
@@ -97,6 +160,7 @@ export class MediaService {
     if (!existsSync(root)) mkdirSync(root, { recursive: true });
     const full = join(root, safe);
     writeFileSync(full, file.buffer);
+    this.invalidateDiskBasenameIndex();
     return { ok: true, filename: safe };
   }
 
@@ -108,7 +172,10 @@ export class MediaService {
   }): string {
     const root = this.root();
     for (const k of [asset.thumbKey, asset.webpKey, asset.storageKey]) {
-      if (k && existsSync(join(root, k))) return k;
+      if (!k) continue;
+      if (existsSync(join(root, k))) return k;
+      const rel = this.lookupDiskRelativePath(basename(k));
+      if (rel) return basename(k);
     }
     return asset.storageKey;
   }
@@ -126,7 +193,10 @@ export class MediaService {
       ? [asset.webpKey, asset.storageKey, asset.thumbKey]
       : [asset.storageKey, asset.webpKey, asset.thumbKey];
     for (const k of order) {
-      if (k && existsSync(join(root, k))) return k;
+      if (!k) continue;
+      if (existsSync(join(root, k))) return k;
+      const rel = this.lookupDiskRelativePath(basename(k));
+      if (rel) return basename(k);
     }
     return asset.storageKey;
   }
@@ -142,6 +212,7 @@ export class MediaService {
     if (policy && !asset.modelDownloadedAt && asset.mimeType.startsWith('image/')) {
       const root = this.root();
       if (existsSync(join(root, asset.storageKey))) return asset.storageKey;
+      if (this.lookupDiskRelativePath(basename(asset.storageKey))) return basename(asset.storageKey);
     }
     return this.resolveDetailFilename(asset);
   }
@@ -537,6 +608,7 @@ export class MediaService {
           linkedModelUserId: linked,
         },
       });
+      this.invalidateDiskBasenameIndex();
       return {
         ...created,
         publicKey: this.resolvePublicFilename(created),
@@ -931,10 +1003,16 @@ export class MediaService {
       try {
         unlinkSync(join(root, k));
       } catch {
-        /* best effort */
+        try {
+          const rel = this.lookupDiskRelativePath(basename(k));
+          if (rel) unlinkSync(join(root, rel));
+        } catch {
+          /* */
+        }
       }
     }
     await this.prisma.mediaAsset.delete({ where: { id } });
+    this.invalidateDiskBasenameIndex();
     return { ok: true, hard: true };
   }
 }

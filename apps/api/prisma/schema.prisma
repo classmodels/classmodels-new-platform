@@ -602,6 +602,18 @@ model AgendaMessagingSettings {
   updatedAt       DateTime @updatedAt
 }
 
+/// Eén rij: SMTP voor site-e-mail (wint van lege env; zie Admin → E-mail).
+model SiteSmtpSettings {
+  id           Int      @id @default(1)
+  smtpHost     String?  @db.VarChar(191)
+  smtpPort     Int?
+  smtpSecure   Boolean  @default(false)
+  smtpUser     String?  @db.VarChar(191)
+  smtpPass     String?  @db.Text
+  mailFrom     String?  @db.VarChar(191)
+  updatedAt    DateTime @updatedAt
+}
+
 /// E-mail- of SMS-sjablonen gekoppeld aan triggers (o.a. bij nieuwe boeking).
 model AgendaNotificationTemplate {
   id            String   @id @default(uuid())

@@ -419,6 +419,12 @@ async function main() {
     create: { id: 1 },
   });
 
+  await prisma.siteSmtpSettings.upsert({
+    where: { id: 1 },
+    update: {},
+    create: { id: 1 },
+  });
+
   const guestMain = await prisma.menu.upsert({
     where: { slug: 'guest-main' },
     update: {},

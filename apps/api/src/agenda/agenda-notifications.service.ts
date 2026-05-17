@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { PrismaService } from '../prisma/prisma.service';
 
 export type AgendaConfirmationPayload = {
@@ -214,25 +215,18 @@ export class AgendaNotificationService {
     const addr = to?.trim();
     if (!addr) return false;
 
-    const host = process.env.SMTP_HOST?.trim();
-    if (!host) return false;
-
-    const port = parseInt(process.env.SMTP_PORT ?? '587', 10);
-    const secure = process.env.SMTP_SECURE === '1' || port === 465;
-    const user = process.env.SMTP_USER?.trim();
-    const pass = process.env.SMTP_PASS ?? '';
+    const cfg = await resolveSmtpConfig(this.prisma);
+    if (!cfg) return false;
 
     const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure,
-      auth: user ? { user, pass } : undefined,
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
     });
 
-    const from = process.env.MAIL_FROM?.trim() || 'Class Models <noreply@classmodels.be>';
-
     await transporter.sendMail({
-      from,
+      from: cfg.from,
       to: addr,
       subject,
       html,

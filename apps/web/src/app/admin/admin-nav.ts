@@ -69,6 +69,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/premium', label: 'Premium & abonnementen', permission: 'admin.subscriptions.read' },
       { href: '/admin/tryout-modeshow', label: 'Try-out modeshow', permission: 'admin.billing.read' },
       { href: '/admin/mollie', label: 'Mollie-instellingen', permission: 'admin.billing.read' },
+      { href: '/admin/mail-instellingen', label: 'E-mail (SMTP)', permission: 'admin.agenda.read' },
     ],
   },
   {

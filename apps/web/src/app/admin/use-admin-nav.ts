@@ -48,6 +48,7 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/premium', label: t('admin.premium'), permission: 'admin.subscriptions.read' },
           { href: '/admin/tryout-modeshow', label: t('admin.tryout'), permission: 'admin.billing.read' },
           { href: '/admin/mollie', label: t('admin.mollie'), permission: 'admin.billing.read' },
+          { href: '/admin/mail-instellingen', label: t('admin.mailSmtp'), permission: 'admin.agenda.read' },
         ],
       },
       {
