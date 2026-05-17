@@ -417,7 +417,7 @@ export function ModelsCatalogGrid({
       inactief: 0,
     };
     for (const m of rows) {
-      if (!m.isInactive) c.alle++;
+      c.alle++;
       if (m.isFavorite && !m.isInactive) c.favoriet++;
       if (m.isNewface && !m.isInactive) c.newface++;
       if (m.isTryout && !m.isInactive) c.tryout++;
@@ -476,7 +476,7 @@ export function ModelsCatalogGrid({
   const visibleForTab = (m: CatalogModel): boolean => {
     switch (tab) {
       case 'alle':
-        return !m.isInactive;
+        return true;
       case 'favoriet':
         return m.isFavorite && !m.isInactive;
       case 'newface':

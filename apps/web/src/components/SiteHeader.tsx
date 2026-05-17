@@ -5,7 +5,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { CmText } from '@/components/CmText';
 import { GoogleTranslate } from '@/components/GoogleTranslate';
-import { isGuestModelPortalPreviewEnabled } from '@/lib/guest-model-portal-preview';
 
 export function SiteHeader() {
   const { user, logout } = useAuth();
@@ -42,16 +41,7 @@ export function SiteHeader() {
             <Link href="/portal/guest" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
             </Link>
-            <Link
-              href={
-                user
-                  ? '/portal/model'
-                  : isGuestModelPortalPreviewEnabled()
-                    ? '/portal/model?tab=modellen'
-                    : '/modellen'
-              }
-              className="text-white/90 hover:text-white"
-            >
+            <Link href={user ? '/portal/model' : '/modellen'} className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.model" as="span" className="text-white/90" fallback="Modellenportaal" />
             </Link>
             <Link href="/portal/client" className="text-white/90 hover:text-white">

@@ -1,19 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { getApiBase } from '@/lib/api';
-import { useAuth } from '@/context/auth-context';
 import { EntryAuthPanel, type EntryAuthTab } from '@/components/entry-auth-panel';
 import { MODELLEN_HOME_NAV, type HomeContentCard, type HomeNavSection } from '@/components/modellen-home-nav';
 import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
-
-type ApiMenuBlock = {
-  id: string;
-  slug: string;
-  label: string;
-  items: { id: string; label: string; href: string }[];
-};
 
 function Chevron() {
   return (
@@ -84,9 +74,6 @@ function TrustStrip() {
 }
 
 export function ModellenHomePage() {
-  const { token } = useAuth();
-  const [apiLeftMenus, setApiLeftMenus] = useState<ApiMenuBlock[]>([]);
-
   const nav = MODELLEN_HOME_NAV;
   const [sectionId, setSectionId] = useState<string>(nav[0]?.id ?? 'rooster');
   const section = useMemo(
@@ -110,27 +97,6 @@ export function ModellenHomePage() {
     if (pills?.length) setPillId(pills[0].id);
     else setPillId('default');
   }, [section]);
-
-  useEffect(() => {
-    const h = new Headers();
-    if (token) h.set('Authorization', `Bearer ${token}`);
-    fetch(`${getApiBase()}/menus/for/guest?placement=${encodeURIComponent('left')}`, { headers: h })
-      .then(async (r) => {
-        if (!r.ok) return [];
-        const data: unknown = await r.json();
-        if (!Array.isArray(data)) return [];
-        return data.filter(
-          (m): m is ApiMenuBlock =>
-            m != null &&
-            typeof m === 'object' &&
-            'id' in m &&
-            'items' in m &&
-            Array.isArray((m as ApiMenuBlock).items),
-        );
-      })
-      .then(setApiLeftMenus)
-      .catch(() => setApiLeftMenus([]));
-  }, [token]);
 
   const pillKey = section?.pills?.length ? pillId : 'default';
   const cards: HomeContentCard[] = section?.cardsByPill[pillKey] ?? section?.cardsByPill.default ?? [];
@@ -236,18 +202,6 @@ export function ModellenHomePage() {
                   </button>
                 );
               })}
-              {apiLeftMenus.flatMap((m) =>
-                m.items.map((it) => (
-                  <Link
-                    key={it.id}
-                    href={it.href}
-                    className="flex items-center justify-between gap-2 px-3 py-3 text-sm font-medium text-ink hover:bg-panel/80"
-                  >
-                    {it.label}
-                    <Chevron />
-                  </Link>
-                )),
-              )}
             </nav>
           </aside>
 
