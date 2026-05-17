@@ -12,12 +12,8 @@ import {
 } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useContent } from '@/context/content-context';
-import {
-  cmsHtmlToPlainText,
-  hasMeaningfulRichMarkup,
-  looksLikeMeaningfulRichHtml,
-  sanitizeCmsHtml,
-} from '@/lib/sanitize-cms-html';
+import { readContentEditableValue } from '@/lib/cm-text-persist';
+import { cmsHtmlToPlainText, looksLikeMeaningfulRichHtml, sanitizeCmsHtml } from '@/lib/sanitize-cms-html';
 
 type CmTextProps = {
   contentKey: string;
@@ -26,11 +22,40 @@ type CmTextProps = {
   fallback?: string;
 } & Omit<HTMLAttributes<HTMLElement>, 'children'>;
 
-function patchFromEditable(el: HTMLElement, contentKey: string, patchKey: (k: string, v: string) => void) {
-  if (hasMeaningfulRichMarkup(el)) {
-    patchKey(contentKey, sanitizeCmsHtml(el.innerHTML));
-  } else {
-    patchKey(contentKey, el.innerText);
+function cloneSelectionRange(): Range | null {
+  if (typeof window === 'undefined') return null;
+  const sel = window.getSelection();
+  if (!sel?.rangeCount || sel.isCollapsed) return null;
+  return sel.getRangeAt(0).cloneRange();
+}
+
+function restoreSelectionRange(r: Range | null, focusEl: HTMLElement | null) {
+  if (!r || !focusEl) return;
+  focusEl.focus();
+  const sel = window.getSelection();
+  if (!sel) return;
+  try {
+    sel.removeAllRanges();
+    sel.addRange(r);
+  } catch {
+    /* range buiten document */
+  }
+}
+
+function wrapSelectionWithSpan(opts: { color?: string; fontSize?: string }) {
+  const sel = window.getSelection();
+  if (!sel?.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if (range.collapsed) return;
+  const span = document.createElement('span');
+  if (opts.color) span.style.color = opts.color;
+  if (opts.fontSize) span.style.fontSize = opts.fontSize;
+  try {
+    range.surroundContents(span);
+  } catch {
+    const frag = range.extractContents();
+    span.appendChild(frag);
+    range.insertNode(span);
   }
 }
 
@@ -50,18 +75,37 @@ function applyRelativeFontSize(mult: number) {
   }
 }
 
+const BLOCK_EDIT_TAGS = new Set(['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li']);
+
 export function CmText({ contentKey, as = 'span', className, fallback = '', ...rest }: CmTextProps) {
-  const { byKey, editMode, patchKey } = useContent();
+  const { byKey, editMode, patchKey, patchKeyImmediate } = useContent();
   const { can } = useAuth();
   const hasKey = Object.prototype.hasOwnProperty.call(byKey, contentKey);
   const val = hasKey ? (byKey[contentKey] ?? '') : fallback;
   const ref = useRef<HTMLElement | null>(null);
   const [focused, setFocused] = useState(false);
-  const colorRef = useRef<HTMLInputElement | null>(null);
+  const colorRangeRef = useRef<Range | null>(null);
 
   const meaningfulRich = looksLikeMeaningfulRichHtml(val);
   const staleStructuralHtml = !meaningfulRich && typeof val === 'string' && /<[^>]+>/.test(val);
   const viewClass = [className, !meaningfulRich ? 'whitespace-pre-wrap' : ''].filter(Boolean).join(' ');
+
+  const editTag: 'div' | 'span' = BLOCK_EDIT_TAGS.has(as) ? 'div' : 'span';
+
+  const headingRole: Record<string, unknown> =
+    as === 'h1'
+      ? { role: 'heading', 'aria-level': 1 }
+      : as === 'h2'
+        ? { role: 'heading', 'aria-level': 2 }
+        : as === 'h3'
+          ? { role: 'heading', 'aria-level': 3 }
+          : as === 'h4'
+            ? { role: 'heading', 'aria-level': 4 }
+            : as === 'h5'
+              ? { role: 'heading', 'aria-level': 5 }
+              : as === 'h6'
+                ? { role: 'heading', 'aria-level': 6 }
+                : {};
 
   useEffect(() => {
     const el = ref.current;
@@ -82,8 +126,8 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
   const flushPatch = useCallback(() => {
     const el = ref.current;
     if (!el) return;
-    patchFromEditable(el, contentKey, patchKey);
-  }, [contentKey, patchKey]);
+    void patchKeyImmediate(contentKey, readContentEditableValue(el));
+  }, [contentKey, patchKeyImmediate]);
 
   const editClass = [className, 'whitespace-pre-wrap rounded-sm ring-1 ring-amber-400/70 ring-inset'].filter(Boolean).join(' ');
 
@@ -91,16 +135,17 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
     return (
       <div className="group/cm-text relative z-[90] block w-full max-w-full text-zinc-900">
         {focused ? (
-          <div
-            className="absolute bottom-full left-0 z-[100] mb-1 flex flex-wrap items-center gap-1 rounded border border-zinc-400 bg-white px-2 py-1.5 text-xs text-zinc-900 shadow-lg"
-            onMouseDown={(e) => e.preventDefault()}
-          >
+          <div className="absolute bottom-full left-0 z-[100] mb-1 flex flex-wrap items-center gap-1 rounded border border-zinc-400 bg-white px-2 py-1.5 text-xs text-zinc-900 shadow-lg">
             <span className="text-zinc-500">Opmaak</span>
             <button
               type="button"
               className="min-h-8 min-w-8 rounded border border-zinc-400 bg-zinc-100 px-2 text-lg font-bold leading-none text-zinc-900 hover:bg-zinc-200"
               title="Selectie groter"
               aria-label="Tekst groter"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={() => {
                 applyRelativeFontSize(1.15);
                 flushPatch();
@@ -113,6 +158,10 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
               className="min-h-8 min-w-8 rounded border border-zinc-400 bg-zinc-100 px-2 text-lg font-bold leading-none text-zinc-900 hover:bg-zinc-200"
               title="Selectie kleiner"
               aria-label="Tekst kleiner"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
               onClick={() => {
                 applyRelativeFontSize(0.88);
                 flushPatch();
@@ -123,18 +172,18 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
             <label className="flex cursor-pointer items-center gap-1 rounded border border-zinc-400 bg-zinc-50 px-1.5 py-0.5 hover:bg-zinc-100">
               <span className="text-[11px] text-zinc-600">Kleur</span>
               <input
-                ref={colorRef}
                 type="color"
                 className="h-6 w-7 cursor-pointer border-0 bg-transparent p-0"
                 defaultValue="#6f121b"
+                onPointerDown={() => {
+                  colorRangeRef.current = cloneSelectionRange();
+                }}
                 onChange={(e) => {
                   const c = e.target.value;
-                  try {
-                    document.execCommand('styleWithCSS', false, 'true');
-                    document.execCommand('foreColor', false, c);
-                  } catch {
-                    /* ignore */
-                  }
+                  const el = ref.current;
+                  restoreSelectionRange(colorRangeRef.current, el);
+                  wrapSelectionWithSpan({ color: c });
+                  colorRangeRef.current = null;
                   flushPatch();
                 }}
               />
@@ -142,8 +191,9 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
             <span className="text-[10px] text-zinc-500">Enter = nieuwe regel</span>
           </div>
         ) : null}
-        {createElement(as, {
+        {createElement(editTag, {
           ...rest,
+          ...headingRole,
           ref,
           'data-cm-text': contentKey,
           className: editClass,
@@ -154,7 +204,10 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
             setFocused(false);
             flushPatch();
           },
-          onInput: (e: FormEvent<HTMLElement>) => patchFromEditable(e.target as HTMLElement, contentKey, patchKey),
+          onInput: (e: FormEvent<HTMLElement>) => {
+            const el = e.target as HTMLElement;
+            void patchKey(contentKey, readContentEditableValue(el));
+          },
         })}
       </div>
     );

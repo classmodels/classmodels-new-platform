@@ -86,9 +86,14 @@ export function looksLikeCmsRichHtml(s: string): boolean {
   return looksLikeMeaningfulRichHtml(s);
 }
 
+/** True alleen bij echte kleur- of font-size-opmaak (niet lege browser-span). */
 export function hasMeaningfulRichMarkup(el: HTMLElement): boolean {
   if (typeof document === 'undefined') return false;
-  return !!el.querySelector('span[style], font[color], font[size]');
+  for (const span of el.querySelectorAll('span[style]')) {
+    const st = (span.getAttribute('style') || '').toLowerCase();
+    if (/\bcolor\s*:/.test(st) || /\bfont-size\s*:/.test(st)) return true;
+  }
+  return !!el.querySelector('font[color], font[size]');
 }
 
 /** Voor SSR / eerste paint zonder DOM: toon platte tekst met regeleinden. */

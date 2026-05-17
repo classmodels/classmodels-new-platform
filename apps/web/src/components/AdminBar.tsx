@@ -4,10 +4,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useContent } from '@/context/content-context';
+import { readContentEditableValue } from '@/lib/cm-text-persist';
 
 export function AdminBar() {
-  const { user, hasBackofficeAccess, can } = useAuth();
-  const { editMode, setEditMode } = useContent();
+  const { user, hasBackofficeAccess, can, token } = useAuth();
+  const { editMode, setEditMode, patchKeyImmediate } = useContent();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -26,7 +27,17 @@ export function AdminBar() {
     if (p === 'client') router.push('/portal/client');
   };
 
+  const flushAllInlineEdits = () => {
+    if (!token || !can('content.strings.write')) return;
+    document.querySelectorAll<HTMLElement>('[data-cm-text][contenteditable="true"]').forEach((el) => {
+      const key = el.getAttribute('data-cm-text');
+      if (!key) return;
+      void patchKeyImmediate(key, readContentEditableValue(el));
+    });
+  };
+
   const toggleInlineEdit = () => {
+    if (editMode) flushAllInlineEdits();
     const next = !editMode;
     setEditMode(next);
     if (!next) return;

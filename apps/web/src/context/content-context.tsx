@@ -22,6 +22,8 @@ type Ctx = {
   editMode: boolean;
   setEditMode: (v: boolean) => void;
   patchKey: (key: string, value: string) => Promise<void>;
+  /** Zelfde als patchKey maar zonder debounce; gebruik bij blur / edit-mode uit. */
+  patchKeyImmediate: (key: string, value: string) => Promise<void>;
   refresh: () => Promise<void>;
 };
 
@@ -52,6 +54,37 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const patchKeyImmediate = useCallback(
+    async (key: string, value: string) => {
+      if (!token || !can('content.strings.write')) return;
+      window.clearTimeout(pending.current[key]);
+      delete pending.current[key];
+      setByKey((prev) => ({ ...prev, [key]: value }));
+      try {
+        await apiFetch('/content/strings', {
+          method: 'PATCH',
+          token,
+          body: JSON.stringify({ key, value }),
+        });
+      } catch {
+        try {
+          await apiFetch('/content/strings', {
+            method: 'POST',
+            token,
+            body: JSON.stringify({ key, value }),
+          });
+        } catch {
+          try {
+            await refresh();
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+    },
+    [token, can, refresh],
+  );
 
   const patchKey = useCallback(
     async (key: string, value: string) => {
@@ -89,8 +122,8 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ byKey, loading, editMode, setEditMode, patchKey, refresh }),
-    [byKey, loading, editMode, patchKey, refresh],
+    () => ({ byKey, loading, editMode, setEditMode, patchKey, patchKeyImmediate, refresh }),
+    [byKey, loading, editMode, patchKey, patchKeyImmediate, refresh],
   );
 
   return <ContentContext.Provider value={value}>{children}</ContentContext.Provider>;
