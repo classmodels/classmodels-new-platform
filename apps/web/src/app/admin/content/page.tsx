@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { apiFetch } from '@/lib/api';
 import { ContainerMediaPicker } from '@/components/admin/ContainerMediaPicker';
+import { buildKnownContentKeys } from '@/lib/known-content-keys';
 
 type Str = { key: string; value: string; locale: string };
 type BlockType = 'text' | 'image' | 'video';
@@ -71,6 +72,8 @@ export default function AdminContentPage() {
   const [mediaPicker, setMediaPicker] = useState<{ col: number; blockIdx: number; mode: 'image' | 'video' } | null>(
     null,
   );
+  const [keyFilter, setKeyFilter] = useState('');
+  const [knownSeeding, setKnownSeeding] = useState(false);
 
   const load = useCallback(async () => {
     const data = await apiFetch<Str[]>('/content/strings');
@@ -118,6 +121,17 @@ export default function AdminContentPage() {
     },
     [token],
   );
+
+  const knownKeys = useMemo(() => buildKnownContentKeys(), []);
+  const missingKeys = useMemo(
+    () => knownKeys.filter((k) => !rows.some((r) => r.key === k)),
+    [knownKeys, rows],
+  );
+  const filteredRows = useMemo(() => {
+    const q = keyFilter.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.key.toLowerCase().includes(q) || r.value.toLowerCase().includes(q));
+  }, [rows, keyFilter]);
 
   const addColumn = () => {
     setColumns((prev) => [...prev, { id: mkId(), width: 6, blocks: [] }]);
@@ -680,8 +694,57 @@ export default function AdminContentPage() {
         mode={mediaPicker?.mode ?? 'image'}
       />
 
+      <div className="space-y-2 rounded-md border border-line bg-panel/30 p-4 text-sm">
+        <p className="font-medium text-ink">Frontend-sleutels (catalogus)</p>
+        <p className="text-xs text-muted">
+          {knownKeys.length} sleutels die de site kan tonen. Nog niet in de database:{' '}
+          <strong>{missingKeys.length}</strong>. Vul ontbrekende aan met een lege waarde en bewerk ze daarna inline op
+          de site (modus &quot;Tekst aanpassen&quot;) of hier via PATCH/POST.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            className="min-w-[200px] flex-1 rounded border border-line px-2 py-1 text-xs"
+            placeholder="Zoek in opgeslagen sleutels…"
+            value={keyFilter}
+            onChange={(e) => setKeyFilter(e.target.value)}
+          />
+          <button
+            type="button"
+            disabled={!token || !missingKeys.length || knownSeeding}
+            className="rounded border border-line bg-white px-3 py-1 text-xs font-medium hover:bg-panel disabled:opacity-50"
+            onClick={async () => {
+              if (!token || !missingKeys.length) return;
+              if (!confirm(`${missingKeys.length} ontbrekende sleutels aanmaken met lege waarde?`)) return;
+              setKnownSeeding(true);
+              try {
+                for (const key of missingKeys) {
+                  await upsertKey(key, '');
+                }
+                await load();
+              } finally {
+                setKnownSeeding(false);
+              }
+            }}
+          >
+            {knownSeeding ? 'Bezig…' : 'Voeg ontbrekende toe (lege waarde)'}
+          </button>
+        </div>
+        {missingKeys.length ? (
+          <details className="text-xs">
+            <summary className="cursor-pointer font-medium text-burgundy">Toon ontbrekende sleutels</summary>
+            <ul className="mt-2 max-h-48 list-inside list-disc overflow-y-auto text-muted">
+              {missingKeys.slice(0, 500).map((k) => (
+                <li key={k} className="font-mono">
+                  {k}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </div>
+
       <ul className="divide-y divide-line rounded-md border border-line bg-white text-xs shadow-sm">
-        {rows.map((r) => (
+        {filteredRows.map((r) => (
           <li key={r.key} className="flex items-start justify-between gap-2 px-3 py-2">
             <div>
               <code className="text-burgundy">{r.key}</code>

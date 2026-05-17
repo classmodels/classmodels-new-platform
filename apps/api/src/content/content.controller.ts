@@ -13,7 +13,6 @@ class PatchContentDto {
   key!: string;
 
   @IsString()
-  @MinLength(1)
   value!: string;
 
   @IsOptional()
@@ -27,7 +26,6 @@ class CreateContentDto {
   key!: string;
 
   @IsString()
-  @MinLength(1)
   value!: string;
 
   @IsOptional()

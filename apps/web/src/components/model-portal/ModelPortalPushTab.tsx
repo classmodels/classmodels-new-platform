@@ -55,6 +55,7 @@ export function ModelPortalPushTab({
   const [inbox, setInbox] = useState<InboxRow[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [prefsBusy, setPrefsBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [devicePushActive, setDevicePushActive] = useState(false);
@@ -119,6 +120,27 @@ export function ModelPortalPushTab({
   const selectedIds = useMemo(
     () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
     [selected],
+  );
+
+  const patchPushPrefs = useCallback(
+    async (body: { notifyHistoryEvents?: boolean; notifyAgencyBroadcasts?: boolean }) => {
+      if (!token || !canRead) return;
+      setPrefsBusy(true);
+      setPushMsg(null);
+      try {
+        await apiFetch('/portal/model/push/settings', {
+          method: 'PATCH',
+          token,
+          body: JSON.stringify(body),
+        });
+        await refreshMe();
+      } catch (e) {
+        setPushMsg(e instanceof Error ? e.message : 'Voorkeur opslaan mislukt');
+      } finally {
+        setPrefsBusy(false);
+      }
+    },
+    [token, canRead, refreshMe],
   );
 
   const markRead = useCallback(
@@ -267,18 +289,38 @@ export function ModelPortalPushTab({
     setBusy(true);
     setPushMsg(null);
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
+      let reg: ServiceWorkerRegistration | undefined;
+      try {
+        reg = await navigator.serviceWorker.ready;
+      } catch {
+        reg = (await navigator.serviceWorker.getRegistration()) ?? undefined;
+      }
+      const sub = reg ? await reg.pushManager.getSubscription() : null;
       if (sub) {
-        await apiFetch('/portal/model/push/unsubscribe', {
-          method: 'POST',
-          token,
-          body: JSON.stringify({ endpoint: sub.endpoint }),
-        });
-        await sub.unsubscribe();
+        try {
+          await apiFetch('/portal/model/push/unsubscribe', {
+            method: 'POST',
+            token,
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          });
+        } catch {
+          /* server mag ontbreken; lokaal uitschakelen blijft belangrijk */
+        }
+        try {
+          await sub.unsubscribe();
+        } catch {
+          /* sommige browsers: al weg of permissie */
+        }
       }
       await refreshMe();
-      setDevicePushActive(false);
+      try {
+        const reg2 = await navigator.serviceWorker.ready;
+        const sub2 = await reg2.pushManager.getSubscription();
+        setDevicePushActive(!!sub2);
+      } catch {
+        setDevicePushActive(false);
+      }
+      setPushMsg(null);
     } catch (e) {
       setPushMsg(e instanceof Error ? e.message : 'Uitschakelen mislukt');
     } finally {
@@ -441,10 +483,9 @@ export function ModelPortalPushTab({
       {showPushIntro ? (
         <div className="mb-5 space-y-2 text-xs leading-relaxed text-zinc-700">
           <p>
-            <strong>Meldingen</strong> voor historiek en voor berichten van het bureau staan <strong>standaard aan</strong>.
-            Voor <strong>systeemmeldingen op dit toestel</strong> gebruik je de zwarte knop <strong className="text-ink">Push inschakelen</strong>{' '}
-            in de rode titelbalk. Deze uitleg verdwijnt zodra push hier actief is; zet je push weer uit met{' '}
-            <strong className="text-ink">Push uit</strong> in dezelfde balk — dan verschijnt deze tekst opnieuw.
+            Onderaan kun je bepalen welke <strong>soorten berichten</strong> in je inbox terechtkomen. Voor{' '}
+            <strong>systeemmeldingen op dit toestel</strong> gebruik je de knop <strong className="text-ink">Push inschakelen</strong> in de rode
+            titelbalk; <strong className="text-ink">Push uit</strong> schakelt enkel de melding op dit apparaat uit (je voorkeuren blijven bewaard).
           </p>
           <p className="text-muted">
             Op iPhone: voeg de site toe aan het beginscherm via Safari → Deel → Zet op beginscherm, en sta meldingen toe.
@@ -462,6 +503,35 @@ export function ModelPortalPushTab({
       ) : null}
 
       {!showPushIntro && pushMsg ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
+
+      {pushSummary ? (
+        <div className="mb-4 space-y-2 rounded border border-line bg-zinc-50/80 p-3 text-xs leading-snug text-zinc-800">
+          <p className="font-medium text-ink">Meldingen in je account</p>
+          <label className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0"
+              checked={pushSummary.notifyHistoryEvents}
+              disabled={prefsBusy}
+              onChange={(e) => void patchPushPrefs({ notifyHistoryEvents: e.target.checked })}
+            />
+            <span>Historiek (agenda, status, …): inbox en — als push op dit toestel aan staat — systeemmelding</span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 shrink-0"
+              checked={pushSummary.notifyAgencyBroadcasts}
+              disabled={prefsBusy}
+              onChange={(e) => void patchPushPrefs({ notifyAgencyBroadcasts: e.target.checked })}
+            />
+            <span>Berichten van het bureau (opdrachten, casting, …)</span>
+          </label>
+          <p className="text-[10px] text-muted">
+            Uit = geen nieuwe berichten meer voor die categorie. Je bestaande inbox blijft staan.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-3">
         {loadErr ? <p className="text-xs text-red-700">{loadErr}</p> : null}

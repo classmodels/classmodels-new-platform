@@ -37,18 +37,23 @@ export class ModelPushService {
     return `${this.appBaseUrl()}${p}${q}`;
   }
 
+  private async getOrCreatePushSettings(userId: string) {
+    let row = await this.prisma.modelPushSettings.findUnique({ where: { userId } });
+    if (!row) {
+      row = await this.prisma.modelPushSettings.create({
+        data: { userId, notifyHistoryEvents: true, notifyAgencyBroadcasts: true },
+      });
+    }
+    return row;
+  }
+
   async getSummaryForUser(userId: string) {
-    /** Meldingen historiek + bureau altijd actief (geen uitschakelen door model). */
-    await this.prisma.modelPushSettings.upsert({
-      where: { userId },
-      create: { userId, notifyHistoryEvents: true, notifyAgencyBroadcasts: true },
-      update: { notifyHistoryEvents: true, notifyAgencyBroadcasts: true },
-    });
+    const row = await this.getOrCreatePushSettings(userId);
     const unread = await this.prisma.modelPushInbox.count({ where: { userId, readAt: null } });
     return {
       unreadCount: unread,
-      notifyHistoryEvents: true,
-      notifyAgencyBroadcasts: true,
+      notifyHistoryEvents: row.notifyHistoryEvents,
+      notifyAgencyBroadcasts: row.notifyAgencyBroadcasts,
       webPushConfigured: this.webPush.isConfigured(),
       vapidPublicKey: this.webPush.getPublicKey(),
     };
@@ -56,6 +61,12 @@ export class ModelPushService {
 
   async emitFromHistory(userId: string, kind: string, meta?: Record<string, unknown>) {
     try {
+      const prefs = await this.prisma.modelPushSettings.findUnique({
+        where: { userId },
+        select: { notifyHistoryEvents: true },
+      });
+      if (prefs && prefs.notifyHistoryEvents === false) return;
+
       const { title, body } = historyKindToPushMessage(kind, meta);
       const openUrl = this.portalModelUrl('push');
       await this.prisma.modelPushInbox.create({
@@ -233,6 +244,12 @@ export class ModelPushService {
   /** Push + inbox: opdracht waar het profiel voor in aanmerking komt (alleen die groep). */
   async notifyBriefCastingEligible(userId: string, briefTitle: string, briefId: string) {
     try {
+      const prefs = await this.prisma.modelPushSettings.findUnique({
+        where: { userId },
+        select: { notifyAgencyBroadcasts: true },
+      });
+      if (prefs && prefs.notifyAgencyBroadcasts === false) return;
+
       const title = 'Opdracht — profiel in aanmerking';
       const body = `${briefTitle}: je profiel past bij de criteria. Bekijk tab Opdrachten in je portaal.`;
       const openUrl = this.portalModelUrl('opdrachten');
@@ -260,6 +277,12 @@ export class ModelPushService {
   /** Prototype: na contractgeneratie informeren model (geen bijlage — contact bureau). */
   async notifyContractPrototype(userId: string, briefTitle: string) {
     try {
+      const prefs = await this.prisma.modelPushSettings.findUnique({
+        where: { userId },
+        select: { notifyAgencyBroadcasts: true },
+      });
+      if (prefs && prefs.notifyAgencyBroadcasts === false) return;
+
       const title = 'Contract (prototype)';
       const body = `Er werd een overeenkomst voorbereid voor “${briefTitle}”. Neem contact op met Class-Models voor je exemplaar.`;
       const openUrl = this.portalModelUrl('push');
@@ -293,7 +316,16 @@ export class ModelPushService {
   ) {
     const openUrl = this.portalModelUrl('opdrachten');
     const unique = [...new Set(userIds)];
+    const agencyOff = new Set(
+      (
+        await this.prisma.modelPushSettings.findMany({
+          where: { userId: { in: unique }, notifyAgencyBroadcasts: false },
+          select: { userId: true },
+        })
+      ).map((r) => r.userId),
+    );
     for (const uid of unique) {
+      if (agencyOff.has(uid)) continue;
       await this.prisma.modelPushInbox.create({
         data: {
           userId: uid,
@@ -323,7 +355,16 @@ export class ModelPushService {
   }) {
     const openUrl = this.portalModelUrl('push');
     const unique = [...new Set(params.userIds)];
+    const agencyOff = new Set(
+      (
+        await this.prisma.modelPushSettings.findMany({
+          where: { userId: { in: unique }, notifyAgencyBroadcasts: false },
+          select: { userId: true },
+        })
+      ).map((r) => r.userId),
+    );
     for (const uid of unique) {
+      if (agencyOff.has(uid)) continue;
       await this.prisma.modelPushInbox.create({
         data: {
           userId: uid,
