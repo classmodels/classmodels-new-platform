@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { adminFetch } from '@/lib/admin-api';
-import { getApiBase } from '@/lib/api';
+import { getApiBase, publicMediaUrl } from '@/lib/api';
 
 type MediaFolder = {
   id: string;
@@ -21,7 +21,7 @@ type MediaFolder = {
 type MediaAsset = MediaFolder['assets'][number];
 
 function publicUrl(key: string) {
-  return `${getApiBase()}/media/public/${encodeURIComponent(key)}`;
+  return publicMediaUrl(key);
 }
 
 function isVideoAsset(a: MediaAsset) {

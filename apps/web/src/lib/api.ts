@@ -1,6 +1,10 @@
 /** Zelfde domein als de site → geen CORS (Combell: Next + API op één origin). */
 export const CM_API_PROXY_PREFIX = '/__cm_api';
 
+function stripTrailingSlash(u: string): string {
+  return u.replace(/\/+$/, '');
+}
+
 /** Lokaal: rechtstreeks naar Nest. Overal elders: same-origin `/__cm_api` (Next rewrite → API). */
 function shouldUseSameOriginApiProxy(hostname: string): boolean {
   const h = hostname.toLowerCase();
@@ -36,6 +40,46 @@ export function getApiBase() {
     return fromEnv;
   }
   return fromEnv ?? 'http://localhost:4000';
+}
+
+/**
+ * Basis-URL voor **publieke** mediabestanden (`GET /media/public/{key}` — geen JWT).
+ * Standaard: `NEXT_PUBLIC_API_URL` als dat een publiek https/http-domein is (bv. api.*),
+ * zodat `<img src>` niet afhangt van www-rewrites. Optioneel: `NEXT_PUBLIC_MEDIA_BASE_URL`.
+ * SSR zonder die env: relatief `/__cm_api` (browser lost op t.o.v. www).
+ */
+export function getMediaPublicBaseUrl(): string {
+  const mediaOnly = process.env.NEXT_PUBLIC_MEDIA_BASE_URL?.trim();
+  if (mediaOnly) return stripTrailingSlash(mediaOnly);
+
+  const api = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (api && /^https?:\/\//i.test(api)) {
+    const a = stripTrailingSlash(api);
+    if (!/127\.0\.0\.1|localhost/i.test(a)) {
+      return a;
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    if (shouldUseSameOriginApiProxy(window.location.hostname)) {
+      return `${window.location.origin.replace(/\/$/, '')}${CM_API_PROXY_PREFIX}`;
+    }
+    if (api) return stripTrailingSlash(api);
+  } else {
+    return CM_API_PROXY_PREFIX;
+  }
+
+  const internal = process.env.CM_API_INTERNAL_URL?.replace(/\/$/, '');
+  if (internal) return internal;
+
+  return stripTrailingSlash(api || 'http://localhost:4000');
+}
+
+/** Volledige URL voor één publiek mediabestand (storageKey / thumbKey / webpKey). */
+export function publicMediaUrl(key: string | null | undefined): string {
+  const k = key?.trim();
+  if (!k) return '';
+  return `${getMediaPublicBaseUrl()}/media/public/${encodeURIComponent(k)}`;
 }
 
 export async function apiFetch<T>(

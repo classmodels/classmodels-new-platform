@@ -8,6 +8,7 @@ JWT_SECRET=VERVANG_LANG_WILLEKEURIG_GEHEIM
 CORS_ORIGIN=https://www.class-models.be,https://class-models.be
 API_PUBLIC_URL=https://api.class-models.be
 NEXT_PUBLIC_API_URL=https://api.class-models.be
+# Zelfde waarde bij **web build** (Combell pipeline vóór `npm run build`): anders kunnen <img>-URL’s fout blijven.
 NEXT_PUBLIC_APP_URL=https://www.class-models.be
 WEB_PUBLIC_URL=https://www.class-models.be
 WEB_APP_URL=https://www.class-models.be

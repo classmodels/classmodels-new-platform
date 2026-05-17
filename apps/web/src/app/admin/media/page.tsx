@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
-import { getApiBase } from '@/lib/api';
+import { getApiBase, publicMediaUrl } from '@/lib/api';
 
 type MediaAssetRow = {
   id: string;
@@ -208,7 +208,7 @@ export default function AdminMediaPage() {
     await load();
   };
 
-  const pub = useCallback((key: string) => `${getApiBase()}/media/public/${encodeURIComponent(key)}`, []);
+  const pub = useCallback((key: string) => publicMediaUrl(key), []);
 
   const toggleAssetSelect = (id: string) => {
     setSelectedIds((prev) => {

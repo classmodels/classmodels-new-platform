@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { apiFetch, getApiBase } from '@/lib/api';
+import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
 import { CmText } from '@/components/CmText';
 import { TESTSHOOT_PAGE } from '@/components/guest-portal/guest-portal-data';
 
@@ -85,7 +85,7 @@ const emptyForm = (): FeedbackForm => ({
 });
 
 function mediaUrl(file: string) {
-  return `${getApiBase()}/media/public/${encodeURIComponent(file)}`;
+  return publicMediaUrl(file);
 }
 
 async function postDownloadIntent(modelId: string): Promise<{ exp: number; sig: string }> {

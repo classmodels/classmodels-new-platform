@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AuthUser } from '@/context/auth-context';
-import { apiFetch, getApiBase } from '@/lib/api';
+import { apiFetch, publicMediaUrl } from '@/lib/api';
 
 export type ProfileMediaRow = {
   id: string;
@@ -391,7 +391,7 @@ export function ModelPortalProfile({
                   <>
                     <div className="flex w-full justify-center bg-zinc-100">
                       <img
-                        src={`${getApiBase()}/media/public/${encodeURIComponent(heroPublicKey)}`}
+                        src={publicMediaUrl(heroPublicKey)}
                         alt=""
                         className="mx-auto block h-auto max-h-[min(92vh,960px)] w-auto max-w-full object-contain"
                       />
@@ -520,13 +520,13 @@ export function ModelPortalProfile({
               <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Hoofdfoto</p>
               {profileAsset ? (
                 <img
-                  src={`${getApiBase()}/media/public/${encodeURIComponent(mediaPortalDetailKey(profileAsset))}`}
+                  src={publicMediaUrl(mediaPortalDetailKey(profileAsset))}
                   alt=""
                   className="mx-auto block h-auto w-full max-w-[220px] border border-line bg-zinc-100 object-contain"
                 />
               ) : user.profileThumbKey ? (
                 <img
-                  src={`${getApiBase()}/media/public/${encodeURIComponent(user.profileThumbKey)}`}
+                  src={publicMediaUrl(user.profileThumbKey)}
                   alt=""
                   className="mx-auto block h-auto w-full max-w-[220px] border border-line bg-zinc-100 object-contain"
                 />
@@ -598,13 +598,13 @@ export function ModelPortalProfile({
                     className="flex flex-wrap items-center gap-2 border border-line bg-white px-2 py-1.5"
                   >
                     <img
-                      src={`${getApiBase()}/media/public/${encodeURIComponent(mediaThumbKey(a))}`}
+                      src={publicMediaUrl(mediaThumbKey(a))}
                       alt=""
                       className="h-14 w-11 shrink-0 border border-line bg-zinc-100 object-contain"
                     />
                     <span className="min-w-0 flex-1 truncate text-xs text-muted">{a.originalName}</span>
                     <a
-                      href={`${getApiBase()}/media/public/${encodeURIComponent(mediaPortalDetailKey(a))}`}
+                      href={publicMediaUrl(mediaPortalDetailKey(a))}
                       download
                       target="_blank"
                       rel="noreferrer"

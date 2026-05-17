@@ -1,4 +1,4 @@
-import { getApiBase } from '@/lib/api';
+import { publicMediaUrl } from '@/lib/api';
 
 /** Statisch bestand onder `public/` (bv. `/guest/film22.mp4`), met optionele `NEXT_PUBLIC_BASE_PATH`. */
 export function guestPortalStaticPublicUrl(path: string): string {
@@ -11,5 +11,5 @@ export function guestPortalStaticPublicUrl(path: string): string {
 export function guestPortalPublicMediaUrl(basename: string | null | undefined): string | null {
   const b = basename?.trim();
   if (!b) return null;
-  return `${getApiBase()}/media/public/${encodeURIComponent(b)}`;
+  return publicMediaUrl(b) || null;
 }

@@ -29,7 +29,9 @@
 
 - De browser vraagt bestanden aan via **`/__cm_api/media/public/{bestandsnaam}`** (zelfde origin als de site).
 - De dual-proxy stuurt **`/__cm_api/*`** en **`GET /media/*`** **rechtstreeks naar Nest** en verwijdert het prefix `__cm_api`, zodat media **niet** afhangt van Next standalone-rewrites (die kunnen voor binaire responses problemen geven).
-- Controle na deploy: `curl -I "https://www…/__cm_api/media/public/EEN_KEY_UIT_DE_DB"` → `200` en `Content-Type: image/…`. Bij `404` ontbreekt het bestand onder `MEDIA_ROOT` of klopt de naam niet t.o.v. de database.
+- **Diepere optie (aanbevolen op productie):** zet bij de **web-build** `NEXT_PUBLIC_API_URL=https://api.jouwdomein.be` (publiek bereikbare API). De UI bouwt `<img src>` dan naar **`https://api…/media/public/…`** — buiten www en buiten `/__cm_api` om, zolang de bestanden op de API-schijf staan (`MEDIA_ROOT`).
+- Optioneel: `NEXT_PUBLIC_MEDIA_BASE_URL` als CDN of andere host dan de API.
+- Controle na deploy: `curl -I "https://api…/media/public/EEN_KEY_UIT_DE_DB"` → `200` en `Content-Type: image/…`. Bij `404` ontbreekt het bestand onder `MEDIA_ROOT` of klopt de naam niet t.o.v. de database.
 
 ## Upload (admin)
 

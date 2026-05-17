@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { getApiBase, apiFetch } from '@/lib/api';
+import { getApiBase, apiFetch, publicMediaUrl } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
@@ -517,7 +517,7 @@ export function ModelsCatalogGrid({
   );
 
   const imgUrl = (key: string | null) =>
-    key ? `${getApiBase()}/media/public/${encodeURIComponent(key)}` : '';
+    key ? publicMediaUrl(key) : '';
 
   const postFlag = async (modelId: string, body: Record<string, boolean>) => {
     if (!token) return;
