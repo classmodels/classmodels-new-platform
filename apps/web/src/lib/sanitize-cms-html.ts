@@ -75,8 +75,20 @@ function sanitizeElement(el: Element) {
   }
 }
 
+/** Alleen “echte” opmaak (kleur/grootte/font); géén <br>/<div> alleen — die slaan we liever als platte tekst met \\n op. */
+export function looksLikeMeaningfulRichHtml(s: string): boolean {
+  if (!s || !/</.test(s)) return false;
+  return /<\s*(span|font)\b/i.test(s);
+}
+
+/** @deprecated gebruik looksLikeMeaningfulRichHtml; oude naam bewaard voor eventuele imports. */
 export function looksLikeCmsRichHtml(s: string): boolean {
-  return /<\s*(span|font|br|b|i|u|strong|em|div|p)\b/i.test(s);
+  return looksLikeMeaningfulRichHtml(s);
+}
+
+export function hasMeaningfulRichMarkup(el: HTMLElement): boolean {
+  if (typeof document === 'undefined') return false;
+  return !!el.querySelector('span[style], font[color], font[size]');
 }
 
 /** Voor SSR / eerste paint zonder DOM: toon platte tekst met regeleinden. */

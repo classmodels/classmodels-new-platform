@@ -40,14 +40,30 @@ function StepNum({ n }: { n: number }) {
 
 const tab = (id: string) => `/portal/model?tab=${id}`;
 
-/** Compacte infokaart voor de rechterkolom: geen ronde hoeken, burgundy titelbalk. */
-function AsideInfoCard({ title, children }: { title: string; children: ReactNode }) {
+function AsideInfoCard({
+  titleKey,
+  titleFallback,
+  bodyKey,
+  bodyFallback,
+}: {
+  titleKey: string;
+  titleFallback: string;
+  bodyKey: string;
+  bodyFallback: string;
+}) {
   return (
     <div className="border border-zinc-300 bg-white">
       <div className="border-b-2 border-burgundy bg-burgundy px-2 py-0.5">
-        <h3 className="text-[10px] font-bold uppercase leading-tight tracking-wide text-white">{title}</h3>
+        <CmText
+          contentKey={titleKey}
+          as="h3"
+          className="text-[10px] font-bold uppercase leading-tight tracking-wide text-white"
+          fallback={titleFallback}
+        />
       </div>
-      <div className="space-y-1.5 px-2 py-1.5 text-[11px] leading-snug text-ink/90">{children}</div>
+      <div className="space-y-1.5 px-2 py-1.5 text-[11px] leading-snug text-ink/90">
+        <CmText contentKey={bodyKey} as="div" className="space-y-1.5" fallback={bodyFallback} />
+      </div>
     </div>
   );
 }
@@ -108,22 +124,45 @@ export function ModelPortalHomeContent({
 
           <SectionBlock>
             <div className="min-w-0 border-l-4 border-burgundy pl-3 md:pl-4">
-              <h3 className="font-serif text-base font-semibold leading-snug text-ink md:text-lg">
-                Wat u via het platform kunt regelen
-              </h3>
-              <p className="mt-1.5 text-[13px] leading-snug text-muted">Via uw account kunt u onder andere:</p>
+              <CmText
+                contentKey="portal.model.home.platformlist.title"
+                as="h3"
+                className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
+                fallback="Wat u via het platform kunt regelen"
+              />
+              <CmText
+                contentKey="portal.model.home.platformlist.intro"
+                as="p"
+                className="mt-1.5 text-[13px] leading-snug text-muted"
+                fallback="Via uw account kunt u onder andere:"
+              />
             </div>
             <ul className="mt-3 space-y-2 text-[13px] leading-snug text-ink/90">
               {[
-                'Registreren voor de verplichte opleiding',
-                'Een afspraak maken voor het aanmaken van uw professionele portfolio',
-                'Inschrijven voor de Try-Out modeshow (examenshow)',
-                'Berichten sturen naar het Class-Models team',
-                'Uw persoonlijke gegevens en maten beheren en actualiseren',
-              ].map((line) => (
-                <li key={line} className="flex gap-3">
+                {
+                  key: 'portal.model.home.platformlist.0',
+                  fb: 'Registreren voor de verplichte opleiding',
+                },
+                {
+                  key: 'portal.model.home.platformlist.1',
+                  fb: 'Een afspraak maken voor het aanmaken van uw professionele portfolio',
+                },
+                {
+                  key: 'portal.model.home.platformlist.2',
+                  fb: 'Inschrijven voor de Try-Out modeshow (examenshow)',
+                },
+                {
+                  key: 'portal.model.home.platformlist.3',
+                  fb: 'Berichten sturen naar het Class-Models team',
+                },
+                {
+                  key: 'portal.model.home.platformlist.4',
+                  fb: 'Uw persoonlijke gegevens en maten beheren en actualiseren',
+                },
+              ].map((row) => (
+                <li key={row.key} className="flex gap-3">
                   <CheckBullet />
-                  <span>{line}</span>
+                  <CmText contentKey={row.key} as="span" className="text-[13px] leading-snug text-ink/90" fallback={row.fb} />
                 </li>
               ))}
             </ul>
@@ -213,29 +252,45 @@ export function ModelPortalHomeContent({
           </SectionBlock>
 
           <SectionBlock>
-            <h3 className="font-serif text-base font-semibold leading-snug text-ink md:text-lg">
-              Uw profiel (modellenfiche): altijd volledig en up-to-date
-            </h3>
-            <p className="mt-2.5 text-[13px] leading-snug text-muted">
-              Uw modellenfiche is uw professionele visitekaartje. Zorg daarom dat uw profiel:
-            </p>
+            <CmText
+              contentKey="portal.model.home.profile.title"
+              as="h3"
+              className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
+              fallback="Uw profiel (modellenfiche): altijd volledig en up-to-date"
+            />
+            <CmText
+              contentKey="portal.model.home.profile.intro"
+              as="p"
+              className="mt-2.5 text-[13px] leading-snug text-muted"
+              fallback="Uw modellenfiche is uw professionele visitekaartje. Zorg daarom dat uw profiel:"
+            />
             <ul className="mt-3 space-y-2 text-[13px] leading-snug text-ink/90">
               {[
-                'Volledig is ingevuld',
-                'Correcte maten bevat (laat u professioneel opmeten indien nodig)',
-                'Regelmatig wordt gecontroleerd en bijgewerkt bij veranderingen (gewicht, haar, look, maten, beschikbaarheden, foto’s)',
-              ].map((line) => (
-                <li key={line} className="flex gap-3">
+                {
+                  key: 'portal.model.home.profile.0',
+                  fb: 'Volledig is ingevuld',
+                },
+                {
+                  key: 'portal.model.home.profile.1',
+                  fb: 'Correcte maten bevat (laat u professioneel opmeten indien nodig)',
+                },
+                {
+                  key: 'portal.model.home.profile.2',
+                  fb: 'Regelmatig wordt gecontroleerd en bijgewerkt bij veranderingen (gewicht, haar, look, maten, beschikbaarheden, foto’s)',
+                },
+              ].map((row) => (
+                <li key={row.key} className="flex gap-3">
                   <CheckBullet />
-                  <span>{line}</span>
+                  <CmText contentKey={row.key} as="span" className="text-[13px] leading-snug text-ink/90" fallback={row.fb} />
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-[13px] leading-snug text-ink/90">
-              Daarnaast vragen wij u om regelmatig uw dashboard te controleren. Updates, berichten, aanvragen en
-              belangrijke acties verschijnen daar. U bent zelf verantwoordelijk om uw gegevens en status actueel te
-              houden.
-            </p>
+            <CmText
+              contentKey="portal.model.home.profile.footer"
+              as="p"
+              className="mt-3 text-[13px] leading-snug text-ink/90"
+              fallback="Daarnaast vragen wij u om regelmatig uw dashboard te controleren. Updates, berichten, aanvragen en belangrijke acties verschijnen daar. U bent zelf verantwoordelijk om uw gegevens en status actueel te houden."
+            />
           </SectionBlock>
 
           <SectionBlock>
@@ -245,27 +300,43 @@ export function ModelPortalHomeContent({
               className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
               fallback="Professioneel gedrag en samenwerking"
             />
-            <p className="mt-2.5 text-[13px] leading-snug text-ink/90">
-              U bent toegelaten tot Class-Models omdat wij geloven in uw potentieel. Uw succes hangt sterk samen met uw
-              houding, betrouwbaarheid en professionaliteit. Daarom verwachten wij dat u:
-            </p>
+            <CmText
+              contentKey="portal.model.home.professional.intro"
+              as="p"
+              className="mt-2.5 text-[13px] leading-snug text-ink/90"
+              fallback="U bent toegelaten tot Class-Models omdat wij geloven in uw potentieel. Uw succes hangt sterk samen met uw houding, betrouwbaarheid en professionaliteit. Daarom verwachten wij dat u:"
+            />
             <ul className="mt-3 space-y-2 text-[13px] leading-snug text-ink/90">
               {[
-                'Respectvol communiceert met klanten, collega-modellen en het bureau; correct en punctueel aanwezig bent op afspraken en opdrachten',
-                'Geen negatieve uitspraken of roddels verspreidt over Class-Models of andere modellen',
-                'Geen interne informatie deelt met derden',
-                'Zich professioneel gedraagt op en rond elke opdracht (online én offline)',
-              ].map((line) => (
-                <li key={line} className="flex gap-3">
+                {
+                  key: 'portal.model.home.professional.0',
+                  fb: 'Respectvol communiceert met klanten, collega-modellen en het bureau; correct en punctueel aanwezig bent op afspraken en opdrachten',
+                },
+                {
+                  key: 'portal.model.home.professional.1',
+                  fb: 'Geen negatieve uitspraken of roddels verspreidt over Class-Models of andere modellen',
+                },
+                {
+                  key: 'portal.model.home.professional.2',
+                  fb: 'Geen interne informatie deelt met derden',
+                },
+                {
+                  key: 'portal.model.home.professional.3',
+                  fb: 'Zich professioneel gedraagt op en rond elke opdracht (online én offline)',
+                },
+              ].map((row) => (
+                <li key={row.key} className="flex gap-3">
                   <CheckBullet />
-                  <span>{line}</span>
+                  <CmText contentKey={row.key} as="span" className="text-[13px] leading-snug text-ink/90" fallback={row.fb} />
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-[13px] leading-snug text-muted">
-              Onprofessioneel gedrag kan ertoe leiden dat u niet langer wordt ingepland voor opdrachten. Wij bewaken
-              hiermee de kwaliteit en reputatie van onze werking, in het belang van alle modellen.
-            </p>
+            <CmText
+              contentKey="portal.model.home.professional.footer"
+              as="p"
+              className="mt-3 text-[13px] leading-snug text-muted"
+              fallback="Onprofessioneel gedrag kan ertoe leiden dat u niet langer wordt ingepland voor opdrachten. Wij bewaken hiermee de kwaliteit en reputatie van onze werking, in het belang van alle modellen."
+            />
           </SectionBlock>
         </div>
 
@@ -366,51 +437,53 @@ export function ModelPortalHomeContent({
             </div>
           </div>
 
-          <AsideInfoCard title="Opdrachten en inschrijvingen">
-            <p>
-              Op uw modellenfiche kunnen openstaande opdrachten verschijnen waarvoor de klant nog geen definitieve keuze
-              heeft gemaakt. Wanneer u binnen het gevraagde profiel past, kunt u zich hiervoor inschrijven.
-            </p>
-            <p>
-              <strong className="text-ink">Let op:</strong> een groot deel van de opdrachten wordt rechtstreeks door
-              klanten toegewezen aan een specifiek model. Deze opdrachten verschijnen niet altijd als “open opdracht” op
-              het platform.
-            </p>
-          </AsideInfoCard>
+          <AsideInfoCard
+            titleKey="portal.model.home.aside.opdrachten.title"
+            titleFallback="Opdrachten en inschrijvingen"
+            bodyKey="portal.model.home.aside.opdrachten.body"
+            bodyFallback={`Op uw modellenfiche kunnen openstaande opdrachten verschijnen waarvoor de klant nog geen definitieve keuze heeft gemaakt. Wanneer u binnen het gevraagde profiel past, kunt u zich hiervoor inschrijven.
 
-          <AsideInfoCard title="Communicatie en transparantie">
-            <p>
-              Hoort u iets, twijfelt u aan informatie, of heeft u vragen? Neem dan altijd eerst contact op met de
-              verantwoordelijke van Class-Models. In de sector circuleren vaak berichten die niet correct of onvolledig
-              zijn. Wij verkiezen directe, duidelijke en correcte communicatie.
-            </p>
-          </AsideInfoCard>
+Let op: een groot deel van de opdrachten wordt rechtstreeks door klanten toegewezen aan een specifiek model. Deze opdrachten verschijnen niet altijd als “open opdracht” op het platform.`}
+          />
 
-          <AsideInfoCard title="Belangrijke communicatieregel (sms/bericht)">
-            <p>
-              Wanneer u ons een sms of bericht stuurt, vermeld altijd uw voornaam en familienaam. Wij werken geregeld met
-              groepsberichten en meerdere gesprekken tegelijk. Berichten zonder naam kunnen niet als geldig antwoord
-              worden verwerkt.
-            </p>
-          </AsideInfoCard>
+          <AsideInfoCard
+            titleKey="portal.model.home.aside.communicatie.title"
+            titleFallback="Communicatie en transparantie"
+            bodyKey="portal.model.home.aside.communicatie.body"
+            bodyFallback={`Hoort u iets, twijfelt u aan informatie, of heeft u vragen? Neem dan altijd eerst contact op met de verantwoordelijke van Class-Models. In de sector circuleren vaak berichten die niet correct of onvolledig zijn. Wij verkiezen directe, duidelijke en correcte communicatie.`}
+          />
 
-          <AsideInfoCard title="Tot slot">
-            <p>
-              Wij wensen u veel succes binnen Class-Models en kijken uit naar een professionele en aangename
-              samenwerking. Heeft u vragen of opmerkingen? Neem gerust contact op met het Class-Models team via het
-              platform.
-            </p>
-            <p className="border-t border-zinc-200 pt-1.5 text-[10px] leading-tight text-muted">
-              Ingelogd als {userEmail}.
-            </p>
-          </AsideInfoCard>
+          <AsideInfoCard
+            titleKey="portal.model.home.aside.sms.title"
+            titleFallback="Belangrijke communicatieregel (sms/bericht)"
+            bodyKey="portal.model.home.aside.sms.body"
+            bodyFallback={`Wanneer u ons een sms of bericht stuurt, vermeld altijd uw voornaam en familienaam. Wij werken geregeld met groepsberichten en meerdere gesprekken tegelijk. Berichten zonder naam kunnen niet als geldig antwoord worden verwerkt.`}
+          />
+
+          <AsideInfoCard
+            titleKey="portal.model.home.aside.slot.title"
+            titleFallback="Tot slot"
+            bodyKey="portal.model.home.aside.slot.body"
+            bodyFallback={`Wij wensen u veel succes binnen Class-Models en kijken uit naar een professionele en aangename samenwerking. Heeft u vragen of opmerkingen? Neem gerust contact op met het Class-Models team via het platform.`}
+          />
+
+          <p className="border-t border-zinc-200 px-2 pt-2 text-[10px] leading-tight text-muted">
+            <CmText contentKey="portal.model.home.loggedIn.prefix" as="span" fallback="Ingelogd als" /> {userEmail}.
+          </p>
 
           <div className="border border-burgundy/25 bg-zinc-50 px-2 py-1.5">
-            <p className="text-[10px] font-bold uppercase leading-tight tracking-wide text-burgundy">Onthouden</p>
-            <p className="mt-1 text-[11px] leading-snug text-ink/85">
-              Controleer regelmatig uw dashboard en houd uw profiel up-to-date — dat vergroot uw kansen op passende
-              opdrachten.
-            </p>
+            <CmText
+              contentKey="portal.model.home.remember.kicker"
+              as="p"
+              className="text-[10px] font-bold uppercase leading-tight tracking-wide text-burgundy"
+              fallback="Onthouden"
+            />
+            <CmText
+              contentKey="portal.model.home.remember.body"
+              as="p"
+              className="mt-1 text-[11px] leading-snug text-ink/85"
+              fallback="Controleer regelmatig uw dashboard en houd uw profiel up-to-date — dat vergroot uw kansen op passende opdrachten."
+            />
           </div>
         </aside>
       </div>

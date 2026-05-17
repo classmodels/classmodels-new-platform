@@ -12,7 +12,12 @@ import {
 } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useContent } from '@/context/content-context';
-import { looksLikeCmsRichHtml, sanitizeCmsHtml } from '@/lib/sanitize-cms-html';
+import {
+  cmsHtmlToPlainText,
+  hasMeaningfulRichMarkup,
+  looksLikeMeaningfulRichHtml,
+  sanitizeCmsHtml,
+} from '@/lib/sanitize-cms-html';
 
 type CmTextProps = {
   contentKey: string;
@@ -22,9 +27,8 @@ type CmTextProps = {
 } & Omit<HTMLAttributes<HTMLElement>, 'children'>;
 
 function patchFromEditable(el: HTMLElement, contentKey: string, patchKey: (k: string, v: string) => void) {
-  const rawHtml = el.innerHTML;
-  if (looksLikeCmsRichHtml(rawHtml)) {
-    patchKey(contentKey, sanitizeCmsHtml(rawHtml));
+  if (hasMeaningfulRichMarkup(el)) {
+    patchKey(contentKey, sanitizeCmsHtml(el.innerHTML));
   } else {
     patchKey(contentKey, el.innerText);
   }
@@ -55,21 +59,25 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
   const [focused, setFocused] = useState(false);
   const colorRef = useRef<HTMLInputElement | null>(null);
 
-  const richView = looksLikeCmsRichHtml(val);
-  const viewClass = [className, !richView ? 'whitespace-pre-wrap' : ''].filter(Boolean).join(' ');
+  const meaningfulRich = looksLikeMeaningfulRichHtml(val);
+  const staleStructuralHtml = !meaningfulRich && typeof val === 'string' && /<[^>]+>/.test(val);
+  const viewClass = [className, !meaningfulRich ? 'whitespace-pre-wrap' : ''].filter(Boolean).join(' ');
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (!editMode || !can('content.strings.write')) return;
     if (document.activeElement === el) return;
-    if (richView) {
+    if (meaningfulRich) {
       const safe = sanitizeCmsHtml(val);
       if (el.innerHTML !== safe) el.innerHTML = safe;
+    } else if (staleStructuralHtml) {
+      const plain = cmsHtmlToPlainText(val);
+      if (el.innerText !== plain) el.textContent = plain;
     } else if (el.innerText !== val) {
       el.textContent = val;
     }
-  }, [val, editMode, can, richView]);
+  }, [val, editMode, can, meaningfulRich, staleStructuralHtml]);
 
   const flushPatch = useCallback(() => {
     const el = ref.current;
@@ -81,41 +89,43 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
 
   if (editMode && can('content.strings.write')) {
     return (
-      <div className="group/cm-text relative block w-full max-w-full">
+      <div className="group/cm-text relative z-[90] block w-full max-w-full text-zinc-900">
         {focused ? (
           <div
-            className="absolute bottom-full left-0 z-[100] mb-1 flex flex-wrap items-center gap-1 rounded border border-zinc-300 bg-white px-1.5 py-1 text-[11px] shadow-md"
+            className="absolute bottom-full left-0 z-[100] mb-1 flex flex-wrap items-center gap-1 rounded border border-zinc-400 bg-white px-2 py-1.5 text-xs text-zinc-900 shadow-lg"
             onMouseDown={(e) => e.preventDefault()}
           >
-            <span className="text-muted">Opmaak:</span>
+            <span className="text-zinc-500">Opmaak</span>
             <button
               type="button"
-              className="rounded border border-line px-1.5 py-0.5 font-semibold hover:bg-panel"
-              title="Grotere tekst (selectie)"
+              className="min-h-8 min-w-8 rounded border border-zinc-400 bg-zinc-100 px-2 text-lg font-bold leading-none text-zinc-900 hover:bg-zinc-200"
+              title="Selectie groter"
+              aria-label="Tekst groter"
               onClick={() => {
                 applyRelativeFontSize(1.15);
                 flushPatch();
               }}
             >
-              A+
+              +
             </button>
             <button
               type="button"
-              className="rounded border border-line px-1.5 py-0.5 font-semibold hover:bg-panel"
-              title="Kleinere tekst (selectie)"
+              className="min-h-8 min-w-8 rounded border border-zinc-400 bg-zinc-100 px-2 text-lg font-bold leading-none text-zinc-900 hover:bg-zinc-200"
+              title="Selectie kleiner"
+              aria-label="Tekst kleiner"
               onClick={() => {
                 applyRelativeFontSize(0.88);
                 flushPatch();
               }}
             >
-              A−
+              −
             </button>
-            <label className="flex cursor-pointer items-center gap-0.5 rounded border border-line px-1 py-0.5 hover:bg-panel">
-              <span className="text-muted">Kleur</span>
+            <label className="flex cursor-pointer items-center gap-1 rounded border border-zinc-400 bg-zinc-50 px-1.5 py-0.5 hover:bg-zinc-100">
+              <span className="text-[11px] text-zinc-600">Kleur</span>
               <input
                 ref={colorRef}
                 type="color"
-                className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0"
+                className="h-6 w-7 cursor-pointer border-0 bg-transparent p-0"
                 defaultValue="#6f121b"
                 onChange={(e) => {
                   const c = e.target.value;
@@ -129,7 +139,7 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
                 }}
               />
             </label>
-            <span className="text-[10px] text-muted">Enter = nieuwe regel</span>
+            <span className="text-[10px] text-zinc-500">Enter = nieuwe regel</span>
           </div>
         ) : null}
         {createElement(as, {
@@ -150,7 +160,7 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
     );
   }
 
-  if (richView) {
+  if (meaningfulRich) {
     const safe = sanitizeCmsHtml(val);
     return createElement(as, {
       ...rest,
@@ -158,6 +168,10 @@ export function CmText({ contentKey, as = 'span', className, fallback = '', ...r
       suppressHydrationWarning: true,
       dangerouslySetInnerHTML: { __html: safe },
     });
+  }
+
+  if (staleStructuralHtml) {
+    return createElement(as, { ...rest, className: viewClass }, cmsHtmlToPlainText(val));
   }
 
   return createElement(as, { ...rest, className: viewClass }, val);

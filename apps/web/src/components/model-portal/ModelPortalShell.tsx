@@ -5,6 +5,7 @@ import { type ModelPortalTabId } from '@/components/model-portal/model-portal-na
 import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { CmText } from '@/components/CmText';
+import { useContent } from '@/context/content-context';
 
 function ModelPortalHeroInner({
   userFirstName,
@@ -13,6 +14,11 @@ function ModelPortalHeroInner({
   userFirstName: string;
   premiumButton?: ReactNode;
 }) {
+  const { byKey } = useContent();
+  const legacyWelcome = (byKey['portal.model.hero.welcome'] ?? '').trim();
+  const defaultWithName = userFirstName.trim() ? `Welkom, ${userFirstName}` : 'Welkom';
+  const greetingFallback = legacyWelcome || defaultWithName;
+
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_min(260px,34%)] md:items-center md:gap-8">
       <div>
@@ -22,10 +28,12 @@ function ModelPortalHeroInner({
           className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
           fallback="Model"
         />
-        <h2 className="mt-2 font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl">
-          <CmText contentKey="portal.model.hero.welcome" as="span" className="text-white" fallback="Welkom" />
-          {userFirstName ? `, ${userFirstName}` : ''}
-        </h2>
+        <CmText
+          contentKey="portal.model.hero.greeting"
+          as="h2"
+          className="mt-2 font-serif text-2xl font-semibold tracking-tight text-white md:text-3xl lg:text-4xl"
+          fallback={greetingFallback}
+        />
         <CmText
           contentKey="portal.model.hero.body"
           as="p"
