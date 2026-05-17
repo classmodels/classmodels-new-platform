@@ -28,7 +28,12 @@ Website-backend (Websites & SSL → Beheer website):
   www.class-models.be  → Node → classmodels-web
   api.class-models.be → Node → classmodels-web  (zelfde app)
 
-Pipeline: alleen opnieuw na nieuwe code op GitHub of na wijziging van env hierboven.
+Pipeline (Combell → Node.js-app → tab Build / Pipeline):
+  Build command (één regel):
+    npm run combell:build
+  Daarna: app herstarten (of wacht op automatische restart). Geen aparte SSH-stappen voor
+  shared/API-build: het script bouwt @cm/shared → @cm/api → @cm/web in de juiste volgorde.
+  Migraties: bij start van de app (dual-proxy) draait prisma migrate deploy als DB_URL gezet is.
 
 
 WAT JE VAN COMBELL MOET WETEN / VRAGEN (kopieer antwoorden hier)
