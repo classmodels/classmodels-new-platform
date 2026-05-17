@@ -18,7 +18,6 @@
     "import:profile-photos-manifest": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-profile-photos-manifest.ts"
   },
   "dependencies": {
-    "@cm/shared": "*",
     "@mollie/api-client": "^4.5.0",
     "@nestjs/common": "^10.4.8",
     "@nestjs/config": "^3.3.0",

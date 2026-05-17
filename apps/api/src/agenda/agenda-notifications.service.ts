@@ -1,9 +1,9 @@
+import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML } from './agenda-booking-email-template';
 import {
-  AGENDA_DEFAULT_BOOKING_EMAIL_HTML,
   applyAgendaMailPlaceholders,
   buildAgendaMailPlaceholderVars,
   coerceOutgoingEmailHtml,
-} from '@cm/shared';
+} from './agenda-mail-placeholders';
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';

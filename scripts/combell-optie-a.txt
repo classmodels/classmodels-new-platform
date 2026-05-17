@@ -34,6 +34,8 @@ Pipeline (Combell → Node.js-app → tab Build / Pipeline):
   Daarna: app herstarten (of wacht op automatische restart). Geen aparte SSH-stappen voor
   shared/API-build: het script bouwt @cm/shared → @cm/api → @cm/web in de juiste volgorde.
   Migraties: bij start van de app (dual-proxy) draait prisma migrate deploy als DB_URL gezet is.
+  De Nest-API laadt agenda-mailhulp **lokaal** (apps/api/src/agenda), niet via `node_modules/@cm/shared`,
+  zodat een kapotte workspace-link op de server geen 500 meer geeft op login/catalogus.
 
 
 WAT JE VAN COMBELL MOET WETEN / VRAGEN (kopieer antwoorden hier)
