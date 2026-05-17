@@ -27,7 +27,7 @@ type SlotDto = {
 type Step = 'slots' | 'form' | 'success';
 
 const WEEKDAY_SHORT = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'] as const;
-/** Max. zichtbare dagen tegelijk; rest via pijlen (geen horizontaal scrollen). */
+/** Max. dagen per pagina; bij meer dagen: Vorige/Volgende onder de kolommen. */
 const DAYS_PER_PAGE = 4;
 
 function colHeader(ymd: string): string {
@@ -131,7 +131,9 @@ export function GuestBookingPanel({
     if (dayPage > 0 && dayPage >= totalPages) setDayPage(Math.max(0, totalPages - 1));
   }, [dayPage, totalPages]);
 
+  /** Bij ≤4 dagen: alles tonen; bij >4: pagina van 4. */
   const visibleDates = useMemo(() => {
+    if (sortedDates.length <= DAYS_PER_PAGE) return sortedDates;
     const start = dayPage * DAYS_PER_PAGE;
     return sortedDates.slice(start, start + DAYS_PER_PAGE);
   }, [sortedDates, dayPage]);
@@ -147,14 +149,44 @@ export function GuestBookingPanel({
     return m;
   }, [slots]);
 
-  /** Dagkolommen: 1 dag = volle breedte, 2 = 50%, 3 of meer = max. 3 kolommen per rij (±33%). */
-  const defaultDayColumnsStyle = useMemo((): CSSProperties => {
-    const n = sortedDates.length;
-    const cols = Math.min(Math.max(n, 1), 3);
+  /** 1→100%, 2→50%, 3→33%, 4→25% (minmax zodat kolommen volle breedte delen). */
+  const dayGridStyle = useMemo((): CSSProperties => {
+    const n = visibleDates.length;
+    const cols = Math.min(Math.max(n, 1), 4);
     return { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` };
-  }, [sortedDates.length]);
+  }, [visibleDates.length]);
 
   const picked = slots.find((s) => s.id === slotId);
+
+  const showDatePager = sortedDates.length > DAYS_PER_PAGE;
+
+  const datePager = showDatePager ? (
+    <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-zinc-200/80 pt-3">
+      <button
+        type="button"
+        aria-label="Vorige dagen"
+        disabled={dayPage <= 0}
+        className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
+        onClick={() => setDayPage((p) => Math.max(0, p - 1))}
+      >
+        ‹ Vorige
+      </button>
+      <span className="text-center text-[11px] text-zinc-500">
+        {sortedDates.length
+          ? `Dag ${dayPage * DAYS_PER_PAGE + 1}–${Math.min(sortedDates.length, (dayPage + 1) * DAYS_PER_PAGE)} van ${sortedDates.length}`
+          : ''}
+      </span>
+      <button
+        type="button"
+        aria-label="Volgende dagen"
+        disabled={dayPage >= totalPages - 1}
+        className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
+        onClick={() => setDayPage((p) => Math.min(totalPages - 1, p + 1))}
+      >
+        Volgende ›
+      </button>
+    </div>
+  ) : null;
 
   const slotTimeLabel = (s: SlotDto) =>
     showEndTimeOnPublic ? `${s.startTime} – ${s.endTime}` : s.startTime;
@@ -410,58 +442,61 @@ export function GuestBookingPanel({
           <div className="rounded-cm border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{err}</div>
         ) : null}
         {step === 'slots' ? (
-          <div className="max-h-[min(520px,62vh)] overflow-y-auto pr-1">
-            <div className="grid gap-4" style={defaultDayColumnsStyle}>
-              {sortedDates.map((ymd) => (
-                <div key={ymd} className="min-w-0">
-                  <p className="text-xs font-semibold capitalize text-ink">
-                    {new Intl.DateTimeFormat('nl-BE', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                    }).format(new Date(`${ymd}T12:00:00`))}
-                  </p>
-                  <div className="mt-2 flex max-h-[min(460px,50vh)] flex-col gap-1.5 overflow-y-auto pr-0.5">
-                    {(slotsByYmd.get(ymd) ?? []).map((s) => {
-                      const sel = slotId === s.id;
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className={[
-                            'flex w-full min-w-0 items-center gap-2 rounded-md border bg-panel px-3 py-2 text-left text-xs font-medium tabular-nums transition',
-                            sel ? 'border-burgundy ring-1 ring-burgundy' : 'border-line hover:border-burgundy/45',
-                          ].join(' ')}
-                          onClick={() => {
-                            if (autoBookOnPick) {
-                              void quickBook(s.id);
-                              return;
-                            }
-                            setSlotId(s.id);
-                            setStep('form');
-                            setErr(null);
-                          }}
-                        >
-                          <span
+          <div className="space-y-3">
+            <div className="max-h-[min(520px,62vh)] overflow-y-auto pr-1">
+              <div className="grid w-full gap-4" style={dayGridStyle}>
+                {visibleDates.map((ymd) => (
+                  <div key={ymd} className="min-w-0">
+                    <p className="text-xs font-semibold capitalize text-ink">
+                      {new Intl.DateTimeFormat('nl-BE', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                      }).format(new Date(`${ymd}T12:00:00`))}
+                    </p>
+                    <div className="mt-2 flex max-h-[min(460px,50vh)] flex-col gap-1.5 overflow-y-auto pr-0.5">
+                      {(slotsByYmd.get(ymd) ?? []).map((s) => {
+                        const sel = slotId === s.id;
+                        return (
+                          <button
+                            key={s.id}
+                            type="button"
                             className={[
-                              'flex h-3.5 w-3.5 shrink-0 rounded-full border',
-                              sel ? 'border-burgundy bg-burgundy' : 'border-zinc-300',
+                              'flex w-full min-w-0 items-center gap-2 rounded-md border bg-panel px-3 py-2 text-left text-xs font-medium tabular-nums transition',
+                              sel ? 'border-burgundy ring-1 ring-burgundy' : 'border-line hover:border-burgundy/45',
                             ].join(' ')}
-                            aria-hidden
-                          />
-                          <span className="text-ink">
-                            {slotTimeLabel(s)}
-                            {typeof s.remaining === 'number' && s.remaining > 1 ? (
-                              <span className="ml-1 text-[10px] font-normal text-muted"> ({s.remaining} vrij)</span>
-                            ) : null}
-                          </span>
-                        </button>
-                      );
-                    })}
+                            onClick={() => {
+                              if (autoBookOnPick) {
+                                void quickBook(s.id);
+                                return;
+                              }
+                              setSlotId(s.id);
+                              setStep('form');
+                              setErr(null);
+                            }}
+                          >
+                            <span
+                              className={[
+                                'flex h-3.5 w-3.5 shrink-0 rounded-full border',
+                                sel ? 'border-burgundy bg-burgundy' : 'border-zinc-300',
+                              ].join(' ')}
+                              aria-hidden
+                            />
+                            <span className="text-ink">
+                              {slotTimeLabel(s)}
+                              {typeof s.remaining === 'number' && s.remaining > 1 ? (
+                                <span className="ml-1 text-[10px] font-normal text-muted"> ({s.remaining} vrij)</span>
+                              ) : null}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+            {datePager}
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-5">
@@ -501,43 +536,7 @@ export function GuestBookingPanel({
     step === 'slots' ? (
       <div className="min-h-0 min-w-0 flex-1">
         <div className="flex min-h-0 max-h-[min(520px,62vh)] flex-1 flex-col">
-          {sortedDates.length > DAYS_PER_PAGE ? (
-            <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-              <button
-                type="button"
-                aria-label="Vorige dagen"
-                disabled={dayPage <= 0}
-                className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
-                onClick={() => setDayPage((p) => Math.max(0, p - 1))}
-              >
-                ‹ Vorige
-              </button>
-              <span className="text-center text-[11px] text-zinc-500">
-                {sortedDates.length
-                  ? `Dag ${dayPage * DAYS_PER_PAGE + 1}–${Math.min(sortedDates.length, (dayPage + 1) * DAYS_PER_PAGE)} van ${sortedDates.length}`
-                  : ''}
-              </span>
-              <button
-                type="button"
-                aria-label="Volgende dagen"
-                disabled={dayPage >= totalPages - 1}
-                className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
-                onClick={() => setDayPage((p) => Math.min(totalPages - 1, p + 1))}
-              >
-                Volgende ›
-              </button>
-            </div>
-          ) : null}
-          <div
-            className="grid min-h-0 flex-1 gap-1.5 pb-1"
-            style={
-              visibleDates.length
-                ? {
-                    gridTemplateColumns: `repeat(${Math.min(visibleDates.length, 3)}, minmax(0, 1fr))`,
-                  }
-                : undefined
-            }
-          >
+          <div className="grid min-h-0 w-full min-w-0 flex-1 gap-1.5 pb-1" style={dayGridStyle}>
             {visibleDates.map((ymd) => (
               <div key={ymd} className="flex min-h-0 min-w-0 flex-col text-center">
                 <div className="shrink-0 rounded-t-md bg-zinc-900 py-2 text-[11px] font-semibold uppercase tracking-wide text-white">
@@ -560,7 +559,7 @@ export function GuestBookingPanel({
                           setErr(null);
                         }}
                         className={[
-                          'flex w-full min-w-0 max-w-md items-center gap-2 self-center rounded-md border bg-white px-2 py-1.5 text-left text-xs font-medium transition',
+                          'flex w-full min-w-0 items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-left text-xs font-medium transition',
                           sel
                             ? 'border-zinc-900 ring-1 ring-zinc-900'
                             : 'border-zinc-200 hover:border-zinc-400',
@@ -586,6 +585,7 @@ export function GuestBookingPanel({
               </div>
             ))}
           </div>
+          {datePager}
         </div>
       </div>
     ) : (
