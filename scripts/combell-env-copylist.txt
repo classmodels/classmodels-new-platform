@@ -3,6 +3,7 @@
 # Zie scripts/combell-optie-a.txt voor uitleg en wat je aan Combell vraagt
 
 COMBELL_HOST_ROUTER=1
+# Geen ".", placeholder of leeg — anders start geen dual-proxy (geen Nest, geen /media/public).
 DB_URL=VERVANG_VOLLEDIGE_MYSQL_URL_VAN_COMBELL
 JWT_SECRET=VERVANG_LANG_WILLEKEURIG_GEHEIM
 CORS_ORIGIN=https://www.class-models.be,https://class-models.be

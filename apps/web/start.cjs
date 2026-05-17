@@ -6,6 +6,23 @@ const path = require('path');
 const cwd = fs.realpathSync(__dirname);
 const { combellHostRouterEnabled } = require(path.join(cwd, '..', '..', 'scripts', 'combell-host-router.cjs'));
 
+const rawRouter = String(process.env.COMBELL_HOST_ROUTER ?? '').trim();
+const routerExplicitlyOff =
+  !rawRouter || /^0|false|off|no$/i.test(rawRouter.toLowerCase());
+if (
+  process.env.NODE_ENV === 'production' &&
+  rawRouter &&
+  !routerExplicitlyOff &&
+  !combellHostRouterEnabled()
+) {
+  console.error(
+    '[start] COMBELL_HOST_ROUTER heeft een ongeldige waarde:',
+    JSON.stringify(rawRouter),
+    '— zet exact COMBELL_HOST_ROUTER=1 (niet ".", spatie, of 2).',
+    'Zonder 1 start alleen Next: Nest-API en media-bootstrap draaien niet → geen foto’s, geen /catalog.',
+  );
+}
+
 /** Combell start vaak alleen `node apps/web/start.cjs` (niet root `npm start`). */
 if (combellHostRouterEnabled()) {
   const dual = path.join(cwd, '..', '..', 'scripts', 'combell-dual-proxy.cjs');

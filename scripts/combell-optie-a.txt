@@ -5,6 +5,8 @@ COMBELL OPTIE A — één Node-app voor www + api (classmodels-web)
 WAT JIJ IN HET COMBELL-PANEEL ZET (Node.js → classmodels-web → Environment variables)
 --------------------------------------------------------------------------------
 COMBELL_HOST_ROUTER=1
+# ↑ exact cijfer 1. Waarden zoals "." of leeg → dual-proxy UIT → alleen Next, geen Nest → geen API/foto’s.
+
 DB_URL=... (zie hieronder: volledige MySQL-URL van Combell)
 JWT_SECRET=... (lang willekeurig geheim)
 CORS_ORIGIN=https://www.class-models.be
@@ -34,6 +36,11 @@ Pipeline (Combell → Node.js-app → tab Build / Pipeline):
   Migraties: bij start van de app (dual-proxy) draait prisma migrate deploy als DB_URL gezet is.
   De Nest-API laadt agenda-mailhulp **lokaal** (apps/api/src/agenda), niet via `node_modules/@cm/shared`,
   zodat een kapotte workspace-link op de server geen 500 meer geeft op login/catalogus.
+
+  Let op: omgevingsvariabelen voor **COMBELL_HOST_ROUTER**, **DB_URL**, enz. moeten bij de **draaiende
+  Node-app** (Combell → Node.js → classmodels-web → Environment) staan — niet alleen in een externe
+  CI “pipeline” als die de runtime van de app niet overschrijft. Anders blijft COMBELL_HOST_ROUTER
+  leeg of fout en start geen dual-proxy.
 
 
 WAT JE VAN COMBELL MOET WETEN / VRAGEN (kopieer antwoorden hier)
