@@ -16,11 +16,13 @@ import {
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
+import { mkdirSync } from 'node:fs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { AgendaService } from '../agenda/agenda.service';
+import { resolveMediaRoot } from '../config/resolve-media-root';
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -43,7 +45,11 @@ export class PortalModelAgendaController {
   @UseInterceptors(
     AnyFilesInterceptor({
       storage: diskStorage({
-        destination: join(process.cwd(), 'uploads', 'agenda'),
+        destination: (_req, _file, cb) => {
+          const dir = join(resolveMediaRoot(), 'agenda');
+          mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
         filename: (_req, file, cb) => cb(null, `${randomUUID()}${extname(file.originalname) || ''}`),
       }),
       limits: { fileSize: 8 * 1024 * 1024 },

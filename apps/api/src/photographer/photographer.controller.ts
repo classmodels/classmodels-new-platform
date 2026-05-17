@@ -17,9 +17,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
+import { resolveMediaRoot } from '../config/resolve-media-root';
 import { PhotographerService } from './photographer.service';
 
-const PHOTOGRAPHER_TMP = join(process.cwd(), 'uploads', 'photographer-tmp');
+function photographerTmpDir(): string {
+  const dir = join(resolveMediaRoot(), 'photographer-tmp');
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 function photographerUploadMaxBytes(): number {
   const raw = process.env.PHOTOGRAPHER_UPLOAD_MAX_BYTES;
@@ -48,8 +53,7 @@ export class PhotographerController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          mkdirSync(PHOTOGRAPHER_TMP, { recursive: true });
-          cb(null, PHOTOGRAPHER_TMP);
+          cb(null, photographerTmpDir());
         },
         filename: (_req, file, cb) => {
           cb(null, `${randomUUID()}${extname(file.originalname) || ''}`);

@@ -12,5 +12,8 @@ NEXT_PUBLIC_APP_URL=https://www.class-models.be
 WEB_PUBLIC_URL=https://www.class-models.be
 WEB_APP_URL=https://www.class-models.be
 NODE_ENV=production
-# Mediatheek: buiten de release-map (blijft staan bij deploy). Zie apps/api/src/config/resolve-media-root.ts
-MEDIA_ROOT=www/cm-media/uploads
+# dual-proxy zet MEDIA_ROOT automatisch naar $HOME/www/cm-media/uploads (absoluut).
+# Zonder dual-proxy: zet zelf absoluut pad. Gebruik geen relatief "uploads" in apps/api/.env
+# (overschrijft de proxy en schrijft in de release-map → alles weg na deploy).
+# MEDIA_ROOT=/home/JOUWUSER/www/cm-media/uploads
+# MEDIA_SYNC_SOURCE=/pad/naar/oude-uploads-bron

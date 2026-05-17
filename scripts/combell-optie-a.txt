@@ -14,13 +14,11 @@ NEXT_PUBLIC_APP_URL=https://www.class-models.be
 WEB_PUBLIC_URL=https://www.class-models.be
 WEB_APP_URL=https://www.class-models.be
 NODE_ENV=production
-MEDIA_ROOT=uploads
-
-BELANGRIJK — foto’s op Combell:
-  - Zet GEEN www/cm-media/uploads als MEDIA_ROOT (in de container bestaat die map niet).
-  - Gebruik: MEDIA_ROOT=uploads  (→ apps/api/uploads in de app)
-  - Na deploy is de container-apps/uploads leeg; bij start (combell-dual-proxy) wordt gekopieerd van een vaste hosting-map (zie scripts/combell-sync-media-uploads.cjs). Zet bij problemen env MEDIA_SYNC_SOURCE=/vol/pad/naar/uploads op je persistent volume.
-  - Zonder persistente bron: herstel media met op je Mac bv. npm run tool:push-media-live — admin@class-models.local 'Demo123!'
+# Mediatheek: blijft staan bij elke pipeline-deploy. Wordt automatisch gezet door combell-dual-proxy
+# vóór de API start (absoluut pad, typisch $HOME/www/cm-media/uploads). Zet zelf een absoluut pad
+# als je géén dual-proxy gebruikt. Vermijd MEDIA_ROOT=uploads in apps/api/.env — dat overschrijft
+# de persistente map en schrijft terug naar de release-map (bestanden weg na deploy).
+# MEDIA_ROOT=/home/JOUWUSER/www/cm-media/uploads
 
 Poort in Combell (veld "Poort"): meestal 3000 — NIET wijzigen tenzij Combell anders zegt.
 

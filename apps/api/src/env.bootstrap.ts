@@ -1,6 +1,6 @@
 import { config as loadEnv } from 'dotenv';
 import { existsSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, isAbsolute, join } from 'path';
 
 /**
  * Laadt `.env` zodat `process.env` klaarstaat vóór JwtModule e.d.
@@ -33,7 +33,14 @@ function loadEnvFromAncestors() {
   }
 }
 
+/** Vóór dotenv: dual-proxy zet absoluut MEDIA_ROOT; apps/api/.env met `MEDIA_ROOT=uploads` mag dat niet overschrijven. */
+const mediaRootBeforeDotenv = process.env.MEDIA_ROOT?.trim() ?? '';
+
 loadEnvFromAncestors();
+
+if (mediaRootBeforeDotenv && isAbsolute(mediaRootBeforeDotenv)) {
+  process.env.MEDIA_ROOT = mediaRootBeforeDotenv;
+}
 
 /** Combell: sommige panels weigeren lange keys; Prisma leest `DB_URL`. Oude `DATABASE_URL` blijft werken. */
 const dbUrl = process.env.DB_URL?.trim() || process.env.DATABASE_URL?.trim();

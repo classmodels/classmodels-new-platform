@@ -8,6 +8,23 @@
 
 `bestandsnaam` is exact de `storageKey`, `webpKey` of `thumbKey` uit de database (geen paden).
 
+## Productie (Combell) — waarom foto’s “weg” zijn na deploy
+
+1. **Release-map**: bij een nieuwe pipeline wordt vaak een **verse checkout** uitgerold. Alles onder `apps/api/uploads` **in die checkout** hoort bij die release en **verdwijnt** bij de volgende deploy.
+2. **Foute combinatie**: de API schreef naar `apps/api/uploads`, terwijl een sync-script oude bestanden van `~/www/cm-media/uploads` **éénrichting** naar de release kopieerde. Nieuwe uploads kwamen **nooit** in de persistente map → na deploy weg.
+3. **Dotenv**: `combell-dual-proxy` kan een absoluut `MEDIA_ROOT` zetten, maar `apps/api/.env` met `MEDIA_ROOT=uploads` en `override: true` **overschreef** dat weer → terug naar de release-map.
+
+**Definitieve aanpak (ingebouwd):**
+
+- Start via **`scripts/combell-dual-proxy.cjs`**: vóór Nest wordt `MEDIA_ROOT` gezet op een **absoluut persistent pad** (standaard `$HOME/www/cm-media/uploads`, aangemaakt indien nodig).
+- **`env.bootstrap.ts`**: een absoluut `MEDIA_ROOT` dat al in het proces stond vóór dotenv, wordt **niet** overschreven door `.env`.
+- **`combell-sync-media-uploads.cjs`**: synchroniseert naar **diezelfde** persistente map (niet meer naar `apps/api/uploads` in de release).
+- **Agenda- en fotograaf-uploads** schrijven onder `MEDIA_ROOT/agenda` en `MEDIA_ROOT/photographer-tmp` (zelfde schijf als de mediatheek).
+
+**Handmatig controleren na deploy:** in de API-log staat `[media] opslag=…` en bij dual-proxy ook `MEDIA_ROOT=/home/.../www/cm-media/uploads`. Controleer dat dat pad op schijf bestaat en groeit na een testupload.
+
+**Docker / VPS:** zet `MEDIA_ROOT` op een **gemount volume** (bv. `/data/media`), niet op een map binnen de image.
+
 ## Upload (admin)
 
 `POST /media/upload`  

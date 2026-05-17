@@ -15,8 +15,10 @@ import {
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
+import { mkdirSync } from 'node:fs';
 import { AgendaService } from './agenda.service';
 import { AgendaSlotsQueryDto, BookAgendaDto, CancelAgendaDto, ConfirmAttendanceDto } from './dto/agenda.dto';
+import { resolveMediaRoot } from '../config/resolve-media-root';
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -60,7 +62,11 @@ export class AgendaPublicController {
   @UseInterceptors(
     AnyFilesInterceptor({
       storage: diskStorage({
-        destination: join(process.cwd(), 'uploads', 'agenda'),
+        destination: (_req, _file, cb) => {
+          const dir = join(resolveMediaRoot(), 'agenda');
+          mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
         filename: (_req, file, cb) =>
           cb(null, `${randomUUID()}${extname(file.originalname) || ''}`),
       }),

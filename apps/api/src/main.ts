@@ -19,7 +19,7 @@ async function bootstrap() {
     );
   }
   logResolvedMediaRoot();
-  const uploadDir = join(process.cwd(), 'uploads', 'agenda');
+  const uploadDir = join(resolveMediaRoot(), 'agenda');
   try {
     mkdirSync(uploadDir, { recursive: true });
   } catch (e) {
@@ -30,7 +30,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
+  app.useStaticAssets(resolveMediaRoot(), { prefix: '/uploads/' });
   app.use(urlencoded({ extended: true, limit: '2mb' }));
   app.useGlobalPipes(
     new ValidationPipe({
