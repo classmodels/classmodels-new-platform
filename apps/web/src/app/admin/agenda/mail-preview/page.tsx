@@ -4,6 +4,7 @@ import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML } from '@cm/shared';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
+import { AgendaMailHtmlEditor, AgendaMailTemplatePreview } from '@/components/admin/AgendaMailTemplateEditor';
 import { adminFetch } from '@/lib/admin-api';
 import { getApiBase } from '@/lib/api';
 
@@ -391,15 +392,30 @@ export default function AdminAgendaMailSmsPage() {
                   </label>
                 ) : null}
               </div>
-              <label className="text-xs text-muted">
-                Inhoud (HTML of SMS-tekst)
-                <textarea
-                  className="mt-1 min-h-[220px] w-full rounded border border-line px-2 py-2 font-mono text-xs leading-relaxed"
-                  value={editing.body ?? ''}
-                  onChange={(e) => setEditing({ ...editing, body: e.target.value })}
-                  required
-                />
-              </label>
+              {editing.channel === 'email' ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted">Hoofdtekst</p>
+                  <AgendaMailHtmlEditor
+                    value={editing.body ?? ''}
+                    onChange={(body) => setEditing({ ...editing, body })}
+                  />
+                </div>
+              ) : (
+                <label className="text-xs text-muted">
+                  Inhoud (SMS)
+                  <textarea
+                    className="mt-1 min-h-[220px] w-full rounded border border-line px-2 py-2 font-mono text-xs leading-relaxed"
+                    value={editing.body ?? ''}
+                    onChange={(e) => setEditing({ ...editing, body: e.target.value })}
+                    required
+                  />
+                </label>
+              )}
+              <AgendaMailTemplatePreview
+                channel={editing.channel ?? 'email'}
+                body={editing.body ?? ''}
+                subject={editing.subject ?? ''}
+              />
               {editing.channel === 'email' ? (
                 <button
                   type="button"

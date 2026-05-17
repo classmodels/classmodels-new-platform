@@ -18,3 +18,4 @@ __exportStar(require("./portals"), exports);
 __exportStar(require("./roles"), exports);
 __exportStar(require("./design-tokens"), exports);
 __exportStar(require("./agenda-booking-email-template"), exports);
+__exportStar(require("./agenda-mail-placeholders"), exports);
