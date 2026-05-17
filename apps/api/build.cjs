@@ -13,6 +13,9 @@ const cwd = __dirname;
 const PRISMA_VERSION = '5.22.0';
 const NEST_CLI_VERSION = '10.4.9';
 
+/** Monorepo-root: `apps/api` → `../..` */
+const repoRoot = path.resolve(cwd, '..', '..');
+
 function findUp(relativePath) {
   let dir = cwd;
   for (let i = 0; i < 8; i++) {
@@ -35,6 +38,17 @@ function runNpx(pkgWithVersion, args) {
     cwd,
     shell: true,
   });
+}
+
+// --- @cm/shared: Nest runtime laadt `packages/shared/dist` (niet src). Zonder build → API start niet of 500 op alle routes. ---
+const sharedPkg = path.join(repoRoot, 'packages', 'shared', 'package.json');
+if (fs.existsSync(sharedPkg)) {
+  const rb = spawnSync('npm', ['run', 'build', '-w', '@cm/shared'], {
+    stdio: 'inherit',
+    cwd: repoRoot,
+    shell: true,
+  });
+  if (rb.status) process.exit(rb.status === null ? 1 : rb.status);
 }
 
 // --- Prisma generate (zelfde DB_URL / DATABASE_URL-brug als env.bootstrap) ---
