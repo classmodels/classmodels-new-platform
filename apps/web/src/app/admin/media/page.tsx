@@ -81,6 +81,9 @@ export default function AdminMediaPage() {
   const imgInputRef = useRef<HTMLInputElement>(null);
   const vidInputRef = useRef<HTMLInputElement>(null);
 
+  const [diskRegLoading, setDiskRegLoading] = useState(false);
+  const [diskRegMsg, setDiskRegMsg] = useState('');
+
   const [totalAllBytes, setTotalAllBytes] = useState(0);
 
   const load = useCallback(
@@ -167,6 +170,45 @@ export default function AdminMediaPage() {
       await load();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Standaardmappen aanmaken mislukt. Controleer of je als admin bent ingelogd en de API draait.');
+    }
+  };
+
+  const registerDiskOrphans = async (dry: boolean) => {
+    if (!token || !canWriteMedia || !activeFolder || isTrashFolder) return;
+    const ok =
+      dry ?
+        window.confirm('Proefrun: er worden geen database-rijen aangemaakt. Alleen tellen.')
+      : window.confirm(
+          `Mediatheek-rijen aanmaken voor bestanden op de server (MEDIA_ROOT) die nog niet in de database staan, in map “${activeFolder.slug}”. Max. 300 per keer. Doorgaan?`,
+        );
+    if (!ok) return;
+    setDiskRegLoading(true);
+    setDiskRegMsg('');
+    try {
+      const q = new URLSearchParams({
+        folderSlug: activeFolder.slug,
+        limit: '300',
+      });
+      if (dry) q.set('dryRun', 'true');
+      const r = await adminFetch<{
+        registered: number;
+        previewWouldRegister: number;
+        skipped: number;
+        dryRun: boolean;
+        mediaRoot: string;
+        errors: string[];
+      }>(`/media/register-disk-orphans?${q}`, token, { method: 'POST' });
+      const msg =
+        r.dryRun ?
+          `Proefrun: ${r.previewWouldRegister} zou(den) registreren · ${r.skipped} overgeslagen · ${r.mediaRoot}`
+        : `${r.registered} geregistreerd · ${r.skipped} overgeslagen · ${r.mediaRoot}`;
+      const errTail = r.errors.length ? ` · ${r.errors.slice(0, 4).join(' · ')}` : '';
+      setDiskRegMsg(msg + errTail);
+      await load();
+    } catch (e) {
+      setDiskRegMsg(e instanceof Error ? e.message : 'Mislukt');
+    } finally {
+      setDiskRegLoading(false);
     }
   };
 
@@ -608,6 +650,39 @@ export default function AdminMediaPage() {
                   <strong>Primair → JPEG</strong> maakt het bronbestand kleiner op schijf (WebP op de site blijft
                   afgeleid).
                 </p>
+              </div>
+            ) : null}
+            {!isTrashFolder && activeFolder && canWriteMedia ? (
+              <div className="mt-2 rounded border border-dashed border-success/50 bg-[rgba(21,147,74,0.06)] px-2 py-2 text-[10px] text-ink">
+                <p className="font-semibold text-success">Schijf → mediatheek</p>
+                <p className="mt-0.5 text-[9px] text-muted">
+                  Registreer bestanden die al onder <span className="font-mono">MEDIA_ROOT</span> staan maar nog geen
+                  rij in de database hebben (bv. na FTP). Ze komen in de map <strong>{activeFolder.slug}</strong>. Max.
+                  300 per actie; herhaal indien nodig.
+                </p>
+                {diskRegMsg ? (
+                  <p className="mt-1 whitespace-pre-wrap break-all text-[10px] text-ink" title={diskRegMsg}>
+                    {diskRegMsg}
+                  </p>
+                ) : null}
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={diskRegLoading}
+                    onClick={() => void registerDiskOrphans(true)}
+                    className="rounded border border-success/60 bg-white px-2 py-1 text-[10px] font-medium text-success hover:bg-panel disabled:opacity-50"
+                  >
+                    Proefrun (alleen tellen)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={diskRegLoading}
+                    onClick={() => void registerDiskOrphans(false)}
+                    className="rounded bg-success px-2 py-1 text-[10px] font-medium text-white hover:opacity-95 disabled:opacity-50"
+                  >
+                    Registreer van schijf
+                  </button>
+                </div>
               </div>
             ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-2">

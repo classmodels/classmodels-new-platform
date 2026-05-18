@@ -51,11 +51,109 @@ function isContainerAppHome(home: string | undefined): boolean {
   return h === '/app' || h.endsWith('/app');
 }
 
+/** Combell-fout: absolute pad `/www/cm-media/uploads` (zonder home) bestaat niet of is leeg. */
+function isRootlessWwwCmMediaPath(p: string): boolean {
+  const n = p.replace(/\\/g, '/').replace(/\/+$/, '');
+  return n === '/www/cm-media/uploads' || n.endsWith('/www/cm-media/uploads');
+}
+
+/** Herleid naar `$HOME/www/cm-media/uploads` of vast Combell-accountpad. */
+function tryFixRootlessWwwCmMediaPath(configured: string): string | null {
+  if (!isRootlessWwwCmMediaPath(configured)) return null;
+  const home = hostingHome();
+  if (home && !isContainerAppHome(home)) {
+    const h = join(home, 'www/cm-media/uploads');
+    try {
+      if (existsSync(h) && statSync(h).isDirectory()) return h;
+    } catch {
+      /**/
+    }
+  }
+  const idPath = '/home/ID460044/www/cm-media/uploads';
+  try {
+    if (existsSync(idPath) && statSync(idPath).isDirectory()) return idPath;
+  } catch {
+    /**/
+  }
+  return null;
+}
+
+/**
+ * Absolute MEDIA_ROOT normaliseren: veelvoorkomende Combell-fouten en lege map vóór sync-bron.
+ */
+function normalizeAbsoluteMediaRoot(configured: string): string {
+  const fixedWww = tryFixRootlessWwwCmMediaPath(configured);
+  if (fixedWww) {
+    console.error(
+      `[media] MEDIA_ROOT "${configured}" is geen geldige hostingmap — gebruik ${fixedWww} (onder home, niet onder /www op root).`,
+    );
+    return fixedWww;
+  }
+
+  let configuredOk = false;
+  let configuredCount = 0;
+  try {
+    if (existsSync(configured) && statSync(configured).isDirectory()) {
+      configuredOk = true;
+      configuredCount = countMediaFilesShallow(configured, 2);
+    }
+  } catch {
+    /**/
+  }
+
+  const syncSrc = process.env.MEDIA_SYNC_SOURCE?.trim();
+  let syncOk = false;
+  let syncCount = 0;
+  if (syncSrc) {
+    try {
+      if (existsSync(syncSrc) && statSync(syncSrc).isDirectory()) {
+        syncOk = true;
+        syncCount = countMediaFilesShallow(syncSrc, 2);
+      }
+    } catch {
+      /**/
+    }
+  }
+
+  if (syncOk && syncSrc && syncCount > 0 && (!configuredOk || configuredCount === 0)) {
+    console.error(
+      `[media] MEDIA_ROOT (${configured}) ${!configuredOk ? 'bestaat niet' : 'bevat geen mediabestanden'} — gebruik MEDIA_SYNC_SOURCE=${syncSrc} (${syncCount} mediabestanden).`,
+    );
+    return syncSrc;
+  }
+
+  if (configuredOk) return configured;
+
+  if (syncOk && syncSrc) return syncSrc;
+
+  const home = hostingHome();
+  if (home && !isContainerAppHome(home)) {
+    const h = join(home, 'www/cm-media/uploads');
+    try {
+      if (existsSync(h) && statSync(h).isDirectory()) return h;
+    } catch {
+      /**/
+    }
+  }
+  try {
+    if (existsSync('/home/ID460044/www/cm-media/uploads') && statSync('/home/ID460044/www/cm-media/uploads').isDirectory()) {
+      return '/home/ID460044/www/cm-media/uploads';
+    }
+  } catch {
+    /**/
+  }
+
+  return configured;
+}
+
 function expandConfiguredRoot(raw: string): string {
-  if (isAbsolute(raw)) return raw;
+  const t = raw.trim();
+  if (isAbsolute(t)) {
+    return normalizeAbsoluteMediaRoot(t);
+  }
 
   const cwd = process.cwd();
-  const noDot = raw.replace(/^\.\//, '');
+  const noDot = t.replace(/^\.\//, '');
 
   if (noDot === 'apps/api/uploads' || noDot.endsWith('/apps/api/uploads')) {
     return join(cwd, 'uploads');
@@ -86,7 +184,7 @@ function expandConfiguredRoot(raw: string): string {
     return join(cwd, 'uploads');
   }
 
-  return resolve(cwd, raw);
+  return resolve(cwd, t);
 }
 
 /** Zoekt `www/cm-media/uploads` omhoog vanaf cwd (Combell: Node draait vaak in release-submap). */

@@ -154,6 +154,23 @@ export class MediaController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
+  @Post('register-disk-orphans')
+  registerDiskOrphans(
+    @Req() req: { user: JwtPayload },
+    @Query('folderSlug') folderSlug?: string,
+    @Query('limit') limit?: string,
+    @Query('dryRun') dryRun?: string,
+  ) {
+    const lim = limit ? parseInt(limit, 10) : 200;
+    return this.media.registerDiskOrphanAssets(req.user.sub, {
+      folderSlug: folderSlug?.trim() || 'models',
+      limit: Number.isFinite(lim) ? lim : 200,
+      dryRun: dryRun === '1' || dryRun === 'true',
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
   @Delete('assets/:id')
   remove(
     @Param('id', ParseUUIDPipe) id: string,

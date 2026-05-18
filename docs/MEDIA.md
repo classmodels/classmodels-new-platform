@@ -8,6 +8,12 @@
 
 `bestandsnaam` is exact de `storageKey`, `webpKey` of `thumbKey` uit de database (geen paden).
 
+## Schijf vs. mediatheek (database)
+
+- De **mediatheek** toont alleen rijen in `MediaAsset`. Bestanden die enkel op schijf staan (FTP, handmatig), zie je **niet** tot ze geregistreerd zijn.
+- **Admin → Media**: onder *Schijf → mediatheek* kun je een **proefrun** doen of **Registreer van schijf** (max. 300 per keer). Daarmee worden ontbrekende mediabestanden onder `MEDIA_ROOT` als assets in de **huidige map** aangemaakt.
+- API: `POST /media/register-disk-orphans?folderSlug=models&limit=300` (optioneel `dryRun=true`), JWT + `admin.media.write`.
+
 ## Productie (Combell) — waarom foto’s “weg” zijn na deploy
 
 1. **Release-map**: bij een nieuwe pipeline wordt vaak een **verse checkout** uitgerold. Alles onder `apps/api/uploads` **in die checkout** hoort bij die release en **verdwijnt** bij de volgende deploy.

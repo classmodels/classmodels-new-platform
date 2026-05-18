@@ -10,6 +10,7 @@ import { pipeline } from 'stream/promises';
 import type { Response } from 'express';
 import archiver from 'archiver';
 import { randomUUID } from 'crypto';
+import { Prisma } from '@prisma/client';
 import { resolveMediaRoot } from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
 import sharp from 'sharp';
@@ -1048,6 +1049,227 @@ export class MediaService {
       }
     }
     return { processed: done, scanned: assets.length };
+  }
+
+  /**
+   * Registreert mediabestanden op schijf onder MEDIA_ROOT die nog geen MediaAsset hebben (o.a. na FTP of verkeerde MEDIA_ROOT).
+   * Bestanden die al als storageKey/webpKey/thumbKey bestaan, worden overgeslagen.
+   */
+  async registerDiskOrphanAssets(
+    uploadedById: string,
+    opts: { folderSlug: string; limit: number; dryRun: boolean },
+  ) {
+    await this.purgeScheduledAssets();
+    const slug = opts.folderSlug.trim() || 'models';
+    const maxReg = Math.min(500, Math.max(1, Math.floor(opts.limit)));
+    const dryRun = opts.dryRun;
+
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+    if (!folder) {
+      throw new BadRequestException(`Onbekende map: ${slug}`);
+    }
+    if (slug === 'verwijderde') {
+      throw new BadRequestException('Kan geen weesbestanden in de prullenbak registreren.');
+    }
+
+    const root = this.root();
+    if (!existsSync(root)) {
+      return {
+        registered: 0,
+        previewWouldRegister: 0,
+        skipped: 0,
+        dryRun,
+        folderSlug: slug,
+        mediaRoot: root,
+        errors: [`MEDIA_ROOT bestaat niet: ${root}`],
+        scannedFiles: 0,
+      };
+    }
+
+    const existingKeys = new Set<string>();
+    const rows = await this.prisma.mediaAsset.findMany({
+      where: { hardDeleted: false },
+      select: { storageKey: true, webpKey: true, thumbKey: true },
+    });
+    for (const r of rows) {
+      existingKeys.add(r.storageKey);
+      if (r.webpKey) existingKeys.add(r.webpKey);
+      if (r.thumbKey) existingKeys.add(r.thumbKey);
+    }
+
+    const files = this.collectRegisterableDiskFiles(root, 12000);
+    const baseSet = new Set(files.map((f) => f.base));
+
+    const errors: string[] = [];
+    let registered = 0;
+    let previewWouldRegister = 0;
+    let skipped = 0;
+
+    const mimeFor = (ext: string): string => {
+      const e = ext.toLowerCase();
+      if (e === '.jpg' || e === '.jpeg') return 'image/jpeg';
+      if (e === '.png') return 'image/png';
+      if (e === '.webp') return 'image/webp';
+      if (e === '.gif') return 'image/gif';
+      if (e === '.mp4') return 'video/mp4';
+      if (e === '.webm') return 'video/webm';
+      if (e === '.mov') return 'video/quicktime';
+      if (e === '.m4v') return 'video/x-m4v';
+      return 'application/octet-stream';
+    };
+
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    for (const { rel, base } of files) {
+      const totalDone = dryRun ? previewWouldRegister : registered;
+      if (totalDone >= maxReg) break;
+
+      if (existingKeys.has(base)) {
+        skipped++;
+        continue;
+      }
+
+      if (/_thumb\.webp$/i.test(base)) {
+        skipped++;
+        continue;
+      }
+
+      const ext = extname(base);
+      const idPart = ext ? base.slice(0, -ext.length) : base;
+      const lowerExt = ext.toLowerCase();
+      if (uuidRe.test(idPart) && lowerExt === '.webp') {
+        const hasRaster =
+          baseSet.has(`${idPart}.jpg`) ||
+          baseSet.has(`${idPart}.jpeg`) ||
+          baseSet.has(`${idPart}.png`) ||
+          baseSet.has(`${idPart}.gif`);
+        if (hasRaster) {
+          skipped++;
+          continue;
+        }
+      }
+
+      const abs = join(root, rel);
+      let st: ReturnType<typeof statSync>;
+      try {
+        st = statSync(abs);
+      } catch (e) {
+        errors.push(`${base}: ${e instanceof Error ? e.message : String(e)}`);
+        if (errors.length > 25) break;
+        continue;
+      }
+      if (!st.isFile()) {
+        skipped++;
+        continue;
+      }
+
+      let width: number | null = null;
+      let height: number | null = null;
+      const mimeType = mimeFor(ext || '');
+      if (mimeType.startsWith('image/')) {
+        try {
+          const meta = await sharp(abs).rotate().metadata();
+          width = meta.width ?? null;
+          height = meta.height ?? null;
+        } catch {
+          /* */
+        }
+      }
+
+      let webpKey: string | null = null;
+      let thumbKey: string | null = null;
+      if (uuidRe.test(idPart) && ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(lowerExt)) {
+        const dirRel = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+        const dirAbs = dirRel ? join(root, dirRel) : root;
+        const w = `${idPart}.webp`;
+        const th = `${idPart}_thumb.webp`;
+        if (base !== w && existsSync(join(dirAbs, w))) webpKey = w;
+        if (base !== th && existsSync(join(dirAbs, th))) thumbKey = th;
+      }
+
+      if (dryRun) {
+        previewWouldRegister++;
+        continue;
+      }
+
+      try {
+        await this.prisma.mediaAsset.create({
+          data: {
+            originalName: base,
+            storageKey: base,
+            mimeType,
+            sizeBytes: st.size,
+            width,
+            height,
+            webpKey,
+            thumbKey,
+            uploadedById,
+            folderId: folder.id,
+          },
+        });
+        existingKeys.add(base);
+        if (webpKey) existingKeys.add(webpKey);
+        if (thumbKey) existingKeys.add(thumbKey);
+        registered++;
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          skipped++;
+          existingKeys.add(base);
+        } else {
+          errors.push(`${base}: ${e instanceof Error ? e.message : String(e)}`);
+          if (errors.length > 25) break;
+        }
+      }
+    }
+
+    this.invalidateDiskBasenameIndex();
+    return {
+      registered,
+      previewWouldRegister: dryRun ? previewWouldRegister : 0,
+      skipped,
+      dryRun,
+      folderSlug: slug,
+      mediaRoot: root,
+      scannedFiles: files.length,
+      errors,
+    };
+  }
+
+  private collectRegisterableDiskFiles(root: string, cap: number): { rel: string; base: string }[] {
+    const out: { rel: string; base: string }[] = [];
+    const skipDirs = new Set([
+      'agenda',
+      'photographer-tmp',
+      'node_modules',
+      '.git',
+      '__MACOSX',
+      'verwijderde',
+    ]);
+    const extOk = /\.(jpe?g|webp|png|gif|mp4|webm|mov|m4v)$/i;
+
+    const walk = (dir: string, relFromRoot: string, depth: number) => {
+      if (out.length >= cap || depth > 14) return;
+      let ents: Dirent[];
+      try {
+        ents = readdirSync(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of ents) {
+        if (out.length >= cap) return;
+        if (e.name.startsWith('.')) continue;
+        const subRel = relFromRoot ? `${relFromRoot}/${e.name}` : e.name;
+        const full = join(dir, e.name);
+        if (e.isDirectory()) {
+          if (skipDirs.has(e.name)) continue;
+          walk(full, subRel, depth + 1);
+        } else if (e.isFile() && extOk.test(e.name)) {
+          out.push({ rel: subRel, base: e.name });
+        }
+      }
+    };
+    walk(root, '', 0);
+    return out;
   }
 
   async removeAsset(id: string, hard: boolean) {
