@@ -48,6 +48,10 @@ export class AnalyticsService {
     const { from, to } = parseRange(fromRaw, toRaw);
     const dateFilter = { gte: from, lte: to };
 
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayStart = new Date(`${todayKey}T00:00:00.000Z`);
+    const todayEnd = new Date(`${todayKey}T23:59:59.999Z`);
+
     const [
       bookings,
       calendars,
@@ -56,6 +60,7 @@ export class AnalyticsService {
       activeModels,
       newUsers,
       totalClients,
+      todayPageViews,
     ] = await Promise.all([
       this.prisma.agendaBooking.findMany({
         where: { createdAt: dateFilter },
@@ -88,6 +93,10 @@ export class AnalyticsService {
       this.prisma.user.count({ where: { createdAt: dateFilter } }),
       this.prisma.user.count({
         where: { roles: { some: { role: { slug: 'client' } } } },
+      }),
+      this.prisma.sitePageView.findMany({
+        where: { createdAt: { gte: todayStart, lte: todayEnd } },
+        select: { sessionId: true },
       }),
     ]);
 
@@ -173,11 +182,17 @@ export class AnalyticsService {
       pageViews.filter((p) => p.userId).map((p) => p.userId as string),
     );
     const pathMap = new Map<string, number>();
-    const pvByDateMap = new Map<string, number>();
+    const pvByDateMap = new Map<string, { pageViews: number; sessionIds: Set<string> }>();
     for (const p of pageViews) {
       pathMap.set(p.path, (pathMap.get(p.path) ?? 0) + 1);
       const dk = p.createdAt.toISOString().slice(0, 10);
-      pvByDateMap.set(dk, (pvByDateMap.get(dk) ?? 0) + 1);
+      let row = pvByDateMap.get(dk);
+      if (!row) {
+        row = { pageViews: 0, sessionIds: new Set<string>() };
+        pvByDateMap.set(dk, row);
+      }
+      row.pageViews += 1;
+      if (p.sessionId) row.sessionIds.add(p.sessionId);
     }
 
     const topPaths = [...pathMap.entries()]
@@ -185,9 +200,30 @@ export class AnalyticsService {
       .sort((a, b) => b.count - a.count)
       .slice(0, 15);
 
-    const pageViewsByDate = [...pvByDateMap.entries()]
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+    const dayKeysUtc = (() => {
+      const keys: string[] = [];
+      const startKey = from.toISOString().slice(0, 10);
+      const endKey = to.toISOString().slice(0, 10);
+      let cur = new Date(`${startKey}T12:00:00.000Z`);
+      const end = new Date(`${endKey}T12:00:00.000Z`);
+      while (cur <= end) {
+        keys.push(cur.toISOString().slice(0, 10));
+        cur = new Date(cur.getTime() + 24 * 60 * 60 * 1000);
+      }
+      return keys;
+    })();
+
+    const pageViewsByDate = dayKeysUtc.map((date) => {
+      const row = pvByDateMap.get(date);
+      return {
+        date,
+        pageViews: row?.pageViews ?? 0,
+        uniqueVisitors: row ? row.sessionIds.size : 0,
+      };
+    });
+
+    const todayPvTotal = todayPageViews.length;
+    const todayUniqueVisitors = new Set(todayPageViews.map((p) => p.sessionId).filter(Boolean)).size;
 
     return {
       range: { from: from.toISOString(), to: to.toISOString() },
@@ -214,6 +250,11 @@ export class AnalyticsService {
         uniqueLoggedInVisitors: loggedSessions.size,
         topPaths,
         byDate: pageViewsByDate,
+        today: {
+          date: todayKey,
+          pageViews: todayPvTotal,
+          uniqueVisitors: todayUniqueVisitors,
+        },
       },
     };
   }

@@ -11,6 +11,7 @@ import {
   LineChart,
   Pie,
   PieChart,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -43,11 +44,24 @@ type Dashboard = {
     uniqueSessions: number;
     uniqueLoggedInVisitors: number;
     topPaths: { path: string; count: number; percent: number }[];
-    byDate: { date: string; count: number }[];
+    byDate: { date: string; pageViews: number; uniqueVisitors: number }[];
+    today: { date: string; pageViews: number; uniqueVisitors: number };
   };
 };
 
 const PIE_COLORS = ['#6f121b', '#9a1c28', '#c4a574', '#2d6a4f', '#457b9d', '#6c757d', '#e9c46a'];
+
+/** Site-groen (design tokens) + donkerder voor overlappende balk “bezoekers”. */
+const CHART_PAGE_VIEWS = '#15934a';
+const CHART_VISITORS = '#0d5c32';
+const CHART_BAND = 'rgba(21, 147, 74, 0.12)';
+
+const NL_MONTHS = ['jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+
+function trafficDayLabel(isoDate: string) {
+  const d = new Date(`${isoDate}T12:00:00.000Z`);
+  return `${NL_MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
+}
 
 function isoDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -108,10 +122,15 @@ export default function AdminStatistiekenPage() {
     [data],
   );
 
-  const trafficLine = useMemo(
-    () => data?.traffic.byDate.map((x) => ({ ...x, label: x.date.slice(5) })) ?? [],
-    [data],
-  );
+  const trafficBars = useMemo(() => {
+    if (!data) return [];
+    return data.traffic.byDate.map((x) => ({
+      ...x,
+      label: trafficDayLabel(x.date),
+    }));
+  }, [data]);
+
+  const trafficHighlightLabel = trafficBars.length ? trafficBars[trafficBars.length - 1].label : undefined;
 
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
 
@@ -126,6 +145,18 @@ export default function AdminStatistiekenPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
+          {data ? (
+            <button
+              type="button"
+              title={`${data.traffic.today.pageViews} weergaven vandaag (UTC-datum ${data.traffic.today.date})`}
+              onClick={() => void load()}
+              disabled={loading}
+              className="flex min-w-[7.5rem] flex-col items-center justify-center rounded-cm border-2 border-success bg-white px-4 py-2 text-success shadow-sm transition hover:bg-[rgba(21,147,74,0.06)] disabled:opacity-60"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-success/90">Bezoekers vandaag</span>
+              <span className="font-serif text-2xl font-bold leading-tight text-success">{data.traffic.today.uniqueVisitors}</span>
+            </button>
+          ) : null}
           <button type="button" className="rounded border border-line px-2 py-1 text-xs" onClick={() => preset(7)}>
             7 dagen
           </button>
@@ -225,15 +256,49 @@ export default function AdminStatistiekenPage() {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Bezoekers per dag" subtitle="Paginaweergaven">
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={trafficLine}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="count" stroke="#457b9d" strokeWidth={2} dot={false} />
-                </LineChart>
+            <ChartCard title="Weergaven en bezoekers per dag" subtitle="Weergaven (brede balk) en unieke sessies per dag (smalle balk)">
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart
+                  data={trafficBars}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
+                  barCategoryGap="28%"
+                  barGap={-36}
+                >
+                  {trafficHighlightLabel ? (
+                    <ReferenceArea
+                      x1={trafficHighlightLabel}
+                      x2={trafficHighlightLabel}
+                      y1={0}
+                      y2="max"
+                      fill={CHART_BAND}
+                      stroke="none"
+                      ifOverflow="visible"
+                    />
+                  ) : null}
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0d6d9" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#667085' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    orientation="right"
+                    tick={{ fontSize: 11, fill: '#667085' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                    width={36}
+                  />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [value, name === 'pageViews' ? 'Weergaven' : 'Bezoekers']}
+                    labelFormatter={(label) => String(label)}
+                    contentStyle={{ borderRadius: 8, borderColor: '#e0d6d9' }}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    align="center"
+                    wrapperStyle={{ paddingTop: 12 }}
+                    formatter={(value) => (value === 'pageViews' ? 'Weergaven' : 'Bezoekers')}
+                  />
+                  <Bar dataKey="pageViews" name="pageViews" fill={CHART_PAGE_VIEWS} maxBarSize={52} radius={[5, 5, 0, 0]} />
+                  <Bar dataKey="uniqueVisitors" name="uniqueVisitors" fill={CHART_VISITORS} maxBarSize={22} radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </ChartCard>
           </section>
