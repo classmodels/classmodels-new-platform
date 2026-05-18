@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiFetch, getApiBase } from '@/lib/api';
+import { apiFetch, getApiBase, parseApiErrorBody } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 
 type ModelRow = {
@@ -30,6 +30,13 @@ const btnPrimary = 'rounded-md bg-burgundy px-3 py-2 text-sm font-semibold text-
 const btnOutline = 'rounded-md border-2 border-burgundy bg-white px-3 py-2 text-sm font-semibold text-burgundy hover:bg-burgundy/[0.06] disabled:opacity-50';
 const btnNeutral = 'rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-ink hover:bg-zinc-50 disabled:opacity-50';
 const btnDangerSolid = 'rounded-md bg-burgundy px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-burgundyDeep disabled:opacity-50';
+
+function formatClientError(e: unknown, fallback: string): string {
+  if (!(e instanceof Error)) return fallback;
+  const raw = (e.message ?? '').trim();
+  if (raw.startsWith('{')) return parseApiErrorBody(raw);
+  return raw || fallback;
+}
 
 export default function AdminTestshootPage() {
   const { token, can } = useAuth();
@@ -69,7 +76,7 @@ export default function AdminTestshootPage() {
   }, [token, canRead]);
 
   useEffect(() => {
-    void Promise.all([loadModels(), loadAllDocs()]).catch((e: Error) => setErr(e.message));
+    void Promise.all([loadModels(), loadAllDocs()]).catch((e: unknown) => setErr(formatClientError(e, 'Laden mislukt')));
   }, [loadModels, loadAllDocs]);
 
   useEffect(() => {
@@ -121,7 +128,7 @@ export default function AdminTestshootPage() {
       await loadModels();
       await loadAllDocs();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Actie mislukt');
+      setErr(formatClientError(e, 'Actie mislukt'));
     } finally {
       setBusy(false);
     }
@@ -141,7 +148,7 @@ export default function AdminTestshootPage() {
         await loadModels(created.id);
         await loadAllDocs();
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : 'Model toevoegen mislukt');
+        setErr(formatClientError(e, 'Model toevoegen mislukt'));
       } finally {
         setBusy(false);
       }
@@ -177,7 +184,7 @@ export default function AdminTestshootPage() {
           w.print();
         }, 350);
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : 'Afdrukken mislukt');
+        setErr(formatClientError(e, 'Afdrukken mislukt'));
       } finally {
         setBusy(false);
       }
@@ -398,7 +405,8 @@ export default function AdminTestshootPage() {
                           headers: { Authorization: `Bearer ${token}` },
                           body: fd,
                         });
-                        if (!res.ok) throw new Error(await res.text());
+                        const text = await res.text();
+                        if (!res.ok) throw new Error(parseApiErrorBody(text));
                         e.target.value = '';
                       });
                     }}
@@ -463,7 +471,10 @@ export default function AdminTestshootPage() {
                           const res = await fetch(`${getApiBase()}/admin/testshoot/models/${selected.id}/zip`, {
                             headers: { Authorization: `Bearer ${token}` },
                           });
-                          if (!res.ok) throw new Error(await res.text());
+                          if (!res.ok) {
+                            const text = await res.text();
+                            throw new Error(parseApiErrorBody(text));
+                          }
                           const blob = await res.blob();
                           const a = document.createElement('a');
                           a.href = URL.createObjectURL(blob);
@@ -471,7 +482,7 @@ export default function AdminTestshootPage() {
                           a.click();
                           URL.revokeObjectURL(a.href);
                         } catch (e: unknown) {
-                          setErr(e instanceof Error ? e.message : 'Zip-download mislukt');
+                          setErr(formatClientError(e, 'Zip-download mislukt'));
                         } finally {
                           setBusy(false);
                         }

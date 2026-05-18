@@ -101,6 +101,20 @@ export class MediaService {
     this.diskBasenameIndex = null;
   }
 
+  /** Uitleg + typische hosting-stappen bij EACCES op MEDIA_ROOT. */
+  private mediaRootWriteDeniedUserMessage(root: string): string {
+    return [
+      `Geen schrijfrecht op MEDIA_ROOT (${root}).`,
+      'De gebruiker waarmee de API (Node.js) draait moet in die map mogen schrijven — anders falen testshoot-uploads en de mediatheek.',
+      'Oplossing op de server: via SSH bijvoorbeeld `sudo chown -R <api-gebruiker>:<api-gebruiker> ' +
+        root +
+        '` en `chmod -R u+rwX ' +
+        root +
+        '`, of stel dezelfde rechten in via het hosting-File Manager.',
+      'Alternatief: zet de omgevingsvariabele MEDIA_ROOT naar een andere map waar de API-procesgebruiker wél schrijft (persistent pad, zie docs/MEDIA.md).',
+    ].join(' ');
+  }
+
   /** Zorgt dat uploads kunnen schrijven; anders duidelijke 400 i.p.v. generieke 500. */
   private ensureMediaRootWritable(root: string) {
     try {
@@ -117,9 +131,7 @@ export class MediaService {
       if (e instanceof BadRequestException) throw e;
       const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
       if (code === 'EACCES' || code === 'EPERM') {
-        throw new BadRequestException(
-          `Geen schrijfrecht op MEDIA_ROOT (${root}). Geef de Node.js-gebruiker schrijfrecht op die map, of wijzig MEDIA_ROOT naar een map waar wel geschreven mag worden.`,
-        );
+        throw new BadRequestException(this.mediaRootWriteDeniedUserMessage(root));
       }
       if (code === 'ENOENT') {
         throw new BadRequestException(
@@ -726,9 +738,7 @@ export class MediaService {
       console.error('[media] saveFile mislukt:', e);
       const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
       if (code === 'EACCES' || code === 'EPERM') {
-        throw new BadRequestException(
-          `Geen schrijfrecht op MEDIA_ROOT (${root}). Controleer rechten of MEDIA_ROOT.`,
-        );
+        throw new BadRequestException(this.mediaRootWriteDeniedUserMessage(root));
       }
       if (code === 'ENOSPC') {
         throw new BadRequestException('Schijf vol; upload niet mogelijk.');
