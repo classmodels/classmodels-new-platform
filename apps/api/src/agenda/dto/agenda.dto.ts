@@ -559,11 +559,11 @@ export class CreateAgendaNotificationTemplateDto {
   @MinLength(1)
   body!: string;
 
-  /** Minstens één agenda; alleen die krijgen dit sjabloon. */
+  /** Agenda-slugs; leeg = alle agenda's. */
+  @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @IsString({ each: true })
-  calendarSlugs!: string[];
+  calendarSlugs?: string[];
 
   @IsOptional()
   @Type(() => Number)
@@ -603,7 +603,7 @@ export class UpdateAgendaNotificationTemplateDto {
   @IsString()
   body?: string;
 
-  /** Leeg array = nergens; weglaten = ongewijzigd. */
+  /** Leeg array = alle agenda's; weglaten = ongewijzigd. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -613,6 +613,37 @@ export class UpdateAgendaNotificationTemplateDto {
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
+}
+
+export class BulkMessagingPreviewDto {
+  @IsIn(['email', 'sms'])
+  channel!: 'email' | 'sms';
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  roleSlugs?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  recipientListId?: string;
+}
+
+export class BulkMessagingSendDto extends BulkMessagingPreviewDto {
+  @ValidateIf((o) => o.channel === 'email')
+  @IsString()
+  @MinLength(1)
+  subject?: string;
+
+  @ValidateIf((o) => o.channel === 'email')
+  @IsString()
+  @MinLength(1)
+  htmlBody?: string;
+
+  @ValidateIf((o) => o.channel === 'sms')
+  @IsString()
+  @MinLength(1)
+  smsBody?: string;
 }
 
 export class ReorderAgendaNotificationTemplatesDto {

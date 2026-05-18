@@ -141,6 +141,7 @@ export const messagesNl = {
     agendaSlots: 'Dagen & uren',
     agendaPlanning: 'Planning',
     agendaMail: 'Mail / SMS',
+    agendaBulkMailSms: 'Bulk mail & SMS',
     sectionComms: 'Communicatie',
     pushMessages: 'Pushberichten',
     pushLists: 'Push-lijsten',

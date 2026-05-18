@@ -1888,7 +1888,7 @@ export class AgendaService {
   }
 
   async adminCreateNotificationTemplate(dto: CreateAgendaNotificationTemplateDto) {
-    const slugs = dto.calendarSlugs;
+    const slugs = dto.calendarSlugs ?? [];
     return this.prisma.agendaNotificationTemplate.create({
       data: {
         channel: dto.channel,

@@ -592,7 +592,9 @@ export function GuestBookingPanel({
                             />
                             <span className="text-ink">
                               {slotTimeLabel(s)}
-                              {typeof s.remaining === 'number' && s.remaining > 1 ? (
+                              {authToken &&
+                              typeof s.remaining === 'number' &&
+                              s.remaining > 1 ? (
                                 <span className="ml-1 text-[10px] font-normal text-muted"> ({s.remaining} vrij)</span>
                               ) : null}
                             </span>
@@ -685,7 +687,9 @@ export function GuestBookingPanel({
                         />
                         <span className="tabular-nums text-zinc-900">
                           {slotTimeLabel(s)}
-                          {typeof s.remaining === 'number' && s.remaining > 1 ? (
+                          {authToken &&
+                          typeof s.remaining === 'number' &&
+                          s.remaining > 1 ? (
                             <span className="ml-1 text-[10px] font-normal text-zinc-500"> ({s.remaining})</span>
                           ) : null}
                         </span>

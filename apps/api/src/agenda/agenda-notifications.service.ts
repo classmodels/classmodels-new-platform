@@ -98,8 +98,8 @@ export class AgendaNotificationService {
 
       const matches = rows.filter((t) => {
         const slugs = parseSlugList(t.calendarSlugs);
-        if (!slugs.length) return false;
-        return slugs.includes(ctx.calendarSlug);
+        /** Lege lijst = alle agenda's (zoals voorheen). */
+        return !slugs.length || slugs.includes(ctx.calendarSlug);
       });
 
       const dueNow = matches.filter((t) => t.offsetMinutes === 0);
@@ -295,5 +295,15 @@ export class AgendaNotificationService {
         'html',
       ),
     );
+  }
+
+  /** BulkSMS via geconfigureerde account (DB of env), o.a. bulk-backoffice. */
+  async sendConfiguredSms(toPhone: string | null | undefined, body: string): Promise<boolean> {
+    const msisdn = normalizeBelgiumMsisdn(toPhone);
+    if (!msisdn || !body.trim()) return false;
+    const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
+    const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
+    const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
+    return this.trySendBulksms(buUser, buPass, msisdn, body.trim());
   }
 }
