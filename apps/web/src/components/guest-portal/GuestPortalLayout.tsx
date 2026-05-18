@@ -154,7 +154,9 @@ function guestMailtoHref(bookingSubject: string) {
 }
 
 /** Agenda Pro-stijl: kalender links + kolommen rechts (intake, casting, gratis fotoshoot). */
-const GUEST_AGENDA_PRO_SLUGS = new Set(['intake-gesprek', 'casting', 'gratis-fotoshoot']);
+import { GUEST_INTAKE_CALENDAR_SLUGS } from '@/lib/agenda-guest-intake';
+
+const GUEST_AGENDA_PRO_SLUGS = new Set<string>(GUEST_INTAKE_CALENDAR_SLUGS);
 
 function CheckDisc() {
   return (

@@ -25,6 +25,7 @@ type Cal = {
   optionalSlotStarts?: string | null;
   showEndTimeOnPublic?: boolean;
   weekdayOpenMask?: number;
+  planningTextOnColor?: string | null;
 };
 
 function toTimeInput(s?: string | null): string {
@@ -115,6 +116,7 @@ export default function AdminAgendaCalendarDetailPage() {
   const [capacity, setCapacity] = useState('1');
   const [sortOrder, setSortOrder] = useState('100');
   const [color, setColor] = useState('#6f121b');
+  const [planningTextOnColor, setPlanningTextOnColor] = useState<'white' | 'black'>('white');
   const [dayStart, setDayStart] = useState('08:00');
   const [dayEnd, setDayEnd] = useState('18:00');
   const [breakStart, setBreakStart] = useState('');
@@ -142,6 +144,7 @@ export default function AdminAgendaCalendarDetailPage() {
     setCapacity(String(c.capacity));
     setSortOrder(String(c.sortOrder));
     setColor(c.color);
+    setPlanningTextOnColor(c.planningTextOnColor === 'black' ? 'black' : 'white');
     setDayStart(toTimeInput(c.defaultDayStartTime) || '08:00');
     setDayEnd(toTimeInput(c.defaultDayEndTime) || '18:00');
     setBreakStart(toTimeInput(c.breakStart));
@@ -209,6 +212,7 @@ export default function AdminAgendaCalendarDetailPage() {
           capacity: cap,
           sortOrder: sort,
           color,
+          planningTextOnColor,
           defaultDayStartTime: dayStart || undefined,
           defaultDayEndTime: dayEnd || undefined,
           breakStart: breakStart.trim() ? breakStart : null,
@@ -261,6 +265,7 @@ export default function AdminAgendaCalendarDetailPage() {
       capacity !== String(cal.capacity) ||
       sortOrder !== String(cal.sortOrder) ||
       color !== cal.color ||
+      planningTextOnColor !== (cal.planningTextOnColor === 'black' ? 'black' : 'white') ||
       dayStart !== (toTimeInput(cal.defaultDayStartTime) || '08:00') ||
       dayEnd !== (toTimeInput(cal.defaultDayEndTime) || '18:00') ||
       breakStart !== toTimeInput(cal.breakStart) ||
@@ -282,6 +287,7 @@ export default function AdminAgendaCalendarDetailPage() {
     capacity,
     sortOrder,
     color,
+    planningTextOnColor,
     dayStart,
     dayEnd,
     breakStart,
@@ -403,6 +409,20 @@ export default function AdminAgendaCalendarDetailPage() {
           <label className="flex flex-col gap-1">
             Kleur
             <input type="color" className="h-9 w-14 rounded border border-line" value={color} onChange={(e) => setColor(e.target.value)} />
+          </label>
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="font-medium text-ink">Tekstkleur in planning</span>
+            <span className="text-[11px] font-normal text-muted">
+              Tekst op het gekleurde blok (week/dag/maand): kies zwart als uw accentkleur te licht is.
+            </span>
+            <select
+              className="max-w-xs rounded border border-line px-2 py-1.5 text-sm"
+              value={planningTextOnColor}
+              onChange={(e) => setPlanningTextOnColor(e.target.value === 'black' ? 'black' : 'white')}
+            >
+              <option value="white">Wit (standaard)</option>
+              <option value="black">Zwart</option>
+            </select>
           </label>
         </div>
 

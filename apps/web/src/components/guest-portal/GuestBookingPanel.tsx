@@ -3,6 +3,19 @@
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { getApiBase } from '@/lib/api';
+import {
+  GUEST_INTAKE_OPTIONAL_FIELD_KEYS,
+  GUEST_MINOR_PARENT_FIELD_KEYS,
+  isGuestIntakeCalendarSlug,
+  isMinorFromIsoDateString,
+} from '@/lib/agenda-guest-intake';
+
+function ymdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 type FieldDto = {
   fieldKey: string;
@@ -25,6 +38,13 @@ type SlotDto = {
 };
 
 type Step = 'slots' | 'form' | 'success';
+
+function fieldEffectiveRequired(strictGuestForm: boolean, f: FieldDto): boolean {
+  if (!strictGuestForm) return f.required;
+  if (f.type === 'file') return false;
+  if (GUEST_INTAKE_OPTIONAL_FIELD_KEYS.has(f.fieldKey)) return false;
+  return true;
+}
 
 const WEEKDAY_SHORT = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'] as const;
 /** Max. dagen per pagina; bij meer dagen: Vorige/Volgende onder de kolommen. */
@@ -80,9 +100,13 @@ export function GuestBookingPanel({
     setLoading(true);
     setErr(null);
     try {
+      const fromD = new Date();
+      const toD = new Date(fromD);
+      toD.setDate(toD.getDate() + 45);
+      const q = `from=${encodeURIComponent(ymdLocal(fromD))}&to=${encodeURIComponent(ymdLocal(toD))}`;
       const [fRes, sRes] = await Promise.all([
         fetch(`${base}/agenda/fields/${encodeURIComponent(calendarSlug)}`),
-        fetch(`${base}/agenda/slots/${encodeURIComponent(calendarSlug)}`),
+        fetch(`${base}/agenda/slots/${encodeURIComponent(calendarSlug)}?${q}`),
       ]);
       if (!fRes.ok) throw new Error('Kon agenda niet laden');
       if (!sRes.ok) throw new Error('Kon momenten niet laden');
@@ -92,7 +116,7 @@ export function GuestBookingPanel({
         calendar?: { showEndTimeOnPublic?: boolean };
       };
       setCalTitle(fJson.calendar?.title ?? '');
-      setFields((fJson.fields ?? []).filter((x) => x.type !== 'file'));
+      setFields(fJson.fields ?? []);
       setSlots(sJson.slots ?? []);
       setShowEndTimeOnPublic(sJson.calendar?.showEndTimeOnPublic !== false);
       setSlotId(null);
@@ -157,6 +181,10 @@ export function GuestBookingPanel({
   }, [visibleDates.length]);
 
   const picked = slots.find((s) => s.id === slotId);
+
+  const strictGuestForm = !authToken && isGuestIntakeCalendarSlug(calendarSlug);
+  const showMinorGuard =
+    strictGuestForm && isMinorFromIsoDateString((form.geboortedatum ?? '').trim());
 
   const showDatePager = sortedDates.length > DAYS_PER_PAGE;
 
@@ -238,6 +266,35 @@ export function GuestBookingPanel({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!slotId) return;
+    if (strictGuestForm) {
+      for (const f of fields) {
+        const req = fieldEffectiveRequired(strictGuestForm, f);
+        if (!req) continue;
+        if (f.type === 'file') continue;
+        if (f.type === 'checkbox') {
+          if (form[f.fieldKey] !== '1') {
+            setErr(`Vink "${f.label}" aan.`);
+            return;
+          }
+          continue;
+        }
+        const v = (form[f.fieldKey] ?? '').trim();
+        if (!v) {
+          setErr(`Vul "${f.label}" in.`);
+          return;
+        }
+      }
+      if (isMinorFromIsoDateString((form.geboortedatum ?? '').trim())) {
+        if (!(form[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? '').trim()) {
+          setErr('Vul de naam van ouder of begeleider in.');
+          return;
+        }
+        if (!(form[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? '').trim()) {
+          setErr('Vul het GSM-nummer van ouder of begeleider in.');
+          return;
+        }
+      }
+    }
     setBusy(true);
     setErr(null);
     try {
@@ -296,6 +353,7 @@ export function GuestBookingPanel({
   };
 
   const renderField = (f: FieldDto) => {
+    const req = fieldEffectiveRequired(strictGuestForm, f);
     const ph = f.titlePosition === 'inside' ? f.label : (f.placeholder ?? '');
     const labelAbove = f.titlePosition !== 'inside' && f.type !== 'checkbox';
     const common =
@@ -306,14 +364,14 @@ export function GuestBookingPanel({
         {labelAbove ? (
           <label className="mb-1 block text-xs font-medium text-zinc-700">
             {f.label}
-            {f.required ? <span className="text-burgundy"> *</span> : null}
+            {req ? <span className="text-burgundy"> *</span> : null}
           </label>
         ) : null}
         {f.type === 'textarea' ? (
           <textarea
             className={`${common} min-h-[88px]`}
             placeholder={ph}
-            required={f.required}
+            required={req}
             value={form[f.fieldKey] ?? ''}
             onChange={(ev) => setField(f.fieldKey, ev.target.value)}
           />
@@ -321,7 +379,7 @@ export function GuestBookingPanel({
         {f.type === 'select' ? (
           <select
             className={common}
-            required={f.required}
+            required={req}
             value={form[f.fieldKey] ?? ''}
             onChange={(ev) => setField(f.fieldKey, ev.target.value)}
           >
@@ -341,7 +399,7 @@ export function GuestBookingPanel({
               onChange={(ev) => setField(f.fieldKey, ev.target.checked ? '1' : '')}
             />
             {f.label}
-            {f.required ? <span className="text-burgundy"> *</span> : null}
+            {req ? <span className="text-burgundy"> *</span> : null}
           </label>
         ) : null}
         {f.type === 'file' ? (
@@ -349,7 +407,7 @@ export function GuestBookingPanel({
             type="file"
             accept="image/*"
             className={`${common} py-2 text-xs file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1`}
-            required={f.required}
+            required={req}
             onChange={(ev) => setFileField(f.fieldKey, ev.target.files?.[0])}
           />
         ) : null}
@@ -358,7 +416,7 @@ export function GuestBookingPanel({
             type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
             className={common}
             placeholder={ph}
-            required={f.required}
+            required={req}
             value={form[f.fieldKey] ?? ''}
             onChange={(ev) => setField(f.fieldKey, ev.target.value)}
           />
@@ -366,6 +424,47 @@ export function GuestBookingPanel({
       </div>
     );
   };
+
+  const minorGuardBlock =
+    showMinorGuard ? (
+      <div
+        key="minor-guard"
+        className="sm:col-span-2 rounded-cm border border-amber-200 bg-amber-50/90 px-3 py-3 text-sm text-zinc-800"
+      >
+        <p className="font-semibold text-zinc-900">Minderjarig</p>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-700">
+          U bent minderjarig. U bent verplicht iemand van uw ouders (of wettelijke begeleider) mee te brengen naar de
+          afspraak. Vul hieronder de gegevens van de ouder of begeleider in.
+        </p>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              Naam ouder of begeleider (moeder/vader){' '}
+              <span className="text-burgundy">*</span>
+            </label>
+            <input
+              type="text"
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+              value={form[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? ''}
+              onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.name, ev.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              GSM ouder of begeleider <span className="text-burgundy">*</span>
+            </label>
+            <input
+              type="tel"
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+              value={form[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? ''}
+              onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.phone, ev.target.value)}
+              required
+            />
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   if (loading) {
     return (
@@ -518,7 +617,10 @@ export function GuestBookingPanel({
                 Ander moment
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{fields.map(renderField)}</div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {fields.map(renderField)}
+              {minorGuardBlock}
+            </div>
             <button
               type="submit"
               disabled={busy}
@@ -600,7 +702,10 @@ export function GuestBookingPanel({
             {picked?.slotDate} {picked ? slotTimeLabel(picked) : ''}
           </span>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{fields.map(renderField)}</div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {fields.map(renderField)}
+          {minorGuardBlock}
+        </div>
       </form>
     );
 

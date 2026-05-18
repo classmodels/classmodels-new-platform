@@ -29,6 +29,12 @@ import {
   UpdateAdminBookingDto,
   UpdateAgendaCalendarDto,
 } from './dto/agenda.dto';
+import {
+  GUEST_INTAKE_OPTIONAL_FIELD_KEYS,
+  GUEST_MINOR_PARENT_FIELD_KEYS,
+  isGuestIntakeCalendarSlug,
+  isMinorFromIsoDateString,
+} from './guest-intake-calendars';
 
 const activeBookingFilter = {
   status: { notIn: ['cancelled', 'cancelled_cm', 'geannuleerd'] },
@@ -408,6 +414,17 @@ export class AgendaService {
       orderBy: [{ slotDate: 'asc' }, { startTime: 'asc' }],
     });
 
+    const slotIds = rows.map((s) => s.id);
+    const bookedBySlotId = new Map<string, number>();
+    if (slotIds.length) {
+      const grouped = await this.prisma.agendaBooking.groupBy({
+        by: ['slotId'],
+        where: { slotId: { in: slotIds }, ...activeBookingFilter },
+        _count: { _all: true },
+      });
+      for (const g of grouped) bookedBySlotId.set(g.slotId, g._count._all);
+    }
+
     type Row = (typeof rows)[number];
     const withCap: Array<Row & { booked: number; remaining: number; capacity: number }> = [];
 
@@ -425,9 +442,7 @@ export class AgendaService {
       const startAt = combineUtc(s.slotDate, startNorm);
       if (startAt < now) continue;
 
-      const booked = await this.prisma.agendaBooking.count({
-        where: { slotId: s.id, ...activeBookingFilter },
-      });
+      const booked = bookedBySlotId.get(s.id) ?? 0;
       const cap = effectiveSlotCapacity(s.capacity, cal.capacity);
       const remaining = Math.max(0, cap - booked);
       if (remaining <= 0) continue;
@@ -482,7 +497,7 @@ export class AgendaService {
     if (!cal.active || !cal.publicBooking) return 0;
     const todayYmd = now.toISOString().slice(0, 10);
     const from = parseYmd(todayYmd);
-    const to = new Date(from.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const to = new Date(from.getTime() + 45 * 24 * 60 * 60 * 1000);
     const closedSet = await this.closedDayYmdSet(cal.id, from, to);
     const openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
     await this.materializeGuestSlotsInRange(cal, from, to, closedSet, openYmdSet);
@@ -661,7 +676,7 @@ export class AgendaService {
     const from = fromStr ? parseYmd(fromStr) : new Date(`${today.toISOString().slice(0, 10)}T12:00:00.000Z`);
     let to = toStr
       ? parseYmd(toStr)
-      : new Date(from.getTime() + 90 * 24 * 60 * 60 * 1000);
+      : new Date(from.getTime() + 45 * 24 * 60 * 60 * 1000);
 
     if (to < from) throw new BadRequestException('Datum tot moet na vanaf liggen');
 
@@ -747,15 +762,20 @@ export class AgendaService {
     let phone = '';
     let nameParts: string[] = [];
 
+    const intakeGuestRules = !userId && isGuestIntakeCalendarSlug(cal.slug);
+
     for (const f of fieldsDef) {
       const val = fieldsJson[f.fieldKey] ?? '';
       if (f.type === 'file') {
-        if (f.required && (!val || val.trim() === '')) {
+        const fileRequired = intakeGuestRules ? false : f.required;
+        if (fileRequired && (!val || val.trim() === '')) {
           throw new BadRequestException(`Verplicht veld ontbreekt: ${f.label}`);
         }
         continue;
       }
-      if (f.required && (!val || val.trim() === '')) {
+      const required =
+        intakeGuestRules ? !GUEST_INTAKE_OPTIONAL_FIELD_KEYS.has(f.fieldKey) : f.required;
+      if (required && (!val || val.trim() === '')) {
         throw new BadRequestException(`Verplicht veld ontbreekt: ${f.label}`);
       }
       if (f.fieldKey === 'voornaam') firstname = val;
@@ -763,6 +783,24 @@ export class AgendaService {
       if (f.fieldKey === 'email') email = val;
       if (f.fieldKey === 'telefoon' || f.fieldKey === 'phone') phone = val;
       if (['voornaam', 'familienaam', 'naam'].includes(f.fieldKey) && val) nameParts.push(val);
+    }
+
+    if (intakeGuestRules) {
+      const dob = (fieldsJson.geboortedatum ?? '').trim();
+      if (isMinorFromIsoDateString(dob)) {
+        const pn = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? '').trim();
+        const pp = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? '').trim();
+        if (!pn) {
+          throw new BadRequestException(
+            'U bent minderjarig: vul de naam van ouder of begeleider in (verplicht).',
+          );
+        }
+        if (!pp) {
+          throw new BadRequestException(
+            'U bent minderjarig: vul het GSM-nummer van ouder of begeleider in (verplicht).',
+          );
+        }
+      }
     }
 
     let name = nameParts.filter(Boolean).join(' ').trim();
@@ -1239,6 +1277,7 @@ export class AgendaService {
         optionalSlotStarts: dto.optionalSlotStarts?.trim() ? dto.optionalSlotStarts.trim() : undefined,
         showEndTimeOnPublic: dto.showEndTimeOnPublic ?? true,
         weekdayOpenMask: dto.weekdayOpenMask ?? 0,
+        planningTextOnColor: dto.planningTextOnColor === 'black' ? 'black' : 'white',
       },
     });
 
@@ -1290,6 +1329,9 @@ export class AgendaService {
     }
     if (dto.showEndTimeOnPublic !== undefined) data.showEndTimeOnPublic = dto.showEndTimeOnPublic;
     if (dto.weekdayOpenMask !== undefined) data.weekdayOpenMask = dto.weekdayOpenMask;
+    if (dto.planningTextOnColor !== undefined) {
+      data.planningTextOnColor = dto.planningTextOnColor === 'black' ? 'black' : 'white';
+    }
 
     return this.prisma.agendaCalendar.update({ where: { id }, data });
   }
@@ -1658,7 +1700,7 @@ export class AgendaService {
       where,
       orderBy: { startAt: 'asc' },
       include: {
-        calendar: { select: { id: true, slug: true, title: true, color: true } },
+        calendar: { select: { id: true, slug: true, title: true, color: true, planningTextOnColor: true } },
         slot: { select: { id: true, slotDate: true, startTime: true, endTime: true } },
       },
     });
@@ -1688,7 +1730,7 @@ export class AgendaService {
     const b = await this.prisma.agendaBooking.findUnique({
       where: { id },
       include: {
-        calendar: { select: { id: true, slug: true, title: true, color: true } },
+        calendar: { select: { id: true, slug: true, title: true, color: true, planningTextOnColor: true } },
         slot: true,
       },
     });

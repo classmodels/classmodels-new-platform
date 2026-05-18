@@ -12,7 +12,7 @@ import {
   validateBookingDetailForSave,
 } from '@/lib/agenda-booking-detail';
 
-type Cal = { id: string; slug: string; title: string; color: string; durationMinutes: number };
+type Cal = { id: string; slug: string; title: string; color: string; durationMinutes: number; planningTextOnColor?: string | null };
 
 type BookingRow = {
   id: string;
@@ -24,7 +24,7 @@ type BookingRow = {
   lastname: string | null;
   email: string | null;
   phone: string | null;
-  calendar: { id: string; title: string; slug: string; color: string };
+  calendar: { id: string; title: string; slug: string; color: string; planningTextOnColor?: string | null };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
   fieldsJson?: Record<string, unknown>;
 };
@@ -40,7 +40,7 @@ type BookingDetail = {
   email: string | null;
   phone: string | null;
   fieldsJson: Record<string, unknown>;
-  calendar: { id: string; slug: string; title: string; color: string };
+  calendar: { id: string; slug: string; title: string; color: string; planningTextOnColor?: string | null };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
 };
 
@@ -112,6 +112,16 @@ function listRangeForPreset(preset: ListPresetId, refYmd: string): { from: strin
   }
   const yr = ref.getFullYear();
   return { from: `${yr}-01-01`, to: `${yr}-12-31` };
+}
+
+function planningBlockTextClass(cal: { planningTextOnColor?: string | null }, grey: boolean): string {
+  if (grey) return 'text-white';
+  return cal.planningTextOnColor === 'black' ? 'text-zinc-950' : 'text-white';
+}
+
+function planningBlockStrikeClass(cal: { planningTextOnColor?: string | null }, grey: boolean): string {
+  if (grey) return 'line-through decoration-white/90';
+  return cal.planningTextOnColor === 'black' ? 'line-through decoration-zinc-900/55' : 'line-through decoration-white/90';
 }
 
 function bookingLabel(status: string): string {
@@ -861,7 +871,7 @@ export default function AdminAgendaPlanningPage() {
                                     key={b.id}
                                     type="button"
                                     onClick={() => openDetail(b.id)}
-                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight text-white ${grey ? 'bg-zinc-400' : ''} ${struck ? 'line-through decoration-white/90' : ''}`}
+                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
                                     style={grey ? undefined : { backgroundColor: b.calendar.color }}
                                   >
                                     <div>
@@ -945,7 +955,7 @@ export default function AdminAgendaPlanningPage() {
                                           type="button"
                                           onClick={() => openDetail(b.id)}
                                           title={`${nm} — ${bookingLabel(b.status)}`}
-                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight text-white shadow-sm sm:text-[9px] ${grey ? 'bg-zinc-400' : ''} ${struck ? 'line-through decoration-white/90' : ''}`}
+                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight shadow-sm sm:text-[9px] ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
                                           style={grey ? undefined : { backgroundColor: b.calendar.color }}
                                         >
                                           <div className="font-semibold">

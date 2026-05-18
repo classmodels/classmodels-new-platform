@@ -190,6 +190,12 @@ export class CreateAgendaCalendarDto {
   @Min(0)
   @Max(127)
   weekdayOpenMask?: number;
+
+  /** Admin planning: tekst op gekleurde blokken. */
+  @IsOptional()
+  @IsString()
+  @IsIn(['white', 'black'])
+  planningTextOnColor?: 'white' | 'black';
 }
 
 export class UpdateAgendaCalendarDto {
@@ -286,6 +292,11 @@ export class UpdateAgendaCalendarDto {
   @Min(0)
   @Max(127)
   weekdayOpenMask?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['white', 'black'])
+  planningTextOnColor?: 'white' | 'black';
 }
 
 export class AdminSlotsQueryDto {
