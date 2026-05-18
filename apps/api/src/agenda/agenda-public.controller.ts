@@ -39,6 +39,12 @@ export class AgendaPublicController {
     return this.agenda.getFieldsForSlug(slug);
   }
 
+  /** Publiek: minimale info voor annuleerpagina (geen persoonsgegevens). */
+  @Get('cancel-preview')
+  cancelPreview(@Query('token') token: string) {
+    return this.agenda.getCancelPreviewByToken(token);
+  }
+
   @Get('slots/:slug')
   slots(@Param('slug') slug: string, @Query() q: AgendaSlotsQueryDto) {
     return this.agenda.getSlots(slug, q.from, q.to);
@@ -101,7 +107,7 @@ export class AgendaPublicController {
 
   @Post('cancel')
   cancel(@Body() dto: CancelAgendaDto) {
-    return this.agenda.cancelByToken(dto.token);
+    return this.agenda.cancelByToken(dto);
   }
 
   @Post('confirm-attendance')

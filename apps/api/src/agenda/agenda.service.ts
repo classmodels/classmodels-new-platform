@@ -17,6 +17,7 @@ import {
   AdminSlotsQueryDto,
   BookAgendaDto,
   BulkAgendaSlotsDto,
+  CancelAgendaDto,
   CreateAgendaCalendarDto,
   CreateAgendaSlotDto,
   CreateClosedDayDto,
@@ -32,6 +33,95 @@ import {
 const activeBookingFilter = {
   status: { notIn: ['cancelled', 'cancelled_cm', 'geannuleerd'] },
 } satisfies Prisma.AgendaBookingWhereInput;
+
+const CANCELLED_STATUSES = new Set(['cancelled', 'cancelled_cm', 'geannuleerd']);
+
+function isCancelledStatus(s: string): boolean {
+  return CANCELLED_STATUSES.has(s);
+}
+
+function fjStr(fj: Record<string, unknown>, key: string): string {
+  const v = fj[key];
+  if (v == null) return '';
+  return String(v).trim();
+}
+
+function mergeBookingFieldsJson(
+  prev: unknown,
+  incoming: Record<string, string> | undefined,
+): Record<string, string> {
+  const base =
+    prev && typeof prev === 'object' && !Array.isArray(prev) ? (prev as Record<string, unknown>) : {};
+  const merged: Record<string, unknown> = { ...base };
+  if (incoming) {
+    for (const [k, v] of Object.entries(incoming)) {
+      merged[k] = v;
+    }
+  }
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(merged)) {
+    if (v == null) continue;
+    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+      out[String(k)] = String(v);
+    }
+  }
+  const opm = (out.opmerkingen || out.bericht || '').trim();
+  if (opm) {
+    out.opmerkingen = opm;
+    delete out.bericht;
+  }
+  return out;
+}
+
+function ageFromIsoBirthYmd(ymdRaw: string, ref = new Date()): number | null {
+  const ymd = ymdRaw?.trim();
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
+  const [y, mo, da] = ymd.split('-').map((x) => parseInt(x, 10));
+  if (!y || mo < 1 || mo > 12 || da < 1 || da > 31) return null;
+  const bd = new Date(y, mo - 1, da);
+  if (bd.getFullYear() !== y || bd.getMonth() !== mo - 1 || bd.getDate() !== da) return null;
+  let age = ref.getFullYear() - y;
+  const mDiff = ref.getMonth() - (mo - 1);
+  if (mDiff < 0 || (mDiff === 0 && ref.getDate() < da)) age -= 1;
+  return age;
+}
+
+function assertAdminBookingPayloadValid(args: {
+  name: string | null | undefined;
+  firstname: string | null | undefined;
+  lastname: string | null | undefined;
+  email: string | null | undefined;
+  phone: string | null | undefined;
+  status: string;
+  fieldsJson: Record<string, string>;
+}): void {
+  const t = (s: string | null | undefined) => (typeof s === 'string' ? s.trim() : '');
+  if (!t(args.name)) throw new BadRequestException('Naam is verplicht.');
+  if (!t(args.firstname)) throw new BadRequestException('Voornaam is verplicht.');
+  if (!t(args.lastname)) throw new BadRequestException('Familienaam is verplicht.');
+  const em = t(args.email);
+  if (!em || !em.includes('@')) throw new BadRequestException('E-mail is verplicht en moet geldig zijn.');
+  if (!t(args.phone)) throw new BadRequestException('GSM is verplicht.');
+  const fj = args.fieldsJson;
+  if (!fjStr(fj, 'adres')) throw new BadRequestException('Adres is verplicht.');
+  const geb = fjStr(fj, 'geboortedatum');
+  if (!geb) throw new BadRequestException('Geboortedatum is verplicht.');
+  const age = ageFromIsoBirthYmd(geb);
+  if (age == null) throw new BadRequestException('Geboortedatum is ongeldig (gebruik JJJJ-MM-DD).');
+  const opm = (fjStr(fj, 'opmerkingen') || fjStr(fj, 'bericht')).trim();
+  if (!opm) throw new BadRequestException('Opmerkingen zijn verplicht.');
+  if (isCancelledStatus(args.status) && !fjStr(fj, 'annulatie_reden')) {
+    throw new BadRequestException('Reden van annulatie is verplicht wanneer de status geannuleerd is.');
+  }
+  if (age < 18) {
+    const met = fjStr(fj, 'ouder_met').toLowerCase();
+    if (met !== 'vader' && met !== 'moeder') {
+      throw new BadRequestException('Kies of de klant met vader of met moeder komt (minderjarig).');
+    }
+    if (!fjStr(fj, 'ouder_naam')) throw new BadRequestException('Naam van de ouder is verplicht (minderjarig).');
+    if (!fjStr(fj, 'ouder_gsm')) throw new BadRequestException('GSM van de ouder is verplicht (minderjarig).');
+  }
+}
 
 function parseYmd(ymd: string): Date {
   const d = new Date(`${ymd}T12:00:00.000Z`);
@@ -882,8 +972,28 @@ export class AgendaService {
     return { ok: true as const };
   }
 
-  async cancelByToken(raw: string) {
+  /** Publiek: enkel agenda + slot (geen naam/e-mail) voor annuleerpagina. */
+  async getCancelPreviewByToken(raw: string) {
     const token = raw?.trim();
+    if (!token) throw new BadRequestException('Token ontbreekt');
+    const booking = await this.prisma.agendaBooking.findUnique({
+      where: { cancelToken: token },
+      include: { calendar: { select: { title: true, slug: true } }, slot: true },
+    });
+    if (!booking) throw new NotFoundException('Afspraak niet gevonden of link verlopen.');
+    const alreadyCancelled = isCancelledStatus(booking.status);
+    return {
+      calendarSlug: booking.calendar.slug,
+      calendarTitle: booking.calendar.title,
+      slotDate: booking.slot.slotDate.toISOString().slice(0, 10),
+      startTime: booking.slot.startTime.slice(0, 5),
+      endTime: booking.slot.endTime.slice(0, 5),
+      alreadyCancelled,
+    };
+  }
+
+  async cancelByToken(dto: CancelAgendaDto) {
+    const token = dto.token?.trim();
     if (!token) throw new BadRequestException('Token ontbreekt');
 
     const booking = await this.prisma.agendaBooking.findUnique({
@@ -893,12 +1003,27 @@ export class AgendaService {
     if (!booking) throw new NotFoundException('Afspraak niet gevonden of link verlopen.');
 
     if (['cancelled', 'cancelled_cm', 'geannuleerd'].includes(booking.status)) {
-      return { ok: true, alreadyCancelled: true as const, title: booking.calendar.title };
+      return {
+        ok: true,
+        alreadyCancelled: true as const,
+        title: booking.calendar.title,
+        calendarSlug: booking.calendar.slug,
+      };
     }
+
+    const reason = dto.reason?.trim();
+    if (!reason || reason.length < 3) {
+      throw new BadRequestException('Reden voor annulatie is verplicht (minstens 3 tekens).');
+    }
+
+    const prevFj = booking.fieldsJson as Record<string, unknown> | null;
+    const merged = mergeBookingFieldsJson(prevFj ?? {}, {});
+    merged.annulatie_reden = reason;
+    if (dto.wantsNewAppointment) merged.annulatie_nieuwe_afspraak_gewenst = 'ja';
 
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
-      data: { status: 'cancelled' },
+      data: { status: 'cancelled', fieldsJson: merged },
     });
 
     const dateLabel = new Intl.DateTimeFormat('nl-BE', {
@@ -935,7 +1060,12 @@ export class AgendaService {
       });
     }
 
-    return { ok: true, alreadyCancelled: false as const, title: booking.calendar.title };
+    return {
+      ok: true,
+      alreadyCancelled: false as const,
+      title: booking.calendar.title,
+      calendarSlug: booking.calendar.slug,
+    };
   }
 
   /**
@@ -1633,15 +1763,31 @@ export class AgendaService {
       data.endAt = combineUtc(slot.slotDate, endNorm);
     }
 
+    const nextStatus = dto.status !== undefined ? dto.status : b.status;
+    const nextName = dto.name !== undefined ? dto.name : b.name;
+    const nextFirstname = dto.firstname !== undefined ? dto.firstname : b.firstname;
+    const nextLastname = dto.lastname !== undefined ? dto.lastname : b.lastname;
+    const nextEmail = dto.email !== undefined ? dto.email : b.email;
+    const nextPhone = dto.phone !== undefined ? dto.phone : b.phone;
+    const mergedFj = mergeBookingFieldsJson(b.fieldsJson, dto.fieldsJson);
+
+    assertAdminBookingPayloadValid({
+      name: nextName,
+      firstname: nextFirstname,
+      lastname: nextLastname,
+      email: nextEmail,
+      phone: nextPhone,
+      status: nextStatus,
+      fieldsJson: mergedFj,
+    });
+
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.firstname !== undefined) data.firstname = dto.firstname;
     if (dto.lastname !== undefined) data.lastname = dto.lastname;
     if (dto.email !== undefined) data.email = dto.email;
     if (dto.phone !== undefined) data.phone = dto.phone;
-    if (dto.fieldsJson !== undefined) {
-      data.fieldsJson = dto.fieldsJson as object;
-    }
+    data.fieldsJson = mergedFj as object;
 
     return this.prisma.agendaBooking.update({ where: { id }, data });
   }

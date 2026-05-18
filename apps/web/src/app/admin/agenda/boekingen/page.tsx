@@ -4,6 +4,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
+import { isCancelledAgendaStatus, prepareFieldsJsonForSave, validateBookingDetailForSave } from '@/lib/agenda-booking-detail';
 
 type Cal = {
   id: string;
@@ -230,7 +232,11 @@ export default function AdminAgendaBoekingenPage() {
     setDetail(null);
     try {
       const b = await adminFetch<BookingDetail>(`/admin/agenda/bookings/${id}`, token);
-      setDetail(b);
+      const fj =
+        b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+          ? (b.fieldsJson as Record<string, unknown>)
+          : {};
+      setDetail({ ...b, fieldsJson: fj });
       setSchedCalId(b.calendar.id);
       setSchedYmd(b.slot.slotDate.slice(0, 10));
       setSchedStart(b.slot.startTime.slice(0, 5));
@@ -249,6 +255,20 @@ export default function AdminAgendaBoekingenPage() {
 
   const saveDetail = async () => {
     if (!token || !detail) return;
+    const preparedFj = prepareFieldsJsonForSave(detail.fieldsJson);
+    const vErr = validateBookingDetailForSave({
+      name: detail.name,
+      firstname: detail.firstname,
+      lastname: detail.lastname,
+      email: detail.email,
+      phone: detail.phone,
+      status: detail.status,
+      fieldsJson: preparedFj,
+    });
+    if (vErr) {
+      setDetailErr(vErr);
+      return;
+    }
     setSaving(true);
     setDetailErr(null);
     try {
@@ -259,7 +279,7 @@ export default function AdminAgendaBoekingenPage() {
         lastname: detail.lastname,
         email: detail.email,
         phone: detail.phone,
-        fieldsJson: detail.fieldsJson as Record<string, string>,
+        fieldsJson: preparedFj,
         calendarId: schedCalId,
         slotDate: schedYmd,
         startTime: schedStart,
@@ -459,8 +479,9 @@ export default function AdminAgendaBoekingenPage() {
                 const slotD = b.slot?.slotDate?.slice(0, 10);
                 const nm =
                   b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
+                const struck = isCancelledAgendaStatus(b.status);
                 return (
-                  <tr key={b.id} className="border-b border-line/80">
+                  <tr key={b.id} className={`border-b border-line/80 ${struck ? 'line-through opacity-80' : ''}`}>
                     <td className="py-2 pr-2 align-top">
                       <input type="checkbox" checked={selectedIds.has(b.id)} onChange={() => toggleRowSel(b.id)} />
                     </td>
@@ -531,114 +552,20 @@ export default function AdminAgendaBoekingenPage() {
                     ×
                   </button>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <label className="text-xs text-muted">
-                    Status
-                    <select
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={detail.status}
-                      onChange={(e) => setDetail({ ...detail, status: e.target.value })}
-                    >
-                      {STATUS_OPTS.map((o) => (
-                        <option key={o.v} value={o.v}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-muted">
-                    Agenda
-                    <select
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedCalId}
-                      onChange={(e) => setSchedCalId(e.target.value)}
-                    >
-                      {calendars.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-muted">
-                    Dag
-                    <input
-                      type="date"
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedYmd}
-                      onChange={(e) => setSchedYmd(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs text-muted">
-                    Van (HH:mm)
-                    <input
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedStart}
-                      onChange={(e) => setSchedStart(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs text-muted">
-                    Tot (HH:mm)
-                    <input
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedEnd}
-                      onChange={(e) => setSchedEnd(e.target.value)}
-                    />
-                  </label>
-                </div>
-                <h4 className="mt-6 text-sm font-semibold text-slate-600">Afspraakgegevens</h4>
-                <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  <div>
-                    {typeof detail.fieldsJson?.foto === 'string' && (detail.fieldsJson.foto as string).length > 0 ? (
-                      <img
-                        src={detail.fieldsJson.foto as string}
-                        alt="Upload"
-                        className="max-h-80 w-full rounded-lg border border-line object-contain"
-                      />
-                    ) : (
-                      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-line text-xs text-muted">
-                        Geen foto
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid gap-2 text-sm">
-                    {(
-                      [
-                        ['name', 'Naam', detail.name],
-                        ['firstname', 'Voornaam', detail.firstname],
-                        ['lastname', 'Familienaam', detail.lastname],
-                        ['email', 'E-mail', detail.email],
-                        ['phone', 'Telefoon', detail.phone],
-                      ] as const
-                    ).map(([key, lab, val]) => (
-                      <label key={key} className="text-xs text-muted">
-                        {lab}
-                        <input
-                          className="mt-0.5 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm text-ink"
-                          value={val ?? ''}
-                          onChange={(e) => setDetail({ ...detail, [key]: e.target.value || null })}
-                        />
-                      </label>
-                    ))}
-                    {Object.entries(detail.fieldsJson)
-                      .filter(([k]) => !['foto'].includes(k))
-                      .map(([k, v]) => (
-                        <label key={k} className="text-xs text-muted capitalize">
-                          {k.replace(/_/g, ' ')}
-                          <input
-                            className="mt-0.5 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                            value={v == null ? '' : String(v)}
-                            onChange={(e) =>
-                              setDetail({
-                                ...detail,
-                                fieldsJson: { ...detail.fieldsJson, [k]: e.target.value },
-                              })
-                            }
-                          />
-                        </label>
-                      ))}
-                  </div>
-                </div>
+                <BookingDetailEditor
+                  detail={detail}
+                  onDetailChange={(next) => setDetail(next)}
+                  schedCalId={schedCalId}
+                  setSchedCalId={setSchedCalId}
+                  schedYmd={schedYmd}
+                  setSchedYmd={setSchedYmd}
+                  schedStart={schedStart}
+                  setSchedStart={setSchedStart}
+                  schedEnd={schedEnd}
+                  setSchedEnd={setSchedEnd}
+                  calendars={calendars.map((c) => ({ id: c.id, title: c.title }))}
+                  statusOpts={STATUS_OPTS}
+                />
                 <div className="mt-6 flex flex-wrap justify-between gap-2 border-t border-line pt-4">
                   <button
                     type="button"

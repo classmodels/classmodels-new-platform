@@ -31,6 +31,16 @@ export class CancelAgendaDto {
   @IsNotEmpty()
   @MinLength(16)
   token!: string;
+
+  /** Verplicht bij actieve afspraak; niet vereist als de boeking reeds geannuleerd is. */
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  wantsNewAppointment?: boolean;
 }
 
 export class ConfirmAttendanceDto {

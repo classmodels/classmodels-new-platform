@@ -4,6 +4,13 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'reac
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
+import {
+  planningHideCancelledBooking,
+  isCancelledAgendaStatus,
+  prepareFieldsJsonForSave,
+  validateBookingDetailForSave,
+} from '@/lib/agenda-booking-detail';
 
 type Cal = { id: string; slug: string; title: string; color: string; durationMinutes: number };
 
@@ -171,7 +178,7 @@ export default function AdminAgendaPlanningPage() {
   const [listFrom, setListFrom] = useState(() => ymd(startOfWeekMonday(new Date())));
   const [listTo, setListTo] = useState(() => ymd(addDays(startOfWeekMonday(new Date()), 6)));
   const [statusSel, setStatusSel] = useState<Set<string>>(
-    () => new Set(['pending', 'confirmed', 'acknowledged', 'attended']),
+    () => new Set(['pending', 'confirmed', 'acknowledged', 'attended', 'cancelled', 'cancelled_cm']),
   );
   const [mailCols, setMailCols] = useState<Set<string>>(
     () => new Set(['afspraak', 'naam', 'voornaam', 'email', 'phone', 'leeftijd']),
@@ -235,6 +242,11 @@ export default function AdminAgendaPlanningPage() {
   }, [token]);
 
   const statusesParam = useMemo(() => [...statusSel].join(','), [statusSel]);
+
+  const displayRows = useMemo(
+    () => rows.filter((b) => !planningHideCancelledBooking(b.calendar.slug, b.status)),
+    [rows],
+  );
 
   const loadBookings = useCallback(async () => {
     if (!token || selected.size === 0) {
@@ -306,7 +318,7 @@ export default function AdminAgendaPlanningPage() {
 
   const byDay = useMemo(() => {
     const m = new Map<string, BookingRow[]>();
-    for (const b of rows) {
+    for (const b of displayRows) {
       const key = new Date(b.startAt).toISOString().slice(0, 10);
       const prev = m.get(key) ?? [];
       prev.push(b);
@@ -314,7 +326,7 @@ export default function AdminAgendaPlanningPage() {
     }
     for (const [, list] of m) list.sort((a, b) => a.startAt.localeCompare(b.startAt));
     return m;
-  }, [rows]);
+  }, [displayRows]);
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
@@ -382,7 +394,7 @@ export default function AdminAgendaPlanningPage() {
   };
 
   const mailBodyLines = useMemo(() => {
-    return rows.map((b) => {
+    return displayRows.map((b) => {
       const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
       const parts: string[] = [];
       if (mailCols.has('afspraak')) parts.push(b.calendar.title);
@@ -396,7 +408,7 @@ export default function AdminAgendaPlanningPage() {
       }
       return parts.filter(Boolean).join(' · ');
     });
-  }, [rows, mailCols]);
+  }, [displayRows, mailCols]);
 
   const mailList = () => {
     const subject = `Afspraken ${queryRange.from} – ${queryRange.to}`;
@@ -415,7 +427,11 @@ export default function AdminAgendaPlanningPage() {
     setDetail(null);
     try {
       const b = await adminFetch<BookingDetail>(`/admin/agenda/bookings/${id}`, token);
-      setDetail(b);
+      const fj =
+        b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+          ? (b.fieldsJson as Record<string, unknown>)
+          : {};
+      setDetail({ ...b, fieldsJson: fj });
       setSchedCalId(b.calendar.id);
       setSchedYmd(b.slot.slotDate.slice(0, 10));
       setSchedStart(b.slot.startTime.slice(0, 5));
@@ -429,6 +445,20 @@ export default function AdminAgendaPlanningPage() {
 
   const saveDetail = async () => {
     if (!token || !detail) return;
+    const preparedFj = prepareFieldsJsonForSave(detail.fieldsJson);
+    const vErr = validateBookingDetailForSave({
+      name: detail.name,
+      firstname: detail.firstname,
+      lastname: detail.lastname,
+      email: detail.email,
+      phone: detail.phone,
+      status: detail.status,
+      fieldsJson: preparedFj,
+    });
+    if (vErr) {
+      setDetailErr(vErr);
+      return;
+    }
     setSaving(true);
     setDetailErr(null);
     try {
@@ -441,7 +471,7 @@ export default function AdminAgendaPlanningPage() {
           lastname: detail.lastname,
           email: detail.email,
           phone: detail.phone,
-          fieldsJson: detail.fieldsJson as Record<string, string>,
+          fieldsJson: preparedFj,
           calendarId: schedCalId,
           slotDate: schedYmd,
           startTime: schedStart,
@@ -522,6 +552,16 @@ export default function AdminAgendaPlanningPage() {
 
   const submitDraft = async () => {
     if (!token || !draft) return;
+    const missing: string[] = [];
+    if (!draft.name.trim()) missing.push('naam');
+    if (!draft.firstname.trim()) missing.push('voornaam');
+    if (!draft.lastname.trim()) missing.push('familienaam');
+    if (!draft.email.trim() || !draft.email.includes('@')) missing.push('e-mail');
+    if (!draft.phone.trim()) missing.push('GSM');
+    if (missing.length) {
+      setDetailErr(`Verplicht invullen: ${missing.join(', ')}.`);
+      return;
+    }
     setDraftBusy(true);
     setDetailErr(null);
     try {
@@ -533,10 +573,10 @@ export default function AdminAgendaPlanningPage() {
           startTime: draft.startTime,
           endTime: draft.endTime,
           name: draft.name.trim() || 'Handmatig',
-          email: draft.email.trim() || undefined,
-          firstname: draft.firstname.trim() || undefined,
-          lastname: draft.lastname.trim() || undefined,
-          phone: draft.phone.trim() || undefined,
+          email: draft.email.trim(),
+          firstname: draft.firstname.trim(),
+          lastname: draft.lastname.trim(),
+          phone: draft.phone.trim(),
         }),
       });
       setDraft(null);
@@ -783,7 +823,7 @@ export default function AdminAgendaPlanningPage() {
           {loading ? <p className="text-xs text-muted">Laden…</p> : null}
           {!loading && selected.size > 0 ? (
             <p className="text-xs text-muted">
-              <strong className="text-ink">{rows.length}</strong> afspraak{rows.length !== 1 ? 'en' : ''} in dit
+              <strong className="text-ink">{displayRows.length}</strong> afspraak{displayRows.length !== 1 ? 'en' : ''} in dit
               bereik — elke boeking telt apart (ook op hetzelfde uur).
             </p>
           ) : null}
@@ -814,13 +854,14 @@ export default function AdminAgendaPlanningPage() {
                             <div className="mt-1 max-h-[200px] space-y-0.5 overflow-y-auto pr-0.5">
                               {list.map((b) => {
                                 const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                                const grey = ['cancelled', 'cancelled_cm', 'no_show'].includes(b.status);
+                                const struck = isCancelledAgendaStatus(b.status);
+                                const grey = struck || b.status === 'no_show';
                                 return (
                                   <button
                                     key={b.id}
                                     type="button"
                                     onClick={() => openDetail(b.id)}
-                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight text-white ${grey ? 'bg-zinc-400' : ''}`}
+                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight text-white ${grey ? 'bg-zinc-400' : ''} ${struck ? 'line-through decoration-white/90' : ''}`}
                                     style={grey ? undefined : { backgroundColor: b.calendar.color }}
                                   >
                                     <div>
@@ -896,14 +937,15 @@ export default function AdminAgendaPlanningPage() {
                                   >
                                     {cluster.map((b) => {
                                       const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                                      const grey = ['cancelled', 'cancelled_cm', 'no_show'].includes(b.status);
+                                      const struck = isCancelledAgendaStatus(b.status);
+                                      const grey = struck || b.status === 'no_show';
                                       return (
                                         <button
                                           key={b.id}
                                           type="button"
                                           onClick={() => openDetail(b.id)}
                                           title={`${nm} — ${bookingLabel(b.status)}`}
-                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight text-white shadow-sm sm:text-[9px] ${grey ? 'bg-zinc-400' : ''}`}
+                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight text-white shadow-sm sm:text-[9px] ${grey ? 'bg-zinc-400' : ''} ${struck ? 'line-through decoration-white/90' : ''}`}
                                           style={grey ? undefined : { backgroundColor: b.calendar.color }}
                                         >
                                           <div className="font-semibold">
@@ -948,13 +990,14 @@ export default function AdminAgendaPlanningPage() {
                         <div className="mt-2 space-y-2">
                           {(byDay.get(dayKey) ?? []).map((b) => {
                             const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                            const grey = ['cancelled', 'cancelled_cm', 'no_show'].includes(b.status);
+                            const struck = isCancelledAgendaStatus(b.status);
+                            const grey = struck || b.status === 'no_show';
                             return (
                               <button
                                 key={b.id}
                                 type="button"
                                 onClick={() => openDetail(b.id)}
-                                className={`flex w-full items-start gap-3 rounded-md border-l-4 border-black px-3 py-2 text-left text-sm shadow-sm ${grey ? 'bg-zinc-200' : 'bg-emerald-100'}`}
+                                className={`flex w-full items-start gap-3 rounded-md border-l-4 border-black px-3 py-2 text-left text-sm shadow-sm ${grey ? 'bg-zinc-200' : 'bg-emerald-100'} ${struck ? 'line-through' : ''}`}
                               >
                                 <span className="shrink-0 font-medium text-ink">
                                   {b.slot.startTime.slice(0, 5)} – {b.slot.endTime.slice(0, 5)}
@@ -968,7 +1011,7 @@ export default function AdminAgendaPlanningPage() {
                         </div>
                       </div>
                     ))}
-                  {!rows.length ? <p className="text-sm text-muted">Geen afspraken in dit bereik.</p> : null}
+                  {!displayRows.length ? <p className="text-sm text-muted">Geen afspraken in dit bereik.</p> : null}
                 </div>
               ) : null}
             </div>
@@ -1067,7 +1110,7 @@ export default function AdminAgendaPlanningPage() {
                     />
                   </label>
                   <label className="text-xs text-muted">
-                    E-mail (optioneel)
+                    E-mail <span className="text-red-600">*</span>
                     <input
                       type="email"
                       className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
@@ -1076,7 +1119,7 @@ export default function AdminAgendaPlanningPage() {
                     />
                   </label>
                   <label className="text-xs text-muted">
-                    Telefoon (optioneel)
+                    GSM <span className="text-red-600">*</span>
                     <input
                       className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
                       value={draft.phone}
@@ -1126,114 +1169,20 @@ export default function AdminAgendaPlanningPage() {
                     ×
                   </button>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <label className="text-xs text-muted">
-                    Status
-                    <select
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={detail.status}
-                      onChange={(e) => setDetail({ ...detail, status: e.target.value })}
-                    >
-                      {STATUS_OPTS.map((o) => (
-                        <option key={o.v} value={o.v}>
-                          {o.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-muted">
-                    Agenda
-                    <select
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedCalId}
-                      onChange={(e) => setSchedCalId(e.target.value)}
-                    >
-                      {calendars.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-muted">
-                    Dag
-                    <input
-                      type="date"
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedYmd}
-                      onChange={(e) => setSchedYmd(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs text-muted">
-                    Van (HH:mm)
-                    <input
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedStart}
-                      onChange={(e) => setSchedStart(e.target.value)}
-                    />
-                  </label>
-                  <label className="text-xs text-muted">
-                    Tot (HH:mm)
-                    <input
-                      className="mt-1 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                      value={schedEnd}
-                      onChange={(e) => setSchedEnd(e.target.value)}
-                    />
-                  </label>
-                </div>
-                <h4 className="mt-6 text-sm font-semibold text-slate-600">Afspraakgegevens</h4>
-                <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  <div>
-                    {typeof detail.fieldsJson?.foto === 'string' && (detail.fieldsJson.foto as string).length > 0 ? (
-                      <img
-                        src={detail.fieldsJson.foto as string}
-                        alt="Upload"
-                        className="max-h-80 w-full rounded-lg border border-line object-contain"
-                      />
-                    ) : (
-                      <div className="flex h-48 items-center justify-center rounded-lg border border-dashed border-line text-xs text-muted">
-                        Geen foto
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid gap-2 text-sm">
-                    {(
-                      [
-                        ['name', 'Naam', detail.name],
-                        ['firstname', 'Voornaam', detail.firstname],
-                        ['lastname', 'Familienaam', detail.lastname],
-                        ['email', 'E-mail', detail.email],
-                        ['phone', 'Telefoon', detail.phone],
-                      ] as const
-                    ).map(([key, lab, val]) => (
-                      <label key={key} className="text-xs text-muted">
-                        {lab}
-                        <input
-                          className="mt-0.5 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm text-ink"
-                          value={val ?? ''}
-                          onChange={(e) => setDetail({ ...detail, [key]: e.target.value || null })}
-                        />
-                      </label>
-                    ))}
-                    {Object.entries(detail.fieldsJson)
-                      .filter(([k]) => !['foto'].includes(k))
-                      .map(([k, v]) => (
-                        <label key={k} className="text-xs text-muted capitalize">
-                          {k.replace(/_/g, ' ')}
-                          <input
-                            className="mt-0.5 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-                            value={v == null ? '' : String(v)}
-                            onChange={(e) =>
-                              setDetail({
-                                ...detail,
-                                fieldsJson: { ...detail.fieldsJson, [k]: e.target.value },
-                              })
-                            }
-                          />
-                        </label>
-                      ))}
-                  </div>
-                </div>
+                <BookingDetailEditor
+                  detail={detail}
+                  onDetailChange={(next) => setDetail(next)}
+                  schedCalId={schedCalId}
+                  setSchedCalId={setSchedCalId}
+                  schedYmd={schedYmd}
+                  setSchedYmd={setSchedYmd}
+                  schedStart={schedStart}
+                  setSchedStart={setSchedStart}
+                  schedEnd={schedEnd}
+                  setSchedEnd={setSchedEnd}
+                  calendars={calendars.map((c) => ({ id: c.id, title: c.title }))}
+                  statusOpts={STATUS_OPTS}
+                />
                 <div className="mt-6 flex flex-wrap justify-between gap-2 border-t border-line pt-4">
                   <button
                     type="button"

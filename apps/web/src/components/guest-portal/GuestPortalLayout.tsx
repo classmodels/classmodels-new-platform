@@ -742,6 +742,27 @@ export function GuestPortalLayout() {
 
   const [bookingFlow, setBookingFlow] = useState<null | { calendarSlug: string; title: string }>(null);
 
+  useEffect(() => {
+    const sp = new URLSearchParams(searchString);
+    const bookSlug = sp.get('book')?.trim();
+    if (!bookSlug || !/^[a-zA-Z0-9-]+$/.test(bookSlug)) return;
+
+    let cancelled = false;
+    void apiFetch<{ calendar?: { title?: string } }>(`/agenda/fields/${encodeURIComponent(bookSlug)}`)
+      .then((j) => {
+        if (cancelled) return;
+        const title = j.calendar?.title ?? bookSlug;
+        setBookingFlow({ calendarSlug: bookSlug, title });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setBookingFlow({ calendarSlug: bookSlug, title: bookSlug });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchString]);
+
   /** Direct na klik: URL/history-sync loopt soms achter; highlight mag niet op “Model worden” blijven hangen. */
   const [menuHighlight, setMenuHighlight] = useState<GuestMenuId | null>(null);
 
