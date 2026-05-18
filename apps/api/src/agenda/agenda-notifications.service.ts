@@ -98,7 +98,8 @@ export class AgendaNotificationService {
 
       const matches = rows.filter((t) => {
         const slugs = parseSlugList(t.calendarSlugs);
-        return !slugs.length || slugs.includes(ctx.calendarSlug);
+        if (!slugs.length) return false;
+        return slugs.includes(ctx.calendarSlug);
       });
 
       const dueNow = matches.filter((t) => t.offsetMinutes === 0);

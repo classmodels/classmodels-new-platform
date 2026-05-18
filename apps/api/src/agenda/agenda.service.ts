@@ -652,7 +652,12 @@ export class AgendaService {
       orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
     });
     return {
-      calendar: { slug: cal.slug, title: cal.title, color: cal.color },
+      calendar: {
+        slug: cal.slug,
+        title: cal.title,
+        color: cal.color,
+        showEndTimeOnPublic: cal.showEndTimeOnPublic,
+      },
       fields: rows.map((f) => ({
         fieldKey: f.fieldKey,
         label: f.label,
@@ -1883,7 +1888,7 @@ export class AgendaService {
   }
 
   async adminCreateNotificationTemplate(dto: CreateAgendaNotificationTemplateDto) {
-    const slugs = dto.calendarSlugs ?? [];
+    const slugs = dto.calendarSlugs;
     return this.prisma.agendaNotificationTemplate.create({
       data: {
         channel: dto.channel,

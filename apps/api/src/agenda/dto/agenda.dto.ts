@@ -559,11 +559,11 @@ export class CreateAgendaNotificationTemplateDto {
   @MinLength(1)
   body!: string;
 
-  /** Agenda-slugs; leeg = alle agenda's */
-  @IsOptional()
+  /** Minstens één agenda; alleen die krijgen dit sjabloon. */
   @IsArray()
+  @ArrayMinSize(1)
   @IsString({ each: true })
-  calendarSlugs?: string[];
+  calendarSlugs!: string[];
 
   @IsOptional()
   @Type(() => Number)
@@ -603,6 +603,7 @@ export class UpdateAgendaNotificationTemplateDto {
   @IsString()
   body?: string;
 
+  /** Leeg array = nergens; weglaten = ongewijzigd. */
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

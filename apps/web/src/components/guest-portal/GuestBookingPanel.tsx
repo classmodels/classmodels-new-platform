@@ -110,7 +110,10 @@ export function GuestBookingPanel({
       ]);
       if (!fRes.ok) throw new Error('Kon agenda niet laden');
       if (!sRes.ok) throw new Error('Kon momenten niet laden');
-      const fJson = (await fRes.json()) as { calendar?: { title?: string }; fields: FieldDto[] };
+      const fJson = (await fRes.json()) as {
+        calendar?: { title?: string; showEndTimeOnPublic?: boolean };
+        fields: FieldDto[];
+      };
       const sJson = (await sRes.json()) as {
         slots: SlotDto[];
         calendar?: { showEndTimeOnPublic?: boolean };
@@ -118,7 +121,8 @@ export function GuestBookingPanel({
       setCalTitle(fJson.calendar?.title ?? '');
       setFields(fJson.fields ?? []);
       setSlots(sJson.slots ?? []);
-      setShowEndTimeOnPublic(sJson.calendar?.showEndTimeOnPublic !== false);
+      const endVis = sJson.calendar?.showEndTimeOnPublic ?? fJson.calendar?.showEndTimeOnPublic;
+      setShowEndTimeOnPublic(endVis !== false);
       setSlotId(null);
       setForm({});
       setCancelUrl(null);
@@ -185,6 +189,11 @@ export function GuestBookingPanel({
   const strictGuestForm = !authToken && isGuestIntakeCalendarSlug(calendarSlug);
   const showMinorGuard =
     strictGuestForm && isMinorFromIsoDateString((form.geboortedatum ?? '').trim());
+
+  const displayFields = useMemo(
+    () => (!authToken ? fields.filter((f) => f.type !== 'file') : fields),
+    [authToken, fields],
+  );
 
   const showDatePager = sortedDates.length > DAYS_PER_PAGE;
 
@@ -267,7 +276,7 @@ export function GuestBookingPanel({
     e.preventDefault();
     if (!slotId) return;
     if (strictGuestForm) {
-      for (const f of fields) {
+      for (const f of displayFields) {
         const req = fieldEffectiveRequired(strictGuestForm, f);
         if (!req) continue;
         if (f.type === 'file') continue;
@@ -298,7 +307,7 @@ export function GuestBookingPanel({
     setBusy(true);
     setErr(null);
     try {
-      const fileKeys = fields.filter((x) => x.type === 'file').map((x) => x.fieldKey);
+      const fileKeys = displayFields.filter((x) => x.type === 'file').map((x) => x.fieldKey);
       const textPayload = { ...form };
       for (const k of fileKeys) delete textPayload[k];
       const fd = new FormData();
@@ -618,7 +627,7 @@ export function GuestBookingPanel({
               </button>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {fields.map(renderField)}
+              {displayFields.map(renderField)}
               {minorGuardBlock}
             </div>
             <button
@@ -703,7 +712,7 @@ export function GuestBookingPanel({
           </span>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {fields.map(renderField)}
+          {displayFields.map(renderField)}
           {minorGuardBlock}
         </div>
       </form>

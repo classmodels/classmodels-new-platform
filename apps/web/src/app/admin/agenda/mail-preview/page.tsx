@@ -161,7 +161,17 @@ export default function AdminAgendaMailSmsPage() {
     if (tab === 'sms') loadSmsSettings().catch(() => {});
   }, [tab, loadTemplates, loadCals, loadSmsSettings]);
 
-  const openNew = () => {
+  const openNew = async () => {
+    if (!token) return;
+    setErr(null);
+    try {
+      const rows = await adminFetch<{ id: string; slug: string; title: string }[]>('/admin/agenda/calendars', token);
+      setCalendars(rows);
+      setSlugPick(new Set(rows.map((c) => c.slug)));
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Agenda’s laden mislukt');
+      setSlugPick(new Set());
+    }
     setEditing({
       channel: 'email',
       name: 'Nieuw sjabloon',
@@ -172,18 +182,22 @@ export default function AdminAgendaMailSmsPage() {
       body: AGENDA_DEFAULT_BOOKING_EMAIL_HTML,
       sortOrder: 100,
     });
-    setSlugPick(new Set());
   };
 
   const openEdit = (t: Template) => {
     setEditing({ ...t });
     const slugs = Array.isArray(t.calendarSlugs) ? (t.calendarSlugs as string[]) : [];
-    setSlugPick(new Set(slugs));
+    const effective = slugs.length ? slugs : calendars.map((c) => c.slug);
+    setSlugPick(new Set(effective));
   };
 
   const saveTemplate = async (e: FormEvent) => {
     e.preventDefault();
     if (!token || !editing?.name || !editing.body) return;
+    if (slugPick.size === 0) {
+      setErr('Selecteer minstens één agenda (niets aangevinkt = nergens actief).');
+      return;
+    }
     setErr(null);
     try {
       const payload = {
@@ -309,12 +323,16 @@ export default function AdminAgendaMailSmsPage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="max-w-3xl text-sm text-muted">
-              Alleen <strong>actieve</strong> sjablonen versturen mail of SMS. Zonder passend sjabloon (zelfde trigger,
-              agenda, offset 0) gebeurt er <strong>niets automatisch</strong> — ook geen stille standaard-SMS. BulkSMS
-              wordt enkel gebruikt als u een <strong>actief SMS-sjabloon</strong> heeft. <strong>Sorteervolgorde</strong>:
-              lager getal = eerder verstuurd bij dezelfde trigger.
+              Alleen <strong>actieve</strong> sjablonen versturen mail of SMS. Een sjabloon geldt enkel voor de{' '}
+              <strong>aangevinkte agenda&apos;s</strong> (niets aangevinkt = nergens). Zonder passend sjabloon (zelfde
+              trigger, gekozen agenda, offset 0) gebeurt er <strong>niets automatisch</strong>. BulkSMS alleen bij een
+              actief SMS-sjabloon. <strong>Sorteervolgorde</strong>: lager getal = eerder verstuurd bij dezelfde trigger.
             </p>
-            <button type="button" className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white" onClick={openNew}>
+            <button
+              type="button"
+              className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white"
+              onClick={() => void openNew()}
+            >
               + Nieuw sjabloon
             </button>
           </div>
@@ -530,7 +548,11 @@ export default function AdminAgendaMailSmsPage() {
                 </button>
               ) : null}
               <div>
-                <p className="text-xs font-medium text-ink">Geldt voor agenda&apos;s (leeg = alle)</p>
+                <p className="text-xs font-medium text-ink">Geldt voor agenda&apos;s (alleen aangevinkte)</p>
+                <p className="mb-2 text-[11px] text-muted">
+                  Bij een <strong>nieuw</strong> sjabloon staan alle agenda&apos;s standaard aan. Haal vinkjes weg voor
+                  agenda&apos;s die dit bericht <strong>niet</strong> mogen krijgen.
+                </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {calendars.map((c) => (
                     <label key={c.id} className="flex items-center gap-1 text-[11px]">
