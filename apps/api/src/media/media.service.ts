@@ -3,7 +3,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { createReadStream, createWriteStream, mkdirSync, existsSync, unlinkSync, statSync, writeFileSync, readdirSync } from 'fs';
+import {
+  createReadStream,
+  createWriteStream,
+  mkdirSync,
+  existsSync,
+  unlinkSync,
+  statSync,
+  writeFileSync,
+  readdirSync,
+  accessSync,
+  constants as fsConstants,
+} from 'fs';
 import type { Dirent } from 'fs';
 import { basename, extname, join } from 'path';
 import { pipeline } from 'stream/promises';
@@ -88,6 +99,37 @@ export class MediaService {
 
   private invalidateDiskBasenameIndex() {
     this.diskBasenameIndex = null;
+  }
+
+  /** Zorgt dat uploads kunnen schrijven; anders duidelijke 400 i.p.v. generieke 500. */
+  private ensureMediaRootWritable(root: string) {
+    try {
+      if (!existsSync(root)) {
+        mkdirSync(root, { recursive: true });
+      }
+      if (!existsSync(root)) {
+        throw new BadRequestException(
+          `MEDIA_ROOT bestaat niet en kon niet aangemaakt worden: ${root}. Zet MEDIA_ROOT op het absolute pad van je uploads-map (zoals in Combell file manager).`,
+        );
+      }
+      accessSync(root, fsConstants.W_OK);
+    } catch (e) {
+      if (e instanceof BadRequestException) throw e;
+      const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
+      if (code === 'EACCES' || code === 'EPERM') {
+        throw new BadRequestException(
+          `Geen schrijfrecht op MEDIA_ROOT (${root}). Geef de Node.js-gebruiker schrijfrecht op die map, of wijzig MEDIA_ROOT naar een map waar wel geschreven mag worden.`,
+        );
+      }
+      if (code === 'ENOENT') {
+        throw new BadRequestException(
+          `MEDIA_ROOT-map ontbreekt: ${root}. Controleer het pad in je server-omgeving.`,
+        );
+      }
+      throw new BadRequestException(
+        `MEDIA_ROOT niet bruikbaar (${root}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   }
 
   /** Bestand in submap van MEDIA_ROOT: relatief pad, of null. */
@@ -520,7 +562,7 @@ export class MediaService {
   ) {
     await this.purgeScheduledAssets();
     const root = this.root();
-    if (!existsSync(root)) mkdirSync(root, { recursive: true });
+    this.ensureMediaRootWritable(root);
     const id = randomUUID();
 
     const multerPath = (file as Express.Multer.File & { path?: string }).path;
@@ -676,6 +718,25 @@ export class MediaService {
           detailKey: created.storageKey,
         };
       }
+    } catch (e: unknown) {
+      if (e instanceof BadRequestException || e instanceof NotFoundException) throw e;
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('Dubbele sleutel bij opslaan; probeer opnieuw te uploaden.');
+      }
+      console.error('[media] saveFile mislukt:', e);
+      const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
+      if (code === 'EACCES' || code === 'EPERM') {
+        throw new BadRequestException(
+          `Geen schrijfrecht op MEDIA_ROOT (${root}). Controleer rechten of MEDIA_ROOT.`,
+        );
+      }
+      if (code === 'ENOSPC') {
+        throw new BadRequestException('Schijf vol; upload niet mogelijk.');
+      }
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new BadRequestException(
+        `Upload mislukt: ${msg}. Controleer MEDIA_ROOT en of de Node-app die map mag schrijven.`,
+      );
     } finally {
       if (tmpDiskPath) {
         try {
