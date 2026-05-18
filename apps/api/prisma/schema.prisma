@@ -622,7 +622,7 @@ model AgendaNotificationTemplate {
   /// `email` | `sms`
   channel       String   @default("email")
   name          String
-  enabled       Boolean  @default(true)
+  enabled       Boolean  @default(false)
   /// `booking_created` | `booking_cancelled` | `booking_confirmed` | `reminder` | `followup`
   trigger       String   @default("booking_created")
   /// 0 = meteen bij trigger; in DB opgeslagen als minuten. Admin UI: uren (negatief = vóór start voor herinnering; positief = na start voor follow-up) — planning via aparte job.

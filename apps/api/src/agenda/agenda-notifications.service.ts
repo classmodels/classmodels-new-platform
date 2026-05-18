@@ -84,8 +84,8 @@ export class AgendaNotificationService {
   }
 
   /**
-   * Sjablonen uit DB (offset 0 = meteen). Geen matchende e-mailtemplate → standaardbevestiging.
-   * SMS: sjablonen + anders korte standaard via BulkSMS indien geconfigureerd.
+   * Alleen actieve sjablonen uit de database (offset 0 = meteen). Geen fallback-mail of -SMS:
+   * er wordt niets verstuurd tenzij u een passend sjabloon aan heeft staan en SMTP/BulkSMS werkt.
    */
   async dispatchBookingLifecycle(trigger: AgendaLifecycleTrigger, ctx: DispatchBookingCtx): Promise<void> {
     try {
@@ -108,7 +108,8 @@ export class AgendaNotificationService {
       }
 
       let emailSent = false;
-      for (const t of dueNow.filter((x) => x.channel === 'email')) {
+      const emailTemplates = dueNow.filter((x) => x.channel === 'email');
+      for (const t of emailTemplates) {
         const to = ctx.toEmail?.trim();
         if (!to) continue;
         const subject =
@@ -118,8 +119,16 @@ export class AgendaNotificationService {
         const ok = await this.trySendSmtp(to, subject, html);
         if (ok) emailSent = true;
       }
-      if (!emailSent && ctx.toEmail?.trim() && trigger === 'booking_created') {
-        await this.sendBookingConfirmation(ctx);
+      if (!emailSent && trigger === 'booking_created' && ctx.toEmail?.trim()) {
+        if (!emailTemplates.length) {
+          this.log.debug(
+            `Agenda "${ctx.calendarSlug}": geen actief e-mailsjabloon (offset 0) — geen mail verstuurd.`,
+          );
+        } else {
+          this.log.debug(
+            `Agenda "${ctx.calendarSlug}": e-mailsjabloon(nen) niet verzonden (SMTP of inhoud).`,
+          );
+        }
       }
 
       const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
@@ -127,20 +136,26 @@ export class AgendaNotificationService {
       const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
 
       let smsSent = false;
-      for (const t of dueNow.filter((x) => x.channel === 'sms')) {
+      const smsTemplates = dueNow.filter((x) => x.channel === 'sms');
+      for (const t of smsTemplates) {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (!msisdn) continue;
         const text = applyAgendaMailPlaceholders(t.body, buildAgendaMailPlaceholderVars(ctx, 'plain'));
         const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
         if (ok) smsSent = true;
       }
-      if (!smsSent) {
+      if (!smsSent && trigger === 'booking_created') {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
-        if (msisdn && buUser && buPass && trigger === 'booking_created') {
-          const fallback = this.buildSms(ctx);
-          await this.trySendBulksms(buUser, buPass, msisdn, fallback);
-        } else {
-          this.log.log(`SMS → ${ctx.phone ?? '(geen GSM)'}\n${this.buildSms(ctx)}`);
+        if (msisdn) {
+          if (!smsTemplates.length) {
+            this.log.debug(
+              `Agenda "${ctx.calendarSlug}": geen actief SMS-sjabloon (offset 0) — geen SMS verstuurd.`,
+            );
+          } else {
+            this.log.debug(
+              `Agenda "${ctx.calendarSlug}": SMS-sjabloon(nen) niet verzonden (BulkSMS-credentials of fout).`,
+            );
+          }
         }
       }
     } catch (e) {
@@ -151,7 +166,7 @@ export class AgendaNotificationService {
     }
   }
 
-  /** @deprecated Gebruik dispatchBookingLifecycle; behouden voor interne fallback. */
+  /** Handmatige of legacy bevestigingsmail (niet meer automatisch bij boeking zonder sjabloon). */
   async sendBookingConfirmation(p: AgendaConfirmationPayload): Promise<void> {
     try {
       const subject = `Bevestiging: ${p.calendarTitle} — Class Models`;
@@ -262,10 +277,6 @@ export class AgendaNotificationService {
         : `E-mail verstuurd naar ${addr}`,
     );
     return true;
-  }
-
-  private buildSms(p: AgendaConfirmationPayload): string {
-    return `Class Models: ${p.calendarTitle} op ${p.dateLabel} om ${p.timeLabel}. Annuleren: ${p.cancelUrl}`;
   }
 
   private buildEmailHtml(p: AgendaConfirmationPayload): string {

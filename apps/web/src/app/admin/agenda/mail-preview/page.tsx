@@ -1,7 +1,7 @@
 'use client';
 
 import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML } from '@cm/shared';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { AgendaMailHtmlEditor, AgendaMailTemplatePreview } from '@/components/admin/AgendaMailTemplateEditor';
@@ -108,6 +108,47 @@ export default function AdminAgendaMailSmsPage() {
     setBulksmsPass('');
   }, [token]);
 
+  const sortedTemplates = useMemo(
+    () => [...templates].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+    [templates],
+  );
+
+  const moveTemplate = async (id: string, direction: 'up' | 'down') => {
+    if (!token) return;
+    const idx = sortedTemplates.findIndex((t) => t.id === id);
+    const j = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || j < 0 || j >= sortedTemplates.length) return;
+    const next = [...sortedTemplates];
+    [next[idx], next[j]] = [next[j]!, next[idx]!];
+    setErr(null);
+    try {
+      await adminFetch('/admin/agenda/notification-templates/reorder', token, {
+        method: 'POST',
+        body: JSON.stringify({ orderedIds: next.map((t) => t.id) }),
+      });
+      setOk('Volgorde opgeslagen.');
+      await loadTemplates();
+      router.refresh();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Volgorde wijzigen mislukt');
+    }
+  };
+
+  const toggleTemplateEnabled = async (t: Template) => {
+    if (!token) return;
+    setErr(null);
+    try {
+      await adminFetch(`/admin/agenda/notification-templates/${t.id}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({ enabled: !t.enabled }),
+      });
+      await loadTemplates();
+      router.refresh();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Opslaan mislukt');
+    }
+  };
+
   useEffect(() => {
     loadPreview().catch(() => {});
   }, [loadPreview]);
@@ -124,7 +165,7 @@ export default function AdminAgendaMailSmsPage() {
     setEditing({
       channel: 'email',
       name: 'Nieuw sjabloon',
-      enabled: true,
+      enabled: false,
       trigger: 'booking_created',
       offsetMinutes: 0,
       subject: 'Bevestiging: {{calendar_title}} — Class Models',
@@ -148,7 +189,7 @@ export default function AdminAgendaMailSmsPage() {
       const payload = {
         channel: editing.channel ?? 'email',
         name: editing.name,
-        enabled: editing.enabled ?? true,
+        enabled: editing.enabled ?? false,
         trigger: editing.trigger ?? 'booking_created',
         offsetMinutes: editing.offsetMinutes ?? 0,
         subject: editing.subject ?? undefined,
@@ -244,8 +285,9 @@ export default function AdminAgendaMailSmsPage() {
       {tab === 'preview' ? (
         <div className="space-y-4">
           <p className="text-sm text-muted">
-            Standaardbevestigingsmail (zonder sjabloon in de database). Zonder <code className="rounded bg-zinc-100 px-1">SMTP_HOST</code>{' '}
-            wordt er geen echte mail verstuurd.
+            HTML-voorbeeld van de <strong>standaard</strong> lay-out (zonder databank-sjabloon). Dit wordt{' '}
+            <strong>niet automatisch</strong> verstuurd: schakel een <strong>actief</strong> e-mailsjabloon in onder
+            &quot;E-mail / SMS sjablonen&quot; en zet SMTP (Admin → E-mail) klaar om echte bevestigingsmails te sturen.
           </p>
           <button
             type="button"
@@ -266,10 +308,11 @@ export default function AdminAgendaMailSmsPage() {
       {tab === 'templates' ? (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-muted">
-              Sjablonen met <strong>trigger</strong> en <strong>offset in uren</strong> (0 = meteen). Bij herinnering/opvolging:
-              negatieve uren = vóór de start van de afspraak, positieve = erna. Waarde wordt als minuten opgeslagen; offset ≠ 0
-              volgt later via een planner.
+            <p className="max-w-3xl text-sm text-muted">
+              Alleen <strong>actieve</strong> sjablonen versturen mail of SMS. Zonder passend sjabloon (zelfde trigger,
+              agenda, offset 0) gebeurt er <strong>niets automatisch</strong> — ook geen stille standaard-SMS. BulkSMS
+              wordt enkel gebruikt als u een <strong>actief SMS-sjabloon</strong> heeft. <strong>Sorteervolgorde</strong>:
+              lager getal = eerder verstuurd bij dezelfde trigger.
             </p>
             <button type="button" className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white" onClick={openNew}>
               + Nieuw sjabloon
@@ -283,18 +326,51 @@ export default function AdminAgendaMailSmsPage() {
                   <th className="p-2">Kanaal</th>
                   <th className="p-2">Trigger</th>
                   <th className="p-2">Offset (uur)</th>
+                  <th className="p-2">Sort</th>
                   <th className="p-2">Actief</th>
+                  <th className="p-2">Volgorde</th>
                   <th className="p-2">Acties</th>
                 </tr>
               </thead>
               <tbody>
-                {templates.map((t) => (
+                {sortedTemplates.map((t, ti) => (
                   <tr key={t.id} className="border-b border-line/70">
                     <td className="p-2 font-medium text-ink">{t.name}</td>
                     <td className="p-2">{t.channel}</td>
                     <td className="p-2">{t.trigger}</td>
                     <td className="p-2">{offsetMinutesToHoursInput(t.offsetMinutes)}</td>
-                    <td className="p-2">{t.enabled ? 'ja' : 'nee'}</td>
+                    <td className="p-2 tabular-nums text-muted">{t.sortOrder}</td>
+                    <td className="p-2">
+                      <input
+                        type="checkbox"
+                        checked={t.enabled}
+                        onChange={() => void toggleTemplateEnabled(t)}
+                        aria-label={`Actief: ${t.name}`}
+                        className="h-4 w-4 rounded border-line"
+                      />
+                    </td>
+                    <td className="p-2">
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          title="Omhoog"
+                          disabled={ti === 0}
+                          className="rounded border border-line bg-white px-2 py-0.5 text-xs disabled:opacity-35"
+                          onClick={() => void moveTemplate(t.id, 'up')}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          title="Omlaag"
+                          disabled={ti === sortedTemplates.length - 1}
+                          className="rounded border border-line bg-white px-2 py-0.5 text-xs disabled:opacity-35"
+                          onClick={() => void moveTemplate(t.id, 'down')}
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </td>
                     <td className="p-2">
                       <button type="button" className="mr-2 text-burgundy underline" onClick={() => openEdit(t)}>
                         Bewerken
@@ -310,7 +386,11 @@ export default function AdminAgendaMailSmsPage() {
                 ))}
               </tbody>
             </table>
-            {!templates.length ? <p className="p-4 text-xs text-muted">Nog geen sjablonen — voeg er een toe of gebruik de standaardmail.</p> : null}
+            {!templates.length ? (
+              <p className="p-4 text-xs text-muted">
+                Nog geen sjablonen — voeg er een toe en zet <strong>Actief</strong> aan om mail of SMS te versturen.
+              </p>
+            ) : null}
           </div>
 
           <div className="rounded-md border border-line bg-panel p-4">
@@ -378,6 +458,26 @@ export default function AdminAgendaMailSmsPage() {
                     onChange={(e) => {
                       const v = e.target.valueAsNumber;
                       setEditing({ ...editing, offsetMinutes: Number.isFinite(v) ? Math.round(v * 60) : 0 });
+                    }}
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-muted sm:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={!!editing.enabled}
+                    onChange={(e) => setEditing({ ...editing, enabled: e.target.checked })}
+                  />
+                  Actief — dit sjabloon mag e-mail of SMS versturen (uit = nooit automatisch)
+                </label>
+                <label className="text-xs text-muted">
+                  Sorteervolgorde (lager = eerder bij dezelfde trigger)
+                  <input
+                    type="number"
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                    value={editing.sortOrder ?? 100}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value, 10);
+                      setEditing({ ...editing, sortOrder: Number.isFinite(v) ? v : 100 });
                     }}
                   />
                 </label>
@@ -467,7 +567,8 @@ export default function AdminAgendaMailSmsPage() {
       {tab === 'sms' ? (
         <form onSubmit={saveBulksms} className="max-w-lg space-y-4 rounded-md border border-line bg-white p-4 shadow-sm">
           <p className="text-sm text-muted">
-            Belgische nummers worden automatisch als +32… naar BulkSMS gestuurd. Je kunt ook{' '}
+            Belgische nummers worden automatisch als +32… naar BulkSMS gestuurd. SMS wordt <strong>alleen</strong> verstuurd
+            als er een <strong>actief SMS-sjabloon</strong> is (tab &quot;E-mail / SMS sjablonen&quot;). U kunt ook{' '}
             <code className="rounded bg-zinc-100 px-1">BULKSMS_USERNAME</code> /{' '}
             <code className="rounded bg-zinc-100 px-1">BULKSMS_PASSWORD</code> in de server-env zetten.
           </p>

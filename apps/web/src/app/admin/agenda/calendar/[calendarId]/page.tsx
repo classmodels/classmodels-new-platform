@@ -514,7 +514,8 @@ export default function AdminAgendaCalendarDetailPage() {
         <label className="flex items-start gap-2 text-xs">
           <input type="checkbox" checked={showEndTimeOnPublic} onChange={(e) => setShowEndTimeOnPublic(e.target.checked)} />
           <span>
-            <strong>Einduur tonen</strong> bij online boeken (uit = alleen startuur zichtbaar voor de gast).
+            <strong>Per agenda:</strong> einduur tonen bij online boeken in het gastenportaal (uit = alleen startuur
+            zichtbaar).
           </span>
         </label>
 

@@ -1850,6 +1850,32 @@ export class AgendaService {
     return { ok: true as const, deleted: res.count };
   }
 
+  async adminReorderNotificationTemplates(orderedIds: string[]) {
+    const all = await this.prisma.agendaNotificationTemplate.findMany({ select: { id: true } });
+    if (all.length === 0) return [];
+    if (all.length !== orderedIds.length) {
+      throw new BadRequestException(`Geef precies ${all.length} sjabloon-id's in de gewenste volgorde.`);
+    }
+    const expected = new Set(all.map((x) => x.id));
+    const seen = new Set<string>();
+    for (const id of orderedIds) {
+      if (!expected.has(id) || seen.has(id)) {
+        throw new BadRequestException('Ongeldige of dubbele sjabloon-id in de volgorde.');
+      }
+      seen.add(id);
+    }
+    let order = 10;
+    await this.prisma.$transaction(
+      orderedIds.map((id) =>
+        this.prisma.agendaNotificationTemplate.update({
+          where: { id },
+          data: { sortOrder: order++ },
+        }),
+      ),
+    );
+    return this.adminListNotificationTemplates();
+  }
+
   async adminListNotificationTemplates() {
     return this.prisma.agendaNotificationTemplate.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
@@ -1862,7 +1888,7 @@ export class AgendaService {
       data: {
         channel: dto.channel,
         name: dto.name,
-        enabled: dto.enabled ?? true,
+        enabled: dto.enabled ?? false,
         trigger: dto.trigger,
         offsetMinutes: dto.offsetMinutes ?? 0,
         subject: dto.subject ?? null,

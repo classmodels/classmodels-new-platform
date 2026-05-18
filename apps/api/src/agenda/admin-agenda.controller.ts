@@ -32,6 +32,7 @@ import {
   CreateManualBookingDto,
   CreateAgendaNotificationTemplateDto,
   UpdateAgendaNotificationTemplateDto,
+  ReorderAgendaNotificationTemplatesDto,
   UpdateAgendaMessagingSettingsDto,
   BulkDeleteAgendaBookingsDto,
 } from './dto/agenda.dto';
@@ -131,6 +132,12 @@ export class AdminAgendaController {
   @Permissions('admin.agenda.write')
   createNotificationTemplate(@Body() dto: CreateAgendaNotificationTemplateDto) {
     return this.agenda.adminCreateNotificationTemplate(dto);
+  }
+
+  @Post('notification-templates/reorder')
+  @Permissions('admin.agenda.write')
+  reorderNotificationTemplates(@Body() dto: ReorderAgendaNotificationTemplatesDto) {
+    return this.agenda.adminReorderNotificationTemplates(dto.orderedIds);
   }
 
   @Patch('notification-templates/:id')

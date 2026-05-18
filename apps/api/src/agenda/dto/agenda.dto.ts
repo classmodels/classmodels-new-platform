@@ -614,6 +614,13 @@ export class UpdateAgendaNotificationTemplateDto {
   sortOrder?: number;
 }
 
+export class ReorderAgendaNotificationTemplatesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  orderedIds!: string[];
+}
+
 export class UpdateAgendaMessagingSettingsDto {
   @IsOptional()
   @IsString()
