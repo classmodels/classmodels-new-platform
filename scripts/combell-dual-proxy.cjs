@@ -20,6 +20,7 @@ const {
   syncHostingMediaToApp,
   resolvePersistentMediaDest,
   migrateReleaseUploadsIfNewer,
+  migrateDeployMediaBundleToDest,
 } = require('./combell-sync-media-uploads.cjs');
 
 const root = path.join(__dirname, '..');
@@ -278,6 +279,7 @@ async function bootBackends() {
   const mediaRoot = resolvePersistentMediaDest(root);
   process.env.MEDIA_ROOT = mediaRoot;
   console.error(`[combell-dual] MEDIA_ROOT=${mediaRoot}`);
+  migrateDeployMediaBundleToDest(root, mediaRoot);
   migrateReleaseUploadsIfNewer(root, mediaRoot);
   syncHostingMediaToApp(root, mediaRoot);
 

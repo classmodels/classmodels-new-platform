@@ -10,6 +10,7 @@ coverage
 .DS_Store
 apps/api/uploads
 apps/api/data
+apps/api/.deploy-media-bundle
 backups/
 _tmp/
 apps/web/.vercel

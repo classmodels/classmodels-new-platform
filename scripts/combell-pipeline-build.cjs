@@ -50,7 +50,7 @@ run('3/5 — @cm/api (Nest + Prisma generate)', 'npm', ['run', 'build', '-w', '@
 run('4/5 — @cm/web (Next)', 'npm', ['run', 'build', '-w', '@cm/web']);
 
 if (fs.existsSync(syncMedia)) {
-  run('5/5 — media-sync (optioneel; mag overslaan zonder netwerk)', process.execPath, [syncMedia]);
+  run('5/5 — media bundle + sync', process.execPath, [syncMedia]);
 }
 
 console.error('[combell-pipeline] klaar. Herstart de Node-app in Combell indien nodig.');

@@ -144,6 +144,57 @@ function resolvePersistentMediaDest(root) {
   return path.resolve(path.join(root, 'apps', 'api', 'uploads'));
 }
 
+/** Pad in de release (niet onder /app/shared-mount) met mediabestanden uit git `shared/uploads`. */
+function deployMediaBundlePath(root) {
+  return path.resolve(path.join(root, 'apps', 'api', '.deploy-media-bundle', 'uploads'));
+}
+
+/**
+ * Build-fase: kopieer `shared/uploads` uit de repo naar een bundle in de release
+ * (Combell: persistent volume op /app/shared verbergt vaak de git-checkout).
+ */
+function stageRepoSharedMediaBundle(root) {
+  const src = path.resolve(path.join(root, 'shared', 'uploads'));
+  const dest = deployMediaBundlePath(root);
+  if (!fs.existsSync(src) || !fs.statSync(src).isDirectory()) {
+    console.error('[combell] media bundle: geen shared/uploads in repo — overslaan');
+    return false;
+  }
+  const n = countMediaFiles(src);
+  if (n < 1) {
+    console.error('[combell] media bundle: shared/uploads is leeg — overslaan');
+    return false;
+  }
+  console.error(`[combell] media bundle: staged ${n} bestanden → ${dest}`);
+  fs.mkdirSync(path.dirname(dest), { recursive: true });
+  fs.cpSync(src, dest, { recursive: true, force: true });
+  return true;
+}
+
+/**
+ * Start: zet bundle uit de release op de persistente MEDIA_ROOT-map indien die rijker is.
+ */
+function migrateDeployMediaBundleToDest(root, dest) {
+  const src = deployMediaBundlePath(root);
+  const destAbs = path.resolve(dest);
+  if (src === destAbs) return false;
+  if (!fs.existsSync(src) || !fs.statSync(src).isDirectory()) return false;
+  const srcCount = countMediaFiles(src);
+  if (srcCount < 1) return false;
+  const destCount = countMediaFiles(destAbs);
+  if (destCount >= srcCount && destCount > 50) {
+    console.error(
+      `[combell] media bundle: overslaan (doel ${destAbs} heeft al ${destCount} ≥ bundle ${srcCount})`,
+    );
+    return true;
+  }
+  console.error(`[combell] media bundle: ${src} (${srcCount}) → ${destAbs} (was ${destCount})`);
+  fs.mkdirSync(destAbs, { recursive: true });
+  fs.cpSync(src, destAbs, { recursive: true, force: true });
+  console.error(`[combell] media bundle OK (${countMediaFiles(destAbs)} mediabestanden in MEDIA_ROOT)`);
+  return true;
+}
+
 /**
  * Als er nog bestanden in de release-map staan maar de persistente map leeg is,
  * éénmalig kopiëren (herstel na verkeerde MEDIA_ROOT-config).
@@ -197,11 +248,15 @@ module.exports = {
   syncHostingMediaToApp,
   resolvePersistentMediaDest,
   migrateReleaseUploadsIfNewer,
+  stageRepoSharedMediaBundle,
+  migrateDeployMediaBundleToDest,
 };
 
 if (require.main === module) {
   const root = path.resolve(__dirname, '..');
+  stageRepoSharedMediaBundle(root);
   const dest = resolvePersistentMediaDest(root);
+  migrateDeployMediaBundleToDest(root, dest);
   migrateReleaseUploadsIfNewer(root, dest);
   const ok = syncHostingMediaToApp(root, dest);
   if (!ok) {

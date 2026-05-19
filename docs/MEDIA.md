@@ -20,7 +20,9 @@
 2. **Foute combinatie**: de API schreef naar `apps/api/uploads`, terwijl een sync-script oude bestanden van `~/www/cm-media/uploads` **éénrichting** naar de release kopieerde. Nieuwe uploads kwamen **nooit** in de persistente map → na deploy weg.
 3. **Dotenv**: `combell-dual-proxy` kan een absoluut `MEDIA_ROOT` zetten, maar `apps/api/.env` met `MEDIA_ROOT=uploads` en `override: true` **overschreef** dat weer → terug naar de release-map.
 
-**Combell Node-container (antwoord support):** Node draait in een container; persistente data hoort in **`./shared/`** → **`/app/shared`** (gebruik **`/app/shared/uploads`** voor mediabestanden). De klassieke file manager-map **`www/cm-media/uploads`** is **niet** hetzelfde bestandssysteem — zet daar **`MEDIA_ROOT` niet** op `/home/…/www/…` tenzij Combell die map expliciet in de container mount.
+**Combell Node-container (antwoord support):** Node draait in een container; persistente data hoort in **`./shared/`** → **`/app/shared`** (gebruik **`MEDIA_ROOT=/app/shared/uploads`**). De hosting file manager (`www/`, `data/`) is **niet** de Node-container.
+
+**Git `shared/uploads`:** mediabestanden horen in de repo onder `shared/uploads/`. Bij build (`combell-pipeline-build`) worden ze gestaged naar `apps/api/.deploy-media-bundle/uploads`; bij **start** kopieert `combell-dual-proxy` die bundle naar `/app/shared/uploads` als de persistente map nog leeg/ouder is (Combell mount verbergt anders de git-map).
 
 **Definitieve aanpak (ingebouwd):**
 
