@@ -11,6 +11,7 @@ coverage
 apps/api/uploads
 apps/api/data
 apps/api/.deploy-media-bundle
+.tmp-sparse-media
 backups/
 _tmp/
 apps/web/.vercel

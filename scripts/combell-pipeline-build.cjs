@@ -35,22 +35,27 @@ function run(label, cmd, args, extra = {}) {
 }
 
 const ensureNext = path.join(root, 'scripts', 'ensure-next-for-combell.cjs');
+const fetchMedia = path.join(root, 'scripts', 'combell-fetch-shared-media.cjs');
 const syncMedia = path.join(root, 'scripts', 'combell-sync-media-uploads.cjs');
 
 console.error('[combell-pipeline] root =', root);
 
+if (fs.existsSync(fetchMedia)) {
+  run('0/6 — shared/uploads ophalen (buiten Docker-context)', process.execPath, [fetchMedia]);
+}
+
 if (fs.existsSync(ensureNext)) {
-  run('1/5 — controleren next/react (Combell)', process.execPath, [ensureNext]);
+  run('1/6 — controleren next/react (Combell)', process.execPath, [ensureNext]);
 } else {
   console.error('[combell-pipeline] waarschuwing: ensure-next-for-combell.cjs ontbreekt');
 }
 
-run('2/5 — @cm/shared (verplicht vóór API)', 'npm', ['run', 'build', '-w', '@cm/shared']);
-run('3/5 — @cm/api (Nest + Prisma generate)', 'npm', ['run', 'build', '-w', '@cm/api']);
-run('4/5 — @cm/web (Next)', 'npm', ['run', 'build', '-w', '@cm/web']);
+run('2/6 — @cm/shared (verplicht vóór API)', 'npm', ['run', 'build', '-w', '@cm/shared']);
+run('3/6 — @cm/api (Nest + Prisma generate)', 'npm', ['run', 'build', '-w', '@cm/api']);
+run('4/6 — @cm/web (Next)', 'npm', ['run', 'build', '-w', '@cm/web']);
 
 if (fs.existsSync(syncMedia)) {
-  run('5/5 — media bundle + sync', process.execPath, [syncMedia]);
+  run('5/6 — media bundle + sync', process.execPath, [syncMedia]);
 }
 
 console.error('[combell-pipeline] klaar. Herstart de Node-app in Combell indien nodig.');

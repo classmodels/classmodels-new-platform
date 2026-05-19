@@ -5,6 +5,15 @@ dist
 **/.env
 **/.env.*
 apps/api/uploads
+apps/api/.deploy-media-bundle
+# Grote mediabundle: niet in Docker build-context (Combell faalt anders op ~300MB).
+# Media wordt bij build opgehaald via scripts/combell-fetch-shared-media.cjs
+shared/uploads
+backups
+_import
+_tmp
+.tmp-sparse-media
 *.log
 coverage
 .turbo
+.DS_Store
