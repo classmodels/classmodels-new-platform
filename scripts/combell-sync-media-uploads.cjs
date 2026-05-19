@@ -171,28 +171,67 @@ function stageRepoSharedMediaBundle(root) {
   return true;
 }
 
+function richestMediaSource(root) {
+  const candidates = [deployMediaBundlePath(root), path.resolve(path.join(root, 'shared', 'uploads'))];
+  let best = null;
+  let bestCount = 0;
+  for (const c of candidates) {
+    if (!fs.existsSync(c) || !fs.statSync(c).isDirectory()) continue;
+    const n = countMediaFiles(c);
+    if (n > bestCount) {
+      bestCount = n;
+      best = c;
+    }
+  }
+  return { path: best, count: bestCount };
+}
+
 /**
- * Start: zet bundle uit de release op de persistente MEDIA_ROOT-map indien die rijker is.
+ * Start: zet bundle/release-shared op de persistente MEDIA_ROOT-map indien die rijker is.
  */
 function migrateDeployMediaBundleToDest(root, dest) {
-  const src = deployMediaBundlePath(root);
   const destAbs = path.resolve(dest);
-  if (src === destAbs) return false;
-  if (!fs.existsSync(src) || !fs.statSync(src).isDirectory()) return false;
-  const srcCount = countMediaFiles(src);
-  if (srcCount < 1) return false;
+  const { path: src, count: srcCount } = richestMediaSource(root);
+  if (!src || srcCount < 1) {
+    console.error('[combell] media bundle: geen bron (.deploy-media-bundle of shared/uploads)');
+    return { ok: false, srcCount: 0, destCount: countMediaFiles(destAbs), dest: destAbs };
+  }
+  if (path.resolve(src) === destAbs) {
+    return { ok: true, srcCount, destCount: srcCount, dest: destAbs, skipped: true };
+  }
   const destCount = countMediaFiles(destAbs);
-  if (destCount >= srcCount && destCount > 50) {
+  const force = String(process.env.COMBELL_FORCE_MEDIA_BUNDLE || '').trim() === '1';
+  if (!force && destCount >= srcCount && destCount > 50) {
     console.error(
-      `[combell] media bundle: overslaan (doel ${destAbs} heeft al ${destCount} ≥ bundle ${srcCount})`,
+      `[combell] media bundle: overslaan (doel ${destAbs} heeft al ${destCount} ≥ bron ${srcCount})`,
     );
-    return true;
+    return { ok: true, srcCount, destCount, dest: destAbs, skipped: true };
   }
   console.error(`[combell] media bundle: ${src} (${srcCount}) → ${destAbs} (was ${destCount})`);
   fs.mkdirSync(destAbs, { recursive: true });
   fs.cpSync(src, destAbs, { recursive: true, force: true });
-  console.error(`[combell] media bundle OK (${countMediaFiles(destAbs)} mediabestanden in MEDIA_ROOT)`);
-  return true;
+  const after = countMediaFiles(destAbs);
+  console.error(`[combell] media bundle OK (${after} mediabestanden in MEDIA_ROOT)`);
+  return { ok: true, srcCount, destCount: after, dest: destAbs, copied: true };
+}
+
+/** Fetch (indien nodig) → stage → migrate naar MEDIA_ROOT. Aanroepen bij build én bij Node-start. */
+function bootstrapMediaStorage(root) {
+  const fetchScript = path.join(root, 'scripts', 'combell-fetch-shared-media.cjs');
+  if (fs.existsSync(fetchScript)) {
+    const bundleCount = countMediaFiles(deployMediaBundlePath(root));
+    const sharedCount = countMediaFiles(path.join(root, 'shared', 'uploads'));
+    if (bundleCount < 100 && sharedCount < 100) {
+      const { spawnSync } = require('child_process');
+      console.error('[combell] media bootstrap: shared/uploads ophalen van GitHub…');
+      spawnSync(process.execPath, [fetchScript], { cwd: root, stdio: 'inherit' });
+    }
+  }
+  stageRepoSharedMediaBundle(root);
+  const dest = resolvePersistentMediaDest(root);
+  const migrated = migrateDeployMediaBundleToDest(root, dest);
+  migrateReleaseUploadsIfNewer(root, dest);
+  return { mediaRoot: dest, ...migrated };
 }
 
 /**
@@ -250,14 +289,15 @@ module.exports = {
   migrateReleaseUploadsIfNewer,
   stageRepoSharedMediaBundle,
   migrateDeployMediaBundleToDest,
+  bootstrapMediaStorage,
+  countMediaFiles,
+  deployMediaBundlePath,
 };
 
 if (require.main === module) {
   const root = path.resolve(__dirname, '..');
-  stageRepoSharedMediaBundle(root);
+  bootstrapMediaStorage(root);
   const dest = resolvePersistentMediaDest(root);
-  migrateDeployMediaBundleToDest(root, dest);
-  migrateReleaseUploadsIfNewer(root, dest);
   const ok = syncHostingMediaToApp(root, dest);
   if (!ok) {
     console.error(

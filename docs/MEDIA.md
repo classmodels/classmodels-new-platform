@@ -11,7 +11,8 @@
 ## Schijf vs. mediatheek (database)
 
 - De **mediatheek** toont alleen rijen in `MediaAsset`. Bestanden die enkel op schijf staan (FTP, handmatig), zie je **niet** tot ze geregistreerd zijn.
-- **Admin → Media**: onder *Schijf → mediatheek* kun je een **proefrun** doen of **Registreer van schijf** (max. 300 per keer). Daarmee worden ontbrekende mediabestanden onder `MEDIA_ROOT` als assets in de **huidige map** aangemaakt.
+- **Admin → Media**: onder *Opslag (Combell)* → **Opslag controleren** zie je hoeveel afbeeldingen op schijf staan vs. in de database. **Kopieer bundle → MEDIA_ROOT** voert dezelfde sync uit als bij Node-start (deploy-bundle / `shared/uploads` → `/app/shared/uploads`).
+- Onder *Schijf → mediatheek*: **proefrun** of **Registreer van schijf** (max. 300 per keer) voor bestanden op schijf zonder database-rij.
 - API: `POST /media/register-disk-orphans?folderSlug=models&limit=300` (optioneel `dryRun=true`), JWT + `admin.media.write`.
 
 ## Productie (Combell) — waarom foto’s “weg” zijn na deploy

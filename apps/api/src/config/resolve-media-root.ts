@@ -16,7 +16,7 @@ function isImageName(name: string): boolean {
 }
 
 /** Telt afbeeldingen tot `maxDepth` mappen diep (Combell: soms jaar-/maandmappen). */
-function countMediaFilesShallow(dir: string, maxDepth: number): number {
+export function countMediaFilesShallow(dir: string, maxDepth = 2): number {
   let n = 0;
   const walk = (d: string, depth: number) => {
     if (n > 15000) return;

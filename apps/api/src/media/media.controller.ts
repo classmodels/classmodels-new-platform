@@ -153,6 +153,20 @@ export class MediaController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.read')
+  @Get('admin/storage-info')
+  storageInfo() {
+    return this.media.getStorageDiagnostics();
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('admin/apply-deploy-bundle')
+  applyDeployBundle(@Query('force') force?: string) {
+    return this.media.applyDeployMediaBundle(force === '1' || force === 'true');
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('register-disk-orphans')
   registerDiskOrphans(

@@ -16,12 +16,8 @@ const http = require('http');
 const { spawn } = require('child_process');
 const path = require('path');
 const { runCombellDbSetup } = require('./combell-prisma-deploy.cjs');
-const {
-  syncHostingMediaToApp,
-  resolvePersistentMediaDest,
-  migrateReleaseUploadsIfNewer,
-  migrateDeployMediaBundleToDest,
-} = require('./combell-sync-media-uploads.cjs');
+const { syncHostingMediaToApp, resolvePersistentMediaDest, bootstrapMediaStorage } =
+  require('./combell-sync-media-uploads.cjs');
 
 const root = path.join(__dirname, '..');
 const publicPort = parseInt(process.env.PORT || '3000', 10);
@@ -276,11 +272,12 @@ async function bootBackends() {
   );
 
   runCombellDbSetup(root);
-  const mediaRoot = resolvePersistentMediaDest(root);
+  const boot = bootstrapMediaStorage(root);
+  const mediaRoot = boot.mediaRoot || resolvePersistentMediaDest(root);
   process.env.MEDIA_ROOT = mediaRoot;
-  console.error(`[combell-dual] MEDIA_ROOT=${mediaRoot}`);
-  migrateDeployMediaBundleToDest(root, mediaRoot);
-  migrateReleaseUploadsIfNewer(root, mediaRoot);
+  console.error(
+    `[combell-dual] MEDIA_ROOT=${mediaRoot} (bron ${boot.srcCount ?? '?'} → schijf ${boot.destCount ?? '?'})`,
+  );
   syncHostingMediaToApp(root, mediaRoot);
 
   const hadNest = spawnNest();

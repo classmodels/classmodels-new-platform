@@ -83,6 +83,16 @@ export default function AdminMediaPage() {
 
   const [diskRegLoading, setDiskRegLoading] = useState(false);
   const [diskRegMsg, setDiskRegMsg] = useState('');
+  const [storageInfo, setStorageInfo] = useState<{
+    mediaRoot: string;
+    diskImageFiles: number;
+    bundleImageFiles: number;
+    sharedImageFiles: number;
+    database: { totalAssets: number; modelsAssets: number };
+    sampleCheck: { missingPrimaryOnDisk: number; scanned: number };
+  } | null>(null);
+  const [storageInfoLoading, setStorageInfoLoading] = useState(false);
+  const [bundleSyncLoading, setBundleSyncLoading] = useState(false);
 
   const [totalAllBytes, setTotalAllBytes] = useState(0);
 
@@ -170,6 +180,56 @@ export default function AdminMediaPage() {
       await load();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Standaardmappen aanmaken mislukt. Controleer of je als admin bent ingelogd en de API draait.');
+    }
+  };
+
+  const loadStorageInfo = async () => {
+    if (!token) return;
+    setStorageInfoLoading(true);
+    try {
+      const r = await adminFetch<{
+        mediaRoot: string;
+        diskImageFiles: number;
+        bundleImageFiles: number;
+        sharedImageFiles: number;
+        database: { totalAssets: number; modelsAssets: number };
+        sampleCheck: { missingPrimaryOnDisk: number; scanned: number };
+      }>('/media/admin/storage-info', token);
+      setStorageInfo(r);
+    } catch (e) {
+      setDiskRegMsg(e instanceof Error ? e.message : 'Opslaginfo laden mislukt');
+    } finally {
+      setStorageInfoLoading(false);
+    }
+  };
+
+  const applyDeployBundle = async (force: boolean) => {
+    if (!token || !canWriteMedia) return;
+    const ok = window.confirm(
+      force ?
+        'Deploy-bundle geforceerd kopiëren naar MEDIA_ROOT (overschrijft indien nodig). Dit kan enkele minuten duren. Doorgaan?'
+      : 'Deploy-bundle / shared/uploads naar MEDIA_ROOT kopiëren als die rijker is dan de huidige map? Doorgaan?',
+    );
+    if (!ok) return;
+    setBundleSyncLoading(true);
+    setDiskRegMsg('');
+    try {
+      const q = force ? '?force=true' : '';
+      const r = await adminFetch<{
+        mediaRoot: string;
+        filesBefore: number;
+        filesAfter: number;
+        logTail?: string;
+      }>(`/media/admin/apply-deploy-bundle${q}`, token, { method: 'POST' });
+      setDiskRegMsg(
+        `Bundle sync: ${r.filesBefore} → ${r.filesAfter} afbeeldingen op schijf · ${r.mediaRoot}`,
+      );
+      await loadStorageInfo();
+      await load();
+    } catch (e) {
+      setDiskRegMsg(e instanceof Error ? e.message : 'Bundle sync mislukt');
+    } finally {
+      setBundleSyncLoading(false);
     }
   };
 
@@ -654,6 +714,50 @@ export default function AdminMediaPage() {
             ) : null}
             {!isTrashFolder && activeFolder && canWriteMedia ? (
               <div className="mt-2 rounded border border-dashed border-success/50 bg-[rgba(21,147,74,0.06)] px-2 py-2 text-[10px] text-ink">
+                <p className="font-semibold text-success">Opslag (Combell)</p>
+                <p className="mt-0.5 text-[9px] text-muted">
+                  Thumbnails komen uit bestanden onder <span className="font-mono">MEDIA_ROOT</span> (Combell:{' '}
+                  <span className="font-mono">/app/shared/uploads</span>). Pipeline OK maar lege previews = bestanden
+                  staan nog niet op die schijf.
+                </p>
+                {storageInfo ? (
+                  <p className="mt-1 font-mono text-[9px] text-ink">
+                    Schijf: {storageInfo.diskImageFiles} afbeeldingen · DB: {storageInfo.database.totalAssets} assets ·
+                    bundle: {storageInfo.bundleImageFiles} · shared: {storageInfo.sharedImageFiles}
+                    {storageInfo.sampleCheck.missingPrimaryOnDisk > 0 ?
+                      ` · ${storageInfo.sampleCheck.missingPrimaryOnDisk}/${storageInfo.sampleCheck.scanned} recente ontbreken`
+                    : null}
+                    <br />
+                    <span className="break-all">{storageInfo.mediaRoot}</span>
+                  </p>
+                ) : null}
+                <div className="mt-1.5 mb-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={storageInfoLoading || bundleSyncLoading}
+                    onClick={() => void loadStorageInfo()}
+                    className="rounded border border-line bg-white px-2 py-1 text-[10px] text-ink hover:bg-panel disabled:opacity-50"
+                  >
+                    {storageInfoLoading ? 'Laden…' : 'Opslag controleren'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bundleSyncLoading || storageInfoLoading}
+                    onClick={() => void applyDeployBundle(false)}
+                    className="rounded border border-success/60 bg-white px-2 py-1 text-[10px] font-medium text-success hover:bg-panel disabled:opacity-50"
+                  >
+                    {bundleSyncLoading ? 'Bezig…' : 'Kopieer bundle → MEDIA_ROOT'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={bundleSyncLoading || storageInfoLoading}
+                    onClick={() => void applyDeployBundle(true)}
+                    className="rounded border border-burgundy/40 bg-white px-2 py-1 text-[10px] text-burgundy hover:bg-panel disabled:opacity-50"
+                    title="Overschrijft MEDIA_ROOT als de bundle rijker is"
+                  >
+                    Geforceerd
+                  </button>
+                </div>
                 <p className="font-semibold text-success">Schijf → mediatheek</p>
                 <p className="mt-0.5 text-[9px] text-muted">
                   Registreer bestanden die al onder <span className="font-mono">MEDIA_ROOT</span> staan maar nog geen

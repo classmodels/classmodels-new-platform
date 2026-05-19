@@ -16,13 +16,14 @@ import {
   constants as fsConstants,
 } from 'fs';
 import type { Dirent } from 'fs';
-import { basename, extname, join } from 'path';
+import { basename, extname, join, resolve } from 'path';
+import { spawnSync } from 'child_process';
 import { pipeline } from 'stream/promises';
 import type { Response } from 'express';
 import archiver from 'archiver';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
-import { resolveMediaRoot } from '../config/resolve-media-root';
+import { countMediaFilesShallow, resolveMediaRoot } from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
 import sharp from 'sharp';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
@@ -1368,5 +1369,123 @@ export class MediaService {
     await this.prisma.mediaAsset.delete({ where: { id } });
     this.invalidateDiskBasenameIndex();
     return { ok: true, hard: true };
+  }
+
+  private monorepoRoot(): string {
+    let cur = process.cwd();
+    for (let i = 0; i < 10; i++) {
+      if (existsSync(join(cur, 'scripts', 'combell-sync-media-uploads.cjs'))) return cur;
+      const parent = resolve(join(cur, '..'));
+      if (parent === cur) break;
+      cur = parent;
+    }
+    return process.cwd();
+  }
+
+  /** Diagnose: schijf vs database (Combell MEDIA_ROOT). */
+  async getStorageDiagnostics() {
+    const root = this.root();
+    const diskFiles = existsSync(root) ? this.collectRegisterableDiskFiles(root, 50000).length : 0;
+    const diskImages = existsSync(root) ? countMediaFilesShallow(root, 2) : 0;
+
+    const totalAssets = await this.prisma.mediaAsset.count({ where: { hardDeleted: false } });
+    const modelsFolder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'models' } });
+    const modelsAssets = modelsFolder
+      ? await this.prisma.mediaAsset.count({
+          where: { folderId: modelsFolder.id, hardDeleted: false },
+        })
+      : 0;
+
+    const sampleRows = await this.prisma.mediaAsset.findMany({
+      where: { hardDeleted: false },
+      take: 40,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, storageKey: true, webpKey: true, thumbKey: true, originalName: true },
+    });
+
+    let missingPrimary = 0;
+    const missingSamples: { id: string; storageKey: string }[] = [];
+    for (const a of sampleRows) {
+      const key = this.resolvePublicFilename(a);
+      const onDisk =
+        existsSync(join(root, key)) ||
+        Boolean(this.lookupDiskRelativePath(basename(key)));
+      if (!onDisk) {
+        missingPrimary++;
+        if (missingSamples.length < 8) {
+          missingSamples.push({ id: a.id, storageKey: key });
+        }
+      }
+    }
+
+    const bundleDir = join(this.monorepoRoot(), 'apps', 'api', '.deploy-media-bundle', 'uploads');
+    const sharedDir = join(this.monorepoRoot(), 'shared', 'uploads');
+
+    return {
+      mediaRoot: root,
+      mediaRootExists: existsSync(root),
+      diskRegisterableFiles: diskFiles,
+      diskImageFiles: diskImages,
+      env: {
+        MEDIA_ROOT: process.env.MEDIA_ROOT?.trim() || null,
+        MEDIA_SYNC_SOURCE: process.env.MEDIA_SYNC_SOURCE?.trim() || null,
+        HOME: process.env.HOME?.trim() || null,
+        NODE_ENV: process.env.NODE_ENV || null,
+      },
+      bundlePath: bundleDir,
+      bundleImageFiles: existsSync(bundleDir) ? countMediaFilesShallow(bundleDir, 2) : 0,
+      sharedPath: sharedDir,
+      sharedImageFiles: existsSync(sharedDir) ? countMediaFilesShallow(sharedDir, 2) : 0,
+      database: { totalAssets, modelsAssets },
+      sampleCheck: {
+        scanned: sampleRows.length,
+        missingPrimaryOnDisk: missingPrimary,
+        missingSamples,
+      },
+    };
+  }
+
+  /**
+   * Kopieert deploy-bundle / shared/uploads naar MEDIA_ROOT (zelfde logica als combell-dual-proxy bij start).
+   */
+  applyDeployMediaBundle(force = false) {
+    const repoRoot = this.monorepoRoot();
+    const script = join(repoRoot, 'scripts', 'combell-sync-media-uploads.cjs');
+    if (!existsSync(script)) {
+      throw new BadRequestException(`Sync-script niet gevonden: ${script}`);
+    }
+    const env = { ...process.env };
+    if (force) env.COMBELL_FORCE_MEDIA_BUNDLE = '1';
+    const beforeRoot = this.root();
+    const beforeCount = existsSync(beforeRoot) ? countMediaFilesShallow(beforeRoot, 2) : 0;
+
+    const r = spawnSync(process.execPath, [script], {
+      cwd: repoRoot,
+      env,
+      encoding: 'utf8',
+      timeout: 600_000,
+    });
+
+    const stderr = (r.stderr || '').trim();
+    const stdout = (r.stdout || '').trim();
+    const log = [stderr, stdout].filter(Boolean).join('\n').slice(-4000);
+
+    if (r.status !== 0) {
+      throw new BadRequestException(
+        `Media-bundle sync mislukt (exit ${r.status ?? '?'}). ${log || 'geen uitvoer'}`,
+      );
+    }
+
+    this.invalidateDiskBasenameIndex();
+    const afterRoot = resolveMediaRoot();
+    const afterCount = existsSync(afterRoot) ? countMediaFilesShallow(afterRoot, 2) : 0;
+
+    return {
+      ok: true,
+      mediaRoot: afterRoot,
+      filesBefore: beforeCount,
+      filesAfter: afterCount,
+      logTail: log,
+    };
   }
 }
