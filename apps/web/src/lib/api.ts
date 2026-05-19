@@ -52,6 +52,11 @@ export function getMediaPublicBaseUrl(): string {
   const mediaOnly = process.env.NEXT_PUBLIC_MEDIA_BASE_URL?.trim();
   if (mediaOnly) return stripTrailingSlash(mediaOnly);
 
+  /** Zelfde logica als getApiBase: op productie altijd same-origin `/__cm_api` in de browser. */
+  if (typeof window !== 'undefined' && shouldUseSameOriginApiProxy(window.location.hostname)) {
+    return `${window.location.origin.replace(/\/$/, '')}${CM_API_PROXY_PREFIX}`;
+  }
+
   const api = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (api && /^https?:\/\//i.test(api)) {
     const a = stripTrailingSlash(api);
@@ -61,9 +66,6 @@ export function getMediaPublicBaseUrl(): string {
   }
 
   if (typeof window !== 'undefined') {
-    if (shouldUseSameOriginApiProxy(window.location.hostname)) {
-      return `${window.location.origin.replace(/\/$/, '')}${CM_API_PROXY_PREFIX}`;
-    }
     if (api) return stripTrailingSlash(api);
   } else {
     return CM_API_PROXY_PREFIX;
