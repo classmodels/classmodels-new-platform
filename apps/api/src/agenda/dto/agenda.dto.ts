@@ -559,9 +559,10 @@ export class CreateAgendaNotificationTemplateDto {
   @MinLength(1)
   body!: string;
 
-  /** Agenda-slugs; leeg = alle agenda's. */
+  /** Agenda-slugs waarvoor dit sjabloon geldt (minstens één; leeg bij create = alle agenda's op de server). */
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @IsString({ each: true })
   calendarSlugs?: string[];
 
@@ -603,9 +604,10 @@ export class UpdateAgendaNotificationTemplateDto {
   @IsString()
   body?: string;
 
-  /** Leeg array = alle agenda's; weglaten = ongewijzigd. */
+  /** Alleen aangevinkte agenda-slugs; minstens één bij wijziging; weglaten = ongewijzigd. */
   @IsOptional()
   @IsArray()
+  @ArrayMinSize(1)
   @IsString({ each: true })
   calendarSlugs?: string[];
 

@@ -629,7 +629,7 @@ model AgendaNotificationTemplate {
   offsetMinutes Int      @default(0)
   subject       String?
   body          String   @db.Text
-  /// JSON-array van agenda-slugs; leeg = alle agenda's; niet-lege lijst = alleen die agenda's.
+  /// JSON-array van agenda-slugs; alleen aangevinkte agenda's krijgen dit sjabloon (mail/SMS).
   calendarSlugs Json     @default("[]")
   sortOrder     Int      @default(100)
   createdAt     DateTime @default(now())

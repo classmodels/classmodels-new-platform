@@ -1367,17 +1367,21 @@ export class AgendaService {
     }
   }
 
-  /** Alle agenda's aangevinkt = lege lijst (alle agenda's) in de database. */
-  private async normalizeTemplateCalendarSlugs(slugs: string[] | undefined): Promise<string[]> {
+  /** Alleen bestaande agenda-slugs bewaren (aangevinkt = expliciet in de lijst). */
+  private async filterValidTemplateCalendarSlugs(slugs: string[] | undefined): Promise<string[]> {
     const input = (slugs ?? []).map((s) => s.trim()).filter(Boolean);
     if (!input.length) return [];
     const all = await this.prisma.agendaCalendar.findMany({ select: { slug: true } });
-    const allSlugs = all.map((c) => c.slug);
-    const filtered = input.filter((s) => allSlugs.includes(s));
-    if (filtered.length === allSlugs.length && allSlugs.every((s) => filtered.includes(s))) {
-      return [];
-    }
-    return filtered;
+    const allSet = new Set(all.map((c) => c.slug));
+    return input.filter((s) => allSet.has(s));
+  }
+
+  private async allCalendarSlugs(): Promise<string[]> {
+    const all = await this.prisma.agendaCalendar.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
+      select: { slug: true },
+    });
+    return all.map((c) => c.slug);
   }
 
   async adminDeleteCalendar(id: string) {
@@ -1929,7 +1933,11 @@ export class AgendaService {
   }
 
   async adminCreateNotificationTemplate(dto: CreateAgendaNotificationTemplateDto) {
-    const slugs = await this.normalizeTemplateCalendarSlugs(dto.calendarSlugs);
+    let slugs = await this.filterValidTemplateCalendarSlugs(dto.calendarSlugs);
+    if (!slugs.length) slugs = await this.allCalendarSlugs();
+    if (!slugs.length) {
+      throw new BadRequestException('Selecteer minstens één agenda voor dit sjabloon.');
+    }
     return this.prisma.agendaNotificationTemplate.create({
       data: {
         channel: dto.channel,
@@ -1957,9 +1965,11 @@ export class AgendaService {
     if (dto.subject !== undefined) data.subject = dto.subject;
     if (dto.body !== undefined) data.body = dto.body;
     if (dto.calendarSlugs !== undefined) {
-      data.calendarSlugs = (await this.normalizeTemplateCalendarSlugs(
-        dto.calendarSlugs,
-      )) as unknown as Prisma.InputJsonValue;
+      const slugs = await this.filterValidTemplateCalendarSlugs(dto.calendarSlugs);
+      if (!slugs.length) {
+        throw new BadRequestException('Selecteer minstens één agenda (aangevinkt = mail/SMS voor die agenda).');
+      }
+      data.calendarSlugs = slugs as unknown as Prisma.InputJsonValue;
     }
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
     return this.prisma.agendaNotificationTemplate.update({ where: { id }, data });

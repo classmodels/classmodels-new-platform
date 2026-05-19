@@ -167,8 +167,7 @@ export default function AdminAgendaMailSmsPage() {
     try {
       const rows = await adminFetch<{ id: string; slug: string; title: string }[]>('/admin/agenda/calendars', token);
       setCalendars(rows);
-      /** Lege selectie = alle agenda's (server-side). */
-      setSlugPick(new Set());
+      setSlugPick(new Set(rows.map((c) => c.slug)));
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Agenda’s laden mislukt');
       setSlugPick(new Set());
@@ -188,12 +187,16 @@ export default function AdminAgendaMailSmsPage() {
   const openEdit = (t: Template) => {
     setEditing({ ...t });
     const slugs = Array.isArray(t.calendarSlugs) ? (t.calendarSlugs as string[]) : [];
-    setSlugPick(slugs.length ? new Set(slugs) : new Set());
+    setSlugPick(new Set(slugs));
   };
 
   const saveTemplate = async (e: FormEvent) => {
     e.preventDefault();
     if (!token || !editing?.name || !editing.body) return;
+    if (slugPick.size === 0) {
+      setErr('Vink minstens één agenda aan (alleen aangevinkte agenda’s krijgen mail of SMS).');
+      return;
+    }
     setErr(null);
     try {
       const payload = {
@@ -204,7 +207,7 @@ export default function AdminAgendaMailSmsPage() {
         offsetMinutes: editing.offsetMinutes ?? 0,
         subject: editing.subject ?? undefined,
         body: editing.body,
-        calendarSlugs: slugPick.size ? [...slugPick] : [],
+        calendarSlugs: [...slugPick],
         sortOrder: editing.sortOrder ?? 100,
       };
       if (editing.id) {
@@ -319,8 +322,8 @@ export default function AdminAgendaMailSmsPage() {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="max-w-3xl text-sm text-muted">
-              Alleen <strong>actieve</strong> sjablonen versturen mail of SMS. <strong>Niets aangevinkt</strong> = geldt
-              voor <strong>alle</strong> agenda&apos;s; met vinkjes beperkt u tot die agenda&apos;s. Zonder passend
+              Alleen <strong>actieve</strong> sjablonen versturen mail of SMS. Mail/SMS gaat <strong>alleen</strong> naar
+              de <strong>aangevinkte agenda&apos;s</strong> hieronder (niets aangevinkt = nergens). Zonder passend
               sjabloon (zelfde
               trigger, gekozen agenda, offset 0) gebeurt er <strong>niets automatisch</strong>. BulkSMS alleen bij een
               actief SMS-sjabloon. <strong>Sorteervolgorde</strong>: lager getal = eerder verstuurd bij dezelfde trigger.
@@ -547,8 +550,8 @@ export default function AdminAgendaMailSmsPage() {
               <div>
                 <p className="text-xs font-medium text-ink">Geldt voor agenda&apos;s</p>
                 <p className="mb-2 text-[11px] text-muted">
-                  <strong>Geen vinkje</strong> = dit sjabloon geldt voor <strong>alle</strong> agenda&apos;s. Vink
-                  specifieke agenda&apos;s aan om het bericht <strong>alleen</strong> daar te sturen.
+                  Vink de agenda&apos;s aan waarvoor dit bericht automatisch verstuurd wordt. Bij een{' '}
+                  <strong>nieuw</strong> sjabloon staan alle agenda&apos;s standaard aan.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {calendars.map((c) => (

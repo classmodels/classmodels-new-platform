@@ -47,21 +47,10 @@ export function parseSlugList(raw: unknown): string[] {
   return [];
 }
 
-/** Lege lijst = alle agenda's; volledige lijst (alle slugs) idem; anders alleen opgegeven slugs. */
-export function templateAppliesToCalendar(
-  templateSlugsRaw: unknown,
-  calendarSlug: string,
-  allCalendarSlugs: string[],
-): boolean {
+/** Alleen aangevinkte agenda-slugs in het sjabloon; lege lijst = nergens. */
+export function templateAppliesToCalendar(templateSlugsRaw: unknown, calendarSlug: string): boolean {
   const slugs = parseSlugList(templateSlugsRaw);
-  if (!slugs.length) return true;
-  if (
-    allCalendarSlugs.length > 0 &&
-    slugs.length >= allCalendarSlugs.length &&
-    allCalendarSlugs.every((s) => slugs.includes(s))
-  ) {
-    return true;
-  }
+  if (!slugs.length) return false;
   return slugs.includes(calendarSlug);
 }
 
@@ -122,15 +111,9 @@ export class AgendaNotificationService {
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       });
 
-      const allCalendarSlugs = (
-        await this.prisma.agendaCalendar.findMany({ select: { slug: true } })
-      ).map((c) => c.slug);
-
       const vars = buildAgendaMailPlaceholderVars(ctx, 'html');
 
-      const matches = rows.filter((t) =>
-        templateAppliesToCalendar(t.calendarSlugs, ctx.calendarSlug, allCalendarSlugs),
-      );
+      const matches = rows.filter((t) => templateAppliesToCalendar(t.calendarSlugs, ctx.calendarSlug));
 
       const dueNow = matches.filter((t) => t.offsetMinutes === 0);
       const deferred = matches.filter((t) => t.offsetMinutes !== 0);
@@ -182,7 +165,7 @@ export class AgendaNotificationService {
             const activeSms = rows.filter((t) => t.offsetMinutes === 0 && t.channel === 'sms');
             this.log.warn(
               activeSms.length
-                ? `Agenda "${ctx.calendarSlug}": geen SMS-sjabloon van toepassing (${activeSms.length} actief maar andere agenda's). Zet geen vinkjes = alle agenda's, of vink deze agenda aan.`
+                ? `Agenda "${ctx.calendarSlug}": geen SMS-sjabloon van toepassing (${activeSms.length} actief maar deze agenda niet aangevinkt). Vink de agenda aan bij het sjabloon.`
                 : `Agenda "${ctx.calendarSlug}": geen actief SMS-sjabloon bij nieuwe boeking (offset 0).`,
             );
           } else {
