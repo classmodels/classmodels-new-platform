@@ -92,7 +92,6 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/agenda/open-dagen', label: 'Open dagen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/planning', label: 'Planning', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/mail-preview', label: 'Mail / SMS', permission: 'admin.agenda.read' },
-      { href: '/admin/agenda/bulk-mail-sms', label: 'Bulk mail & SMS', permission: 'admin.agenda.read' },
     ],
   },
   {
@@ -100,6 +99,9 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     label: 'Communicatie',
     icon: 'bell',
     items: [
+      { href: '/admin/communicatie/verzenden', label: 'Mail & SMS verzenden', permission: 'admin.push.send' },
+      { href: '/admin/communicatie/lijsten', label: 'Contactlijsten', permission: 'admin.push.lists' },
+      { href: '/admin/communicatie/geschiedenis', label: 'Verzendgeschiedenis', permission: 'admin.push.send' },
       { href: '/admin/push-berichten', label: 'Pushberichten', permission: 'admin.push.send' },
       { href: '/admin/push-lijsten', label: 'Push-lijsten', permission: 'admin.push.lists' },
     ],

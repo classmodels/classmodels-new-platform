@@ -71,7 +71,6 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/agenda/open-dagen', label: t('admin.agendaOpenDays'), permission: 'admin.agenda.read' },
           { href: '/admin/agenda/planning', label: t('admin.agendaPlanning'), permission: 'admin.agenda.read' },
           { href: '/admin/agenda/mail-preview', label: t('admin.agendaMail'), permission: 'admin.agenda.read' },
-          { href: '/admin/agenda/bulk-mail-sms', label: t('admin.agendaBulkMailSms'), permission: 'admin.agenda.read' },
         ],
       },
       {
@@ -79,6 +78,9 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
         label: t('admin.sectionComms'),
         icon: 'bell',
         items: [
+          { href: '/admin/communicatie/verzenden', label: t('admin.commsSend'), permission: 'admin.push.send' },
+          { href: '/admin/communicatie/lijsten', label: t('admin.commsLists'), permission: 'admin.push.lists' },
+          { href: '/admin/communicatie/geschiedenis', label: t('admin.commsHistory'), permission: 'admin.push.send' },
           { href: '/admin/push-berichten', label: t('admin.pushMessages'), permission: 'admin.push.send' },
           { href: '/admin/push-lijsten', label: t('admin.pushLists'), permission: 'admin.push.lists' },
         ],

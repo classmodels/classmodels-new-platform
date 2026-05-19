@@ -91,6 +91,10 @@ model User {
   pushRecipientListsCreated PushRecipientList[] @relation("PushListCreatedBy")
   pushRecipientListMembers  PushRecipientListMember[]
   pushCampaignsAuthored     PushCampaign[]       @relation("PushCampaignAuthor")
+  bulkContactListsCreated   BulkContactList[]    @relation("BulkListCreatedBy")
+  bulkMessageCampaignsSent  BulkMessageCampaign[] @relation("BulkCampaignSentBy")
+  bulkContactListEntries    BulkContactListEntry[]
+  bulkMessageDeliveries     BulkMessageDelivery[]
   tryoutModeshowRegistrations TryoutModeshowRegistration[]
   /// Portfolio-levering door fotograaf (map `portfolio-fotograaf`), gekoppeld aan dit model.
   portfolioDeliveryAssets MediaAsset[] @relation("PortfolioDeliveryForModel")
@@ -638,6 +642,81 @@ model AgendaNotificationTemplate {
   updatedAt     DateTime @updatedAt
 
   @@index([enabled, trigger, channel])
+}
+
+/// Mail/SMS-lijsten voor bulkcommunicatie (import, handmatige contacten).
+model BulkContactList {
+  id          String   @id @default(uuid())
+  name        String
+  description String?  @db.Text
+  createdById String?
+  createdBy   User?    @relation("BulkListCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  entries     BulkContactListEntry[]
+  campaigns   BulkMessageCampaign[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BulkContactListEntry {
+  id          String   @id @default(uuid())
+  listId      String
+  list        BulkContactList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email       String?  @db.VarChar(191)
+  phone       String?  @db.VarChar(64)
+  displayName String?  @db.VarChar(191)
+  createdAt   DateTime @default(now())
+
+  @@index([listId])
+  @@index([userId])
+}
+
+/// Eén bulk-verzending (mail of SMS).
+model BulkMessageCampaign {
+  id           String   @id @default(uuid())
+  channel      String
+  subject      String?  @db.VarChar(500)
+  bodyHtml     String?  @db.LongText
+  bodySms      String?  @db.Text
+  listId       String?
+  list         BulkContactList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+  roleSlugs    Json?
+  sentById     String?
+  sentBy       User?    @relation("BulkCampaignSentBy", fields: [sentById], references: [id], onDelete: SetNull)
+  sentCount    Int      @default(0)
+  failedCount  Int      @default(0)
+  skippedCount Int      @default(0)
+  deliveries   BulkMessageDelivery[]
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([listId])
+}
+
+/// Per ontvanger binnen een campagne (tracking voor e-mail).
+model BulkMessageDelivery {
+  id             String   @id @default(uuid())
+  campaignId     String
+  campaign       BulkMessageCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email          String?  @db.VarChar(191)
+  phone          String?  @db.VarChar(64)
+  displayName    String?  @db.VarChar(191)
+  trackingToken  String?  @unique
+  status         String   @default("pending")
+  sentAt         DateTime?
+  openedAt       DateTime?
+  openCount      Int      @default(0)
+  lastOpenedAt   DateTime?
+  openMeta       Json?
+  errorMessage   String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@index([campaignId])
+  @@index([email])
+  @@index([openedAt])
 }
 
 model PasswordResetToken {
