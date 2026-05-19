@@ -6,11 +6,9 @@ export function isCancelledAgendaStatus(status: string): boolean {
   return CANCELLED_AGENDA_STATUSES.has(status);
 }
 
-/** Geannuleerde boekingen verbergen in het rooster enkel voor deze agenda-slugs. */
-export function planningHideCancelledBooking(calendarSlug: string, status: string): boolean {
-  if (!isCancelledAgendaStatus(status)) return false;
-  const s = calendarSlug.toLowerCase();
-  return s === 'opleiding' || s === 'portfolio';
+/** Geannuleerde boekingen altijd tonen in planning (met vervaging + doorstreep). */
+export function planningHideCancelledBooking(_calendarSlug: string, _status: string): boolean {
+  return false;
 }
 
 export function ageFromIsoBirthYmd(ymdRaw: string | null | undefined, ref = new Date()): number | null {
@@ -87,15 +85,24 @@ export function opmerkingenDisplayValue(fj: Record<string, unknown>): string {
   return fjString(fj, 'bericht');
 }
 
-export function validateBookingDetailForSave(input: {
-  name: string | null;
-  firstname: string | null;
-  lastname: string | null;
-  email: string | null;
-  phone: string | null;
-  status: string;
-  fieldsJson: Record<string, unknown>;
-}): string | null {
+export function validateBookingDetailForSave(
+  input: {
+    name: string | null;
+    firstname: string | null;
+    lastname: string | null;
+    email: string | null;
+    phone: string | null;
+    status: string;
+    fieldsJson: Record<string, unknown>;
+  },
+  opts?: { adminLoose?: boolean },
+): string | null {
+  if (opts?.adminLoose) {
+    if (isCancelledAgendaStatus(input.status) && !fjString(input.fieldsJson, 'annulatie_reden')) {
+      return 'Reden van annulatie is verplicht wanneer de status geannuleerd is.';
+    }
+    return null;
+  }
   const t = (s: string | null | undefined) => (typeof s === 'string' ? s.trim() : '');
   if (!t(input.name)) return 'Naam is verplicht.';
   if (!t(input.firstname)) return 'Voornaam is verplicht.';
@@ -109,8 +116,6 @@ export function validateBookingDetailForSave(input: {
   if (!geb) return 'Geboortedatum is verplicht.';
   const age = ageFromIsoBirthYmd(geb);
   if (age == null) return 'Geboortedatum is ongeldig (gebruik JJJJ-MM-DD).';
-  const opm = opmerkingenDisplayValue(fj);
-  if (!opm) return 'Opmerkingen zijn verplicht.';
   if (isCancelledAgendaStatus(input.status)) {
     if (!fjString(fj, 'annulatie_reden')) return 'Reden van annulatie is verplicht wanneer de status geannuleerd is.';
   }

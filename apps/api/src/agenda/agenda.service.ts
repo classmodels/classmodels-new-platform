@@ -33,8 +33,8 @@ import {
   UpdateAgendaCalendarDto,
 } from './dto/agenda.dto';
 import {
-  GUEST_INTAKE_OPTIONAL_FIELD_KEYS,
   GUEST_MINOR_PARENT_FIELD_KEYS,
+  isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
 } from './guest-intake-calendars';
@@ -80,56 +80,6 @@ function mergeBookingFieldsJson(
     delete out.bericht;
   }
   return out;
-}
-
-function ageFromIsoBirthYmd(ymdRaw: string, ref = new Date()): number | null {
-  const ymd = ymdRaw?.trim();
-  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;
-  const [y, mo, da] = ymd.split('-').map((x) => parseInt(x, 10));
-  if (!y || mo < 1 || mo > 12 || da < 1 || da > 31) return null;
-  const bd = new Date(y, mo - 1, da);
-  if (bd.getFullYear() !== y || bd.getMonth() !== mo - 1 || bd.getDate() !== da) return null;
-  let age = ref.getFullYear() - y;
-  const mDiff = ref.getMonth() - (mo - 1);
-  if (mDiff < 0 || (mDiff === 0 && ref.getDate() < da)) age -= 1;
-  return age;
-}
-
-function assertAdminBookingPayloadValid(args: {
-  name: string | null | undefined;
-  firstname: string | null | undefined;
-  lastname: string | null | undefined;
-  email: string | null | undefined;
-  phone: string | null | undefined;
-  status: string;
-  fieldsJson: Record<string, string>;
-}): void {
-  const t = (s: string | null | undefined) => (typeof s === 'string' ? s.trim() : '');
-  if (!t(args.name)) throw new BadRequestException('Naam is verplicht.');
-  if (!t(args.firstname)) throw new BadRequestException('Voornaam is verplicht.');
-  if (!t(args.lastname)) throw new BadRequestException('Familienaam is verplicht.');
-  const em = t(args.email);
-  if (!em || !em.includes('@')) throw new BadRequestException('E-mail is verplicht en moet geldig zijn.');
-  if (!t(args.phone)) throw new BadRequestException('GSM is verplicht.');
-  const fj = args.fieldsJson;
-  if (!fjStr(fj, 'adres')) throw new BadRequestException('Adres is verplicht.');
-  const geb = fjStr(fj, 'geboortedatum');
-  if (!geb) throw new BadRequestException('Geboortedatum is verplicht.');
-  const age = ageFromIsoBirthYmd(geb);
-  if (age == null) throw new BadRequestException('Geboortedatum is ongeldig (gebruik JJJJ-MM-DD).');
-  const opm = (fjStr(fj, 'opmerkingen') || fjStr(fj, 'bericht')).trim();
-  if (!opm) throw new BadRequestException('Opmerkingen zijn verplicht.');
-  if (isCancelledStatus(args.status) && !fjStr(fj, 'annulatie_reden')) {
-    throw new BadRequestException('Reden van annulatie is verplicht wanneer de status geannuleerd is.');
-  }
-  if (age < 18) {
-    const met = fjStr(fj, 'ouder_met').toLowerCase();
-    if (met !== 'vader' && met !== 'moeder') {
-      throw new BadRequestException('Kies of de klant met vader of met moeder komt (minderjarig).');
-    }
-    if (!fjStr(fj, 'ouder_naam')) throw new BadRequestException('Naam van de ouder is verplicht (minderjarig).');
-    if (!fjStr(fj, 'ouder_gsm')) throw new BadRequestException('GSM van de ouder is verplicht (minderjarig).');
-  }
 }
 
 function parseYmd(ymd: string): Date {
@@ -770,19 +720,19 @@ export class AgendaService {
     let phone = '';
     let nameParts: string[] = [];
 
-    const intakeGuestRules = !userId && isGuestIntakeCalendarSlug(cal.slug);
+    const webGuest = !userId;
 
     for (const f of fieldsDef) {
       const val = fieldsJson[f.fieldKey] ?? '';
       if (f.type === 'file') {
-        const fileRequired = intakeGuestRules ? false : f.required;
-        if (fileRequired && (!val || val.trim() === '')) {
+        if (!webGuest && f.required && (!val || val.trim() === '')) {
           throw new BadRequestException(`Verplicht veld ontbreekt: ${f.label}`);
         }
         continue;
       }
-      const required =
-        intakeGuestRules ? !GUEST_INTAKE_OPTIONAL_FIELD_KEYS.has(f.fieldKey) : f.required;
+      const required = webGuest
+        ? !isGuestBookingOptionalFieldKey(f.fieldKey, f.type)
+        : f.required;
       if (required && (!val || val.trim() === '')) {
         throw new BadRequestException(`Verplicht veld ontbreekt: ${f.label}`);
       }
@@ -793,9 +743,9 @@ export class AgendaService {
       if (['voornaam', 'familienaam', 'naam'].includes(f.fieldKey) && val) nameParts.push(val);
     }
 
-    if (intakeGuestRules) {
+    if (webGuest) {
       const dob = (fieldsJson.geboortedatum ?? '').trim();
-      if (isMinorFromIsoDateString(dob)) {
+      if (dob && isMinorFromIsoDateString(dob)) {
         const pn = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? '').trim();
         const pp = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? '').trim();
         if (!pn) {
@@ -853,7 +803,7 @@ export class AgendaService {
           userId: userId ?? undefined,
           startAt,
           endAt,
-          status: 'confirmed',
+          status: userId ? 'confirmed' : 'pending',
           name: name || null,
           firstname: firstname || null,
           lastname: lastname || null,
@@ -909,6 +859,7 @@ export class AgendaService {
           displayName: name || firstname || 'klant',
           calendarTitle: String(cal.title ?? ''),
           calendarSlug: String(cal.slug ?? ''),
+          bookingStatus: booking.status,
           dateLabel,
           timeLabel,
           cancelUrl,
@@ -998,6 +949,7 @@ export class AgendaService {
     void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
       toEmail: booking.email,
       phone: booking.phone,
+      bookingStatus: 'cancelled',
       displayName:
         booking.name || [booking.firstname, booking.lastname].filter(Boolean).join(' ').trim() || 'klant',
       calendarTitle: booking.calendar.title,
@@ -1085,6 +1037,7 @@ export class AgendaService {
     void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
       toEmail: booking.email,
       phone: booking.phone,
+      bookingStatus: 'cancelled',
       displayName:
         booking.name || [booking.firstname, booking.lastname].filter(Boolean).join(' ').trim() || 'klant',
       calendarTitle: booking.calendar.title,
@@ -1163,6 +1116,7 @@ export class AgendaService {
     void this.notifications.dispatchBookingLifecycle('booking_confirmed', {
       toEmail: booking.email,
       phone: booking.phone,
+      bookingStatus: 'acknowledged',
       displayName:
         booking.name || [booking.firstname, booking.lastname].filter(Boolean).join(' ').trim() || 'klant',
       calendarTitle: booking.calendar.title,
@@ -1454,7 +1408,7 @@ export class AgendaService {
         slotId: slot.id,
         startAt,
         endAt,
-        status: 'confirmed',
+        status: 'pending',
         name,
         firstname: dto.firstname?.trim() || null,
         lastname: dto.lastname?.trim() || null,
@@ -1486,6 +1440,7 @@ export class AgendaService {
           .dispatchBookingLifecycle('booking_created', {
             toEmail: email || null,
             phone: phone || null,
+            bookingStatus: booking.status,
             displayName: name,
             calendarTitle: String(cal.title ?? ''),
             calendarSlug: String(cal.slug ?? ''),
@@ -1863,15 +1818,9 @@ export class AgendaService {
     const nextPhone = dto.phone !== undefined ? dto.phone : b.phone;
     const mergedFj = mergeBookingFieldsJson(b.fieldsJson, dto.fieldsJson);
 
-    assertAdminBookingPayloadValid({
-      name: nextName,
-      firstname: nextFirstname,
-      lastname: nextLastname,
-      email: nextEmail,
-      phone: nextPhone,
-      status: nextStatus,
-      fieldsJson: mergedFj,
-    });
+    if (isCancelledStatus(nextStatus) && !fjStr(mergedFj, 'annulatie_reden')) {
+      throw new BadRequestException('Reden van annulatie is verplicht wanneer de status geannuleerd is.');
+    }
 
     if (dto.status !== undefined) data.status = dto.status;
     if (dto.name !== undefined) data.name = dto.name;
@@ -1948,6 +1897,8 @@ export class AgendaService {
         subject: dto.subject ?? null,
         body: dto.body,
         calendarSlugs: slugs as unknown as Prisma.InputJsonValue,
+        enrollmentFilter:
+          dto.enrollmentFilter && dto.enrollmentFilter !== 'all' ? dto.enrollmentFilter : null,
         sortOrder: dto.sortOrder ?? 100,
       },
     });
@@ -1972,6 +1923,10 @@ export class AgendaService {
       data.calendarSlugs = slugs as unknown as Prisma.InputJsonValue;
     }
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
+    if (dto.enrollmentFilter !== undefined) {
+      data.enrollmentFilter =
+        dto.enrollmentFilter && dto.enrollmentFilter !== 'all' ? dto.enrollmentFilter : null;
+    }
     return this.prisma.agendaNotificationTemplate.update({ where: { id }, data });
   }
 
@@ -1997,6 +1952,7 @@ export class AgendaService {
         subject: src.subject,
         body: src.body,
         calendarSlugs: src.calendarSlugs as Prisma.InputJsonValue,
+        enrollmentFilter: src.enrollmentFilter,
         sortOrder: src.sortOrder + 1,
       },
     });

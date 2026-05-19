@@ -18,8 +18,15 @@ type Template = {
   subject: string | null;
   body: string;
   calendarSlugs: unknown;
+  enrollmentFilter?: string | null;
   sortOrder: number;
 };
+
+const ENROLLMENT_FILTER_OPTS = [
+  ['all', 'Iedereen (ingeschreven én niet)'],
+  ['enrolled', 'Alleen ingeschreven (status Ingeschreven)'],
+  ['not_enrolled', 'Alleen niet ingeschreven'],
+] as const;
 
 const PLACEHOLDERS = [
   ['client_name', 'Naam klant'],
@@ -208,6 +215,10 @@ export default function AdminAgendaMailSmsPage() {
         subject: editing.subject ?? undefined,
         body: editing.body,
         calendarSlugs: [...slugPick],
+        enrollmentFilter:
+          editing.trigger === 'followup' || editing.trigger === 'reminder'
+            ? (editing.enrollmentFilter ?? 'all')
+            : undefined,
         sortOrder: editing.sortOrder ?? 100,
       };
       if (editing.id) {
@@ -499,6 +510,27 @@ export default function AdminAgendaMailSmsPage() {
                     }}
                   />
                 </label>
+                {editing.trigger === 'followup' || editing.trigger === 'reminder' ? (
+                  <label className="text-xs text-muted sm:col-span-2">
+                    Doelgroep (inschrijving)
+                    <select
+                      className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                      value={editing.enrollmentFilter ?? 'all'}
+                      onChange={(e) =>
+                        setEditing({
+                          ...editing,
+                          enrollmentFilter: e.target.value as 'all' | 'enrolled' | 'not_enrolled',
+                        })
+                      }
+                    >
+                      {ENROLLMENT_FILTER_OPTS.map(([v, lab]) => (
+                        <option key={v} value={v}>
+                          {lab}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 {editing.channel !== 'sms' ? (
                   <label className="text-xs text-muted sm:col-span-2">
                     Onderwerp (e-mail)

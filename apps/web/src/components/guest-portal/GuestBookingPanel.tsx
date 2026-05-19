@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import Link from 'next/link';
 import { getApiBase } from '@/lib/api';
 import {
-  GUEST_INTAKE_OPTIONAL_FIELD_KEYS,
   GUEST_MINOR_PARENT_FIELD_KEYS,
+  isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
 } from '@/lib/agenda-guest-intake';
@@ -39,10 +39,9 @@ type SlotDto = {
 
 type Step = 'slots' | 'form' | 'success';
 
-function fieldEffectiveRequired(strictGuestForm: boolean, f: FieldDto): boolean {
-  if (!strictGuestForm) return f.required;
-  if (f.type === 'file') return false;
-  if (GUEST_INTAKE_OPTIONAL_FIELD_KEYS.has(f.fieldKey)) return false;
+function fieldEffectiveRequired(guestWebBooking: boolean, f: FieldDto): boolean {
+  if (!guestWebBooking) return f.required;
+  if (isGuestBookingOptionalFieldKey(f.fieldKey, f.type)) return false;
   return true;
 }
 
@@ -186,7 +185,8 @@ export function GuestBookingPanel({
 
   const picked = slots.find((s) => s.id === slotId);
 
-  const strictGuestForm = !authToken && isGuestIntakeCalendarSlug(calendarSlug);
+  const guestWebBooking = !authToken;
+  const strictGuestForm = guestWebBooking && isGuestIntakeCalendarSlug(calendarSlug);
   const showMinorGuard =
     strictGuestForm && isMinorFromIsoDateString((form.geboortedatum ?? '').trim());
 
@@ -277,7 +277,7 @@ export function GuestBookingPanel({
     if (!slotId) return;
     if (strictGuestForm) {
       for (const f of displayFields) {
-        const req = fieldEffectiveRequired(strictGuestForm, f);
+        const req = fieldEffectiveRequired(guestWebBooking, f);
         if (!req) continue;
         if (f.type === 'file') continue;
         if (f.type === 'checkbox') {
@@ -362,7 +362,7 @@ export function GuestBookingPanel({
   };
 
   const renderField = (f: FieldDto) => {
-    const req = fieldEffectiveRequired(strictGuestForm, f);
+    const req = fieldEffectiveRequired(guestWebBooking, f);
     const ph = f.titlePosition === 'inside' ? f.label : (f.placeholder ?? '');
     const labelAbove = f.titlePosition !== 'inside' && f.type !== 'checkbox';
     const common =

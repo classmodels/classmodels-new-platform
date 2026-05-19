@@ -631,6 +631,8 @@ model AgendaNotificationTemplate {
   body          String   @db.Text
   /// JSON-array van agenda-slugs; alleen aangevinkte agenda's krijgen dit sjabloon (mail/SMS).
   calendarSlugs Json     @default("[]")
+  /// Voor reminder/followup: null = iedereen; `enrolled` = status ingeschreven; `not_enrolled` = nog niet ingeschreven.
+  enrollmentFilter String?
   sortOrder     Int      @default(100)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

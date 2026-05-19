@@ -8,6 +8,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { PrismaService } from '../prisma/prisma.service';
+import { isAgendaBookingEnrolled } from './guest-intake-calendars';
 
 export type AgendaConfirmationPayload = {
   toEmail: string | null;
@@ -29,7 +30,23 @@ export type AgendaLifecycleTrigger =
 
 export type DispatchBookingCtx = AgendaConfirmationPayload & {
   calendarSlug: string;
+  /** Huidige reserveringsstatus (o.a. voor opvolg-/herinneringssjablonen). */
+  bookingStatus?: string;
 };
+
+/** Opvolging/herinnering: filter op ingeschreven ja/nee (status `confirmed` = ingeschreven). */
+export function templateMatchesEnrollmentFilter(
+  filter: string | null | undefined,
+  bookingStatus: string | undefined,
+): boolean {
+  const f = filter?.trim();
+  if (!f || f === 'all') return true;
+  const status = bookingStatus ?? '';
+  const enrolled = isAgendaBookingEnrolled(status);
+  if (f === 'enrolled') return enrolled;
+  if (f === 'not_enrolled') return !enrolled;
+  return true;
+}
 
 export function parseSlugList(raw: unknown): string[] {
   if (raw == null) return [];
@@ -113,7 +130,11 @@ export class AgendaNotificationService {
 
       const vars = buildAgendaMailPlaceholderVars(ctx, 'html');
 
-      const matches = rows.filter((t) => templateAppliesToCalendar(t.calendarSlugs, ctx.calendarSlug));
+      const matches = rows.filter(
+        (t) =>
+          templateAppliesToCalendar(t.calendarSlugs, ctx.calendarSlug) &&
+          templateMatchesEnrollmentFilter(t.enrollmentFilter, ctx.bookingStatus),
+      );
 
       const dueNow = matches.filter((t) => t.offsetMinutes === 0);
       const deferred = matches.filter((t) => t.offsetMinutes !== 0);

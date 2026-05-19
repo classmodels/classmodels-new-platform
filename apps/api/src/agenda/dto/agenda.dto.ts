@@ -567,6 +567,10 @@ export class CreateAgendaNotificationTemplateDto {
   calendarSlugs?: string[];
 
   @IsOptional()
+  @IsIn(['all', 'enrolled', 'not_enrolled'])
+  enrollmentFilter?: 'all' | 'enrolled' | 'not_enrolled';
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   sortOrder?: number;
@@ -610,6 +614,10 @@ export class UpdateAgendaNotificationTemplateDto {
   @ArrayMinSize(1)
   @IsString({ each: true })
   calendarSlugs?: string[];
+
+  @IsOptional()
+  @IsIn(['all', 'enrolled', 'not_enrolled'])
+  enrollmentFilter?: 'all' | 'enrolled' | 'not_enrolled' | null;
 
   @IsOptional()
   @Type(() => Number)

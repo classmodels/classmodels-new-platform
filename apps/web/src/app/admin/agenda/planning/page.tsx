@@ -48,7 +48,7 @@ const STATUS_OPTS = [
   { v: 'pending', label: 'Actieve afspraken' },
   { v: 'confirmed', label: 'Ingeschreven' },
   { v: 'acknowledged', label: 'Komst bevestigd' },
-  { v: 'attended', label: 'Aanwezig' },
+  { v: 'attended', label: 'Langs geweest' },
   { v: 'cancelled', label: 'Geannuleerd' },
   { v: 'cancelled_cm', label: 'Geannuleerd (CM)' },
   { v: 'no_show', label: 'Niet ingeschreven' },
@@ -129,7 +129,7 @@ function bookingLabel(status: string): string {
     pending: 'Afspraak',
     confirmed: 'Ingeschreven',
     acknowledged: 'Komst bevestigd',
-    attended: 'Aanwezig',
+    attended: 'Langs geweest',
     cancelled: 'Geannuleerd',
     cancelled_cm: 'Geannuleerd (CM)',
     no_show: 'Niet ingeschreven',
@@ -456,15 +456,18 @@ export default function AdminAgendaPlanningPage() {
   const saveDetail = async () => {
     if (!token || !detail) return;
     const preparedFj = prepareFieldsJsonForSave(detail.fieldsJson);
-    const vErr = validateBookingDetailForSave({
-      name: detail.name,
-      firstname: detail.firstname,
-      lastname: detail.lastname,
-      email: detail.email,
-      phone: detail.phone,
-      status: detail.status,
-      fieldsJson: preparedFj,
-    });
+    const vErr = validateBookingDetailForSave(
+      {
+        name: detail.name,
+        firstname: detail.firstname,
+        lastname: detail.lastname,
+        email: detail.email,
+        phone: detail.phone,
+        status: detail.status,
+        fieldsJson: preparedFj,
+      },
+      { adminLoose: true },
+    );
     if (vErr) {
       setDetailErr(vErr);
       return;
@@ -562,16 +565,6 @@ export default function AdminAgendaPlanningPage() {
 
   const submitDraft = async () => {
     if (!token || !draft) return;
-    const missing: string[] = [];
-    if (!draft.name.trim()) missing.push('naam');
-    if (!draft.firstname.trim()) missing.push('voornaam');
-    if (!draft.lastname.trim()) missing.push('familienaam');
-    if (!draft.email.trim() || !draft.email.includes('@')) missing.push('e-mail');
-    if (!draft.phone.trim()) missing.push('GSM');
-    if (missing.length) {
-      setDetailErr(`Verplicht invullen: ${missing.join(', ')}.`);
-      return;
-    }
     setDraftBusy(true);
     setDetailErr(null);
     try {
@@ -582,11 +575,11 @@ export default function AdminAgendaPlanningPage() {
           slotDate: draft.slotDate,
           startTime: draft.startTime,
           endTime: draft.endTime,
-          name: draft.name.trim() || 'Handmatig',
-          email: draft.email.trim(),
-          firstname: draft.firstname.trim(),
-          lastname: draft.lastname.trim(),
-          phone: draft.phone.trim(),
+          name: draft.name.trim() || 'Handmatig (admin)',
+          email: draft.email.trim() || undefined,
+          firstname: draft.firstname.trim() || undefined,
+          lastname: draft.lastname.trim() || undefined,
+          phone: draft.phone.trim() || undefined,
         }),
       });
       setDraft(null);
@@ -871,8 +864,8 @@ export default function AdminAgendaPlanningPage() {
                                     key={b.id}
                                     type="button"
                                     onClick={() => openDetail(b.id)}
-                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
-                                    style={grey ? undefined : { backgroundColor: b.calendar.color }}
+                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400 opacity-55' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
+                                    style={grey ? undefined : { backgroundColor: b.calendar.color, opacity: struck ? 0.55 : 1 }}
                                   >
                                     <div>
                                       {b.slot.startTime.slice(0, 5)} – {b.slot.endTime.slice(0, 5)}
@@ -955,8 +948,8 @@ export default function AdminAgendaPlanningPage() {
                                           type="button"
                                           onClick={() => openDetail(b.id)}
                                           title={`${nm} — ${bookingLabel(b.status)}`}
-                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight shadow-sm sm:text-[9px] ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
-                                          style={grey ? undefined : { backgroundColor: b.calendar.color }}
+                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight shadow-sm sm:text-[9px] ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400 opacity-55' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
+                                          style={grey ? undefined : { backgroundColor: b.calendar.color, opacity: struck ? 0.55 : 1 }}
                                         >
                                           <div className="font-semibold">
                                             {dfTime.format(new Date(b.startAt))} – {dfTime.format(new Date(b.endAt))}
@@ -1007,7 +1000,7 @@ export default function AdminAgendaPlanningPage() {
                                 key={b.id}
                                 type="button"
                                 onClick={() => openDetail(b.id)}
-                                className={`flex w-full items-start gap-3 rounded-md border-l-4 border-black px-3 py-2 text-left text-sm shadow-sm ${grey ? 'bg-zinc-200' : 'bg-emerald-100'} ${struck ? 'line-through' : ''}`}
+                                className={`flex w-full items-start gap-3 rounded-md border-l-4 border-black px-3 py-2 text-left text-sm shadow-sm ${grey ? 'bg-zinc-200 opacity-60' : 'bg-emerald-100'} ${struck ? 'line-through decoration-zinc-600' : ''}`}
                               >
                                 <span className="shrink-0 font-medium text-ink">
                                   {b.slot.startTime.slice(0, 5)} – {b.slot.endTime.slice(0, 5)}

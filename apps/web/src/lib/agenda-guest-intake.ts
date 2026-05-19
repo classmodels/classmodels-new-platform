@@ -6,7 +6,27 @@ export function isGuestIntakeCalendarSlug(slug: string): boolean {
 }
 
 /** Niet verplicht op bovengenoemde gastagenda’s (foto, opmerkingen, “hoe bij ons terecht”). */
-export const GUEST_INTAKE_OPTIONAL_FIELD_KEYS = new Set(['foto', 'bericht', 'hoe_terecht']);
+export const GUEST_INTAKE_OPTIONAL_FIELD_KEYS = new Set(['foto', 'bericht', 'hoe_terecht', 'opmerkingen']);
+
+/** Niet verplicht bij elke online gastboeking (alle agenda's). */
+export const GUEST_BOOKING_OPTIONAL_FIELD_KEYS = new Set([
+  'foto',
+  'bericht',
+  'opmerkingen',
+  'hoe_terecht',
+  'hoe_bij_ons',
+  'referentie',
+  'via',
+]);
+
+export function isGuestBookingOptionalFieldKey(fieldKey: string, fieldType?: string): boolean {
+  if (fieldType === 'file') return true;
+  const k = fieldKey.trim().toLowerCase();
+  if (GUEST_BOOKING_OPTIONAL_FIELD_KEYS.has(fieldKey) || GUEST_BOOKING_OPTIONAL_FIELD_KEYS.has(k)) return true;
+  if (k.includes('opmerking') || k === 'bericht') return true;
+  if (k.startsWith('hoe_') || k.includes('terecht') || k.includes('referent')) return true;
+  return false;
+}
 
 export const GUEST_MINOR_PARENT_FIELD_KEYS = {
   name: 'ouder_naam',

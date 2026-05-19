@@ -3,6 +3,32 @@ export const GUEST_INTAKE_CALENDAR_SLUGS = new Set(['intake-gesprek', 'casting',
 
 export const GUEST_INTAKE_OPTIONAL_FIELD_KEYS = new Set(['foto', 'bericht', 'hoe_terecht']);
 
+/** Niet verplicht bij online boeking door gasten (alle agenda's). */
+export const GUEST_BOOKING_OPTIONAL_FIELD_KEYS = new Set([
+  'foto',
+  'bericht',
+  'opmerkingen',
+  'hoe_terecht',
+  'hoe_bij_ons',
+  'referentie',
+  'via',
+]);
+
+export function isGuestBookingOptionalFieldKey(fieldKey: string, fieldType?: string): boolean {
+  if (fieldType === 'file') return true;
+  const k = fieldKey.trim().toLowerCase();
+  if (GUEST_BOOKING_OPTIONAL_FIELD_KEYS.has(fieldKey)) return true;
+  if (GUEST_BOOKING_OPTIONAL_FIELD_KEYS.has(k)) return true;
+  if (k.includes('opmerking') || k === 'bericht') return true;
+  if (k.startsWith('hoe_') || k.includes('terecht') || k.includes('referent')) return true;
+  return false;
+}
+
+/** Ingeschreven bij het bureau (admin-status). */
+export function isAgendaBookingEnrolled(status: string): boolean {
+  return status === 'confirmed';
+}
+
 export const GUEST_MINOR_PARENT_FIELD_KEYS = {
   name: 'ouder_naam',
   phone: 'ouder_gsm',

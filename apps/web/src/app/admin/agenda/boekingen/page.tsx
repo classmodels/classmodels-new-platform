@@ -49,7 +49,7 @@ const STATUS_OPTS = [
   { v: 'pending', label: 'Actieve afspraken' },
   { v: 'confirmed', label: 'Ingeschreven' },
   { v: 'acknowledged', label: 'Komst bevestigd' },
-  { v: 'attended', label: 'Aanwezig' },
+  { v: 'attended', label: 'Langs geweest' },
   { v: 'cancelled', label: 'Geannuleerd' },
   { v: 'cancelled_cm', label: 'Geannuleerd (CM)' },
   { v: 'no_show', label: 'Niet ingeschreven' },
@@ -256,15 +256,18 @@ export default function AdminAgendaBoekingenPage() {
   const saveDetail = async () => {
     if (!token || !detail) return;
     const preparedFj = prepareFieldsJsonForSave(detail.fieldsJson);
-    const vErr = validateBookingDetailForSave({
-      name: detail.name,
-      firstname: detail.firstname,
-      lastname: detail.lastname,
-      email: detail.email,
-      phone: detail.phone,
-      status: detail.status,
-      fieldsJson: preparedFj,
-    });
+    const vErr = validateBookingDetailForSave(
+      {
+        name: detail.name,
+        firstname: detail.firstname,
+        lastname: detail.lastname,
+        email: detail.email,
+        phone: detail.phone,
+        status: detail.status,
+        fieldsJson: preparedFj,
+      },
+      { adminLoose: true },
+    );
     if (vErr) {
       setDetailErr(vErr);
       return;
