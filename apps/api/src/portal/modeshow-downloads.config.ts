@@ -7,9 +7,22 @@ export function modeshowFilmAvailableFrom(): Date {
   return Number.isFinite(d.getTime()) ? d : new Date('2026-05-21T00:00:00+02:00');
 }
 
-export function modeshowPhotosFolderSlug(): string {
+/** Mappen waar foto-ZIP en film gezocht worden (komma-gescheiden in env). */
+export function modeshowPhotosFolderSlugs(): string[] {
   const raw = process.env.MODEL_MODESHOW_PHOTOS_FOLDER?.trim();
-  return raw || 'fotomodeshow-klein';
+  if (raw) {
+    return raw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+  }
+  return ['fotomodeshow-klein', 'uploads'];
+}
+
+/** Optioneel: vaste ZIP-bestandsnaam (anders nieuwste .zip met “modeshow” in de naam). */
+export function modeshowZipOriginalName(): string | null {
+  const raw = process.env.MODEL_MODESHOW_ZIP_NAME?.trim();
+  return raw || null;
 }
 
 /** Optioneel: vaste bestandsnaam voor de film; anders nieuwste video in de map. */

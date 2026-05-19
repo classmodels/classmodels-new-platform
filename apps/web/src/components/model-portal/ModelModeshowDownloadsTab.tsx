@@ -11,6 +11,7 @@ type ModeshowMeta = {
   filmAvailableFromLabel: string;
   photosAvailableNow: boolean;
   folderSlug: string;
+  folderSlugs?: string[];
   photosZip: { id: string; originalName: string; sizeBytes: number } | null;
   film: { id: string; originalName: string; sizeBytes: number; mimeType: string } | null;
 };
@@ -79,14 +80,16 @@ export function ModelModeshowDownloadsTab() {
   }
 
   const filmFromLabel = meta?.filmAvailableFromLabel ?? '21 mei 2026';
+  const searchFolders = meta?.folderSlugs?.join(', ') ?? meta?.folderSlug ?? 'uploads';
 
   return (
-    <div className="mx-auto max-w-lg space-y-8">
+    <div className="space-y-6">
       <p className="text-sm leading-relaxed text-muted">
         Download hieronder de foto&apos;s (ZIP) en de film van de try-out modeshow.
       </p>
       {err ? <p className="text-sm text-red-700">{err}</p> : null}
 
+      <div className="grid gap-4 md:grid-cols-2">
       <section className="rounded-xl border border-line bg-white p-5 shadow-sm">
         <h3 className="font-serif text-lg font-semibold text-burgundy">Foto&apos;s</h3>
         <button
@@ -116,7 +119,8 @@ export function ModelModeshowDownloadsTab() {
           </p>
         ) : (
           <p className="mt-3 text-xs text-amber-900">
-            Nog geen ZIP gevonden in mediatheek-map «{meta?.folderSlug ?? 'fotomodeshow-klein'}».
+            Nog geen ZIP gevonden in mediatheek ({searchFolders}). Zet «Modeshow … .zip» in map <strong>Uploads</strong>{' '}
+            of upload opnieuw via Mediatheek.
           </p>
         )}
       </section>

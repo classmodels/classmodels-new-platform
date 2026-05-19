@@ -33,7 +33,8 @@ import {
   formatModeshowNlDate,
   modeshowFilmAvailableFrom,
   modeshowFilmOriginalName,
-  modeshowPhotosFolderSlug,
+  modeshowPhotosFolderSlugs,
+  modeshowZipOriginalName,
 } from '../portal/modeshow-downloads.config';
 
 /**
@@ -1298,63 +1299,103 @@ export class MediaService {
     };
   }
 
+  private async findModeshowZipInFolder(folderId: string) {
+    const zipName = modeshowZipOriginalName();
+    const zipWhere = {
+      folderId,
+      hardDeleted: false,
+      OR: [
+        { mimeType: 'application/zip' },
+        { storageKey: { endsWith: '.zip' } },
+        { originalName: { endsWith: '.zip' } },
+      ],
+      ...(zipName ? { originalName: zipName } : {}),
+    };
+    const rows = await this.prisma.mediaAsset.findMany({
+      where: zipWhere,
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, originalName: true, sizeBytes: true, storageKey: true },
+      take: 20,
+    });
+    const root = this.root();
+    const onDisk = rows.filter((r) => existsSync(join(root, r.storageKey)));
+    if (!onDisk.length) return null;
+    if (zipName) return onDisk[0]!;
+    const modeshow = onDisk.find((r) => /modeshow/i.test(r.originalName));
+    return modeshow ?? onDisk[0]!;
+  }
+
+  private async findModeshowFilmInFolder(folderId: string) {
+    const filmName = modeshowFilmOriginalName();
+    const filmRow = await this.prisma.mediaAsset.findFirst({
+      where: {
+        folderId,
+        hardDeleted: false,
+        ...(filmName ?
+          { originalName: filmName }
+        : {
+            OR: [
+              { mimeType: { startsWith: 'video/' } },
+              { storageKey: { endsWith: '.mp4' } },
+              { storageKey: { endsWith: '.mov' } },
+              { storageKey: { endsWith: '.webm' } },
+              { storageKey: { endsWith: '.m4v' } },
+            ],
+          }),
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, originalName: true, sizeBytes: true, storageKey: true, mimeType: true },
+    });
+    if (!filmRow || !existsSync(join(this.root(), filmRow.storageKey))) return null;
+    return filmRow;
+  }
+
   /** Status voor modeshow-downloads in het modellenportaal. */
   async getModeshowDownloadsMeta() {
     const filmAvailableFrom = modeshowFilmAvailableFrom();
     const now = new Date();
-    const folderSlug = modeshowPhotosFolderSlug();
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: folderSlug } });
+    const folderSlugs = modeshowPhotosFolderSlugs();
     let photosZip: { id: string; originalName: string; sizeBytes: number } | null = null;
     let film: { id: string; originalName: string; sizeBytes: number; mimeType: string } | null = null;
+    let folderSlug = folderSlugs[0] ?? 'uploads';
 
-    if (folder) {
-      const zipRow = await this.prisma.mediaAsset.findFirst({
-        where: {
-          folderId: folder.id,
-          hardDeleted: false,
-          OR: [
-            { mimeType: 'application/zip' },
-            { storageKey: { endsWith: '.zip' } },
-            { originalName: { endsWith: '.zip' } },
-          ],
-        },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, originalName: true, sizeBytes: true, storageKey: true },
-      });
-      if (zipRow && existsSync(join(this.root(), zipRow.storageKey))) {
-        photosZip = {
-          id: zipRow.id,
-          originalName: zipRow.originalName,
-          sizeBytes: zipRow.sizeBytes,
-        };
-      }
-
-      const filmName = modeshowFilmOriginalName();
-      const filmRow = await this.prisma.mediaAsset.findFirst({
-        where: {
-          folderId: folder.id,
-          hardDeleted: false,
-          ...(filmName ?
-            { originalName: filmName }
-          : {
-              OR: [
-                { mimeType: { startsWith: 'video/' } },
-                { storageKey: { endsWith: '.mp4' } },
-                { storageKey: { endsWith: '.mov' } },
-                { storageKey: { endsWith: '.webm' } },
-              ],
-            }),
-        },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, originalName: true, sizeBytes: true, storageKey: true, mimeType: true },
-      });
-      if (filmRow && existsSync(join(this.root(), filmRow.storageKey))) {
+    for (const slug of folderSlugs) {
+      const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+      if (!folder) continue;
+      const zipRow = await this.findModeshowZipInFolder(folder.id);
+      if (!zipRow) continue;
+      folderSlug = slug;
+      photosZip = {
+        id: zipRow.id,
+        originalName: zipRow.originalName,
+        sizeBytes: zipRow.sizeBytes,
+      };
+      const filmRow = await this.findModeshowFilmInFolder(folder.id);
+      if (filmRow) {
         film = {
           id: filmRow.id,
           originalName: filmRow.originalName,
           sizeBytes: filmRow.sizeBytes,
           mimeType: filmRow.mimeType,
         };
+      }
+      break;
+    }
+
+    if (!film) {
+      for (const slug of folderSlugs) {
+        const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+        if (!folder) continue;
+        const filmRow = await this.findModeshowFilmInFolder(folder.id);
+        if (filmRow) {
+          film = {
+            id: filmRow.id,
+            originalName: filmRow.originalName,
+            sizeBytes: filmRow.sizeBytes,
+            mimeType: filmRow.mimeType,
+          };
+          break;
+        }
       }
     }
 
@@ -1364,6 +1405,7 @@ export class MediaService {
       filmAvailableFromLabel: formatModeshowNlDate(filmAvailableFrom),
       photosAvailableNow: Boolean(photosZip),
       folderSlug,
+      folderSlugs,
       photosZip,
       film,
     };

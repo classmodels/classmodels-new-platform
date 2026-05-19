@@ -24,5 +24,6 @@ NODE_ENV=production
 # COMBELL_UPLOAD_TIMEOUT_MS=7200000
 # Modellenportaal modeshow-downloads (map fotomodeshow-klein in mediatheek)
 # MODEL_MODESHOW_FILM_FROM=2026-05-21T00:00:00+02:00
-# MODEL_MODESHOW_PHOTOS_FOLDER=fotomodeshow-klein
+# MODEL_MODESHOW_PHOTOS_FOLDER=uploads,fotomodeshow-klein
+# MODEL_MODESHOW_ZIP_NAME=Modeshow ok JPG klein .zip
 # MODEL_MODESHOW_FILM_NAME=modeshow-film.mp4
