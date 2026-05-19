@@ -159,6 +159,7 @@ export function ModelModeshowDownloadsTab() {
           <p className="mt-3 text-xs text-amber-900">Nog geen film in de mediatheek-map.</p>
         ) : null}
       </section>
+      </div>
     </div>
   );
 }
