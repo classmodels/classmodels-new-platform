@@ -6,8 +6,10 @@ import { apiFetch, getApiBase, parseApiErrorBody } from '@/lib/api';
 import { MODEL_BTN_GOLD, MODEL_BTN_SILVER } from './model-portal-buttons';
 
 type ModeshowMeta = {
-  availableFrom: string;
-  availableNow: boolean;
+  filmAvailableFrom: string;
+  filmAvailableNow: boolean;
+  filmAvailableFromLabel: string;
+  photosAvailableNow: boolean;
   folderSlug: string;
   photosZip: { id: string; originalName: string; sizeBytes: number } | null;
   film: { id: string; originalName: string; sizeBytes: number; mimeType: string } | null;
@@ -18,12 +20,6 @@ function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function formatNlDate(iso: string): string {
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return iso;
-  return d.toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 async function downloadWithToken(path: string, token: string, fallbackName: string) {
@@ -82,83 +78,83 @@ export function ModelModeshowDownloadsTab() {
     return <p className="text-sm text-muted">Laden…</p>;
   }
 
-  const fromLabel = meta ? formatNlDate(meta.availableFrom) : '';
+  const filmFromLabel = meta?.filmAvailableFromLabel ?? '21 mei 2026';
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-line bg-white p-5 shadow-sm">
-        <h2 className="font-serif text-xl font-semibold text-burgundy">Modeshow 28 maart</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          Download de foto&apos;s (ZIP) en de film van de modeshow. Je krijgt het volledige bestand zoals geüpload door
-          het bureau.
-        </p>
-        {meta && !meta.availableNow ? (
-          <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            Beschikbaar vanaf <strong>{fromLabel}</strong>.
+    <div className="mx-auto max-w-lg space-y-8">
+      <p className="text-sm leading-relaxed text-muted">
+        Download hieronder de foto&apos;s (ZIP) en de film van de try-out modeshow.
+      </p>
+      {err ? <p className="text-sm text-red-700">{err}</p> : null}
+
+      <section className="rounded-xl border border-line bg-white p-5 shadow-sm">
+        <h3 className="font-serif text-lg font-semibold text-burgundy">Foto&apos;s</h3>
+        <button
+          type="button"
+          disabled={!meta?.photosAvailableNow || !meta.photosZip || busy !== null}
+          className={`mt-4 w-full ${MODEL_BTN_SILVER}`}
+          onClick={() => {
+            if (!token) return;
+            setBusy('photos');
+            void downloadWithToken(
+              '/portal/model/modeshow-downloads/photos.zip',
+              token,
+              meta?.photosZip?.originalName ?? 'fotomodeshow.zip',
+            )
+              .catch((e) => alert(e instanceof Error ? e.message : 'Download mislukt'))
+              .finally(() => setBusy(null));
+          }}
+        >
+          {busy === 'photos' ? 'Bezig…' : 'Download foto’s try-out modeshow'}
+        </button>
+        {meta?.photosZip ? (
+          <p className="mt-3 rounded-md border border-line bg-panel/60 px-3 py-2 text-xs text-ink">
+            <span className="font-medium">ZIP op de server:</span>
+            <br />
+            {meta.photosZip.originalName}
+            <span className="text-muted"> ({formatBytes(meta.photosZip.sizeBytes)})</span>
           </p>
+        ) : (
+          <p className="mt-3 text-xs text-amber-900">
+            Nog geen ZIP gevonden in mediatheek-map «{meta?.folderSlug ?? 'fotomodeshow-klein'}».
+          </p>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-line bg-white p-5 shadow-sm">
+        <h3 className="font-serif text-lg font-semibold text-burgundy">Film</h3>
+        <p className="mt-2 text-sm text-amber-950">
+          Beschikbaar vanaf <strong>{filmFromLabel}</strong>
+        </p>
+        <button
+          type="button"
+          disabled={!meta?.filmAvailableNow || !meta.film || busy !== null}
+          className={`mt-4 w-full ${MODEL_BTN_GOLD}`}
+          onClick={() => {
+            if (!token) return;
+            setBusy('film');
+            void downloadWithToken(
+              '/portal/model/modeshow-downloads/film',
+              token,
+              meta?.film?.originalName ?? 'modeshow-film.mp4',
+            )
+              .catch((e) => alert(e instanceof Error ? e.message : 'Download mislukt'))
+              .finally(() => setBusy(null));
+          }}
+        >
+          {busy === 'film' ? 'Bezig…' : 'Download film try-out modeshow'}
+        </button>
+        {meta?.film ? (
+          <p className="mt-3 rounded-md border border-line bg-panel/60 px-3 py-2 text-xs text-ink">
+            <span className="font-medium">Bestand:</span>
+            <br />
+            {meta.film.originalName}
+            <span className="text-muted"> ({formatBytes(meta.film.sizeBytes)})</span>
+          </p>
+        ) : meta?.filmAvailableNow ? (
+          <p className="mt-3 text-xs text-amber-900">Nog geen film in de mediatheek-map.</p>
         ) : null}
-        {err ? <p className="mt-3 text-sm text-red-700">{err}</p> : null}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <section className="rounded-xl border border-line bg-panel/40 p-5">
-          <h3 className="font-semibold text-ink">Foto&apos;s</h3>
-          {meta?.photosZip ? (
-            <p className="mt-2 text-xs text-ink">
-              {meta.photosZip.originalName} ({formatBytes(meta.photosZip.sizeBytes)})
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-amber-900">Nog geen ZIP in «{meta?.folderSlug}».</p>
-          )}
-          <button
-            type="button"
-            disabled={!meta?.availableNow || !meta.photosZip || busy !== null}
-            className={`mt-4 w-full ${MODEL_BTN_SILVER}`}
-            onClick={() => {
-              if (!token) return;
-              setBusy('photos');
-              void downloadWithToken(
-                '/portal/model/modeshow-downloads/photos.zip',
-                token,
-                meta?.photosZip?.originalName ?? 'fotomodeshow-28-maart.zip',
-              )
-                .catch((e) => alert(e instanceof Error ? e.message : 'Download mislukt'))
-                .finally(() => setBusy(null));
-            }}
-          >
-            {busy === 'photos' ? 'Bezig…' : 'Download de foto’s van de modeshow 28 maart'}
-          </button>
-        </section>
-
-        <section className="rounded-xl border border-line bg-panel/40 p-5">
-          <h3 className="font-semibold text-ink">Film</h3>
-          {meta?.film ? (
-            <p className="mt-2 text-xs text-ink">
-              {meta.film.originalName} ({formatBytes(meta.film.sizeBytes)})
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-amber-900">Nog geen video in de map.</p>
-          )}
-          <button
-            type="button"
-            disabled={!meta?.availableNow || !meta.film || busy !== null}
-            className={`mt-4 w-full ${MODEL_BTN_GOLD}`}
-            onClick={() => {
-              if (!token) return;
-              setBusy('film');
-              void downloadWithToken(
-                '/portal/model/modeshow-downloads/film',
-                token,
-                meta?.film?.originalName ?? 'modeshow-film.mp4',
-              )
-                .catch((e) => alert(e instanceof Error ? e.message : 'Download mislukt'))
-                .finally(() => setBusy(null));
-            }}
-          >
-            {busy === 'film' ? 'Bezig…' : 'Download hier de film van de modeshow'}
-          </button>
-        </section>
-      </div>
+      </section>
     </div>
   );
 }

@@ -103,7 +103,7 @@ export const messagesNl = {
     tabPremium: 'Premium',
     tabJobs: 'Opdrachten',
     tabTryout: 'Try-out modeshow',
-    tabModeshow28: 'Modeshow 28 maart',
+    tabModeshow28: "Download foto's / film try-out",
     tabProfile: 'Mijn profiel / modellenfiche',
     tabPortfolio: 'Portfolio afspraak',
     tabTraining: 'Opleidingsafspraak',

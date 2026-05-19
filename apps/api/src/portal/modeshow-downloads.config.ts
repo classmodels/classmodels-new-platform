@@ -1,9 +1,10 @@
-/** Modellenportaal: downloads modeshow 28 maart (configureerbaar via env). */
-export function modeshowDownloadsAvailableFrom(): Date {
+/** Modellenportaal: downloads try-out modeshow (configureerbaar via env). */
+
+export function modeshowFilmAvailableFrom(): Date {
   const raw =
-    process.env.MODEL_MODESHOW_DOWNLOAD_FROM?.trim() || '2026-05-20T00:00:00+02:00';
+    process.env.MODEL_MODESHOW_FILM_FROM?.trim() || '2026-05-21T00:00:00+02:00';
   const d = new Date(raw);
-  return Number.isFinite(d.getTime()) ? d : new Date('2026-05-20T00:00:00+02:00');
+  return Number.isFinite(d.getTime()) ? d : new Date('2026-05-21T00:00:00+02:00');
 }
 
 export function modeshowPhotosFolderSlug(): string {
@@ -17,13 +18,17 @@ export function modeshowFilmOriginalName(): string | null {
   return raw || null;
 }
 
-export function assertModeshowDownloadsAvailable(now = new Date()): void {
-  if (now < modeshowDownloadsAvailableFrom()) {
-    const from = modeshowDownloadsAvailableFrom().toLocaleDateString('nl-BE', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-    throw new Error(`MODESHOW_NOT_YET:${from}`);
+export function formatModeshowNlDate(d: Date): string {
+  return d.toLocaleDateString('nl-BE', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export function assertModeshowFilmAvailable(now = new Date()): void {
+  const from = modeshowFilmAvailableFrom();
+  if (now < from) {
+    throw new Error(`MODESHOW_FILM_NOT_YET:${formatModeshowNlDate(from)}`);
   }
 }

@@ -3,7 +3,7 @@ export const MODEL_PORTAL_TABS = [
   { id: 'premium', label: 'Premium' },
   { id: 'opdrachten', label: 'Opdrachten' },
   { id: 'tryout-modeshow', label: 'Try-out modeshow' },
-  { id: 'modeshow-28', label: 'Modeshow 28 maart' },
+  { id: 'modeshow-28', label: "Download foto's / film try-out" },
   { id: 'profiel', label: 'Mijn profiel / modellenfiche' },
   { id: 'portfolio', label: 'Portfolio afspraak' },
   { id: 'opleiding', label: 'Opleidingsafspraak' },

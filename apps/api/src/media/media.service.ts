@@ -29,8 +29,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import sharp from 'sharp';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 import {
-  assertModeshowDownloadsAvailable,
-  modeshowDownloadsAvailableFrom,
+  assertModeshowFilmAvailable,
+  formatModeshowNlDate,
+  modeshowFilmAvailableFrom,
   modeshowFilmOriginalName,
   modeshowPhotosFolderSlug,
 } from '../portal/modeshow-downloads.config';
@@ -1299,7 +1300,7 @@ export class MediaService {
 
   /** Status voor modeshow-downloads in het modellenportaal. */
   async getModeshowDownloadsMeta() {
-    const availableFrom = modeshowDownloadsAvailableFrom();
+    const filmAvailableFrom = modeshowFilmAvailableFrom();
     const now = new Date();
     const folderSlug = modeshowPhotosFolderSlug();
     const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: folderSlug } });
@@ -1358,31 +1359,30 @@ export class MediaService {
     }
 
     return {
-      availableFrom: availableFrom.toISOString(),
-      availableNow: now >= availableFrom,
+      filmAvailableFrom: filmAvailableFrom.toISOString(),
+      filmAvailableNow: now >= filmAvailableFrom,
+      filmAvailableFromLabel: formatModeshowNlDate(filmAvailableFrom),
+      photosAvailableNow: Boolean(photosZip),
       folderSlug,
       photosZip,
       film,
     };
   }
 
-  private modeshowAvailabilityGuard() {
+  private modeshowFilmAvailabilityGuard() {
     try {
-      assertModeshowDownloadsAvailable();
+      assertModeshowFilmAvailable();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.startsWith('MODESHOW_NOT_YET:')) {
-        const from = msg.slice('MODESHOW_NOT_YET:'.length);
-        throw new BadRequestException(
-          `Downloads zijn beschikbaar vanaf ${from}.`,
-        );
+      if (msg.startsWith('MODESHOW_FILM_NOT_YET:')) {
+        const from = msg.slice('MODESHOW_FILM_NOT_YET:'.length);
+        throw new BadRequestException(`De film is beschikbaar vanaf ${from}.`);
       }
       throw e;
     }
   }
 
   async streamModeshowPhotosZip(modelUserId: string, res: Response): Promise<void> {
-    this.modeshowAvailabilityGuard();
     const meta = await this.getModeshowDownloadsMeta();
     if (!meta.photosZip) throw new NotFoundException('Geen fot ZIP gevonden in de mediatheek.');
     await this.streamMediaAssetDownload(meta.photosZip.id, res);
@@ -1393,7 +1393,7 @@ export class MediaService {
   }
 
   async streamModeshowFilm(modelUserId: string, res: Response): Promise<void> {
-    this.modeshowAvailabilityGuard();
+    this.modeshowFilmAvailabilityGuard();
     const meta = await this.getModeshowDownloadsMeta();
     if (!meta.film) throw new NotFoundException('Geen film gevonden in de mediatheek.');
     await this.streamMediaAssetDownload(meta.film.id, res);
