@@ -10,7 +10,7 @@ function escHtml(s) {
 }
 /** Vervangt `{{key}}` en daarna `{key}` (langere sleutels eerst bij enkele accolades). */
 function applyAgendaMailPlaceholders(template, vars) {
-    let out = template;
+    let out = typeof template === 'string' ? template : String(template ?? '');
     const entries = Object.entries(vars).sort((a, b) => b[0].length - a[0].length);
     for (const [k, v] of entries) {
         const safe = v ?? '';

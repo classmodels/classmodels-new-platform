@@ -7,7 +7,7 @@ export type AgendaMailPlaceholderContext = {
     confirmUrl: string;
 };
 /** Vervangt `{{key}}` en daarna `{key}` (langere sleutels eerst bij enkele accolades). */
-export declare function applyAgendaMailPlaceholders(template: string, vars: Record<string, string>): string;
+export declare function applyAgendaMailPlaceholders(template: string | null | undefined, vars: Record<string, string>): string;
 export declare function buildAgendaMailPlaceholderVars(ctx: AgendaMailPlaceholderContext, mode: 'html' | 'plain'): Record<string, string>;
 /** Vaste demowaarden voor admin-voorbeeld (zelfde stijl als echte mail). */
 export declare function buildAgendaMailPreviewDemoVars(): Record<string, string>;
