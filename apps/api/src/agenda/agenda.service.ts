@@ -9,7 +9,10 @@ import {
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
-import { AgendaNotificationService } from './agenda-notifications.service';
+import {
+  AgendaNotificationService,
+  parseSlugList,
+} from './agenda-notifications.service';
 import {
   AdminBookingsRangeQueryDto,
   AdminCalendarMonthQueryDto,
@@ -896,7 +899,8 @@ export class AgendaService {
       }
       const st = String(slot.startTime ?? '');
       const et = String(slot.endTime ?? '');
-      const timeLabel = `${st.slice(0, 5)} – ${et.slice(0, 5)}`;
+      const showEnd = cal.showEndTimeOnPublic !== false;
+      const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
 
       void this.notifications
         .dispatchBookingLifecycle('booking_created', {
@@ -1338,7 +1342,42 @@ export class AgendaService {
       data.planningTextOnColor = dto.planningTextOnColor === 'black' ? 'black' : 'white';
     }
 
-    return this.prisma.agendaCalendar.update({ where: { id }, data });
+    const updated = await this.prisma.agendaCalendar.update({ where: { id }, data });
+
+    if (dto.slug !== undefined && dto.slug !== cal.slug) {
+      await this.syncNotificationTemplateSlugsAfterCalendarRename(cal.slug, dto.slug);
+    }
+
+    return updated;
+  }
+
+  /** Bij hernoemen van een agenda-slug: sjabloon-lijsten bijwerken zodat SMS/mail blijven matchen. */
+  private async syncNotificationTemplateSlugsAfterCalendarRename(oldSlug: string, newSlug: string) {
+    const templates = await this.prisma.agendaNotificationTemplate.findMany({
+      select: { id: true, calendarSlugs: true },
+    });
+    for (const t of templates) {
+      const slugs = parseSlugList(t.calendarSlugs);
+      if (!slugs.includes(oldSlug)) continue;
+      const next = slugs.map((s) => (s === oldSlug ? newSlug : s));
+      await this.prisma.agendaNotificationTemplate.update({
+        where: { id: t.id },
+        data: { calendarSlugs: next as unknown as Prisma.InputJsonValue },
+      });
+    }
+  }
+
+  /** Alle agenda's aangevinkt = lege lijst (alle agenda's) in de database. */
+  private async normalizeTemplateCalendarSlugs(slugs: string[] | undefined): Promise<string[]> {
+    const input = (slugs ?? []).map((s) => s.trim()).filter(Boolean);
+    if (!input.length) return [];
+    const all = await this.prisma.agendaCalendar.findMany({ select: { slug: true } });
+    const allSlugs = all.map((c) => c.slug);
+    const filtered = input.filter((s) => allSlugs.includes(s));
+    if (filtered.length === allSlugs.length && allSlugs.every((s) => filtered.includes(s))) {
+      return [];
+    }
+    return filtered;
   }
 
   async adminDeleteCalendar(id: string) {
@@ -1424,7 +1463,8 @@ export class AgendaService {
     });
 
     const email = dto.email?.trim();
-    if (email) {
+    const phone = dto.phone?.trim();
+    if (email || phone) {
       try {
         const dateLabel = new Intl.DateTimeFormat('nl-BE', {
           weekday: 'long',
@@ -1434,13 +1474,14 @@ export class AgendaService {
         }).format(slotDate);
         const st = String(slot.startTime ?? '');
         const et = String(slot.endTime ?? '');
-        const timeLabel = `${st.slice(0, 5)} – ${et.slice(0, 5)}`;
+        const showEnd = cal.showEndTimeOnPublic !== false;
+        const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
         const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
         const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
         void this.notifications
           .dispatchBookingLifecycle('booking_created', {
-            toEmail: email,
-            phone: dto.phone?.trim() || null,
+            toEmail: email || null,
+            phone: phone || null,
             displayName: name,
             calendarTitle: String(cal.title ?? ''),
             calendarSlug: String(cal.slug ?? ''),
@@ -1888,7 +1929,7 @@ export class AgendaService {
   }
 
   async adminCreateNotificationTemplate(dto: CreateAgendaNotificationTemplateDto) {
-    const slugs = dto.calendarSlugs ?? [];
+    const slugs = await this.normalizeTemplateCalendarSlugs(dto.calendarSlugs);
     return this.prisma.agendaNotificationTemplate.create({
       data: {
         channel: dto.channel,
@@ -1916,7 +1957,9 @@ export class AgendaService {
     if (dto.subject !== undefined) data.subject = dto.subject;
     if (dto.body !== undefined) data.body = dto.body;
     if (dto.calendarSlugs !== undefined) {
-      data.calendarSlugs = dto.calendarSlugs as unknown as Prisma.InputJsonValue;
+      data.calendarSlugs = (await this.normalizeTemplateCalendarSlugs(
+        dto.calendarSlugs,
+      )) as unknown as Prisma.InputJsonValue;
     }
     if (dto.sortOrder !== undefined) data.sortOrder = dto.sortOrder;
     return this.prisma.agendaNotificationTemplate.update({ where: { id }, data });

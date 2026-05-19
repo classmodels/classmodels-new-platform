@@ -31,10 +31,38 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   calendarSlug: string;
 };
 
-function parseSlugList(raw: unknown): string[] {
+export function parseSlugList(raw: unknown): string[] {
   if (raw == null) return [];
-  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
+  let v: unknown = raw;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return [];
+    try {
+      v = JSON.parse(t) as unknown;
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
   return [];
+}
+
+/** Lege lijst = alle agenda's; volledige lijst (alle slugs) idem; anders alleen opgegeven slugs. */
+export function templateAppliesToCalendar(
+  templateSlugsRaw: unknown,
+  calendarSlug: string,
+  allCalendarSlugs: string[],
+): boolean {
+  const slugs = parseSlugList(templateSlugsRaw);
+  if (!slugs.length) return true;
+  if (
+    allCalendarSlugs.length > 0 &&
+    slugs.length >= allCalendarSlugs.length &&
+    allCalendarSlugs.every((s) => slugs.includes(s))
+  ) {
+    return true;
+  }
+  return slugs.includes(calendarSlug);
 }
 
 /** Belgische GSM → E.164 +32… voor BulkSMS. */
@@ -94,13 +122,15 @@ export class AgendaNotificationService {
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       });
 
+      const allCalendarSlugs = (
+        await this.prisma.agendaCalendar.findMany({ select: { slug: true } })
+      ).map((c) => c.slug);
+
       const vars = buildAgendaMailPlaceholderVars(ctx, 'html');
 
-      const matches = rows.filter((t) => {
-        const slugs = parseSlugList(t.calendarSlugs);
-        /** Lege lijst = alle agenda's (zoals voorheen). */
-        return !slugs.length || slugs.includes(ctx.calendarSlug);
-      });
+      const matches = rows.filter((t) =>
+        templateAppliesToCalendar(t.calendarSlugs, ctx.calendarSlug, allCalendarSlugs),
+      );
 
       const dueNow = matches.filter((t) => t.offsetMinutes === 0);
       const deferred = matches.filter((t) => t.offsetMinutes !== 0);
@@ -149,14 +179,21 @@ export class AgendaNotificationService {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (msisdn) {
           if (!smsTemplates.length) {
-            this.log.debug(
-              `Agenda "${ctx.calendarSlug}": geen actief SMS-sjabloon (offset 0) — geen SMS verstuurd.`,
+            const activeSms = rows.filter((t) => t.offsetMinutes === 0 && t.channel === 'sms');
+            this.log.warn(
+              activeSms.length
+                ? `Agenda "${ctx.calendarSlug}": geen SMS-sjabloon van toepassing (${activeSms.length} actief maar andere agenda's). Zet geen vinkjes = alle agenda's, of vink deze agenda aan.`
+                : `Agenda "${ctx.calendarSlug}": geen actief SMS-sjabloon bij nieuwe boeking (offset 0).`,
             );
           } else {
-            this.log.debug(
-              `Agenda "${ctx.calendarSlug}": SMS-sjabloon(nen) niet verzonden (BulkSMS-credentials of fout).`,
+            this.log.warn(
+              `Agenda "${ctx.calendarSlug}": SMS niet verstuurd naar ${msisdn} (BulkSMS-account of API-fout).`,
             );
           }
+        } else if (ctx.phone?.trim()) {
+          this.log.warn(
+            `Agenda "${ctx.calendarSlug}": GSM ongeldig voor SMS (${ctx.phone.trim()}).`,
+          );
         }
       }
     } catch (e) {
