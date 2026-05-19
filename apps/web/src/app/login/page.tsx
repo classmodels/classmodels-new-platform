@@ -58,6 +58,12 @@ function LoginForm() {
         <p className="font-medium text-ink">{t('auth.demoTitle')}</p>
         <p className="mt-1 text-muted">{t('auth.demoPasswordHint')}</p>
         <p className="mt-1 font-mono text-sm text-burgundy">Demo123!</p>
+        <p className="mt-3 border-t border-line pt-2 text-[11px] leading-relaxed text-muted">
+          <strong className="text-ink">Geïmporteerde modellen</strong> (vanuit WordPress) hebben geen oud WP-wachtwoord
+          meer. Bij import is één <strong>tijdelijk wachtwoord</strong> voor alle nieuwe accounts gezet (wat de
+          beheerder toen koos, bv. <span className="font-mono text-ink">classmodels2026!</span>). Log in met je{' '}
+          <strong>e-mailadres</strong> + dat tijdelijke wachtwoord; daarna kun je een eigen wachtwoord kiezen.
+        </p>
         <table className="mt-2 w-full text-left text-[11px] text-muted">
           <tbody>
             <tr>

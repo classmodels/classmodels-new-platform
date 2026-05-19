@@ -9,6 +9,7 @@ import {
   mkdirSync,
   existsSync,
   unlinkSync,
+  renameSync,
   statSync,
   writeFileSync,
   readdirSync,
@@ -27,7 +28,12 @@ import { countMediaFilesShallow, resolveMediaRoot } from '../config/resolve-medi
 import { PrismaService } from '../prisma/prisma.service';
 import sharp from 'sharp';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
-import { extractZipArchiveToMediaRoot } from './media-zip-import';
+import {
+  assertModeshowDownloadsAvailable,
+  modeshowDownloadsAvailableFrom,
+  modeshowFilmOriginalName,
+  modeshowPhotosFolderSlug,
+} from '../portal/modeshow-downloads.config';
 
 /**
  * Hosting: zo licht mogelijk (opslag + bandbreedte), nog aanvaardbaar voor web.
@@ -1235,8 +1241,8 @@ export class MediaService {
    * Bestanden die al als storageKey/webpKey/thumbKey bestaan, worden overgeslagen.
    */
   /**
-   * Upload een .zip (tot ~6 GB via schijf), uitpakken naar MEDIA_ROOT, registreren in map.
-   * Grote bestanden: zet MEDIA_ZIP_UPLOAD_MAX_BYTES; reverse proxy moet lange uploads toestaan.
+   * Upload een .zip (tot ~6 GB) als één mediabestand in de gekozen map (niet uitpakken).
+   * Modellen downloaden het .zip-bestand via het modellenportaal.
    */
   async importZipUpload(file: Express.Multer.File, userId: string, folderId: string) {
     const zipPath = (file as Express.Multer.File & { path?: string }).path;
@@ -1256,40 +1262,167 @@ export class MediaService {
     const root = this.root();
     this.ensureMediaRootWritable(root);
 
-    const extracted = await extractZipArchiveToMediaRoot(zipPath, root);
+    const id = randomUUID();
+    const storageKey = `${id}.zip`;
+    const dest = join(root, storageKey);
     try {
-      unlinkSync(zipPath);
+      renameSync(zipPath, dest);
     } catch {
-      /**/
+      throw new BadRequestException('ZIP kon niet naar MEDIA_ROOT worden verplaatst.');
     }
 
-    let registered = 0;
-    let regSkipped = 0;
-    const errors: string[] = [];
-    for (let round = 0; round < 80; round++) {
-      const r = await this.registerDiskOrphanAssets(userId, {
-        folderSlug: folder.slug,
-        limit: 500,
-        dryRun: false,
-      });
-      registered += r.registered;
-      regSkipped += r.skipped;
-      if (r.errors.length) errors.push(...r.errors.slice(0, 5));
-      if (r.registered === 0) break;
-    }
+    const originalName = basename(file.originalname || 'archief.zip');
+    const sizeBytes = statSync(dest).size;
+
+    const created = await this.prisma.mediaAsset.create({
+      data: {
+        originalName,
+        storageKey,
+        mimeType: 'application/zip',
+        sizeBytes,
+        uploadedById: userId,
+        folderId: folder.id,
+      },
+    });
+    this.invalidateDiskBasenameIndex();
 
     return {
       ok: true,
       folderSlug: folder.slug,
       mediaRoot: root,
-      zipName: file.originalname,
-      extractedFiles: extracted.extracted,
-      skippedZipEntries: extracted.skippedEntries,
-      bytesWritten: extracted.bytesWritten,
-      registered,
-      registerSkipped: regSkipped,
-      errors: errors.slice(0, 12),
+      zipName: originalName,
+      assetId: created.id,
+      storageKey: created.storageKey,
+      sizeBytes,
     };
+  }
+
+  /** Status voor modeshow-downloads in het modellenportaal. */
+  async getModeshowDownloadsMeta() {
+    const availableFrom = modeshowDownloadsAvailableFrom();
+    const now = new Date();
+    const folderSlug = modeshowPhotosFolderSlug();
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: folderSlug } });
+    let photosZip: { id: string; originalName: string; sizeBytes: number } | null = null;
+    let film: { id: string; originalName: string; sizeBytes: number; mimeType: string } | null = null;
+
+    if (folder) {
+      const zipRow = await this.prisma.mediaAsset.findFirst({
+        where: {
+          folderId: folder.id,
+          hardDeleted: false,
+          OR: [
+            { mimeType: 'application/zip' },
+            { storageKey: { endsWith: '.zip' } },
+            { originalName: { endsWith: '.zip' } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, originalName: true, sizeBytes: true, storageKey: true },
+      });
+      if (zipRow && existsSync(join(this.root(), zipRow.storageKey))) {
+        photosZip = {
+          id: zipRow.id,
+          originalName: zipRow.originalName,
+          sizeBytes: zipRow.sizeBytes,
+        };
+      }
+
+      const filmName = modeshowFilmOriginalName();
+      const filmRow = await this.prisma.mediaAsset.findFirst({
+        where: {
+          folderId: folder.id,
+          hardDeleted: false,
+          ...(filmName ?
+            { originalName: filmName }
+          : {
+              OR: [
+                { mimeType: { startsWith: 'video/' } },
+                { storageKey: { endsWith: '.mp4' } },
+                { storageKey: { endsWith: '.mov' } },
+                { storageKey: { endsWith: '.webm' } },
+              ],
+            }),
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, originalName: true, sizeBytes: true, storageKey: true, mimeType: true },
+      });
+      if (filmRow && existsSync(join(this.root(), filmRow.storageKey))) {
+        film = {
+          id: filmRow.id,
+          originalName: filmRow.originalName,
+          sizeBytes: filmRow.sizeBytes,
+          mimeType: filmRow.mimeType,
+        };
+      }
+    }
+
+    return {
+      availableFrom: availableFrom.toISOString(),
+      availableNow: now >= availableFrom,
+      folderSlug,
+      photosZip,
+      film,
+    };
+  }
+
+  private modeshowAvailabilityGuard() {
+    try {
+      assertModeshowDownloadsAvailable();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.startsWith('MODESHOW_NOT_YET:')) {
+        const from = msg.slice('MODESHOW_NOT_YET:'.length);
+        throw new BadRequestException(
+          `Downloads zijn beschikbaar vanaf ${from}.`,
+        );
+      }
+      throw e;
+    }
+  }
+
+  async streamModeshowPhotosZip(modelUserId: string, res: Response): Promise<void> {
+    this.modeshowAvailabilityGuard();
+    const meta = await this.getModeshowDownloadsMeta();
+    if (!meta.photosZip) throw new NotFoundException('Geen fot ZIP gevonden in de mediatheek.');
+    await this.streamMediaAssetDownload(meta.photosZip.id, res);
+    void this.modelHistory.log(modelUserId, 'modeshow_photos_zip_downloaded', {
+      assetId: meta.photosZip.id,
+      name: meta.photosZip.originalName,
+    });
+  }
+
+  async streamModeshowFilm(modelUserId: string, res: Response): Promise<void> {
+    this.modeshowAvailabilityGuard();
+    const meta = await this.getModeshowDownloadsMeta();
+    if (!meta.film) throw new NotFoundException('Geen film gevonden in de mediatheek.');
+    await this.streamMediaAssetDownload(meta.film.id, res);
+    void this.modelHistory.log(modelUserId, 'modeshow_film_downloaded', {
+      assetId: meta.film.id,
+      name: meta.film.originalName,
+    });
+  }
+
+  /** Download één mediabestand (storageKey) voor ingelogde modellen. */
+  async streamMediaAssetDownload(assetId: string, res: Response): Promise<void> {
+    const row = await this.prisma.mediaAsset.findFirst({
+      where: { id: assetId, hardDeleted: false },
+    });
+    if (!row) throw new NotFoundException('Bestand niet gevonden.');
+    const full = join(this.root(), row.storageKey);
+    if (!existsSync(full)) throw new NotFoundException('Bestand ontbreekt op schijf.');
+    const downloadName = await this.resolveDownloadFilename(row.storageKey);
+    if (row.mimeType) res.setHeader('Content-Type', row.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+    );
+    return new Promise<void>((resolve, reject) => {
+      const stream = createReadStream(full);
+      stream.on('error', reject);
+      stream.on('end', () => resolve());
+      stream.pipe(res);
+    });
   }
 
   async registerDiskOrphanAssets(

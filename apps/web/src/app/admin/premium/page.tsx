@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { MODEL_BTN_GOLD, MODEL_BTN_SILVER } from '@/components/model-portal/model-portal-buttons';
 
 type Sub = {
   id: string;
@@ -198,9 +199,9 @@ export default function AdminPremiumPage() {
                           type="button"
                           disabled={busyId === m.id || m.premiumActive}
                           onClick={() => void setPremium(m.id, true)}
-                          className="rounded border border-emerald-700 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold uppercase text-emerald-900 hover:bg-emerald-100 disabled:opacity-40"
+                          className={`px-2 py-0.5 text-[10px] ${MODEL_BTN_GOLD}`}
                         >
-                          Premium aan
+                          Premium worden
                         </button>
                         <button
                           type="button"

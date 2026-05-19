@@ -22,3 +22,7 @@ NODE_ENV=production
 # Grote ZIP in mediatheek (admin): standaard max 6 GB; proxy-timeout 2 uur
 # MEDIA_ZIP_UPLOAD_MAX_BYTES=6442450944
 # COMBELL_UPLOAD_TIMEOUT_MS=7200000
+# Modellenportaal modeshow-downloads (map fotomodeshow-klein in mediatheek)
+# MODEL_MODESHOW_DOWNLOAD_FROM=2026-05-20T00:00:00+02:00
+# MODEL_MODESHOW_PHOTOS_FOLDER=fotomodeshow-klein
+# MODEL_MODESHOW_FILM_NAME=modeshow-film.mp4

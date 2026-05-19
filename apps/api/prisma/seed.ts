@@ -611,6 +611,7 @@ async function main() {
     ['tijdelijke-uploads', 'Tijdelijke uploads'],
     ['portfolio-fotograaf', 'Portfolio (fotograaf → model)'],
     ['portfolio-divers', 'Portfolio (divers / geen model)'],
+    ['fotomodeshow-klein', 'Foto modeshow (klein / ZIP)'],
   ];
   for (const [slug, label] of folders) {
     await prisma.mediaFolder.upsert({

@@ -32,6 +32,7 @@ export function useModelPortalTabLabels() {
         { id: 'premium' as ModelPortalTabId, label: t('modelPortal.tabPremium') },
         { id: 'opdrachten' as ModelPortalTabId, label: t('modelPortal.tabJobs') },
         { id: 'tryout-modeshow' as ModelPortalTabId, label: t('modelPortal.tabTryout') },
+        { id: 'modeshow-28' as ModelPortalTabId, label: t('modelPortal.tabModeshow28') },
         { id: 'profiel' as ModelPortalTabId, label: t('modelPortal.tabProfile') },
         { id: 'portfolio' as ModelPortalTabId, label: t('modelPortal.tabPortfolio') },
         { id: 'opleiding' as ModelPortalTabId, label: t('modelPortal.tabTraining') },

@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { MODEL_BTN_SILVER } from '@/components/model-portal/model-portal-buttons';
 
 type RoleOpt = { id: string; slug: string; label: string };
 
@@ -312,6 +313,15 @@ function AdminGebruikersPageContent() {
       body: JSON.stringify(patch),
     });
     await load();
+  };
+
+  const gradeToSilver = async (u: UserRow) => {
+    if (!can('admin.users.write')) return;
+    const slugs = u.roles.map((r) => r.role.slug).filter((s) => s !== 'newface');
+    if (!slugs.includes('model')) slugs.push('model');
+    if (!window.confirm(`“${u.email}” graderen naar zilver (modelrol)?`)) return;
+    await toggleQuick(u.id, { roleSlugs: slugs });
+    setMsg('Rol bijgewerkt: model (zilver).');
   };
 
   const roleCounts = useMemo(() => {
@@ -733,6 +743,16 @@ function AdminGebruikersPageContent() {
                   </button>
                   {can('admin.users.write') ? (
                     <>
+                      {u.roles.some((r) => r.role.slug === 'newface') ? (
+                        <button
+                          type="button"
+                          className={`mr-2 ${MODEL_BTN_SILVER} !px-2 !py-0.5 text-[10px]`}
+                          title="New face → model (zilver)"
+                          onClick={() => void gradeToSilver(u)}
+                        >
+                          Graderen naar zilver
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className="mr-2 text-burgundy hover:underline"

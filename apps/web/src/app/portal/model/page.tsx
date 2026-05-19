@@ -25,6 +25,8 @@ import { ModelPortalHistoriekTab } from '@/components/model-portal/ModelPortalHi
 import { ModelPortalPushTab } from '@/components/model-portal/ModelPortalPushTab';
 import { ModelPremiumTab } from '@/components/model-portal/ModelPremiumTab';
 import { ModelTryoutModeshowTab } from '@/components/model-portal/ModelTryoutModeshowTab';
+import { ModelModeshowDownloadsTab } from '@/components/model-portal/ModelModeshowDownloadsTab';
+import { MODEL_BTN_GOLD } from '@/components/model-portal/model-portal-buttons';
 import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data';
 import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
@@ -450,11 +452,8 @@ function ModelPortalPageInner() {
 
   const premiumButton =
     can('payments.checkout') && !portalUser.isPremium ? (
-      <Link
-        href="/portal/model?tab=premium"
-        className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-amber-200 via-amber-300 to-amber-400 px-5 py-2.5 text-sm font-bold tracking-wide text-zinc-900 shadow-md hover:opacity-95"
-      >
-        Premium
+      <Link href="/portal/model?tab=premium" className={MODEL_BTN_GOLD}>
+        Premium worden
       </Link>
     ) : null;
 
@@ -696,6 +695,15 @@ function ModelPortalPageInner() {
     );
   } else if (tab === 'opdrachten') {
     main = <p className="text-sm text-muted">Je hebt geen toegang tot opdrachten.</p>;
+  } else if (tab === 'modeshow-28' && can('portal.model.media.read')) {
+    main = <ModelModeshowDownloadsTab />;
+  } else if (tab === 'modeshow-28') {
+    main = (
+      <p className="text-sm text-muted">
+        Je account heeft geen rechten voor downloads. Vraag het bureau om{' '}
+        <code className="rounded bg-zinc-100 px-1 text-xs">portal.model.media.read</code>.
+      </p>
+    );
   } else if (tab === 'tryout-modeshow' && can('portal.model.briefs.read')) {
     sectionHeaderRight = tryoutHeaderRight ?? undefined;
     main = <ModelTryoutModeshowTab onHeaderRightChange={setTryoutHeaderRight} />;
@@ -770,9 +778,9 @@ function ModelPortalPageInner() {
                   type="button"
                   disabled={checkoutBusy || portalUser.isPremium}
                   onClick={() => startPremium()}
-                  className="mt-3 rounded-cm bg-burgundy px-3 py-2 text-xs font-medium text-white hover:bg-burgundyDeep disabled:opacity-50"
+                  className={`mt-3 ${MODEL_BTN_GOLD} text-xs`}
                 >
-                  {checkoutBusy ? 'Bezig…' : portalUser.isPremium ? 'Premium actief' : 'Premium afrekenen (Mollie)'}
+                  {checkoutBusy ? 'Bezig…' : portalUser.isPremium ? 'Premium actief' : 'Premium worden'}
                 </button>
                 <p className="mt-3 text-xs">
                   <Link href="/portal/model?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">

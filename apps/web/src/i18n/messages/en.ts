@@ -103,6 +103,7 @@ export const messagesEn = {
     tabPremium: 'Premium',
     tabJobs: 'Jobs',
     tabTryout: 'Try-out fashion show',
+    tabModeshow28: 'Fashion show 28 March',
     tabProfile: 'My profile / model sheet',
     tabPortfolio: 'Portfolio appointment',
     tabTraining: 'Training appointment',

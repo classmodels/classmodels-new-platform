@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { AuthUser } from '@/context/auth-context';
+import { MODEL_BTN_GOLD } from './model-portal-buttons';
 
 /** Adviesprijs voor marketing (niet uit Mollie). */
 const PREMIUM_REFERENCE_PRICE = 99;
@@ -77,9 +78,9 @@ export function ModelPremiumTab({
                 type="button"
                 disabled={checkoutBusy}
                 onClick={onStartCheckout}
-                className="rounded-full bg-white px-6 py-3 text-sm font-bold uppercase tracking-wide text-burgundy shadow-lg transition hover:bg-zinc-100 disabled:opacity-50"
+                className={MODEL_BTN_GOLD}
               >
-                {checkoutBusy ? 'Even geduld…' : 'Afrekenen met Mollie'}
+                {checkoutBusy ? 'Even geduld…' : 'Premium worden'}
               </button>
             ) : (
               <p className="max-w-xs text-xs text-white/70">
@@ -155,9 +156,9 @@ export function ModelPremiumTab({
               type="button"
               disabled={checkoutBusy}
               onClick={onStartCheckout}
-              className="shrink-0 rounded-full bg-burgundy px-8 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-md hover:bg-burgundyDeep disabled:opacity-50"
+              className={`shrink-0 ${MODEL_BTN_GOLD}`}
             >
-              {checkoutBusy ? 'Bezig…' : `Premium — €${price}`}
+              {checkoutBusy ? 'Bezig…' : `Premium worden — €${price}`}
             </button>
           ) : active ? (
             <p className="shrink-0 text-sm font-semibold text-emerald-800">Je zit al op premium — bedankt!</p>

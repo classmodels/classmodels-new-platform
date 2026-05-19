@@ -103,6 +103,7 @@ export const messagesFr = {
     tabPremium: 'Premium',
     tabJobs: 'Missions',
     tabTryout: 'Try-out défilé',
+    tabModeshow28: 'Défilé 28 mars',
     tabProfile: 'Mon profil / fiche',
     tabPortfolio: 'Rendez-vous portfolio',
     tabTraining: 'Rendez-vous formation',

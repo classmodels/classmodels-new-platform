@@ -171,7 +171,7 @@ export class MediaController {
     return this.media.saveFile(file, req.user.sub, folderId, label ? { fileLabel: label } : undefined);
   }
 
-  /** ZIP (tot ~6 GB) → uitpakken op schijf → mediaregels in gekozen map. */
+  /** ZIP (tot ~6 GB) → als één bestand in gekozen mediamap (niet uitpakken). */
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('upload-zip')

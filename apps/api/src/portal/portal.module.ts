@@ -11,6 +11,7 @@ import { PortalModelAgendaController } from './portal-model-agenda.controller';
 import { PortalModelBriefsController } from './portal-model-briefs.controller';
 import { PortalModelHistoryController } from './portal-model-history.controller';
 import { PortalModelMediaController } from './portal-model-media.controller';
+import { PortalModelModeshowDownloadsController } from './portal-model-modeshow-downloads.controller';
 import { PortalModelTryoutModeshowController } from './portal-model-tryout-modeshow.controller';
 import { TryoutModeshowService } from './tryout-modeshow.service';
 
@@ -23,6 +24,7 @@ import { TryoutModeshowService } from './tryout-modeshow.service';
     PortalModelAgendaController,
     PortalModelHistoryController,
     PortalModelTryoutModeshowController,
+    PortalModelModeshowDownloadsController,
   ],
   providers: [BriefsService, TryoutModeshowService],
   exports: [BriefsService],

@@ -219,7 +219,7 @@ export default function AdminMediaPage() {
     );
     if (!ok) return;
     setZipUploading(true);
-    setZipMsg('ZIP uploaden en uitpakken… dit kan enkele minuten tot uren duren bij grote bestanden.');
+    setZipMsg('ZIP uploaden… het bestand wordt als geheel in de mediatheek gezet (niet uitgepakt).');
     try {
       const fd = new FormData();
       fd.append('file', zipFile);
@@ -234,13 +234,12 @@ export default function AdminMediaPage() {
       const text = await res.text();
       if (!res.ok) throw new Error(parseApiErrorBody(text || res.statusText));
       const r = JSON.parse(text) as {
-        extractedFiles: number;
-        registered: number;
-        registerSkipped: number;
-        skippedZipEntries: number;
+        zipName?: string;
+        sizeBytes?: number;
+        folderSlug?: string;
       };
       setZipMsg(
-        `Klaar: ${r.extractedFiles} uit zip · ${r.registered} in mediatheek · ${r.registerSkipped} overgeslagen`,
+        `Klaar: ZIP opgeslagen in map “${r.folderSlug ?? activeFolder?.slug}” — ${r.zipName ?? zipFile.name}${r.sizeBytes ? ` (${formatBytes(r.sizeBytes)})` : ''}`,
       );
       setZipFile(null);
       if (zipInputRef.current) zipInputRef.current.value = '';
