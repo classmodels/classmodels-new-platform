@@ -75,6 +75,15 @@ export class MediaController {
     return res.sendFile(full, { acceptRanges: true });
   }
 
+  /**
+   * Publieke ZIP van een mediamap (bezoekers). Alleen als `publicZipDownload` in mapinstellingen aan staat.
+   * Voorbeeld: /__cm_api/media/folder/testshoot/download.zip
+   */
+  @Get('folder/:slug/download.zip')
+  async publicFolderZip(@Param('slug') slug: string, @Res() res: Response) {
+    await this.media.streamPublicFolderDownloadZip(slug, res);
+  }
+
   /** Zelfde bestand als /public, maar forceert download (attachment). */
   @Get('download/:filename')
   async serveDownload(@Param('filename') filename: string, @Res() res: Response) {

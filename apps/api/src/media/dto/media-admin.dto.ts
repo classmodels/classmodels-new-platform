@@ -34,6 +34,11 @@ export class UpdateFolderSettingsDto {
   @IsOptional()
   @IsBoolean()
   storeUploadsAsWebpOnly?: boolean;
+
+  /** Bezoekers mogen ZIP van deze map via publieke link downloaden. */
+  @IsOptional()
+  @IsBoolean()
+  publicZipDownload?: boolean;
 }
 
 export class DownloadAckDto {

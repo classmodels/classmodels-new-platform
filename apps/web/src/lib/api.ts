@@ -91,6 +91,13 @@ export function publicMediaDownloadUrl(key: string | null | undefined): string {
   return `${getMediaPublicBaseUrl()}/media/download/${encodeURIComponent(k)}`;
 }
 
+/** Publieke ZIP van een mediamap (alleen als publicZipDownload in mapinstellingen aan staat). */
+export function publicFolderZipUrl(folderSlug: string | null | undefined): string {
+  const s = folderSlug?.trim().toLowerCase();
+  if (!s) return '';
+  return `${getMediaPublicBaseUrl()}/media/folder/${encodeURIComponent(s)}/download.zip`;
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit & { token?: string | null },

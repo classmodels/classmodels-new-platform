@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
-import { getApiBase, publicMediaDownloadUrl, publicMediaUrl } from '@/lib/api';
+import { getApiBase, publicFolderZipUrl, publicMediaDownloadUrl, publicMediaUrl } from '@/lib/api';
 import { adminDownloadFile } from '@/lib/admin-api';
 
 type MediaAssetRow = {
@@ -75,6 +75,7 @@ export default function AdminMediaPage() {
   const [moveTargetFolderId, setMoveTargetFolderId] = useState('');
   const [deleteDaysAfterDl, setDeleteDaysAfterDl] = useState('');
   const [folderWebpOnly, setFolderWebpOnly] = useState(false);
+  const [folderPublicZip, setFolderPublicZip] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState('');
   const [newFolderLabel, setNewFolderLabel] = useState('');
   const [storagePanelOpen, setStoragePanelOpen] = useState(false);
@@ -82,7 +83,7 @@ export default function AdminMediaPage() {
   const vidInputRef = useRef<HTMLInputElement>(null);
 
   const [folderZipLoading, setFolderZipLoading] = useState(false);
-  const [copiedKind, setCopiedKind] = useState<'view' | 'download' | null>(null);
+  const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
 
   const [totalAllBytes, setTotalAllBytes] = useState(0);
 
@@ -136,12 +137,14 @@ export default function AdminMediaPage() {
     if (!activeFolder || activeFolder.slug === 'verwijderde') {
       setDeleteDaysAfterDl('');
       setFolderWebpOnly(false);
+      setFolderPublicZip(false);
       setSettingsMsg('');
       return;
     }
     const s = (activeFolder.settings || {}) as {
       deleteDaysAfterModelDownload?: number;
       storeUploadsAsWebpOnly?: boolean;
+      publicZipDownload?: boolean;
     };
     setDeleteDaysAfterDl(
       typeof s.deleteDaysAfterModelDownload === 'number' && s.deleteDaysAfterModelDownload > 0
@@ -149,6 +152,7 @@ export default function AdminMediaPage() {
         : '',
     );
     setFolderWebpOnly(Boolean(s.storeUploadsAsWebpOnly));
+    setFolderPublicZip(Boolean(s.publicZipDownload));
     setSettingsMsg('');
   }, [activeFolder?.id, activeFolder?.slug, activeFolder?.settings]);
 
@@ -235,6 +239,17 @@ export default function AdminMediaPage() {
       setTimeout(() => setCopiedKind(null), 2000);
     } catch {
       prompt(kind === 'download' ? 'Download-URL:' : 'Weergave-URL:', url);
+    }
+  };
+
+  const copyFolderZipUrl = async () => {
+    if (!publicZipLink) return;
+    try {
+      await navigator.clipboard.writeText(publicZipLink);
+      setCopiedKind('folderZip');
+      setTimeout(() => setCopiedKind(null), 2000);
+    } catch {
+      prompt('Publieke ZIP-URL:', publicZipLink);
     }
   };
 
@@ -333,11 +348,14 @@ export default function AdminMediaPage() {
       body: JSON.stringify({
         deleteDaysAfterModelDownload,
         storeUploadsAsWebpOnly: folderWebpOnly,
+        publicZipDownload: folderPublicZip,
       }),
     });
     await load();
     setSettingsMsg('Mapinstellingen opgeslagen.');
   };
+
+  const publicZipLink = activeFolder ? publicFolderZipUrl(activeFolder.slug) : '';
 
   const reoptimizeFolder = async () => {
     if (!token || !activeFolder || activeFolder.slug === 'verwijderde') return;
@@ -577,17 +595,46 @@ export default function AdminMediaPage() {
               <div className="mt-2 rounded border border-line bg-panel/50 px-2 py-2 text-[10px] text-ink">
                 <p className="font-semibold text-ink">Download</p>
                 <p className="mt-0.5 text-[9px] text-muted">
-                  <strong>Weergave-URL</strong> opent de foto in de browser. <strong>Download-URL</strong> start het
-                  bestand (geschikt om te delen of op te slaan). Per foto: klik op een thumbnail → beide URL&apos;s in
-                  het venster.
+                  Per foto: klik op een thumbnail → weergave- en download-URL. Voor bezoekers op de site: zet{' '}
+                  <strong>publieke ZIP-link</strong> aan bij mapinstellingen en plak de URL op een pagina of knop.
                 </p>
+                {folderPublicZip && publicZipLink ? (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[9px] font-medium text-ink">Publieke ZIP (bezoekers, geen login)</p>
+                    <code className="block break-all rounded border border-line bg-white p-1.5 text-[9px] text-muted">
+                      {publicZipLink}
+                    </code>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void copyFolderZipUrl()}
+                        className="rounded border border-burgundy px-2 py-1 text-[10px] font-medium text-burgundy hover:bg-panel"
+                      >
+                        {copiedKind === 'folderZip' ? 'Gekopieerd' : 'Kopieer ZIP-link'}
+                      </button>
+                      <a
+                        href={publicZipLink}
+                        className="rounded bg-burgundy px-2 py-1 text-[10px] font-medium text-white hover:opacity-95"
+                      >
+                        Test download
+                      </a>
+                    </div>
+                    <p className="text-[9px] text-muted">
+                      Grote mappen kunnen even duren; de browser start de download zodra de zip klaar is.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-[9px] text-amber-800">
+                    Publieke ZIP staat uit — vink aan bij mapinstellingen en sla op.
+                  </p>
+                )}
                 <button
                   type="button"
                   disabled={folderZipLoading}
                   onClick={() => void downloadFolderZip()}
-                  className="mt-1.5 rounded border border-burgundy bg-white px-2 py-1 text-[10px] font-medium text-burgundy hover:bg-panel disabled:opacity-50"
+                  className="mt-2 rounded border border-line bg-white px-2 py-1 text-[10px] text-ink hover:bg-panel disabled:opacity-50"
                 >
-                  {folderZipLoading ? 'ZIP wordt gemaakt…' : `Hele map downloaden (${totalAssets} bestanden, ZIP)`}
+                  {folderZipLoading ? 'ZIP wordt gemaakt…' : `Admin: map downloaden (${totalAssets} bestanden)`}
                 </button>
               </div>
             ) : null}
@@ -614,6 +661,14 @@ export default function AdminMediaPage() {
                       onChange={(e) => setFolderWebpOnly(e.target.checked)}
                     />
                     Nieuwe uploads alleen als WebP opslaan
+                  </label>
+                  <label className="flex items-center gap-1.5 text-ink">
+                    <input
+                      type="checkbox"
+                      checked={folderPublicZip}
+                      onChange={(e) => setFolderPublicZip(e.target.checked)}
+                    />
+                    Publieke ZIP-download (bezoekers)
                   </label>
                   <button
                     type="button"

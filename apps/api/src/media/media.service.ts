@@ -48,6 +48,8 @@ export type SaveFileOptions = {
 export type MediaFolderSettings = {
   deleteDaysAfterModelDownload?: number;
   storeUploadsAsWebpOnly?: boolean;
+  /** Publieke link: GET /media/folder/{slug}/download.zip */
+  publicZipDownload?: boolean;
 };
 
 export function parseMediaFolderSettings(raw: unknown): MediaFolderSettings {
@@ -60,12 +62,18 @@ export function parseMediaFolderSettings(raw: unknown): MediaFolderSettings {
   }
   const w = o.storeUploadsAsWebpOnly;
   const storeUploadsAsWebpOnly = typeof w === 'boolean' ? w : undefined;
-  return { deleteDaysAfterModelDownload, storeUploadsAsWebpOnly };
+  const p = o.publicZipDownload;
+  const publicZipDownload = typeof p === 'boolean' ? p : undefined;
+  return { deleteDaysAfterModelDownload, storeUploadsAsWebpOnly, publicZipDownload };
 }
 
 function mergeMediaFolderSettings(
   existing: unknown,
-  patch: { deleteDaysAfterModelDownload?: number; storeUploadsAsWebpOnly?: boolean },
+  patch: {
+    deleteDaysAfterModelDownload?: number;
+    storeUploadsAsWebpOnly?: boolean;
+    publicZipDownload?: boolean;
+  },
 ): MediaFolderSettings {
   const cur = parseMediaFolderSettings(existing);
   const next: MediaFolderSettings = { ...cur };
@@ -75,6 +83,9 @@ function mergeMediaFolderSettings(
   }
   if (patch.storeUploadsAsWebpOnly !== undefined) {
     next.storeUploadsAsWebpOnly = patch.storeUploadsAsWebpOnly;
+  }
+  if (patch.publicZipDownload !== undefined) {
+    next.publicZipDownload = patch.publicZipDownload;
   }
   return next;
 }
@@ -939,6 +950,20 @@ export class MediaService {
     return base;
   }
 
+  /** Publieke ZIP-download voor bezoekers (alleen als map-instelling aan staat). */
+  async streamPublicFolderDownloadZip(slug: string, res: Response): Promise<void> {
+    const normalized = slug.trim().toLowerCase();
+    if (!normalized || !/^[a-z0-9-]+$/.test(normalized)) {
+      throw new NotFoundException();
+    }
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: normalized } });
+    if (!folder) throw new NotFoundException();
+    if (folder.slug === 'verwijderde') throw new NotFoundException();
+    const settings = parseMediaFolderSettings(folder.settings);
+    if (!settings.publicZipDownload) throw new NotFoundException();
+    await this.streamFolderDownloadZipForFolder(folder, res);
+  }
+
   /**
    * ZIP van alle primaire bestanden in een mediamap (admin).
    * Geen verwijdering na download — anders dan portfolio-fotograaf.
@@ -949,7 +974,13 @@ export class MediaService {
     if (folder.slug === 'verwijderde') {
       throw new BadRequestException('Prullenbak kan niet als ZIP worden gedownload.');
     }
+    await this.streamFolderDownloadZipForFolder(folder, res);
+  }
 
+  private async streamFolderDownloadZipForFolder(
+    folder: { id: string; slug: string },
+    res: Response,
+  ): Promise<void> {
     const rows = await this.prisma.mediaAsset.findMany({
       where: { folderId: folder.id, hardDeleted: false },
       orderBy: { createdAt: 'asc' },
@@ -1058,7 +1089,11 @@ export class MediaService {
 
   async updateFolderSettings(
     folderId: string,
-    patch: { deleteDaysAfterModelDownload?: number; storeUploadsAsWebpOnly?: boolean },
+    patch: {
+      deleteDaysAfterModelDownload?: number;
+      storeUploadsAsWebpOnly?: boolean;
+      publicZipDownload?: boolean;
+    },
   ) {
     const f = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
     if (!f) throw new NotFoundException();
