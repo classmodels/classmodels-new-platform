@@ -5,6 +5,19 @@ export type AuthRedirectOptions = {
   fromRegister?: boolean;
 };
 
+export function applyPostLoginRedirect(
+  u: AuthUser,
+  router: { replace: (href: string) => void },
+  opts: AuthRedirectOptions & { next?: string | null } = {},
+) {
+  const next = opts.next;
+  if (next && next.startsWith('/') && !next.startsWith('//')) {
+    router.replace(next);
+    return;
+  }
+  redirectAfterPortalAuth(u, router, opts);
+}
+
 export function redirectAfterPortalAuth(
   u: AuthUser,
   router: { replace: (href: string) => void },

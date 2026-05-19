@@ -79,7 +79,7 @@ function BedanktInner() {
             modellenportaal.
           </p>
           <Link
-            href={`/login?next=${encodeURIComponent(`/portal/model/betaling/bedankt?soort=${kind}`)}`}
+            href={`/?next=${encodeURIComponent(`/portal/model/betaling/bedankt?soort=${kind}`)}`}
             className="mt-6 inline-block rounded-full bg-burgundy px-6 py-2.5 text-sm font-semibold text-white hover:bg-burgundyDeep"
           >
             Inloggen

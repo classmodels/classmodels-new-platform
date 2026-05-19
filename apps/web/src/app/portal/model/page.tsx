@@ -214,7 +214,7 @@ function ModelPortalPageInner() {
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      if (!guestPreview) router.replace('/modellen');
+      if (!guestPreview) router.replace('/');
       return;
     }
     if (

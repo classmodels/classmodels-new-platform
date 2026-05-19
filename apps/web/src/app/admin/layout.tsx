@@ -13,8 +13,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
-    if (!user || !canAccessAdminShell) router.replace('/login');
-  }, [user, loading, canAccessAdminShell, router]);
+    if (!user || !canAccessAdminShell) {
+      const next = pathname ? `/?next=${encodeURIComponent(pathname)}` : '/';
+      router.replace(next);
+    }
+  }, [user, loading, canAccessAdminShell, router, pathname]);
 
   if (loading || !user || !canAccessAdminShell) {
     return (

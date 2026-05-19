@@ -313,7 +313,7 @@ export function EntryAuthPanel({
               </button>
               <button
                 type="button"
-                className="w-full pt-1 text-center text-xs text-burgundy underline underline-offset-2 hover:text-burgundyDeep"
+                className="w-full pt-1 text-left text-xs text-burgundy underline underline-offset-2 hover:text-burgundyDeep"
                 onClick={() => {
                   setSubMode('register');
                   setErr(null);
@@ -388,7 +388,7 @@ export function EntryAuthPanel({
               </button>
               <button
                 type="button"
-                className="w-full pt-1 text-center text-xs text-burgundy underline underline-offset-2"
+                className="w-full pt-1 text-left text-xs text-burgundy underline underline-offset-2"
                 onClick={() => {
                   setSubMode('login');
                   setErr(null);
@@ -441,7 +441,7 @@ export function EntryAuthPanel({
               </button>
               <button
                 type="button"
-                className="w-full pt-1 text-center text-xs text-burgundy underline underline-offset-2"
+                className="w-full pt-1 text-left text-xs text-burgundy underline underline-offset-2"
                 onClick={() => {
                   setSubMode('register');
                   setErr(null);
@@ -521,7 +521,7 @@ export function EntryAuthPanel({
               </button>
               <button
                 type="button"
-                className="w-full pt-1 text-center text-xs text-burgundy underline underline-offset-2"
+                className="w-full pt-1 text-left text-xs text-burgundy underline underline-offset-2"
                 onClick={() => {
                   setSubMode('login');
                   setErr(null);

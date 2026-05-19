@@ -1,17 +1,21 @@
 'use client';
 
 import { useEffect, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 
 export default function PhotographerLayout({ children }: { children: ReactNode }) {
   const { user, loading, can, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
-    if (!user || !can('photographer.portfolio.upload')) router.replace('/login');
-  }, [user, loading, can, router]);
+    if (!user || !can('photographer.portfolio.upload')) {
+      const next = pathname ? `/?next=${encodeURIComponent(pathname)}` : '/';
+      router.replace(next);
+    }
+  }, [user, loading, can, router, pathname]);
 
   if (loading || !user || !can('photographer.portfolio.upload')) {
     return (
@@ -28,7 +32,7 @@ export default function PhotographerLayout({ children }: { children: ReactNode }
           className="text-xs font-medium text-burgundy hover:underline"
           onClick={() => {
             logout();
-            router.replace('/login');
+            router.replace('/');
           }}
         >
           Uitloggen

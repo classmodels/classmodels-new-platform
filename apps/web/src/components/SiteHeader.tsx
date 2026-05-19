@@ -41,7 +41,7 @@ export function SiteHeader() {
             <Link href="/portal/guest" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
             </Link>
-            <Link href={user ? '/portal/model' : '/modellen'} className="text-white/90 hover:text-white">
+            <Link href={user ? '/portal/model' : '/'} className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.model" as="span" className="text-white/90" fallback="Modellenportaal" />
             </Link>
             <Link href="/portal/client" className="text-white/90 hover:text-white">
@@ -63,7 +63,7 @@ export function SiteHeader() {
                 <CmText contentKey="site.header.nav.logout" as="span" className="text-white/80" fallback="Uitloggen" />
               </button>
             ) : (
-              <Link href="/login" className="text-white/90 hover:text-white">
+              <Link href="/" className="text-white/90 hover:text-white">
                 <CmText contentKey="site.header.nav.login" as="span" className="text-white/90" fallback="Inloggen" />
               </Link>
             )}
