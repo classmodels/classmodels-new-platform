@@ -1,7 +1,7 @@
 'use strict';
 /**
- * Combell: soms ontbreekt `next` in root-node_modules na `npm ci` (workspaces/hoisting).
- * Controleer ook apps/web; installeer alleen als het echt ontbreekt.
+ * Combell: na `npm ci` hoort `next` in root of apps/web/node_modules te staan.
+ * Geen `npm install -w @cm/web` — dat kan andere workspace-pakketten (prisma) uit root halen.
  */
 const fs = require('fs');
 const path = require('path');
@@ -21,19 +21,18 @@ if (hasNext()) {
   process.exit(0);
 }
 
-console.error('[ensure-next] next ontbreekt na npm ci; installeer workspaces…');
+console.error('[ensure-next] next ontbreekt na npm ci — installeer alleen next/react in monorepo-root…');
 const r = spawnSync(
   'npm',
-  ['install', '--no-audit', '--no-fund', '--legacy-peer-deps', '-w', '@cm/web'],
+  [
+    'install',
+    '--no-audit',
+    '--no-fund',
+    '--legacy-peer-deps',
+    'next@15.0.3',
+    'react@19.0.0',
+    'react-dom@19.0.0',
+  ],
   { stdio: 'inherit', cwd: root, shell: false },
 );
-if (r.status === 0 && hasNext()) {
-  process.exit(0);
-}
-
-const r2 = spawnSync(
-  'npm',
-  ['install', '--no-audit', '--no-fund', '--legacy-peer-deps'],
-  { stdio: 'inherit', cwd: root, shell: false },
-);
-process.exit(r2.status === null ? 1 : r2.status ?? 1);
+process.exit(r.status === null ? 1 : r.status ?? 1);
