@@ -50,9 +50,7 @@ const PUBLIC_FILE_MIME: Record<string, string> = {
 export class MediaController {
   constructor(private media: MediaService) {}
 
-  /** Publieke URL voor website/app; alleen bestandsnaam (geen pad-traversal). */
-  @Get('public/:filename')
-  serve(@Param('filename') filename: string, @Res() res: Response) {
+  private resolvePublicFile(filename: string): { safe: string; full: string } {
     const safe = basename(filename);
     let full = this.media.resolveAbsolutePathForPublicFilename(safe);
     if (!full && /%[0-9a-fA-F]{2}/.test(filename)) {
@@ -64,9 +62,30 @@ export class MediaController {
       }
     }
     if (!safe || safe === '.' || !full) throw new NotFoundException();
+    return { safe, full };
+  }
+
+  /** Publieke URL voor website/app; alleen bestandsnaam (geen pad-traversal). */
+  @Get('public/:filename')
+  serve(@Param('filename') filename: string, @Res() res: Response) {
+    const { safe, full } = this.resolvePublicFile(filename);
     const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
     if (mime) res.setHeader('Content-Type', mime);
     /** Range-requests: nodig voor betrouwbare `<video>`-playback (o.a. Safari). */
+    return res.sendFile(full, { acceptRanges: true });
+  }
+
+  /** Zelfde bestand als /public, maar forceert download (attachment). */
+  @Get('download/:filename')
+  async serveDownload(@Param('filename') filename: string, @Res() res: Response) {
+    const { safe, full } = this.resolvePublicFile(filename);
+    const downloadName = await this.media.resolveDownloadFilename(safe);
+    const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
+    if (mime) res.setHeader('Content-Type', mime);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
+    );
     return res.sendFile(full, { acceptRanges: true });
   }
 
@@ -243,5 +262,15 @@ export class MediaController {
   ) {
     const n = limit ? parseInt(limit, 10) : 40;
     return this.media.convertFolderPrimaryToJpeg(folderId, Number.isFinite(n) ? n : 40);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.read')
+  @Get('folders/:folderId/download.zip')
+  async folderDownloadZip(
+    @Param('folderId', ParseUUIDPipe) folderId: string,
+    @Res() res: Response,
+  ) {
+    await this.media.streamFolderDownloadZip(folderId, res);
   }
 }

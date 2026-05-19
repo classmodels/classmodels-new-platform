@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
-import { getApiBase, publicMediaUrl } from '@/lib/api';
+import { getApiBase, publicMediaDownloadUrl, publicMediaUrl } from '@/lib/api';
+import { adminDownloadFile } from '@/lib/admin-api';
 
 type MediaAssetRow = {
   id: string;
@@ -69,7 +70,6 @@ export default function AdminMediaPage() {
   const [folderSearch, setFolderSearch] = useState('');
   const [assetSearch, setAssetSearch] = useState('');
   const [detail, setDetail] = useState<{ folder: Folder; asset: MediaAssetRow } | null>(null);
-  const [copied, setCopied] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [moveTargetFolderId, setMoveTargetFolderId] = useState('');
@@ -81,18 +81,8 @@ export default function AdminMediaPage() {
   const imgInputRef = useRef<HTMLInputElement>(null);
   const vidInputRef = useRef<HTMLInputElement>(null);
 
-  const [diskRegLoading, setDiskRegLoading] = useState(false);
-  const [diskRegMsg, setDiskRegMsg] = useState('');
-  const [storageInfo, setStorageInfo] = useState<{
-    mediaRoot: string;
-    diskImageFiles: number;
-    bundleImageFiles: number;
-    sharedImageFiles: number;
-    database: { totalAssets: number; modelsAssets: number };
-    sampleCheck: { missingPrimaryOnDisk: number; scanned: number };
-  } | null>(null);
-  const [storageInfoLoading, setStorageInfoLoading] = useState(false);
-  const [bundleSyncLoading, setBundleSyncLoading] = useState(false);
+  const [folderZipLoading, setFolderZipLoading] = useState(false);
+  const [copiedKind, setCopiedKind] = useState<'view' | 'download' | null>(null);
 
   const [totalAllBytes, setTotalAllBytes] = useState(0);
 
@@ -183,95 +173,6 @@ export default function AdminMediaPage() {
     }
   };
 
-  const loadStorageInfo = async () => {
-    if (!token) return;
-    setStorageInfoLoading(true);
-    try {
-      const r = await adminFetch<{
-        mediaRoot: string;
-        diskImageFiles: number;
-        bundleImageFiles: number;
-        sharedImageFiles: number;
-        database: { totalAssets: number; modelsAssets: number };
-        sampleCheck: { missingPrimaryOnDisk: number; scanned: number };
-      }>('/media/admin/storage-info', token);
-      setStorageInfo(r);
-    } catch (e) {
-      setDiskRegMsg(e instanceof Error ? e.message : 'Opslaginfo laden mislukt');
-    } finally {
-      setStorageInfoLoading(false);
-    }
-  };
-
-  const applyDeployBundle = async (force: boolean) => {
-    if (!token || !canWriteMedia) return;
-    const ok = window.confirm(
-      force ?
-        'Deploy-bundle geforceerd kopiëren naar MEDIA_ROOT (overschrijft indien nodig). Dit kan enkele minuten duren. Doorgaan?'
-      : 'Deploy-bundle / shared/uploads naar MEDIA_ROOT kopiëren als die rijker is dan de huidige map? Doorgaan?',
-    );
-    if (!ok) return;
-    setBundleSyncLoading(true);
-    setDiskRegMsg('');
-    try {
-      const q = force ? '?force=true' : '';
-      const r = await adminFetch<{
-        mediaRoot: string;
-        filesBefore: number;
-        filesAfter: number;
-        logTail?: string;
-      }>(`/media/admin/apply-deploy-bundle${q}`, token, { method: 'POST' });
-      setDiskRegMsg(
-        `Bundle sync: ${r.filesBefore} → ${r.filesAfter} afbeeldingen op schijf · ${r.mediaRoot}`,
-      );
-      await loadStorageInfo();
-      await load();
-    } catch (e) {
-      setDiskRegMsg(e instanceof Error ? e.message : 'Bundle sync mislukt');
-    } finally {
-      setBundleSyncLoading(false);
-    }
-  };
-
-  const registerDiskOrphans = async (dry: boolean) => {
-    if (!token || !canWriteMedia || !activeFolder || isTrashFolder) return;
-    const ok =
-      dry ?
-        window.confirm('Proefrun: er worden geen database-rijen aangemaakt. Alleen tellen.')
-      : window.confirm(
-          `Mediatheek-rijen aanmaken voor bestanden op de server (MEDIA_ROOT) die nog niet in de database staan, in map “${activeFolder.slug}”. Max. 300 per keer. Doorgaan?`,
-        );
-    if (!ok) return;
-    setDiskRegLoading(true);
-    setDiskRegMsg('');
-    try {
-      const q = new URLSearchParams({
-        folderSlug: activeFolder.slug,
-        limit: '300',
-      });
-      if (dry) q.set('dryRun', 'true');
-      const r = await adminFetch<{
-        registered: number;
-        previewWouldRegister: number;
-        skipped: number;
-        dryRun: boolean;
-        mediaRoot: string;
-        errors: string[];
-      }>(`/media/register-disk-orphans?${q}`, token, { method: 'POST' });
-      const msg =
-        r.dryRun ?
-          `Proefrun: ${r.previewWouldRegister} zou(den) registreren · ${r.skipped} overgeslagen · ${r.mediaRoot}`
-        : `${r.registered} geregistreerd · ${r.skipped} overgeslagen · ${r.mediaRoot}`;
-      const errTail = r.errors.length ? ` · ${r.errors.slice(0, 4).join(' · ')}` : '';
-      setDiskRegMsg(msg + errTail);
-      await load();
-    } catch (e) {
-      setDiskRegMsg(e instanceof Error ? e.message : 'Mislukt');
-    } finally {
-      setDiskRegLoading(false);
-    }
-  };
-
   const createFolder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !canWriteMedia) return;
@@ -311,6 +212,31 @@ export default function AdminMediaPage() {
   };
 
   const pub = useCallback((key: string) => publicMediaUrl(key), []);
+  const pubDownload = useCallback((key: string) => publicMediaDownloadUrl(key), []);
+
+  const downloadFolderZip = async () => {
+    if (!token || !activeFolder || isTrashFolder) return;
+    setFolderZipLoading(true);
+    try {
+      const zipName = `${activeFolder.slug}.zip`;
+      await adminDownloadFile(`/media/folders/${activeFolder.id}/download.zip`, token, zipName);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'ZIP-download mislukt');
+    } finally {
+      setFolderZipLoading(false);
+    }
+  };
+
+  const copyMediaUrl = async (key: string, kind: 'view' | 'download') => {
+    const url = kind === 'download' ? pubDownload(key) : pub(key);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedKind(kind);
+      setTimeout(() => setCopiedKind(null), 2000);
+    } catch {
+      prompt(kind === 'download' ? 'Download-URL:' : 'Weergave-URL:', url);
+    }
+  };
 
   const toggleAssetSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -439,17 +365,6 @@ export default function AdminMediaPage() {
     );
     await load();
     setSettingsMsg(`Primair → JPEG: ${res.processed} / ${res.scanned}.`);
-  };
-
-  const copyDetailUrl = async (key: string) => {
-    const url = pub(key);
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      prompt('Kopieer deze URL:', url);
-    }
   };
 
   const folderHint = useMemo(() => {
@@ -658,6 +573,24 @@ export default function AdminMediaPage() {
               })}
             </p>
             {settingsMsg ? <p className="mt-1 text-[10px] text-burgundy">{settingsMsg}</p> : null}
+            {!isTrashFolder && activeFolder && totalAssets > 0 ? (
+              <div className="mt-2 rounded border border-line bg-panel/50 px-2 py-2 text-[10px] text-ink">
+                <p className="font-semibold text-ink">Download</p>
+                <p className="mt-0.5 text-[9px] text-muted">
+                  <strong>Weergave-URL</strong> opent de foto in de browser. <strong>Download-URL</strong> start het
+                  bestand (geschikt om te delen of op te slaan). Per foto: klik op een thumbnail → beide URL&apos;s in
+                  het venster.
+                </p>
+                <button
+                  type="button"
+                  disabled={folderZipLoading}
+                  onClick={() => void downloadFolderZip()}
+                  className="mt-1.5 rounded border border-burgundy bg-white px-2 py-1 text-[10px] font-medium text-burgundy hover:bg-panel disabled:opacity-50"
+                >
+                  {folderZipLoading ? 'ZIP wordt gemaakt…' : `Hele map downloaden (${totalAssets} bestanden, ZIP)`}
+                </button>
+              </div>
+            ) : null}
             {!isTrashFolder && activeFolder ? (
               <div className="mt-2 rounded border border-dashed border-line bg-panel/60 px-2 py-2 text-[10px] text-ink">
                 <p className="font-semibold text-ink">Mapinstellingen</p>
@@ -710,83 +643,6 @@ export default function AdminMediaPage() {
                   <strong>Primair → JPEG</strong> maakt het bronbestand kleiner op schijf (WebP op de site blijft
                   afgeleid).
                 </p>
-              </div>
-            ) : null}
-            {!isTrashFolder && activeFolder && canWriteMedia ? (
-              <div className="mt-2 rounded border border-dashed border-success/50 bg-[rgba(21,147,74,0.06)] px-2 py-2 text-[10px] text-ink">
-                <p className="font-semibold text-success">Opslag (Combell)</p>
-                <p className="mt-0.5 text-[9px] text-muted">
-                  Thumbnails komen uit bestanden onder <span className="font-mono">MEDIA_ROOT</span> (Combell:{' '}
-                  <span className="font-mono">/app/shared/uploads</span>). Pipeline OK maar lege previews = bestanden
-                  staan nog niet op die schijf.
-                </p>
-                {storageInfo ? (
-                  <p className="mt-1 font-mono text-[9px] text-ink">
-                    Schijf: {storageInfo.diskImageFiles} afbeeldingen · DB: {storageInfo.database.totalAssets} assets ·
-                    bundle: {storageInfo.bundleImageFiles} · shared: {storageInfo.sharedImageFiles}
-                    {storageInfo.sampleCheck.missingPrimaryOnDisk > 0 ?
-                      ` · ${storageInfo.sampleCheck.missingPrimaryOnDisk}/${storageInfo.sampleCheck.scanned} recente ontbreken`
-                    : null}
-                    <br />
-                    <span className="break-all">{storageInfo.mediaRoot}</span>
-                  </p>
-                ) : null}
-                <div className="mt-1.5 mb-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={storageInfoLoading || bundleSyncLoading}
-                    onClick={() => void loadStorageInfo()}
-                    className="rounded border border-line bg-white px-2 py-1 text-[10px] text-ink hover:bg-panel disabled:opacity-50"
-                  >
-                    {storageInfoLoading ? 'Laden…' : 'Opslag controleren'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={bundleSyncLoading || storageInfoLoading}
-                    onClick={() => void applyDeployBundle(false)}
-                    className="rounded border border-success/60 bg-white px-2 py-1 text-[10px] font-medium text-success hover:bg-panel disabled:opacity-50"
-                  >
-                    {bundleSyncLoading ? 'Bezig…' : 'Kopieer bundle → MEDIA_ROOT'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={bundleSyncLoading || storageInfoLoading}
-                    onClick={() => void applyDeployBundle(true)}
-                    className="rounded border border-burgundy/40 bg-white px-2 py-1 text-[10px] text-burgundy hover:bg-panel disabled:opacity-50"
-                    title="Overschrijft MEDIA_ROOT als de bundle rijker is"
-                  >
-                    Geforceerd
-                  </button>
-                </div>
-                <p className="font-semibold text-success">Schijf → mediatheek</p>
-                <p className="mt-0.5 text-[9px] text-muted">
-                  Registreer bestanden die al onder <span className="font-mono">MEDIA_ROOT</span> staan maar nog geen
-                  rij in de database hebben (bv. na FTP). Ze komen in de map <strong>{activeFolder.slug}</strong>. Max.
-                  300 per actie; herhaal indien nodig.
-                </p>
-                {diskRegMsg ? (
-                  <p className="mt-1 whitespace-pre-wrap break-all text-[10px] text-ink" title={diskRegMsg}>
-                    {diskRegMsg}
-                  </p>
-                ) : null}
-                <div className="mt-1.5 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={diskRegLoading}
-                    onClick={() => void registerDiskOrphans(true)}
-                    className="rounded border border-success/60 bg-white px-2 py-1 text-[10px] font-medium text-success hover:bg-panel disabled:opacity-50"
-                  >
-                    Proefrun (alleen tellen)
-                  </button>
-                  <button
-                    type="button"
-                    disabled={diskRegLoading}
-                    onClick={() => void registerDiskOrphans(false)}
-                    className="rounded bg-success px-2 py-1 text-[10px] font-medium text-white hover:opacity-95 disabled:opacity-50"
-                  >
-                    Registreer van schijf
-                  </button>
-                </div>
               </div>
             ) : null}
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1041,25 +897,47 @@ export default function AdminMediaPage() {
                   <dd className="font-mono text-[11px]">{detail.asset.id}</dd>
                 </dl>
                 <div className="space-y-1">
-                  <p className="text-xs font-medium text-ink">Publieke URL</p>
+                  <p className="text-xs font-medium text-ink">Weergave-URL (opent in browser)</p>
                   <code className="block break-all rounded border border-line bg-panel p-2 text-[11px] text-muted">
                     {pub(detail.asset.detailKey)}
                   </code>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-1 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="rounded bg-burgundy px-3 py-1.5 text-xs text-white hover:bg-burgundyDeep"
-                      onClick={() => copyDetailUrl(detail.asset.detailKey)}
+                      className="rounded border border-burgundy px-3 py-1.5 text-xs text-burgundy hover:bg-panel"
+                      onClick={() => void copyMediaUrl(detail.asset.detailKey, 'view')}
                     >
-                      {copied ? 'Gekopieerd' : 'URL kopiëren'}
+                      {copiedKind === 'view' ? 'Gekopieerd' : 'Kopieer weergave'}
                     </button>
                     <a
                       href={pub(detail.asset.detailKey)}
                       target="_blank"
                       rel="noreferrer"
+                      className="rounded border border-line px-3 py-1.5 text-xs text-ink hover:bg-panel"
+                    >
+                      Openen
+                    </a>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-ink">Download-URL (start bestand)</p>
+                  <code className="block break-all rounded border border-line bg-panel p-2 text-[11px] text-muted">
+                    {pubDownload(detail.asset.storageKey)}
+                  </code>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="rounded bg-burgundy px-3 py-1.5 text-xs text-white hover:bg-burgundyDeep"
+                      onClick={() => void copyMediaUrl(detail.asset.storageKey, 'download')}
+                    >
+                      {copiedKind === 'download' ? 'Gekopieerd' : 'Kopieer download'}
+                    </button>
+                    <a
+                      href={pubDownload(detail.asset.storageKey)}
+                      download
                       className="rounded border border-burgundy px-3 py-1.5 text-xs text-burgundy hover:bg-panel"
                     >
-                      Openen in nieuw tabblad
+                      Downloaden
                     </a>
                   </div>
                 </div>

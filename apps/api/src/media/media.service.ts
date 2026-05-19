@@ -924,6 +924,77 @@ export class MediaService {
    * ZIP met primaire bestanden (`storageKey`, maximale kwaliteit op schijf).
    * Na een geslaagde stream worden de assets definitief gewist (zoals testshoot-zip).
    */
+  /** Bestandsnaam voor Content-Disposition (originele uploadnaam indien bekend). */
+  async resolveDownloadFilename(publicKey: string): Promise<string> {
+    const base = basename(publicKey);
+    const row = await this.prisma.mediaAsset.findFirst({
+      where: {
+        hardDeleted: false,
+        OR: [{ storageKey: base }, { webpKey: base }, { thumbKey: base }],
+      },
+      select: { originalName: true, storageKey: true },
+    });
+    const name = row?.originalName?.trim();
+    if (name && !name.includes('..') && !name.includes('/')) return name;
+    return base;
+  }
+
+  /**
+   * ZIP van alle primaire bestanden in een mediamap (admin).
+   * Geen verwijdering na download — anders dan portfolio-fotograaf.
+   */
+  async streamFolderDownloadZip(folderId: string, res: Response): Promise<void> {
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException('Map niet gevonden.');
+    if (folder.slug === 'verwijderde') {
+      throw new BadRequestException('Prullenbak kan niet als ZIP worden gedownload.');
+    }
+
+    const rows = await this.prisma.mediaAsset.findMany({
+      where: { folderId: folder.id, hardDeleted: false },
+      orderBy: { createdAt: 'asc' },
+    });
+    const root = this.root();
+    const onDisk = rows.filter((a) => existsSync(join(root, a.storageKey)));
+    if (!onDisk.length) throw new NotFoundException('Geen bestanden op schijf om te downloaden.');
+
+    const zipName = `${folder.slug.replace(/[^\w-]+/g, '-') || 'map'}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(zipName)}`);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    archive.on('error', () => {
+      try {
+        res.end();
+      } catch {
+        /* */
+      }
+    });
+
+    const usedNames = new Set<string>();
+    await new Promise<void>((resolve, reject) => {
+      archive.on('error', reject);
+      archive.on('end', () => resolve());
+      archive.pipe(res);
+      for (const a of onDisk) {
+        const full = join(root, a.storageKey);
+        let name = a.originalName?.trim() || basename(a.storageKey);
+        if (!name || name.includes('..') || name.includes('/')) name = basename(a.storageKey);
+        let finalName = name;
+        let n = 2;
+        while (usedNames.has(finalName)) {
+          const ext = extname(name);
+          const stem = ext ? name.slice(0, -ext.length) : name;
+          finalName = `${stem}-${n}${ext}`;
+          n += 1;
+        }
+        usedNames.add(finalName);
+        archive.append(createReadStream(full), { name: finalName });
+      }
+      void archive.finalize();
+    });
+  }
+
   async streamPortfolioDeliveryZipAndConsume(modelUserId: string, res: Response): Promise<void> {
     await this.purgeScheduledAssets();
     const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'portfolio-fotograaf' } });

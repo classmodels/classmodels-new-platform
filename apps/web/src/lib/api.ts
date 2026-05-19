@@ -84,6 +84,13 @@ export function publicMediaUrl(key: string | null | undefined): string {
   return `${getMediaPublicBaseUrl()}/media/public/${encodeURIComponent(k)}`;
 }
 
+/** Zelfde bestand, maar browser start download i.p.v. inline weergave. */
+export function publicMediaDownloadUrl(key: string | null | undefined): string {
+  const k = key?.trim();
+  if (!k) return '';
+  return `${getMediaPublicBaseUrl()}/media/download/${encodeURIComponent(k)}`;
+}
+
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit & { token?: string | null },
