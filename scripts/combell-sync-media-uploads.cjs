@@ -67,23 +67,49 @@ function hostingMediaSources(root) {
   return [...new Set(out)];
 }
 
+/** Combell Node-container: persistente data onder /app/shared (zie Combell support). */
+function combellContainerMediaDest(root) {
+  const sharedUploads = path.join('/app/shared/uploads');
+  const sharedRoot = path.join('/app/shared');
+  for (const candidate of [sharedUploads, sharedRoot, path.join(root, 'shared', 'uploads'), path.join(root, 'shared')]) {
+    try {
+      fs.mkdirSync(candidate, { recursive: true });
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) return path.resolve(candidate);
+    } catch {
+      /**/
+    }
+  }
+  return sharedUploads;
+}
+
 /**
  * Absoluut pad waar alle uploads moeten staan (Combell shared hosting).
  * - Expliciet absoluut `MEDIA_ROOT` in env → die map (aangemaakt indien nodig)
+ * - Combell-container (HOME=/app): `/app/shared/uploads` (persistent, buiten release)
  * - Anders eerste bestaande hosting-bron
- * - Anders `$HOME/www/cm-media/uploads` (bestaand of nieuw in production / COMBELL_RESOLVE_MEDIA_HOME=1)
+ * - Anders `$HOME/www/cm-media/uploads` (klassieke shared hosting, geen container)
  * - Fallback: `apps/api/uploads` in de repo (alleen voor Docker/dev — niet persistent op Combell-release)
  */
 function resolvePersistentMediaDest(root) {
   const raw = process.env.MEDIA_ROOT?.trim();
   if (raw && path.isAbsolute(raw)) {
     const abs = path.resolve(raw);
+    const home = process.env.HOME?.trim();
+    if (isContainerHome(home) && (raw.includes('/home/') || raw.includes('www/cm-media'))) {
+      console.error(
+        `[combell] MEDIA_ROOT=${raw} is niet zichtbaar in de Node-container — gebruik /app/shared/uploads (Combell persistent).`,
+      );
+      return combellContainerMediaDest(root);
+    }
     try {
       fs.mkdirSync(abs, { recursive: true });
     } catch {
       /* read-only of rechten */
     }
     return abs;
+  }
+  if (isContainerHome(process.env.HOME?.trim())) {
+    return combellContainerMediaDest(root);
   }
   for (const candidate of hostingMediaSources(root)) {
     try {

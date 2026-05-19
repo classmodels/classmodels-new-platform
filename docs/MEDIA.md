@@ -20,9 +20,11 @@
 2. **Foute combinatie**: de API schreef naar `apps/api/uploads`, terwijl een sync-script oude bestanden van `~/www/cm-media/uploads` **éénrichting** naar de release kopieerde. Nieuwe uploads kwamen **nooit** in de persistente map → na deploy weg.
 3. **Dotenv**: `combell-dual-proxy` kan een absoluut `MEDIA_ROOT` zetten, maar `apps/api/.env` met `MEDIA_ROOT=uploads` en `override: true` **overschreef** dat weer → terug naar de release-map.
 
+**Combell Node-container (antwoord support):** Node draait in een container; persistente data hoort in **`./shared/`** → **`/app/shared`** (gebruik **`/app/shared/uploads`** voor mediabestanden). De klassieke file manager-map **`www/cm-media/uploads`** is **niet** hetzelfde bestandssysteem — zet daar **`MEDIA_ROOT` niet** op `/home/…/www/…` tenzij Combell die map expliciet in de container mount.
+
 **Definitieve aanpak (ingebouwd):**
 
-- Start via **`scripts/combell-dual-proxy.cjs`**: vóór Nest wordt `MEDIA_ROOT` gezet op een **absoluut persistent pad** (standaard `$HOME/www/cm-media/uploads`, aangemaakt indien nodig).
+- Start via **`scripts/combell-dual-proxy.cjs`**: vóór Nest wordt `MEDIA_ROOT` gezet op een **absoluut persistent pad** (`/app/shared/uploads` in de container, of `$HOME/www/cm-media/uploads` op klassieke hosting).
 - **`env.bootstrap.ts`**: een absoluut `MEDIA_ROOT` dat al in het proces stond vóór dotenv, wordt **niet** overschreven door `.env`.
 - **`combell-sync-media-uploads.cjs`**: synchroniseert naar **diezelfde** persistente map (niet meer naar `apps/api/uploads` in de release).
 - **Agenda- en fotograaf-uploads** schrijven onder `MEDIA_ROOT/agenda` en `MEDIA_ROOT/photographer-tmp` (zelfde schijf als de mediatheek).

@@ -51,6 +51,11 @@ function isContainerAppHome(home: string | undefined): boolean {
   return h === '/app' || h.endsWith('/app');
 }
 
+/** Persistent uploads in Combell Node-container (support: ./shared → /app/shared). */
+function combellContainerMediaDirs(): string[] {
+  return ['/app/shared/uploads', '/app/shared'];
+}
+
 /** Combell-fout: absolute pad `/www/cm-media/uploads` (zonder home) bestaat niet of is leeg. */
 function isRootlessWwwCmMediaPath(p: string): boolean {
   const n = p.replace(/\\/g, '/').replace(/\/+$/, '');
@@ -82,6 +87,21 @@ function tryFixRootlessWwwCmMediaPath(configured: string): string | null {
  * Absolute MEDIA_ROOT normaliseren: veelvoorkomende Combell-fouten en lege map vóór sync-bron.
  */
 function normalizeAbsoluteMediaRoot(configured: string): string {
+  if (isContainerAppHome(hostingHome()) && (configured.includes('/home/') || configured.includes('www/cm-media'))) {
+    const containerDir = combellContainerMediaDirs().find((d) => {
+      try {
+        return existsSync(d) && statSync(d).isDirectory();
+      } catch {
+        return false;
+      }
+    });
+    const dest = containerDir ?? '/app/shared/uploads';
+    console.error(
+      `[media] MEDIA_ROOT "${configured}" is niet bereikbaar in de Node-container — gebruik ${dest} (Combell ./shared).`,
+    );
+    return dest;
+  }
+
   const fixedWww = tryFixRootlessWwwCmMediaPath(configured);
   if (fixedWww) {
     console.error(
@@ -237,6 +257,22 @@ export function resolveMediaRoot(): string {
   const raw = process.env.MEDIA_ROOT?.trim();
   if (raw) {
     return expandConfiguredRoot(raw);
+  }
+
+  if (isContainerAppHome(hostingHome())) {
+    for (const dir of combellContainerMediaDirs()) {
+      try {
+        if (existsSync(dir) && statSync(dir).isDirectory()) {
+          if (process.env.NODE_ENV === 'production') {
+            console.error(`[media] Combell-container: gebruik ${dir}`);
+          }
+          return dir;
+        }
+      } catch {
+        /**/
+      }
+    }
+    return '/app/shared/uploads';
   }
 
   const syncSrc = process.env.MEDIA_SYNC_SOURCE?.trim();
