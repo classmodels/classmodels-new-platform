@@ -27,6 +27,7 @@ import { countMediaFilesShallow, resolveMediaRoot } from '../config/resolve-medi
 import { PrismaService } from '../prisma/prisma.service';
 import sharp from 'sharp';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
+import { extractZipArchiveToMediaRoot } from './media-zip-import';
 
 /**
  * Hosting: zo licht mogelijk (opslag + bandbreedte), nog aanvaardbaar voor web.
@@ -1233,6 +1234,64 @@ export class MediaService {
    * Registreert mediabestanden op schijf onder MEDIA_ROOT die nog geen MediaAsset hebben (o.a. na FTP of verkeerde MEDIA_ROOT).
    * Bestanden die al als storageKey/webpKey/thumbKey bestaan, worden overgeslagen.
    */
+  /**
+   * Upload een .zip (tot ~6 GB via schijf), uitpakken naar MEDIA_ROOT, registreren in map.
+   * Grote bestanden: zet MEDIA_ZIP_UPLOAD_MAX_BYTES; reverse proxy moet lange uploads toestaan.
+   */
+  async importZipUpload(file: Express.Multer.File, userId: string, folderId: string) {
+    const zipPath = (file as Express.Multer.File & { path?: string }).path;
+    if (!zipPath || !existsSync(zipPath)) {
+      throw new BadRequestException('ZIP-upload mislukt (tijdelijk bestand ontbreekt).');
+    }
+    if (!/\.zip$/i.test(file.originalname || '')) {
+      throw new BadRequestException('Alleen .zip-bestanden.');
+    }
+
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException('Map niet gevonden.');
+    if (folder.slug === 'verwijderde') {
+      throw new BadRequestException('ZIP kan niet naar de prullenbak.');
+    }
+
+    const root = this.root();
+    this.ensureMediaRootWritable(root);
+
+    const extracted = await extractZipArchiveToMediaRoot(zipPath, root);
+    try {
+      unlinkSync(zipPath);
+    } catch {
+      /**/
+    }
+
+    let registered = 0;
+    let regSkipped = 0;
+    const errors: string[] = [];
+    for (let round = 0; round < 80; round++) {
+      const r = await this.registerDiskOrphanAssets(userId, {
+        folderSlug: folder.slug,
+        limit: 500,
+        dryRun: false,
+      });
+      registered += r.registered;
+      regSkipped += r.skipped;
+      if (r.errors.length) errors.push(...r.errors.slice(0, 5));
+      if (r.registered === 0) break;
+    }
+
+    return {
+      ok: true,
+      folderSlug: folder.slug,
+      mediaRoot: root,
+      zipName: file.originalname,
+      extractedFiles: extracted.extracted,
+      skippedZipEntries: extracted.skippedEntries,
+      bytesWritten: extracted.bytesWritten,
+      registered,
+      registerSkipped: regSkipped,
+      errors: errors.slice(0, 12),
+    };
+  }
+
   async registerDiskOrphanAssets(
     uploadedById: string,
     opts: { folderSlug: string; limit: number; dryRun: boolean },
@@ -1418,6 +1477,7 @@ export class MediaService {
     const skipDirs = new Set([
       'agenda',
       'photographer-tmp',
+      '.zip-upload-tmp',
       'node_modules',
       '.git',
       '__MACOSX',

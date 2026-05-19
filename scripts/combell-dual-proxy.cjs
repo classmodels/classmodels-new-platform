@@ -23,6 +23,8 @@ const root = path.join(__dirname, '..');
 const publicPort = parseInt(process.env.PORT || '3000', 10);
 const maxBootMs = parseInt(process.env.COMBELL_DUAL_BOOT_MS || '180000', 10);
 const strictNest = String(process.env.COMBELL_DUAL_STRICT_NEST || '').trim() === '1';
+/** Grote ZIP-uploads (tot ~6 GB): lange request-timeout op proxy + upstream. */
+const uploadTimeoutMs = parseInt(process.env.COMBELL_UPLOAD_TIMEOUT_MS || '7200000', 10);
 
 const taken = new Set([publicPort]);
 function pickPort(envKey, fallback) {
@@ -85,6 +87,9 @@ function forward(req, res, port) {
   const p = http.request(opts, (pr) => {
     res.writeHead(pr.statusCode || 502, pr.headers);
     pr.pipe(res);
+  });
+  p.setTimeout(uploadTimeoutMs, () => {
+    p.destroy(new Error('upstream timeout'));
   });
   p.on('error', (e) => {
     if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -342,6 +347,8 @@ const server = http.createServer((req, res) => {
   forward(req, res, toNest ? nestPort : webPort);
 });
 
+server.requestTimeout = uploadTimeoutMs;
+server.headersTimeout = uploadTimeoutMs + 60_000;
 server.on('error', (err) => {
   console.error('[combell-dual] HTTP-server fout:', err);
   process.exit(1);

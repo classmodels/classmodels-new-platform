@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { adminFetch } from '@/lib/admin-api';
-import { getApiBase, publicFolderZipUrl, publicMediaDownloadUrl, publicMediaUrl } from '@/lib/api';
-import { adminDownloadFile } from '@/lib/admin-api';
+import { adminFetch, adminDownloadFile } from '@/lib/admin-api';
+import {
+  getApiBase,
+  parseApiErrorBody,
+  publicFolderZipUrl,
+  publicMediaDownloadUrl,
+  publicMediaUrl,
+} from '@/lib/api';
 
 type MediaAssetRow = {
   id: string;
@@ -81,6 +86,10 @@ export default function AdminMediaPage() {
   const [storagePanelOpen, setStoragePanelOpen] = useState(false);
   const imgInputRef = useRef<HTMLInputElement>(null);
   const vidInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
+  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipUploading, setZipUploading] = useState(false);
+  const [zipMsg, setZipMsg] = useState('');
 
   const [folderZipLoading, setFolderZipLoading] = useState(false);
   const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
@@ -191,6 +200,55 @@ export default function AdminMediaPage() {
       await load({ folderId: created.id, page: 1 });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Map aanmaken mislukt.');
+    }
+  };
+
+  const uploadZip = async () => {
+    if (!token || !selectedFolderId || isTrashFolder || !zipFile) return;
+    if (!/\.zip$/i.test(zipFile.name)) {
+      alert('Kies een .zip-bestand.');
+      return;
+    }
+    const maxGb = 6;
+    if (zipFile.size > maxGb * 1024 * 1024 * 1024) {
+      alert(`ZIP is groter dan ${maxGb} GB. Verhoog MEDIA_ZIP_UPLOAD_MAX_BYTES op de server of splits de zip.`);
+      return;
+    }
+    const ok = window.confirm(
+      `ZIP “${zipFile.name}” (${formatBytes(zipFile.size)}) uploaden naar map “${activeFolder?.label}”? Dit kan lang duren.`,
+    );
+    if (!ok) return;
+    setZipUploading(true);
+    setZipMsg('ZIP uploaden en uitpakken… dit kan enkele minuten tot uren duren bij grote bestanden.');
+    try {
+      const fd = new FormData();
+      fd.append('file', zipFile);
+      const res = await fetch(
+        `${getApiBase()}/media/upload-zip?folderId=${encodeURIComponent(selectedFolderId)}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        },
+      );
+      const text = await res.text();
+      if (!res.ok) throw new Error(parseApiErrorBody(text || res.statusText));
+      const r = JSON.parse(text) as {
+        extractedFiles: number;
+        registered: number;
+        registerSkipped: number;
+        skippedZipEntries: number;
+      };
+      setZipMsg(
+        `Klaar: ${r.extractedFiles} uit zip · ${r.registered} in mediatheek · ${r.registerSkipped} overgeslagen`,
+      );
+      setZipFile(null);
+      if (zipInputRef.current) zipInputRef.current.value = '';
+      await load({ page: 1 });
+    } catch (e) {
+      setZipMsg(e instanceof Error ? e.message : 'ZIP-upload mislukt');
+    } finally {
+      setZipUploading(false);
     }
   };
 
@@ -560,8 +618,39 @@ export default function AdminMediaPage() {
                 >
                   Uploaden
                 </button>
+                <input
+                  ref={zipInputRef}
+                  type="file"
+                  accept=".zip,application/zip,application/x-zip-compressed"
+                  className="hidden"
+                  onChange={(e) => setZipFile(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  disabled={!selectedFolderId || isTrashFolder || zipUploading}
+                  onClick={() => zipInputRef.current?.click()}
+                  className="rounded border border-line bg-white px-2 py-1 text-[11px] text-ink hover:bg-panel disabled:opacity-50"
+                >
+                  ZIP kiezen
+                </button>
+                <button
+                  type="button"
+                  disabled={!zipFile || !selectedFolderId || isTrashFolder || zipUploading}
+                  onClick={() => void uploadZip()}
+                  className="rounded border border-burgundy bg-burgundy/10 px-2 py-1 text-[11px] font-medium text-burgundy hover:bg-panel disabled:opacity-50"
+                >
+                  {zipUploading ? 'Bezig…' : 'ZIP uploaden'}
+                </button>
               </form>
             </div>
+            {zipFile ? (
+              <p className="mt-1 truncate text-[10px] text-amber-900" title={zipFile.name}>
+                ZIP: {zipFile.name} ({formatBytes(zipFile.size)}) — max. 6 GB
+              </p>
+            ) : null}
+            {zipMsg ? (
+              <p className="mt-1 whitespace-pre-wrap break-all text-[10px] text-ink">{zipMsg}</p>
+            ) : null}
             {file ? (
               <p className="mt-1 truncate text-[10px] text-muted" title={file.name}>
                 Geselecteerd: {file.name} ({formatBytes(file.size)})

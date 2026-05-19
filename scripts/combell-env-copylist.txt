@@ -19,3 +19,6 @@ NODE_ENV=production
 # (overschrijft de proxy en schrijft in de release-map → alles weg na deploy).
 # MEDIA_ROOT=/home/JOUWUSER/www/cm-media/uploads
 # MEDIA_SYNC_SOURCE=/pad/naar/oude-uploads-bron
+# Grote ZIP in mediatheek (admin): standaard max 6 GB; proxy-timeout 2 uur
+# MEDIA_ZIP_UPLOAD_MAX_BYTES=6442450944
+# COMBELL_UPLOAD_TIMEOUT_MS=7200000

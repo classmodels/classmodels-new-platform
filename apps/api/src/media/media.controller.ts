@@ -16,9 +16,13 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
-import type { Response } from 'express';
+import { diskStorage, memoryStorage } from 'multer';
+import { mkdirSync } from 'fs';
+import { randomUUID } from 'crypto';
 import { basename, extname, join } from 'path';
+import { resolveMediaRoot } from '../config/resolve-media-root';
+import { mediaZipUploadMaxBytes } from './media-zip-import';
+import type { Response } from 'express';
 import {
   CreateMediaFolderDto,
   MoveAssetsFolderDto,
@@ -45,6 +49,12 @@ const PUBLIC_FILE_MIME: Record<string, string> = {
   '.pdf': 'application/pdf',
   '.mp3': 'audio/mpeg',
 };
+
+function zipUploadTmpDir(): string {
+  const dir = join(resolveMediaRoot(), '.zip-upload-tmp');
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
 
 @Controller('media')
 export class MediaController {
@@ -159,6 +169,37 @@ export class MediaController {
     if (!file) return { error: 'Geen bestand' };
     const label = fileLabel?.trim();
     return this.media.saveFile(file, req.user.sub, folderId, label ? { fileLabel: label } : undefined);
+  }
+
+  /** ZIP (tot ~6 GB) → uitpakken op schijf → mediaregels in gekozen map. */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('upload-zip')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          cb(null, zipUploadTmpDir());
+        },
+        filename: (_req, file, cb) => {
+          cb(null, `${randomUUID()}${extname(file.originalname) || '.zip'}`);
+        },
+      }),
+      limits: { fileSize: mediaZipUploadMaxBytes() },
+      fileFilter: (_req, file, cb) => {
+        cb(null, /\.zip$/i.test(file.originalname || ''));
+      },
+    }),
+  )
+  uploadZip(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: { user: JwtPayload },
+    @Query('folderId') folderId?: string,
+  ) {
+    if (!file) return { error: 'Geen ZIP-bestand' };
+    const fid = folderId?.trim();
+    if (!fid) return { error: 'folderId is verplicht' };
+    return this.media.importZipUpload(file, req.user.sub, fid);
   }
 
   /** Herstel: zelfde bestandsnaam als in DB, geen nieuw mediarecord. */
