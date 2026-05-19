@@ -1,30 +1,39 @@
 'use strict';
 /**
- * Combell: soms ontbreekt `next` in node_modules na `npm ci` (workspaces/hoisting).
- * Installeer dan gericht next + react (zelfde versies als package.json), vóór de rest van `npm run build`.
+ * Combell: soms ontbreekt `next` in root-node_modules na `npm ci` (workspaces/hoisting).
+ * Controleer ook apps/web; installeer alleen als het echt ontbreekt.
  */
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
-const nextBin = path.join(root, 'node_modules', 'next', 'dist', 'bin', 'next');
-if (fs.existsSync(nextBin)) {
+
+function nextBinUnder(base) {
+  return path.join(base, 'node_modules', 'next', 'dist', 'bin', 'next');
+}
+
+function hasNext() {
+  return [root, path.join(root, 'apps', 'web')].some((base) => fs.existsSync(nextBinUnder(base)));
+}
+
+if (hasNext()) {
   process.exit(0);
 }
 
-console.error('[ensure-next] next ontbreekt na npm ci; voer gerichte npm install uit…');
+console.error('[ensure-next] next ontbreekt na npm ci; installeer workspaces…');
 const r = spawnSync(
   'npm',
-  [
-    'install',
-    '--no-audit',
-    '--no-fund',
-    '--legacy-peer-deps',
-    'next@15.0.3',
-    'react@19.0.0',
-    'react-dom@19.0.0',
-  ],
-  { stdio: 'inherit', cwd: root, shell: true },
+  ['install', '--no-audit', '--no-fund', '--legacy-peer-deps', '-w', '@cm/web'],
+  { stdio: 'inherit', cwd: root, shell: false },
 );
-process.exit(r.status === null ? 1 : r.status ?? 1);
+if (r.status === 0 && hasNext()) {
+  process.exit(0);
+}
+
+const r2 = spawnSync(
+  'npm',
+  ['install', '--no-audit', '--no-fund', '--legacy-peer-deps'],
+  { stdio: 'inherit', cwd: root, shell: false },
+);
+process.exit(r2.status === null ? 1 : r2.status ?? 1);

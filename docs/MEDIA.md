@@ -23,7 +23,9 @@
 
 **Combell Node-container (antwoord support):** Node draait in een container; persistente data hoort in **`./shared/`** → **`/app/shared`** (gebruik **`MEDIA_ROOT=/app/shared/uploads`**). De hosting file manager (`www/`, `data/`) is **niet** de Node-container.
 
-**Git `shared/uploads`:** mediabestanden horen in de repo onder `shared/uploads/`. Bij build (`combell-pipeline-build`) worden ze gestaged naar `apps/api/.deploy-media-bundle/uploads`; bij **start** kopieert `combell-dual-proxy` die bundle naar `/app/shared/uploads` als de persistente map nog leeg/ouder is (Combell mount verbergt anders de git-map).
+**Git `shared/uploads`:** mediabestanden horen in de repo onder `shared/uploads/`. Combell voert verplicht `npm run build` uit (geen media-fetch in die stap — te zwaar). Foto’s komen op schijf via **Node-start** (`bootstrapMediaStorage` in `combell-dual-proxy`) of handmatig in admin (*Kopieer bundle → MEDIA_ROOT*). Optioneel: `npm run combell:build` in een eigen Docker-build haalt media wél tijdens build op.
+
+**Combell env:** alleen `MEDIA_ROOT=/app/shared/uploads`. Verwijder `MEDIA_SYNC_SOURCE` (niet dezelfde map als bestemming zetten).
 
 **Definitieve aanpak (ingebouwd):**
 

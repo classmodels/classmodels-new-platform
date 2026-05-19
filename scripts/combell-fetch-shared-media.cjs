@@ -33,7 +33,13 @@ function countFiles(dir) {
 
 function run(cmd, args, opts = {}) {
   const r = spawnSync(cmd, args, { stdio: 'inherit', ...opts });
-  if (r.status !== 0) process.exit(r.status || 1);
+  if (r.status !== 0) {
+    if (process.env.COMBELL_MEDIA_FETCH_OPTIONAL === '1') {
+      console.error(`[combell] media fetch stap mislukt (${cmd}) — overgeslagen (OPTIONAL)`);
+      process.exit(0);
+    }
+    process.exit(r.status || 1);
+  }
 }
 
 const repo =

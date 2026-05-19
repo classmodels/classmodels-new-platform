@@ -80,6 +80,9 @@ const env = {
   ...process.env,
   NODE_PATH: [nodePath, process.env.NODE_PATH].filter(Boolean).join(path.delimiter),
 };
+if (!env.NODE_OPTIONS?.includes('max-old-space-size')) {
+  env.NODE_OPTIONS = [env.NODE_OPTIONS, '--max-old-space-size=3072'].filter(Boolean).join(' ');
+}
 
 const r = spawnSync(process.execPath, [nextBin, 'build'], { stdio: 'inherit', cwd, env });
 process.exit(r.status === null ? 1 : r.status);

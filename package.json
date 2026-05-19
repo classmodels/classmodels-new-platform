@@ -12,7 +12,7 @@
     "rundev": "npm run dev",
     "dev:web": "npm run build -w @cm/shared && npm run dev -w @cm/web",
     "ports:free": "bash scripts/free-dev-ports.sh",
-    "build": "node scripts/ensure-next-for-combell.cjs && node scripts/combell-fetch-shared-media.cjs && npm run build -w @cm/shared && npm run build -w @cm/api && npm run build -w @cm/web && node scripts/combell-sync-media-uploads.cjs",
+    "build": "node scripts/ensure-next-for-combell.cjs && npm run build -w @cm/shared && npm run build -w @cm/api && npm run build -w @cm/web",
     "combell:build": "node scripts/combell-pipeline-build.cjs",
     "serve": "node scripts/combell-serve.cjs",
     "start": "node scripts/combell-start.cjs",
