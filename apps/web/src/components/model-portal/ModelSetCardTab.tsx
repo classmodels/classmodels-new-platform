@@ -26,6 +26,12 @@ function slotsFromDraft(ids: (string | null)[]): (string | null)[] {
 
 function parseApiErrorMessage(raw: string): string {
   const t = raw.trim();
+  if (t.includes('504') || t.includes('Gateway Time-out') || t.includes('Temporary failure')) {
+    return 'De server deed te lang over de PDF (time-out). Probeer «PDF voorzijde» of «PDF achterzijde» apart, of minder grote foto’s.';
+  }
+  if (t.includes('<!DOCTYPE') || t.includes('<html')) {
+    return 'Serverfout (geen API-antwoord). Wacht op deploy of probeer later opnieuw.';
+  }
   if (!t.startsWith('{')) return t || 'Er ging iets mis.';
   try {
     const j = JSON.parse(t) as { message?: string | string[] };
@@ -36,6 +42,27 @@ function parseApiErrorMessage(raw: string): string {
     /* fall through */
   }
   return t;
+}
+
+async function downloadPdf(
+  token: string,
+  path: string,
+  filename: string,
+): Promise<void> {
+  const res = await fetch(`${getApiBase()}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(parseApiErrorMessage(t || res.statusText));
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function ModelSetCardTab({
@@ -152,36 +179,49 @@ export function ModelSetCardTab({
     }
   };
 
-  const openPreviewPdf = async () => {
+  const downloadZip = async () => {
     if (!token || !canRead) return;
     setBusy(true);
     setBanner(null);
     try {
       const ok = await persistDraft();
       if (!ok) return;
-      const res = await fetch(`${getApiBase()}/portal/model/set-card/preview.zip`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(parseApiErrorMessage(t || res.statusText));
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'setkaart-preview.zip';
-      a.click();
-      URL.revokeObjectURL(url);
-      setBanner({
-        tone: 'ok',
-        text: 'ZIP gedownload met voorzijde.pdf en achterzijde.pdf (A5 liggend).',
-      });
+      await downloadPdf(token, '/portal/model/set-card/preview.zip', 'setkaart-preview.zip');
+      setBanner({ tone: 'ok', text: 'ZIP gedownload (voorzijde + achterzijde, A5 liggend).' });
     } catch (e) {
-      setBanner({
-        tone: 'err',
-        text: e instanceof Error ? e.message : 'PDF kon niet worden geladen.',
-      });
+      setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Download mislukt.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadRecto = async () => {
+    if (!token || !canRead) return;
+    setBusy(true);
+    setBanner(null);
+    try {
+      const ok = await persistDraft();
+      if (!ok) return;
+      await downloadPdf(token, '/portal/model/set-card/preview-recto.pdf', 'setkaart-voorzijde.pdf');
+      setBanner({ tone: 'ok', text: 'Voorzijde gedownload.' });
+    } catch (e) {
+      setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Download mislukt.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const downloadVerso = async () => {
+    if (!token || !canRead) return;
+    setBusy(true);
+    setBanner(null);
+    try {
+      const ok = await persistDraft();
+      if (!ok) return;
+      await downloadPdf(token, '/portal/model/set-card/preview-verso.pdf', 'setkaart-achterzijde.pdf');
+      setBanner({ tone: 'ok', text: 'Achterzijde gedownload.' });
+    } catch (e) {
+      setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Download mislukt.' });
     } finally {
       setBusy(false);
     }
@@ -274,7 +314,7 @@ export function ModelSetCardTab({
         <p className="font-semibold text-burgundy">Setkaart (composit)</p>
         <p className="mt-1 text-xs text-zinc-700">
           <strong>Stap 1:</strong> kies een hoofdfoto (voorzijde). <strong>Stap 2:</strong> vul 5 vakken op de achterzijde.
-          <strong> Stap 3:</strong> Opslaan concept, daarna ZIP downloaden (2 PDF&apos;s) of versturen.
+          <strong> Stap 3:</strong> Opslaan concept, daarna PDF voorzijde/achterzijde downloaden of versturen.
         </p>
       </div>
 
@@ -315,10 +355,26 @@ export function ModelSetCardTab({
         <button
           type="button"
           disabled={busy}
-          onClick={() => void openPreviewPdf()}
-          className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+          onClick={() => void downloadRecto()}
+          className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
         >
-          Download PDF&apos;s (ZIP)
+          PDF voorzijde
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void downloadVerso()}
+          className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          PDF achterzijde
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void downloadZip()}
+          className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
+        >
+          ZIP (beide)
         </button>
         <button
           type="button"
@@ -550,30 +606,35 @@ export function ModelSetCardTab({
               )}{' '}
               klik een foto om die toe te wijzen.
             </p>
-            <div className="mt-2 grid max-h-[320px] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-              {media.map((a) => {
-                const isHero = heroId === a.id;
-                const inVerso = versoSlots.includes(a.id);
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    className={`relative aspect-[3/4] overflow-hidden rounded border-2 bg-zinc-50 transition hover:border-burgundy/50 ${
-                      isHero ? 'border-burgundy' : inVerso ? 'border-zinc-400' : 'border-zinc-200'
-                    }`}
-                    onClick={() => assignPhoto(a.id)}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={thumbSrc(a)} alt="" className="h-full w-full object-cover" />
-                    {isHero ? (
-                      <span className="absolute bottom-0 left-0 right-0 bg-burgundy/90 py-0.5 text-center text-[8px] font-bold uppercase text-white">
-                        Voorzijde
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
+            <div className="mt-2 max-h-[360px] overflow-y-auto overscroll-contain rounded-lg border border-zinc-100 bg-zinc-50/50 p-2">
+              <div className="flex flex-wrap gap-2">
+                {media.slice(0, 60).map((a) => {
+                  const isHero = heroId === a.id;
+                  const inVerso = versoSlots.includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className={`relative h-[118px] w-[88px] shrink-0 overflow-hidden rounded border-2 bg-white transition hover:border-burgundy/50 ${
+                        isHero ? 'border-burgundy' : inVerso ? 'border-zinc-400' : 'border-zinc-200'
+                      }`}
+                      onClick={() => assignPhoto(a.id)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumbSrc(a)} alt="" className="block h-full w-full object-cover" />
+                      {isHero ? (
+                        <span className="absolute bottom-0 left-0 right-0 bg-burgundy/90 py-0.5 text-center text-[8px] font-bold uppercase text-white">
+                          Voorzijde
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+            {media.length > 60 ? (
+              <p className="mt-1 text-[10px] text-muted">Alleen de 60 meest recente foto&apos;s worden getoond.</p>
+            ) : null}
             {media.length === 0 ? <p className="mt-2 text-xs text-muted">Nog geen foto&apos;s — upload hierboven.</p> : null}
           </div>
         </div>

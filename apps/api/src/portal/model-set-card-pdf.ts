@@ -1,4 +1,4 @@
-import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFImage, type PDFFont, type PDFPage } from 'pdf-lib';
 import sharp from 'sharp';
 
 /** A5 landscape in pt (ISO). */
@@ -8,11 +8,16 @@ export const A5_LANDSCAPE_H = 419.53;
 const BURGUNDY = rgb(0.46, 0.09, 0.14);
 const INK = rgb(0.12, 0.12, 0.12);
 const MUTED = rgb(0.35, 0.35, 0.35);
-const PAGE_PAD = 10;
+const PAGE_PAD = 8;
+const SIDE_BAND = 52;
 
-const AGENCY_LINE1 = 'Class-Models';
-const AGENCY_LINE2 =
-  'Provinciebaan 3, 2235 Hulshout  |  www.class-models.be  |  info@class-models.be  |  gsm +32 (0) 485 322 307';
+const AGENCY_LINES = [
+  'Class-Models',
+  'Provinciebaan 3, 2235 Hulshout',
+  'www.class-models.be',
+  'info@class-models.be',
+  'gsm +32 (0) 485 322 307',
+];
 
 export type StatEntry = { label: string; value: string };
 
@@ -43,15 +48,13 @@ export function modelSheetStatEntries(ms: Record<string, unknown> | null): StatE
     entries.push({ label, value: t });
   };
   add('Lengte', 'lengte');
-  add('BH-maat', 'bhMaat');
-  add('Borstomtrek', 'borstomtrek');
+  add('Borst', 'borstomtrek');
   add('Taille', 'taille');
-  add('Heupomtrek', 'heupomtrek');
-  add('Confectiemaat', 'confectiemaat');
-  add('Jeansmaat', 'jeansmaat');
-  add('Schoenmaat', 'schoenmaat');
-  add('Haarkleur', 'haarkleur');
-  add('Kleur ogen', 'kleurOgen');
+  add('Heupen', 'heupomtrek');
+  add('Schoenen', 'schoenmaat');
+  add('Haar', 'haarkleur');
+  add('Ogen', 'kleurOgen');
+  add('Confectie', 'confectiemaat');
   add('Maat', 'maat');
   return entries;
 }
@@ -61,9 +64,18 @@ export function modelSheetStatLines(ms: Record<string, unknown> | null): string[
   return modelSheetStatEntries(ms).map((e) => `${e.label}: ${e.value}`);
 }
 
+/** Verklein vóór PDF — voorkomt 504 timeouts op shared hosting. */
+async function prepareJpegForPdf(bytes: Buffer): Promise<Buffer> {
+  return sharp(bytes)
+    .rotate()
+    .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 80, mozjpeg: true })
+    .toBuffer();
+}
+
 async function embedRaster(pdfDoc: PDFDocument, bytes: Buffer): Promise<PDFImage> {
-  const pngBuf = await sharp(bytes).rotate().png({ quality: 92 }).toBuffer();
-  return pdfDoc.embedPng(pngBuf);
+  const jpeg = await prepareJpegForPdf(bytes);
+  return pdfDoc.embedJpg(jpeg);
 }
 
 function drawImageCover(page: PDFPage, img: PDFImage, x: number, y: number, w: number, h: number) {
@@ -78,50 +90,6 @@ function drawImageCover(page: PDFPage, img: PDFImage, x: number, y: number, w: n
   });
 }
 
-function fitFontSize(
-  font: PDFFont,
-  text: string,
-  maxWidth: number,
-  startSize: number,
-  minSize: number,
-): number {
-  let size = startSize;
-  while (size > minSize && font.widthOfTextAtSize(text, size) > maxWidth) {
-    size -= 0.25;
-  }
-  return size;
-}
-
-/** Bureau op twee regels, breedte = `width`, linkerrand = `x`. */
-function drawAgencyBlock(
-  page: PDFPage,
-  font: PDFFont,
-  fontBold: PDFFont,
-  x: number,
-  width: number,
-  yTop: number,
-) {
-  const line1Size = 11;
-  const w1 = fontBold.widthOfTextAtSize(AGENCY_LINE1, line1Size);
-  page.drawText(AGENCY_LINE1, {
-    x: x + (width - w1) / 2,
-    y: yTop - line1Size,
-    size: line1Size,
-    font: fontBold,
-    color: INK,
-  });
-
-  const line2Size = fitFontSize(font, AGENCY_LINE2, width, 7.5, 5);
-  const w2 = font.widthOfTextAtSize(AGENCY_LINE2, line2Size);
-  page.drawText(AGENCY_LINE2, {
-    x: x + (width - w2) / 2,
-    y: yTop - line1Size - 4 - line2Size,
-    size: line2Size,
-    font,
-    color: MUTED,
-  });
-}
-
 function drawStatColumn(
   page: PDFPage,
   font: PDFFont,
@@ -131,9 +99,9 @@ function drawStatColumn(
   height: number,
   entries: StatEntry[],
 ) {
-  const rowH = 13;
-  const labelSize = 8.5;
-  const valueSize = 8.5;
+  const rowH = 14;
+  const labelSize = 9;
+  const valueSize = 9;
   const maxRows = Math.floor(height / rowH);
   let y = yTop;
 
@@ -158,58 +126,75 @@ function drawStatColumn(
   }
 }
 
-/** Voorzijde — één A5 landscape: foto vullend, naam, bureau in 2 regels onder foto. */
+/** Voorzijde — zoals voorbeeld: grote foto, naam links verticaal, bureau rechts verticaal. */
 export async function buildSetCardRectoPdf(opts: {
   heroBytes: Buffer;
   displayName: string;
   ageLabel: string | null;
 }): Promise<Uint8Array> {
-  const { heroBytes, displayName, ageLabel } = opts;
+  const { heroBytes, displayName } = opts;
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([A5_LANDSCAPE_W, A5_LANDSCAPE_H]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const heroImg = await embedRaster(pdfDoc, heroBytes);
 
-  const contentW = A5_LANDSCAPE_W - 2 * PAGE_PAD;
-  const contentX = PAGE_PAD;
+  const photoX = PAGE_PAD + SIDE_BAND;
+  const photoY = PAGE_PAD;
+  const photoW = A5_LANDSCAPE_W - 2 * PAGE_PAD - 2 * SIDE_BAND;
+  const photoH = A5_LANDSCAPE_H - 2 * PAGE_PAD;
+
+  drawImageCover(page, heroImg, photoX, photoY, photoW, photoH);
 
   const nameUpper = displayName.trim().toUpperCase() || 'NAAM MODEL';
-  const titleSize = Math.min(20, nameUpper.length > 24 ? 14 : 20);
-  const titleBand = ageLabel ? 38 : 28;
-
-  const agencyBand = 32;
-  const photoBottom = PAGE_PAD + agencyBand;
-  const photoTop = A5_LANDSCAPE_H - PAGE_PAD - titleBand;
-  const photoH = photoTop - photoBottom;
-
-  const tw = fontBold.widthOfTextAtSize(nameUpper, titleSize);
+  const nameSize = Math.min(11, nameUpper.length > 20 ? 8 : 11);
+  const nameW = fontBold.widthOfTextAtSize(nameUpper, nameSize);
   page.drawText(nameUpper, {
-    x: (A5_LANDSCAPE_W - tw) / 2,
-    y: A5_LANDSCAPE_H - PAGE_PAD - titleSize,
-    size: titleSize,
+    x: PAGE_PAD + 16,
+    y: (A5_LANDSCAPE_H + nameW) / 2,
+    size: nameSize,
     font: fontBold,
     color: BURGUNDY,
+    rotate: degrees(90),
   });
-  if (ageLabel) {
-    const ageText = `Leeftijd: ${ageLabel}`;
-    const aw = font.widthOfTextAtSize(ageText, 9);
+
+  if (opts.ageLabel) {
+    const ageText = opts.ageLabel;
+    const ageSize = 7;
+    const ageW = font.widthOfTextAtSize(ageText, ageSize);
     page.drawText(ageText, {
-      x: (A5_LANDSCAPE_W - aw) / 2,
-      y: A5_LANDSCAPE_H - PAGE_PAD - titleSize - 12,
-      size: 9,
+      x: PAGE_PAD + 30,
+      y: (A5_LANDSCAPE_H + ageW) / 2 - nameW - 12,
+      size: ageSize,
       font,
       color: INK,
+      rotate: degrees(90),
     });
   }
 
-  drawImageCover(page, heroImg, contentX, photoBottom, contentW, photoH);
-  drawAgencyBlock(page, font, fontBold, contentX, contentW, PAGE_PAD + agencyBand);
+  const rx = A5_LANDSCAPE_W - PAGE_PAD - 12;
+  let ry = A5_LANDSCAPE_H - PAGE_PAD - 8;
+  for (let i = AGENCY_LINES.length - 1; i >= 0; i--) {
+    const line = AGENCY_LINES[i];
+    const isBold = i === 0;
+    const size = isBold ? 8 : 6.5;
+    const f = isBold ? fontBold : font;
+    const lw = f.widthOfTextAtSize(line, size);
+    page.drawText(line, {
+      x: rx,
+      y: ry,
+      size,
+      font: f,
+      color: isBold ? INK : MUTED,
+      rotate: degrees(-90),
+    });
+    ry -= lw + 6;
+  }
 
   return pdfDoc.save();
 }
 
-/** Achterzijde — één A5 landscape: 5 foto's + maten (geen naam), bureau 2 regels onderaan. */
+/** Achterzijde — 5 foto's + maten (geen naam), label links / waarde rechts. */
 export async function buildSetCardVersoPdf(opts: {
   versoBytes: Buffer[];
   statEntries: StatEntry[];
@@ -220,19 +205,20 @@ export async function buildSetCardVersoPdf(opts: {
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([A5_LANDSCAPE_W, A5_LANDSCAPE_H]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const thumbs = await Promise.all(versoBytes.map((b) => embedRaster(pdfDoc, b)));
+  const thumbs: PDFImage[] = [];
+  for (const b of versoBytes) {
+    thumbs.push(await embedRaster(pdfDoc, b));
+  }
 
-  const agencyBand = 32;
-  const gap = 5;
-  const statsW = 118;
+  const gap = 4;
+  const statsW = 128;
   const gridX = PAGE_PAD;
-  const gridY = PAGE_PAD + agencyBand;
+  const gridY = PAGE_PAD;
   const gridW = A5_LANDSCAPE_W - 2 * PAGE_PAD - statsW - gap;
-  const gridH = A5_LANDSCAPE_H - PAGE_PAD - agencyBand - PAGE_PAD;
+  const gridH = A5_LANDSCAPE_H - 2 * PAGE_PAD;
   const statsX = gridX + gridW + gap;
 
-  const row1H = (gridH - gap) * 0.55;
+  const row1H = (gridH - gap) * 0.52;
   const row2H = gridH - gap - row1H;
   const row1Y = gridY + row2H + gap;
   const row2Y = gridY;
@@ -247,8 +233,6 @@ export async function buildSetCardVersoPdf(opts: {
 
   drawStatColumn(page, font, statsX, gridY + gridH, statsW, gridH, statEntries);
 
-  drawAgencyBlock(page, font, fontBold, PAGE_PAD, A5_LANDSCAPE_W - 2 * PAGE_PAD, PAGE_PAD + agencyBand);
-
   return pdfDoc.save();
 }
 
@@ -259,16 +243,14 @@ export async function buildModelSetCardPdfPair(opts: {
   ageLabel: string | null;
   statEntries: StatEntry[];
 }): Promise<{ recto: Uint8Array; verso: Uint8Array }> {
-  const [recto, verso] = await Promise.all([
-    buildSetCardRectoPdf({
-      heroBytes: opts.heroBytes,
-      displayName: opts.displayName,
-      ageLabel: opts.ageLabel,
-    }),
-    buildSetCardVersoPdf({
-      versoBytes: opts.versoBytes,
-      statEntries: opts.statEntries,
-    }),
-  ]);
+  const recto = await buildSetCardRectoPdf({
+    heroBytes: opts.heroBytes,
+    displayName: opts.displayName,
+    ageLabel: opts.ageLabel,
+  });
+  const verso = await buildSetCardVersoPdf({
+    versoBytes: opts.versoBytes,
+    statEntries: opts.statEntries,
+  });
   return { recto, verso };
 }

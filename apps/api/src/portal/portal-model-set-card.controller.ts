@@ -30,6 +30,24 @@ export class PortalModelSetCardController {
     return this.setCard.saveDraft(req.user.sub, body);
   }
 
+  @Get('preview-recto.pdf')
+  @Permissions('portal.model.media.read')
+  async previewRecto(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
+    const pdf = await this.setCard.previewRectoPdf(req.user.sub);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="setkaart-voorzijde.pdf"');
+    res.send(Buffer.from(pdf));
+  }
+
+  @Get('preview-verso.pdf')
+  @Permissions('portal.model.media.read')
+  async previewVerso(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
+    const pdf = await this.setCard.previewVersoPdf(req.user.sub);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="setkaart-achterzijde.pdf"');
+    res.send(Buffer.from(pdf));
+  }
+
   @Get('preview.zip')
   @Permissions('portal.model.media.read')
   async previewZip(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {

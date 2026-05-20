@@ -10,6 +10,8 @@ import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { ModelPortalHistoryService } from './model-portal-history.service';
 import {
   buildModelSetCardPdfPair,
+  buildSetCardRectoPdf,
+  buildSetCardVersoPdf,
   computeAgeYears,
   modelSheetStatEntries,
   modelSheetStatLines,
@@ -81,7 +83,9 @@ export class ModelSetCardService {
       select: { storageKey: true },
     });
     if (!heroRow) throw new BadRequestException('Hoofdfoto niet gevonden.');
-    if (versoIds.length !== 5) throw new BadRequestException('Precies 5 achterzijde-foto’s nodig.');
+    if (versoIds.length > 0 && versoIds.length !== 5) {
+      throw new BadRequestException('Precies 5 achterzijde-foto’s nodig.');
+    }
     const versoBuffers: Buffer[] = [];
     for (const id of versoIds) {
       const row = await this.prisma.mediaAsset.findFirst({
@@ -174,18 +178,14 @@ export class ModelSetCardService {
     return this.getDraft(userId);
   }
 
-  async buildPdfBytes(userId: string): Promise<{
-    recto: Uint8Array;
-    verso: Uint8Array;
-    displayName: string;
-  }> {
+  private async resolvePdfContext(userId: string) {
     const draft = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
     if (!draft?.frontHeroAssetId) throw new BadRequestException('Kies eerst een hoofdfoto.');
     const slots = parseVersoSlots(draft.versoPhotoAssetIds);
     if (slots.some((x) => !x)) {
       throw new BadRequestException('Vul alle 5 foto-posities voor de achterzijde in.');
     }
-    const verso = slots as string[];
+    const versoIds = slots as string[];
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -200,16 +200,50 @@ export class ModelSetCardService {
     const statEntries = modelSheetStatEntries(ms);
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
-    const { hero, verso: vb } = await this.buffersForPdf(userId, draft.frontHeroAssetId, verso);
-    const pdfs = await buildModelSetCardPdfPair({
-      heroBytes: hero,
-      versoBytes: vb,
+    return {
+      heroId: draft.frontHeroAssetId,
+      versoIds,
       displayName,
       ageLabel: age != null ? `${age} jaar` : null,
       statEntries,
+    };
+  }
+
+  async buildPdfBytes(userId: string): Promise<{
+    recto: Uint8Array;
+    verso: Uint8Array;
+    displayName: string;
+  }> {
+    const ctx = await this.resolvePdfContext(userId);
+    const { hero, verso: vb } = await this.buffersForPdf(userId, ctx.heroId, ctx.versoIds);
+    const pdfs = await buildModelSetCardPdfPair({
+      heroBytes: hero,
+      versoBytes: vb,
+      displayName: ctx.displayName,
+      ageLabel: ctx.ageLabel,
+      statEntries: ctx.statEntries,
     });
 
-    return { ...pdfs, displayName };
+    return { ...pdfs, displayName: ctx.displayName };
+  }
+
+  async previewRectoPdf(userId: string): Promise<Uint8Array> {
+    const ctx = await this.resolvePdfContext(userId);
+    const { hero } = await this.buffersForPdf(userId, ctx.heroId, []);
+    return buildSetCardRectoPdf({
+      heroBytes: hero,
+      displayName: ctx.displayName,
+      ageLabel: ctx.ageLabel,
+    });
+  }
+
+  async previewVersoPdf(userId: string): Promise<Uint8Array> {
+    const ctx = await this.resolvePdfContext(userId);
+    const { verso } = await this.buffersForPdf(userId, ctx.heroId, ctx.versoIds);
+    return buildSetCardVersoPdf({
+      versoBytes: verso,
+      statEntries: ctx.statEntries,
+    });
   }
 
   async previewZip(userId: string): Promise<Buffer> {
@@ -223,7 +257,7 @@ export class ModelSetCardService {
 
   private zipPdfs(files: { name: string; data: Buffer }[]): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const archive = archiver('zip', { zlib: { level: 9 } });
+      const archive = archiver('zip', { zlib: { level: 1 } });
       const chunks: Buffer[] = [];
       archive.on('data', (c: Buffer) => chunks.push(c));
       archive.on('error', reject);
