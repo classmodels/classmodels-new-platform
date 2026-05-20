@@ -794,7 +794,7 @@ export class MediaService {
       where: {
         uploadedById: userId,
         hardDeleted: false,
-        folder: { slug: { in: ['models', 'tijdelijke-uploads'] } },
+        folder: { slug: { in: ['models', 'tijdelijke-uploads', 'setkaarten'] } },
       },
       include: { folder: { select: { slug: true, settings: true } } },
       orderBy: { createdAt: 'desc' },

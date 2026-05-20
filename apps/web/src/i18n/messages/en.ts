@@ -106,6 +106,7 @@ export const messagesEn = {
     tabModeshow28: 'Download photos / try-out film',
     tabProfile: 'My profile / model sheet',
     tabPortfolio: 'Portfolio appointment',
+    tabSetCards: 'Order composite cards',
     tabTraining: 'Training appointment',
     tabHistory: 'History',
     tabPush: 'Push messages',

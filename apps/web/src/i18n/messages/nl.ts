@@ -106,6 +106,7 @@ export const messagesNl = {
     tabModeshow28: "Download foto's / film try-out",
     tabProfile: 'Mijn profiel / modellenfiche',
     tabPortfolio: 'Portfolio afspraak',
+    tabSetCards: 'Setkaarten bestellen',
     tabTraining: 'Opleidingsafspraak',
     tabHistory: 'Historiek',
     tabPush: 'Pushberichten',

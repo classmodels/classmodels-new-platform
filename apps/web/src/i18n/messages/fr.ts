@@ -106,6 +106,7 @@ export const messagesFr = {
     tabModeshow28: 'Télécharger photos / film try-out',
     tabProfile: 'Mon profil / fiche',
     tabPortfolio: 'Rendez-vous portfolio',
+    tabSetCards: 'Commander cartes composite',
     tabTraining: 'Rendez-vous formation',
     tabHistory: 'Historique',
     tabPush: 'Notifications push',

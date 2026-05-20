@@ -609,6 +609,7 @@ async function main() {
     ['models', 'Modellen'],
     ['testshoot', 'Testshoot'],
     ['tijdelijke-uploads', 'Tijdelijke uploads'],
+    ['setkaarten', 'Setkaarten'],
     ['portfolio-fotograaf', 'Portfolio (fotograaf → model)'],
     ['portfolio-divers', 'Portfolio (divers / geen model)'],
     ['fotomodeshow-klein', 'Foto modeshow (klein / ZIP)'],

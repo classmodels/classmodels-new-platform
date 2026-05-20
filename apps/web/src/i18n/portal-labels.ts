@@ -35,6 +35,7 @@ export function useModelPortalTabLabels() {
         { id: 'modeshow-28' as ModelPortalTabId, label: t('modelPortal.tabModeshow28') },
         { id: 'profiel' as ModelPortalTabId, label: t('modelPortal.tabProfile') },
         { id: 'portfolio' as ModelPortalTabId, label: t('modelPortal.tabPortfolio') },
+        { id: 'setkaarten' as ModelPortalTabId, label: t('modelPortal.tabSetCards') },
         { id: 'opleiding' as ModelPortalTabId, label: t('modelPortal.tabTraining') },
         { id: 'historiek' as ModelPortalTabId, label: t('modelPortal.tabHistory') },
         { id: 'push' as ModelPortalTabId, label: t('modelPortal.tabPush') },

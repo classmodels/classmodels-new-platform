@@ -6,6 +6,7 @@ export const MODEL_PORTAL_TABS = [
   { id: 'modeshow-28', label: "Download foto's / film try-out" },
   { id: 'profiel', label: 'Mijn profiel / modellenfiche' },
   { id: 'portfolio', label: 'Portfolio afspraak' },
+  { id: 'setkaarten', label: 'Setkaarten bestellen' },
   { id: 'opleiding', label: 'Opleidingsafspraak' },
   { id: 'historiek', label: 'Historiek' },
   { id: 'push', label: 'Pushberichten' },

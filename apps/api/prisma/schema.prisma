@@ -36,6 +36,11 @@ enum BriefResponseStatus {
   declined
 }
 
+enum ModelSetCardStatus {
+  draft
+  submitted
+}
+
 model Role {
   id          String   @id @default(uuid())
   slug        String   @unique
@@ -98,8 +103,23 @@ model User {
   tryoutModeshowRegistrations TryoutModeshowRegistration[]
   /// Portfolio-levering door fotograaf (map `portfolio-fotograaf`), gekoppeld aan dit model.
   portfolioDeliveryAssets MediaAsset[] @relation("PortfolioDeliveryForModel")
+  setCardDraft            ModelSetCardDraft?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+}
+
+/// Setkaart / compositkaart — één concept per model (PDF naar bureau).
+model ModelSetCardDraft {
+  userId             String             @id
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  frontHeroAssetId   String?
+  /// JSON-array van precies 5 slots (`assetId` of `null`), rasterpositie behouden.
+  versoPhotoAssetIds Json               @default("[]")
+  status             ModelSetCardStatus @default(draft)
+  noteFromModel      String?            @db.Text
+  submittedAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 }
 
 model ClientBrief {

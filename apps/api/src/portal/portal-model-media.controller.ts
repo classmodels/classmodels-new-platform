@@ -65,7 +65,7 @@ export class PortalModelMediaController {
   ) {
     if (!file) return { error: 'Geen bestand' };
     const slug = folderSlug?.trim() || 'models';
-    const allowed = ['models', 'tijdelijke-uploads'];
+    const allowed = ['models', 'tijdelijke-uploads', 'setkaarten'];
     if (!allowed.includes(slug)) {
       return { error: `Alleen ${allowed.join(' of ')} is toegestaan voor model-uploads.` };
     }

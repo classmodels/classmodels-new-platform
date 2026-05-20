@@ -26,6 +26,7 @@ import { ModelPortalPushTab } from '@/components/model-portal/ModelPortalPushTab
 import { ModelPremiumTab } from '@/components/model-portal/ModelPremiumTab';
 import { ModelTryoutModeshowTab } from '@/components/model-portal/ModelTryoutModeshowTab';
 import { ModelModeshowDownloadsTab } from '@/components/model-portal/ModelModeshowDownloadsTab';
+import { ModelSetCardTab } from '@/components/model-portal/ModelSetCardTab';
 import { MODEL_BTN_GOLD } from '@/components/model-portal/model-portal-buttons';
 import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data';
 import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
@@ -356,7 +357,7 @@ function ModelPortalPageInner() {
 
   const uploadMedia = async (
     file: File | null,
-    opts?: { setAsProfilePhoto?: boolean; folderSlug?: 'models' | 'tijdelijke-uploads' },
+    opts?: { setAsProfilePhoto?: boolean; folderSlug?: 'models' | 'tijdelijke-uploads' | 'setkaarten' },
   ) => {
     if (!file || !token || !can('portal.model.media.upload')) return;
     setMediaBusy(true);
@@ -798,6 +799,25 @@ function ModelPortalPageInner() {
   } else if (tab === 'portfolio') {
     sectionHeaderRight = portfolioHeaderRight ?? undefined;
     main = <ModelPortfolioTab onHeaderRightChange={setPortfolioHeaderRight} />;
+  } else if (tab === 'setkaarten' && can('portal.model.media.read')) {
+    main = (
+      <ModelSetCardTab
+        token={token}
+        canRead={can('portal.model.media.read')}
+        canUpload={can('portal.model.media.upload')}
+        media={media}
+        mediaBusy={mediaBusy}
+        reloadMedia={loadMedia}
+        uploadMedia={uploadMedia}
+      />
+    );
+  } else if (tab === 'setkaarten') {
+    main = (
+      <p className="text-sm text-muted">
+        Je account heeft geen rechten voor setkaarten. Vraag het bureau om{' '}
+        <code className="rounded bg-zinc-100 px-1 text-xs">portal.model.media.read</code>.
+      </p>
+    );
   } else if (tab === 'opleiding') {
     sectionHeaderRight = opleidingHeaderRight ?? undefined;
     main = <ModelOpleidingTab onHeaderRightChange={setOpleidingHeaderRight} />;
