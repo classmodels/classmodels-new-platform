@@ -16,6 +16,7 @@
     "import:wp-model-photos": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-wp-model-photos.ts",
     "tool:set-password": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/set-user-password.ts",
     "tool:set-legacy-import-password": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/set-legacy-import-password.ts",
+    "tool:set-model-temp-password": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/set-legacy-import-password.ts",
     "import:profile-photos-manifest": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-profile-photos-manifest.ts"
   },
   "dependencies": {

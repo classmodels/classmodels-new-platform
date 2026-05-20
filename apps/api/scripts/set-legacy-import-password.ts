@@ -1,22 +1,28 @@
 /**
- * Zet één gedeeld tijdelijk wachtwoord voor **geïmporteerde WordPress-accounts**
- * (`legacyWpUserId` is ingevuld) die **nog nooit succesvol zijn ingelogd** op dit platform
- * (`lastLoginAt` is null).
+ * Zet één gedeeld tijdelijk wachtwoord voor **modellen (catalogus-rollen)** die op dit platform
+ * **nog nooit succesvol zijn ingelogd** (`lastLoginAt` is null): `model`, `newface`, `tryout`, `inactief`.
  *
- * Waarom: bij `import-wp-models-json.ts` krijgen **alleen nieuwe** e-mailadressen een
- * `--temp-password`; **bestaande** gebruikers worden bijgewerkt zonder het wachtwoord te
- * wijzigen — hun oude hash komt dus niet overeen met het gecommuniceerde import-wachtwoord.
+ * Standaard is dit **breder** dan alleen `legacyWpUserId`: veel imports of handmatig aangemaakte
+ * accounts krijgen geen WP-id, maar hadden nog wel een **oud/ander** wachtwoord in de DB.
  *
- * Wijzigt niet: rollen, `mustChangePassword`, e-mail of andere velden — alleen `passwordHash`.
+ * Alternatief (smaller): `--scope=legacy-wp`:
+ * alleen gebruikers mét `legacyWpUserId`, zonder login.
  *
- * Gebruik (apps/api, met DB_URL naar de productie-DB):
- *   npm run tool:set-legacy-import-password -- --dry-run --password='classmodels2026!'
- *   npm run tool:set-legacy-import-password -- --apply --password='classmodels2026!'
+ * Wijzigt alleen `passwordHash` (`mustChangePassword` blijft ongewijzigd).
+ *
+ * Gebruik (vanaf apps/api root, DB_URL ingesteld naar productie):
+ *   npm run tool:set-model-temp-password -- --dry-run --password='classmodels2026!'
+ *   npm run tool:set-model-temp-password -- --apply --password='classmodels2026!'
+ *
+ * Oud gedrag alleen WP-import-keys:
+ *   npm run tool:set-model-temp-password -- --dry-run --scope=legacy-wp --password='classmodels2026!'
  */
 import * as bcrypt from 'bcrypt';
-import { PrismaClient, UserStatus } from '@prisma/client';
+import { Prisma, PrismaClient, UserStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+const CATALOG_MODEL_ROLE_SLUGS = ['model', 'newface', 'tryout', 'inactief'] as const;
 
 function argValue(name: string): string | undefined {
   const pref = `--${name}=`;
@@ -42,15 +48,45 @@ async function main() {
     process.exit(1);
   }
 
-  const where = {
-    legacyWpUserId: { not: null },
+  const scopeRaw = argValue('scope');
+  const normalized = (scopeRaw || 'model-no-login').toLowerCase();
+
+  if (normalized !== 'model-no-login' && normalized !== 'legacy-wp' && normalized !== 'legacy') {
+    console.error(`Onbekende --scope. Gebruik: model-no-login (standaard) | legacy-wp`);
+    process.exit(1);
+  }
+
+  const isLegacyWp = normalized === 'legacy-wp' || normalized === 'legacy';
+  let filterDescription = '';
+
+  const base = {
     lastLoginAt: null,
     status: UserStatus.active,
-  };
+  } satisfies Prisma.UserWhereInput;
+
+  const where: Prisma.UserWhereInput = isLegacyWp
+    ? { ...base, legacyWpUserId: { not: null } }
+    : {
+        ...base,
+        roles: { some: { role: { slug: { in: [...CATALOG_MODEL_ROLE_SLUGS] } } } },
+      };
+
+  filterDescription = isLegacyWp
+    ? 'legacyWpUserId set AND lastLoginAt IS NULL AND status active'
+    : `catalog model role (${CATALOG_MODEL_ROLE_SLUGS.join(', ')}) AND lastLoginAt IS NULL AND status active`;
+
+  const scopeLabel = isLegacyWp ? 'legacy-wp' : 'model-no-login';
 
   const targets = await prisma.user.findMany({
     where,
-    select: { id: true, email: true, firstName: true, lastName: true, legacyWpUserId: true },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      legacyWpUserId: true,
+      roles: { select: { role: { select: { slug: true } } } },
+    },
     orderBy: { email: 'asc' },
   });
 
@@ -58,9 +94,14 @@ async function main() {
     JSON.stringify(
       {
         mode: dryRun ? 'dry-run' : 'apply',
-        filter: 'legacyWpUserId set AND lastLoginAt IS NULL AND status active',
+        scope: scopeLabel,
+        filter: filterDescription,
         matchCount: targets.length,
-        emails: targets.map((t) => t.email),
+        users: targets.map((t) => ({
+          email: t.email,
+          legacyWpUserId: t.legacyWpUserId,
+          roles: t.roles.map((r) => r.role.slug),
+        })),
       },
       null,
       2,

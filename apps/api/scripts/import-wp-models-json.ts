@@ -8,8 +8,8 @@
  *   - **Nieuwe** e-mails krijgen `--temp-password` als wachtwoord-hash.
  *   - **Bestaande** e-mails worden bijgewerkt (fiche, rollen, legacyWpUserId) maar het **wachtwoord
  *     blijft ongewijzigd** — zet desgewenst achteraf hetzelfde tijdelijk wachtwoord met
- *     `npm run tool:set-legacy-import-password` (alleen accounts met legacy import die nog
- *     nooit ingelogd zijn).
+ *     `npm run tool:set-model-temp-password` (standaard: alle catalogus-modellen zonder enige
+ *     login; niet alleen `legacyWpUserId`). Oud filter: `--scope=legacy-wp`.
  *   npx ts-node --compiler-options "{\"module\":\"CommonJS\"}" scripts/import-wp-models-json.ts --file=... --apply --temp-password='KiesEenTijdelijkWachtwoord123!'
  */
 import * as fs from 'fs';
