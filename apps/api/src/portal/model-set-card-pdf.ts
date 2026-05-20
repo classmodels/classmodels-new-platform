@@ -15,13 +15,9 @@ const BURGUNDY = rgb(0.46, 0.09, 0.14);
 const INK = rgb(0.12, 0.12, 0.12);
 const MUTED = rgb(0.35, 0.35, 0.35);
 
-const AGENCY_LINES = [
-  'Class-Models',
-  'Provinciebaan 3, 2235 Hulshout',
-  'www.class-models.be',
-  'info@class-models.be',
-  'gsm +32 (0) 485 322 307',
-];
+/** Footer op 2 regels, breedte = fotokolom (zoals voorbeeld). */
+const FOOTER_LINE_1 = 'Class-Models  ·  Provinciebaan 3, 2235 Hulshout  ·  www.class-models.be';
+const FOOTER_LINE_2 = 'info@class-models.be  ·  gsm +32 (0) 485 322 307';
 
 export type StatEntry = { label: string; value: string };
 
@@ -67,18 +63,34 @@ export function modelSheetStatLines(ms: Record<string, unknown> | null): string[
   return modelSheetStatEntries(ms).map((e) => `${e.label}: ${e.value}`);
 }
 
-async function prepareJpegForPdf(bytes: Buffer): Promise<Buffer> {
+async function prepareJpegForPdf(bytes: Buffer, portrait = false): Promise<Buffer> {
+  const maxW = portrait ? 1400 : 1200;
+  const maxH = portrait ? 2000 : 1200;
   return sharp(bytes)
     .rotate()
-    .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-    .jpeg({ quality: 82, mozjpeg: true })
+    .resize(maxW, maxH, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 88, mozjpeg: true })
     .toBuffer();
 }
 
-async function embedRaster(pdfDoc: PDFDocument, bytes: Buffer): Promise<PDFImage> {
-  return pdfDoc.embedJpg(await prepareJpegForPdf(bytes));
+async function embedRaster(pdfDoc: PDFDocument, bytes: Buffer, portrait = false): Promise<PDFImage> {
+  return pdfDoc.embedJpg(await prepareJpegForPdf(bytes, portrait));
 }
 
+/** Volledige foto zichtbaar (geen afkapping), gecentreerd in vak. */
+function drawImageContain(page: PDFPage, img: PDFImage, x: number, y: number, w: number, h: number) {
+  const sc = Math.min(w / img.width, h / img.height);
+  const dw = img.width * sc;
+  const dh = img.height * sc;
+  page.drawImage(img, {
+    x: x + (w - dw) / 2,
+    y: y + (h - dh) / 2,
+    width: dw,
+    height: dh,
+  });
+}
+
+/** Vulling voor kleine vakjes op achterzijde. */
 function drawImageCover(page: PDFPage, img: PDFImage, x: number, y: number, w: number, h: number) {
   const sc = Math.max(w / img.width, h / img.height);
   const dw = img.width * sc;
@@ -91,30 +103,40 @@ function drawImageCover(page: PDFPage, img: PDFImage, x: number, y: number, w: n
   });
 }
 
-function drawCenteredText(
+function drawCenteredInBox(
   page: PDFPage,
   font: PDFFont,
   text: string,
-  centerX: number,
+  boxX: number,
+  boxW: number,
   y: number,
   size: number,
   color = INK,
 ) {
   const tw = font.widthOfTextAtSize(text, size);
-  page.drawText(text, { x: centerX - tw / 2, y, size, font, color });
+  const x = boxX + Math.max(0, (boxW - tw) / 2);
+  page.drawText(text, { x, y, size, font, color });
 }
 
-function drawAgencyFooter(page: PDFPage, font: PDFFont, fontBold: PDFFont, pageW: number, yStart: number) {
-  const cx = pageW / 2;
-  let y = yStart;
-  for (let i = 0; i < AGENCY_LINES.length; i++) {
-    const line = AGENCY_LINES[i];
-    const isBold = i === 0;
-    const f = isBold ? fontBold : font;
-    const size = isBold ? 9.5 : 8;
-    drawCenteredText(page, f, line, cx, y, size, isBold ? INK : MUTED);
-    y -= isBold ? 14 : 12;
-  }
+function fitFontSize(font: PDFFont, text: string, maxW: number, startSize: number): number {
+  let size = startSize;
+  while (size > 5.5 && font.widthOfTextAtSize(text, size) > maxW) size -= 0.25;
+  return size;
+}
+
+function drawFooterTwoLines(
+  page: PDFPage,
+  font: PDFFont,
+  fontBold: PDFFont,
+  boxX: number,
+  boxW: number,
+  yBottom: number,
+) {
+  const lineGap = 12;
+  const size1 = fitFontSize(fontBold, FOOTER_LINE_1, boxW, 7.5);
+  const size2 = fitFontSize(font, FOOTER_LINE_2, boxW, 7.5);
+  drawCenteredInBox(page, fontBold, FOOTER_LINE_1, boxX, boxW, yBottom + lineGap, size1, INK);
+  drawCenteredInBox(page, font, FOOTER_LINE_2, boxX, boxW, yBottom, size2, MUTED);
 }
 
 function drawStatBlock(
@@ -129,17 +151,16 @@ function drawStatBlock(
 ) {
   const nameUpper = displayName.trim().toUpperCase() || 'NAAM MODEL';
   const header = `NAAM: ${nameUpper}`;
-  const headerSize = 10;
+  const headerSize = 10.5;
   page.drawText(header, { x, y: yTop - headerSize, size: headerSize, font: fontBold, color: INK });
 
-  const labelColW = 52;
-  const rowH = 15;
+  const labelColW = 54;
+  const rowH = 14.5;
   const size = 9;
-  let y = yTop - headerSize - 18;
+  let y = yTop - headerSize - 20;
 
   for (const entry of entries) {
-    const label = `${entry.label}:`;
-    page.drawText(label, { x, y: y - size, size, font, color: INK });
+    page.drawText(`${entry.label}:`, { x, y: y - size, size, font, color: INK });
     page.drawText(entry.value, {
       x: x + labelColW,
       y: y - size,
@@ -152,7 +173,7 @@ function drawStatBlock(
 }
 
 /**
- * Recto — A5 staand: naam bovenaan, grote staande foto, bureaugegevens onderaan gecentreerd.
+ * Recto — A5 staand: naam, volledige staande foto (contain), footer 2 regels over kaartbreedte.
  */
 export async function buildSetCardRectoPdf(opts: {
   heroBytes: Buffer;
@@ -162,29 +183,41 @@ export async function buildSetCardRectoPdf(opts: {
   const page = pdfDoc.addPage([A5_PORTRAIT_W, A5_PORTRAIT_H]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const heroImg = await embedRaster(pdfDoc, opts.heroBytes);
+  const heroImg = await embedRaster(pdfDoc, opts.heroBytes, true);
 
-  const pad = 14;
-  const cx = A5_PORTRAIT_W / 2;
+  const margin = 14;
+  const contentW = A5_PORTRAIT_W - 2 * margin;
   const nameUpper = opts.displayName.trim().toUpperCase() || 'NAAM MODEL';
-  const nameSize = nameUpper.length > 24 ? 11 : 13;
+  const nameSize = nameUpper.length > 26 ? 11 : 13;
 
-  const footerH = 72;
-  const headerH = 36;
-  const photoY = pad + footerH;
-  const photoH = A5_PORTRAIT_H - photoY - headerH - pad;
-  const photoX = pad;
-  const photoW = A5_PORTRAIT_W - 2 * pad;
+  const nameBlockH = 32;
+  const footerBlockH = 34;
+  const gap = 8;
 
-  drawCenteredText(page, fontBold, nameUpper, cx, A5_PORTRAIT_H - pad - nameSize, nameSize, BURGUNDY);
-  drawImageCover(page, heroImg, photoX, photoY, photoW, photoH);
-  drawAgencyFooter(page, font, fontBold, A5_PORTRAIT_W, pad + footerH - 8);
+  const photoX = margin;
+  const photoW = contentW;
+  const photoBottom = margin + footerBlockH + gap;
+  const photoTop = A5_PORTRAIT_H - margin - nameBlockH - gap;
+  const photoH = photoTop - photoBottom;
+
+  const nameY = A5_PORTRAIT_H - margin - nameSize;
+  const nameW = fontBold.widthOfTextAtSize(nameUpper, nameSize);
+  page.drawText(nameUpper, {
+    x: photoX + (photoW - nameW) / 2,
+    y: nameY,
+    size: nameSize,
+    font: fontBold,
+    color: BURGUNDY,
+  });
+
+  drawImageContain(page, heroImg, photoX, photoBottom, photoW, photoH);
+  drawFooterTwoLines(page, font, fontBold, photoX, photoW, margin + 4);
 
   return pdfDoc.save();
 }
 
 /**
- * Verso — A5 liggend: links 2×2 foto’s, rechts naam + maten.
+ * Verso — A5 liggend: 2×2 foto’s links, rechts naam + maten.
  */
 export async function buildSetCardVersoPdf(opts: {
   versoBytes: Buffer[];
@@ -203,9 +236,9 @@ export async function buildSetCardVersoPdf(opts: {
   const thumbs: PDFImage[] = [];
   for (const b of versoBytes) thumbs.push(await embedRaster(pdfDoc, b));
 
-  const pad = 12;
-  const gap = 6;
-  const statsW = 168;
+  const pad = 14;
+  const gap = 5;
+  const statsW = 172;
   const photosX = pad;
   const photosY = pad;
   const photosW = A5_LANDSCAPE_W - 2 * pad - statsW - gap;
@@ -222,7 +255,7 @@ export async function buildSetCardVersoPdf(opts: {
   drawImageCover(page, thumbs[2], photosX, row2Y, cellW, cellH);
   drawImageCover(page, thumbs[3], photosX + cellW + gap, row2Y, cellW, cellH);
 
-  drawStatBlock(page, font, fontBold, statsX, photosY + photosH, statsW, displayName, statEntries);
+  drawStatBlock(page, font, fontBold, statsX + 2, photosY + photosH - 4, statsW - 4, displayName, statEntries);
 
   return pdfDoc.save();
 }
