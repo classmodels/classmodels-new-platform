@@ -582,48 +582,50 @@ export function ModelSetCardTab({
           <div className="overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
             <div className="flex aspect-[210/148] flex-col font-serif">
               <div className="relative min-h-0 flex-1 px-[3.5%] pt-[2%]">
-                <div
-                  className="absolute bottom-[13%] top-[2%] flex flex-col justify-between"
-                  style={{ left: '3.5%', right: '36%', width: 'auto' }}
-                >
-                  <div className="text-left text-[6.5px] leading-none text-zinc-900">
+                <div className="absolute bottom-[13%] left-[3.5%] right-[40%] top-[2%] flex flex-col">
+                  <div className="min-h-0 flex-1 text-left text-[6.5px] leading-none text-zinc-900">
                     <p className="text-[8px] font-bold tracking-[0.08em] text-burgundy">MODEL INFO</p>
-                    <p className="mt-1 text-[7px]">{birthYear ?? '—'}</p>
-                    <hr className="my-1.5 border-burgundy" />
-                    <div className="relative border-x border-burgundy/90 px-2 py-1">
-                      <ul className="space-y-[4px]">
+                    <hr className="my-1 border-burgundy" />
+                    <div className="h-full border-x border-burgundy/90 px-2 py-1">
+                      <ul className="space-y-[3px]">
                         {versoStatRows.map((e) => (
-                          <li key={e.label} className="flex justify-between gap-3">
-                            <span className="uppercase tracking-wide">{e.label}</span>
+                          <li key={e.label} className="flex justify-between gap-2">
+                            <span>{e.label}:</span>
                             <span>{e.value}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="mt-auto flex shrink-0 gap-[6px] pt-2">
                     {[0, 1, 2].map((i) => (
                       <div
                         key={i}
-                        className="h-[64px] flex-1 overflow-hidden bg-zinc-50 shadow-[2px_2px_6px_rgba(0,0,0,0.12)]"
+                        className="h-[72px] flex-1 overflow-hidden shadow-[2px_2px_5px_rgba(0,0,0,0.1)]"
                       >
                         {versoPreviewSrc(i) ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-[8px] text-zinc-300">{i + 1}</div>
+                          <div className="flex h-full items-center justify-center bg-zinc-50 text-[8px] text-zinc-300">{i + 1}</div>
                         )}
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="absolute bottom-[13%] right-[3.5%] top-[2%] w-[38%] overflow-hidden bg-zinc-50 shadow-[3px_3px_8px_rgba(0,0,0,0.14)]">
-                  {versoPreviewSrc(3) ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-[9px] text-zinc-400">Grote foto</div>
-                  )}
+                <div className="absolute bottom-[13%] right-[3.5%] top-[2%] flex w-[36%] flex-col">
+                  <div className="min-h-0 flex-1 overflow-hidden shadow-[2px_2px_6px_rgba(0,0,0,0.12)]">
+                    {versoPreviewSrc(3) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center bg-zinc-50 text-[9px] text-zinc-400">Grote foto</div>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 justify-between pt-0.5 text-[7px] text-zinc-700">
+                    <span>geboortejaar</span>
+                    <span>{birthYear ?? '—'}</span>
+                  </div>
                 </div>
               </div>
               <div className="shrink-0 px-[3.5%] py-1.5 text-[6px] leading-snug text-zinc-800">

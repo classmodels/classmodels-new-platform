@@ -16,7 +16,7 @@ const VERSO_MARGIN_L = 20;
 const VERSO_MARGIN_R = 20;
 const VERSO_GAP_THUMB_HERO = 60;
 const VERSO_THUMB_GAP = 12;
-const PHOTO_SHADOW = rgb(0.9, 0.9, 0.9);
+const SHADOW_FILL = rgb(0.88, 0.88, 0.88);
 
 const BURGUNDY = rgb(0.46, 0.09, 0.14);
 const INK = rgb(0.12, 0.12, 0.12);
@@ -153,18 +153,21 @@ function drawImageContain(page: PDFPage, img: PDFImage, x: number, y: number, w:
   });
 }
 
-/** Lichte schaduw achter foto (zakelijk). */
-function drawImageContainWithShadow(page: PDFPage, img: PDFImage, x: number, y: number, w: number, h: number) {
-  const pad = 2;
-  const off = 2.5;
+/** Foto in vak + lichte schaduw alleen achter de afbeelding zelf. */
+function drawImageInSlot(page: PDFPage, img: PDFImage, x: number, y: number, w: number, h: number) {
+  const sc = Math.min(w / img.width, h / img.height);
+  const dw = img.width * sc;
+  const dh = img.height * sc;
+  const ix = x + (w - dw) / 2;
+  const iy = y + (h - dh) / 2;
   page.drawRectangle({
-    x: x - pad + off,
-    y: y - pad,
-    width: w + pad * 2,
-    height: h + pad * 2,
-    color: PHOTO_SHADOW,
+    x: ix + 2,
+    y: iy - 2,
+    width: dw,
+    height: dh,
+    color: SHADOW_FILL,
   });
-  drawImageContain(page, img, x, y, w, h);
+  page.drawImage(img, { x: ix, y: iy, width: dw, height: dh });
 }
 
 function drawHLine(page: PDFPage, x: number, y: number, w: number, thickness = 0.65, color = MUTED) {
@@ -209,25 +212,71 @@ function drawAgencyFooterBetweenLines(
   drawHLine(page, boxX, yBottom, boxW);
 }
 
-/** MODEL INFO links, geboortejaar eronder, maten met rode verticale lijnen. */
+type VersoLayout = {
+  contentTop: number;
+  photoBottom: number;
+  thumbH: number;
+  thumbW: number;
+  thumbXs: number[];
+  heroX: number;
+  heroW: number;
+  leftW: number;
+  statsBottom: number;
+  statsTop: number;
+};
+
+function computeVersoLayout(): VersoLayout {
+  const padTop = 12;
+  const footerH = 40;
+  const contentTop = A5_LANDSCAPE_H - padTop;
+  const photoBottom = 12 + footerH;
+  const thumbH = 128;
+
+  const thumbW = 82;
+  const leftW = VERSO_MARGIN_L + 3 * thumbW + 2 * VERSO_THUMB_GAP - VERSO_MARGIN_L;
+  const leftEnd = VERSO_MARGIN_L + leftW;
+  const heroX = leftEnd + VERSO_GAP_THUMB_HERO;
+  const heroW = A5_LANDSCAPE_W - VERSO_MARGIN_R - heroX;
+
+  const thumbTop = photoBottom + thumbH;
+  const headerBlockH = 52;
+  const statsBottom = thumbTop + 6;
+  const statsTop = contentTop - 4;
+
+  return {
+    contentTop,
+    photoBottom,
+    thumbH,
+    thumbW,
+    thumbXs: [
+      VERSO_MARGIN_L,
+      VERSO_MARGIN_L + thumbW + VERSO_THUMB_GAP,
+      VERSO_MARGIN_L + 2 * (thumbW + VERSO_THUMB_GAP),
+    ],
+    heroX,
+    heroW,
+    leftW,
+    statsBottom,
+    statsTop: Math.max(statsBottom + headerBlockH + 40, statsTop),
+  };
+}
+
+/** MODEL INFO + maten tussen statsBottom en statsTop (bijlage 2). */
 function drawModelInfoBlock(
   page: PDFPage,
   font: PDFFont,
   fontBold: PDFFont,
   boxX: number,
   boxW: number,
-  yTop: number,
-  statsBottomY: number,
-  birthYear: string | null,
+  statsBottom: number,
+  statsTop: number,
   statRows: StatEntry[],
 ) {
   const headerSize = 11;
-  const yearSize = 9.5;
   const rowSize = 8.5;
-  const rowH = 14;
-  const textPad = 14;
+  const textPad = 12;
 
-  let y = yTop - 10;
+  let y = statsTop - 8;
 
   page.drawText('MODEL INFO', {
     x: boxX,
@@ -236,42 +285,34 @@ function drawModelInfoBlock(
     font: fontBold,
     color: BURGUNDY,
   });
-  y -= headerSize + 7;
-
-  const yearText = birthYear?.trim() || '—';
-  page.drawText(yearText, {
-    x: boxX,
-    y: y - yearSize,
-    size: yearSize,
-    font,
-    color: INK,
-  });
-  y -= yearSize + 6;
+  y -= headerSize + 5;
   drawHLine(page, boxX, y, boxW, 0.75, BURGUNDY);
-  y -= 12;
+  y -= 10;
 
-  const statsTop = y;
-  const statsH = statRows.length * rowH + 6;
-  const statsBase = Math.max(statsBottomY, statsTop - statsH);
+  const railsBottom = statsBottom;
+  const railsTop = y;
 
   page.drawLine({
-    start: { x: boxX, y: statsBase },
-    end: { x: boxX, y: statsTop },
-    thickness: 0.85,
+    start: { x: boxX, y: railsBottom },
+    end: { x: boxX, y: railsTop },
+    thickness: 0.9,
     color: BURGUNDY,
   });
   page.drawLine({
-    start: { x: boxX + boxW, y: statsBase },
-    end: { x: boxX + boxW, y: statsTop },
-    thickness: 0.85,
+    start: { x: boxX + boxW, y: railsBottom },
+    end: { x: boxX + boxW, y: railsTop },
+    thickness: 0.9,
     color: BURGUNDY,
   });
 
-  let rowY = statsTop - 8;
+  const rowCount = statRows.length;
+  const rowH = (railsTop - railsBottom - 6) / rowCount;
+  let baseline = railsTop - 5;
+
   for (const entry of statRows) {
-    rowY -= rowH;
-    const baseline = rowY + (rowH - rowSize) / 2;
-    page.drawText(entry.label, {
+    baseline -= rowH;
+    const label = `${entry.label}:`;
+    page.drawText(label, {
       x: boxX + textPad,
       y: baseline,
       size: rowSize,
@@ -304,36 +345,6 @@ function drawVersoBottomFooter(
   const lineSize = fitFontSize(font, line, w - 4, 8);
   page.drawText(line, { x: x + 2, y: yBase + 6, size: lineSize, font, color: INK });
   drawHLine(page, x, yBase, w);
-}
-
-function computeVersoPhotoLayout() {
-  const padTop = 12;
-  const footerH = 40;
-  const contentTop = A5_LANDSCAPE_H - padTop;
-  const photosBottom = 12 + footerH;
-  const photoH = contentTop - photosBottom;
-
-  const thumbW = 78;
-  const thumbsTotalW = 3 * thumbW + 2 * VERSO_THUMB_GAP;
-  const heroW = A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R - VERSO_GAP_THUMB_HERO - thumbsTotalW;
-  const heroX = A5_LANDSCAPE_W - VERSO_MARGIN_R - heroW;
-  const leftZoneW = heroX - VERSO_GAP_THUMB_HERO - VERSO_MARGIN_L;
-
-  return {
-    contentTop,
-    photosBottom,
-    photoH,
-    thumbW,
-    thumbsTotalW,
-    heroW,
-    heroX,
-    leftZoneW,
-    thumbXs: [
-      VERSO_MARGIN_L,
-      VERSO_MARGIN_L + thumbW + VERSO_THUMB_GAP,
-      VERSO_MARGIN_L + 2 * (thumbW + VERSO_THUMB_GAP),
-    ],
-  };
 }
 
 /**
@@ -385,7 +396,7 @@ export async function buildSetCardRectoPdf(opts: {
 }
 
 /**
- * Verso — A5 liggend: MODEL INFO links, 3 grote thumbs, hero rechts (40pt marges).
+ * Verso — A5 liggend zoals bijlage 2: maten linksboven, 3 foto’s onderaan links, grote foto rechts.
  */
 export async function buildSetCardVersoPdf(opts: {
   versoBytes: Buffer[];
@@ -405,39 +416,29 @@ export async function buildSetCardVersoPdf(opts: {
   const thumbs: PDFImage[] = [];
   for (const b of versoBytes) thumbs.push(await embedRaster(pdfDoc, b));
 
-  const layout = computeVersoPhotoLayout();
+  const L = computeVersoLayout();
+  const heroH = L.contentTop - L.photoBottom;
 
-  drawModelInfoBlock(
-    page,
-    font,
-    fontBold,
-    VERSO_MARGIN_L,
-    layout.leftZoneW,
-    layout.contentTop,
-    layout.photosBottom + layout.photoH,
-    birthYear,
-    versoStatEntries,
-  );
+  drawModelInfoBlock(page, font, fontBold, VERSO_MARGIN_L, L.leftW, L.statsBottom, L.statsTop, versoStatEntries);
 
   for (let i = 0; i < 3; i++) {
-    drawImageContainWithShadow(
-      page,
-      thumbs[i],
-      layout.thumbXs[i],
-      layout.photosBottom,
-      layout.thumbW,
-      layout.photoH,
-    );
+    drawImageInSlot(page, thumbs[i], L.thumbXs[i], L.photoBottom, L.thumbW, L.thumbH);
   }
 
-  drawImageContainWithShadow(
-    page,
-    thumbs[3],
-    layout.heroX,
-    layout.photosBottom,
-    layout.heroW,
-    layout.photoH,
-  );
+  drawImageInSlot(page, thumbs[3], L.heroX, L.photoBottom, L.heroW, heroH);
+
+  const gebY = L.photoBottom - 11;
+  page.drawText('geboortejaar', { x: L.heroX, y: gebY, size: 7.5, font, color: MUTED });
+  if (birthYear) {
+    const yw = font.widthOfTextAtSize(birthYear, 8);
+    page.drawText(birthYear, {
+      x: L.heroX + L.heroW - yw,
+      y: gebY,
+      size: 8,
+      font,
+      color: INK,
+    });
+  }
 
   drawVersoBottomFooter(
     page,
