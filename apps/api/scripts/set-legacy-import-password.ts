@@ -18,7 +18,7 @@
  *   npm run tool:set-model-temp-password -- --dry-run --scope=legacy-wp --password='classmodels2026!'
  */
 import * as bcrypt from 'bcrypt';
-import { Prisma, PrismaClient, UserStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -61,10 +61,10 @@ async function main() {
 
   const base = {
     lastLoginAt: null,
-    status: UserStatus.active,
-  } satisfies Prisma.UserWhereInput;
+    status: 'active' as const,
+  };
 
-  const where: Prisma.UserWhereInput = isLegacyWp
+  const where = isLegacyWp
     ? { ...base, legacyWpUserId: { not: null } }
     : {
         ...base,
