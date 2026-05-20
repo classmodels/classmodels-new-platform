@@ -17,6 +17,7 @@ import { AdminPremiumService } from './admin-premium.service';
 import { AdminPluginsController } from './admin-plugins.controller';
 import { AdminBriefsController } from './admin-briefs.controller';
 import { AdminTryoutModeshowController } from './admin-tryout-modeshow.controller';
+import { AdminModelSetCardController } from './admin-model-set-card.controller';
 import { AdminTryoutModeshowService } from './admin-tryout-modeshow.service';
 import { AdminSiteSmtpController } from './admin-site-smtp.controller';
 import { PaymentsModule } from '../payments/payments.module';
@@ -35,6 +36,7 @@ import { PaymentsModule } from '../payments/payments.module';
     AdminPluginsController,
     AdminBriefsController,
     AdminTryoutModeshowController,
+    AdminModelSetCardController,
   ],
   providers: [AdminUsersService, AdminRolesService, AdminTryoutModeshowService, AdminPremiumService],
 })

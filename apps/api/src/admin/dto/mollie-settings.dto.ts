@@ -29,4 +29,10 @@ export class PatchMollieSettingsDto {
   @IsNumber()
   @Min(0)
   tryoutPrice?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  setCardPrice?: number;
 }

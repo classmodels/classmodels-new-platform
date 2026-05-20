@@ -104,6 +104,8 @@ model User {
   /// Portfolio-levering door fotograaf (map `portfolio-fotograaf`), gekoppeld aan dit model.
   portfolioDeliveryAssets MediaAsset[] @relation("PortfolioDeliveryForModel")
   setCardDraft            ModelSetCardDraft?
+  /// Try-out modeshow: setkaarten gratis bestellen (geen Mollie).
+  setCardFreeOrder        Boolean    @default(false)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }
@@ -118,6 +120,9 @@ model ModelSetCardDraft {
   status             ModelSetCardStatus @default(draft)
   noteFromModel      String?            @db.Text
   submittedAt        DateTime?
+  molliePaymentId    String?            @unique
+  paymentStatus      String?
+  setCardPaidAt      DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 }
@@ -415,6 +420,8 @@ model MollieSettings {
   premiumPrice Decimal  @default(48) @db.Decimal(10, 2)
   /// Eenmalige inschrijving try-out modeshow (Mollie).
   tryoutPrice  Decimal  @default(600) @db.Decimal(10, 2)
+  /// Setkaart bestelling via modellenportaal (standaard €175).
+  setCardPrice Decimal  @default(175) @db.Decimal(10, 2)
   updatedAt    DateTime @updatedAt
 }
 

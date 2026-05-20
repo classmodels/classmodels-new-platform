@@ -188,6 +188,14 @@ export class PaymentsService {
     return Number.isFinite(n) && n > 0 ? n : 365;
   }
 
+  private async setCardAmount(): Promise<Prisma.Decimal> {
+    const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
+    if (settings?.setCardPrice != null) {
+      return new Prisma.Decimal(settings.setCardPrice.toString());
+    }
+    return new Prisma.Decimal('175');
+  }
+
   private async tryoutAmount(): Promise<Prisma.Decimal> {
     const settings = await this.prisma.mollieSettings.findUnique({ where: { id: 1 } });
     if (settings?.tryoutPrice != null) {
@@ -306,7 +314,7 @@ export class PaymentsService {
     return `${this.resolveApiPublicBase()}/payments/mollie/webhook`;
   }
 
-  private paymentReturnUrl(kind: 'premium' | 'tryout'): string {
+  private paymentReturnUrl(kind: 'premium' | 'tryout' | 'setkaart'): string {
     const base = (
       process.env.WEB_APP_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -315,10 +323,118 @@ export class PaymentsService {
     const envOverride =
       kind === 'premium'
         ? process.env.PAYMENT_REDIRECT_URL?.trim()
-        : process.env.TRYOUT_PAYMENT_REDIRECT_URL?.trim();
+        : kind === 'tryout'
+          ? process.env.TRYOUT_PAYMENT_REDIRECT_URL?.trim()
+          : process.env.SET_CARD_PAYMENT_REDIRECT_URL?.trim();
     if (envOverride) return envOverride;
-    const soort = kind === 'premium' ? 'premium' : 'tryout';
+    const soort = kind === 'premium' ? 'premium' : kind === 'tryout' ? 'tryout' : 'setkaart';
     return `${base}/portal/model/betaling/bedankt?soort=${soort}`;
+  }
+
+  async startSetCardCheckout(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        setCardFreeOrder: true,
+      },
+    });
+    if (!user) throw new NotFoundException('Gebruiker niet gevonden');
+    if (user.setCardFreeOrder) {
+      return {
+        skipCheckout: true as const,
+        reason: 'U kunt deze setkaarten gratis bestellen (inbegrepen in de try-out modeshow).',
+        freeOrder: true,
+      };
+    }
+
+    let draft = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
+    if (!draft) {
+      draft = await this.prisma.modelSetCardDraft.create({
+        data: { userId, versoPhotoAssetIds: [] },
+      });
+    }
+
+    if (draft.setCardPaidAt) {
+      return {
+        skipCheckout: true as const,
+        reason: 'Setkaart is al betaald. U kunt nu versturen naar Class-Models.',
+        paid: true,
+      };
+    }
+
+    const amount = await this.setCardAmount();
+    const value = amount.toFixed(2);
+    const mode = await this.resolveActiveMode();
+    const mollie = createMollieClient({ apiKey: await this.apiKey() });
+    const webhookUrl = await this.paymentWebhookUrl();
+    const redirectUrl = this.paymentReturnUrl('setkaart');
+
+    const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
+
+    if (draft.molliePaymentId) {
+      try {
+        const existing = await mollie.payments.get(draft.molliePaymentId);
+        if (existing.status === 'paid') {
+          await this.prisma.modelSetCardDraft.update({
+            where: { userId },
+            data: {
+              paymentStatus: existing.status,
+              setCardPaidAt: new Date(),
+            },
+          });
+          return {
+            skipCheckout: true as const,
+            reason: 'Betaling ontvangen. U kunt nu versturen naar Class-Models.',
+            paid: true,
+          };
+        }
+        if (existing.status === 'open' || existing.status === 'pending') {
+          const checkoutUrl = existing.getCheckoutUrl();
+          if (checkoutUrl) {
+            return { checkoutUrl, paymentId: existing.id };
+          }
+        }
+      } catch (e) {
+        this.log.warn(`Setkaart: bestaande Mollie-payment ophalen mislukt: ${e}`);
+      }
+    }
+
+    let payment: Payment;
+    try {
+      payment = await mollie.payments.create({
+        amount: { currency: 'EUR', value },
+        description: `Setkaart — ${displayName} (${user.email})`,
+        redirectUrl,
+        webhookUrl,
+        metadata: {
+          kind: 'set_card_order',
+          userId: String(userId),
+          userEmail: user.email,
+          displayName,
+        },
+      });
+    } catch (e) {
+      this.mollieFail('setkaart payments.create', e, { mode, redirectUrl, webhookUrl });
+    }
+
+    await this.prisma.modelSetCardDraft.update({
+      where: { userId },
+      data: {
+        molliePaymentId: payment.id,
+        paymentStatus: payment.status,
+      },
+    });
+
+    const checkoutUrl = payment.getCheckoutUrl();
+    if (!checkoutUrl) {
+      throw new BadRequestException('Geen Mollie checkout-URL ontvangen.');
+    }
+
+    return { checkoutUrl, paymentId: payment.id };
   }
 
   /** localhost-webhook in DB negeren op productie (anders weigert Mollie betalingen). */
@@ -437,6 +553,39 @@ export class PaymentsService {
     const payment = await this.fetchMolliePayment(paymentId);
     if (!payment) {
       this.log.error(`Webhook: payment ophalen mislukt ${paymentId} (geen geldige test/live key)`);
+      return;
+    }
+
+    const setCardDraft = await this.prisma.modelSetCardDraft.findUnique({
+      where: { molliePaymentId: payment.id },
+      include: { user: true },
+    });
+    if (setCardDraft) {
+      await this.prisma.modelSetCardDraft.update({
+        where: { userId: setCardDraft.userId },
+        data: { paymentStatus: payment.status },
+      });
+      if (payment.status === 'paid') {
+        await this.prisma.modelSetCardDraft.update({
+          where: { userId: setCardDraft.userId },
+          data: { setCardPaidAt: new Date(), paymentStatus: payment.status },
+        });
+        const u = setCardDraft.user;
+        if (u) {
+          await this.prisma.auditLog.create({
+            data: {
+              userId: u.id,
+              action: 'set_card.mollie_paid',
+              meta: {
+                paymentId: payment.id,
+                displayName: [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email,
+                userEmail: u.email,
+              },
+            },
+          });
+          void this.modelHistory.log(u.id, 'set_card_paid', { paymentId: payment.id });
+        }
+      }
       return;
     }
 

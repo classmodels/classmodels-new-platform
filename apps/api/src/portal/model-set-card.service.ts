@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { resolveMediaRoot } from '../config/resolve-media-root';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { ModelPortalHistoryService } from './model-portal-history.service';
+import { PaymentsService } from '../payments/payments.service';
 import {
   VERSO_PHOTO_COUNT,
   buildModelSetCardPdfPair,
@@ -44,6 +45,7 @@ export class ModelSetCardService {
   constructor(
     private prisma: PrismaService,
     private history: ModelPortalHistoryService,
+    private payments: PaymentsService,
   ) {}
 
   private bureauEmail(): string {
@@ -113,6 +115,7 @@ export class ModelSetCardService {
         lastName: true,
         email: true,
         modelSheet: true,
+        setCardFreeOrder: true,
       },
     });
     if (!user) throw new NotFoundException();
@@ -138,12 +141,20 @@ export class ModelSetCardService {
     const versoStatEntries = modelSheetVersoStatEntries(ms, birthYear);
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
+    const paid = !!draft.setCardPaidAt;
+    const freeOrder = user.setCardFreeOrder;
+    const canSubmit = freeOrder || paid;
+
     return {
       frontHeroAssetId: draft.frontHeroAssetId,
       versoPhotoAssetIds: parseVersoSlots(draft.versoPhotoAssetIds),
       status: draft.status,
       noteFromModel: draft.noteFromModel,
       submittedAt: draft.submittedAt?.toISOString() ?? null,
+      setCardFreeOrder: freeOrder,
+      setCardPaid: paid,
+      canSubmitWithoutPayment: canSubmit,
+      paymentRequired: !freeOrder && !paid,
       profile: {
         displayName,
         ageYears: age,
@@ -239,6 +250,10 @@ export class ModelSetCardService {
     return { ...pdfs, displayName: ctx.displayName };
   }
 
+  async buildPdfBytesForUser(userId: string) {
+    return this.buildPdfBytes(userId);
+  }
+
   async previewRectoPdf(userId: string): Promise<Uint8Array> {
     const ctx = await this.resolvePdfContext(userId);
     const { hero } = await this.buffersForPdf(userId, ctx.heroId, []);
@@ -280,7 +295,27 @@ export class ModelSetCardService {
     });
   }
 
+  async startCheckout(userId: string) {
+    return this.payments.startSetCardCheckout(userId);
+  }
+
+  async assertCanSubmit(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { setCardFreeOrder: true },
+    });
+    if (!user) throw new NotFoundException();
+    if (user.setCardFreeOrder) return;
+    const draft = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
+    if (!draft?.setCardPaidAt) {
+      throw new BadRequestException(
+        'Betaal eerst €175 via Mollie om uw setkaart te bestellen, of vraag gratis bestelling aan het bureau.',
+      );
+    }
+  }
+
   async submit(userId: string): Promise<{ ok: true; mailed: boolean }> {
+    await this.assertCanSubmit(userId);
     const { recto, verso, displayName } = await this.buildPdfBytes(userId);
 
     const draft = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });

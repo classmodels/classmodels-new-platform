@@ -269,6 +269,10 @@ function ModelPortalPageInner() {
     }
     if (searchParams.get('tryout') === 'return') {
       router.replace('/portal/model/betaling/bedankt?soort=tryout');
+      return;
+    }
+    if (searchParams.get('setkaart') === 'return') {
+      router.replace('/portal/model/betaling/bedankt?soort=setkaart');
     }
   }, [searchParams, router]);
 
@@ -760,6 +764,7 @@ function ModelPortalPageInner() {
           mediaBusy={mediaBusy}
           uploadMedia={uploadMedia}
           setProfilePhotoFromAsset={setProfilePhotoFromAsset}
+          reloadMedia={loadMedia}
           premiumSection={
             profileEditing && can('payments.checkout') ? (
               <div className="rounded-cm border border-line bg-zinc-50/80 p-4">

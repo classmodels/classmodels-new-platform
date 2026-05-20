@@ -228,6 +228,7 @@ export function ModelPortalProfile({
   mediaBusy,
   uploadMedia,
   setProfilePhotoFromAsset,
+  reloadMedia,
   premiumSection,
 }: {
   user: AuthUser;
@@ -246,6 +247,7 @@ export function ModelPortalProfile({
     },
   ) => void | Promise<void> | Promise<{ id: string } | null>;
   setProfilePhotoFromAsset: (assetId: string) => void | Promise<void>;
+  reloadMedia?: () => void | Promise<void>;
   premiumSection: ReactNode;
 }) {
   const [profile, setProfile] = useState({
@@ -255,7 +257,6 @@ export function ModelPortalProfile({
   });
   const [sheet, setSheet] = useState<SheetForm>(() => sheetFromUser(user.modelSheet ?? null, user.phone ?? ''));
   const [msg, setMsg] = useState('');
-  const [galleryUploadFolder, setGalleryUploadFolder] = useState<'models' | 'tijdelijke-uploads'>('models');
 
   useEffect(() => {
     setProfile({
@@ -319,7 +320,19 @@ export function ModelPortalProfile({
     sheet.geslacht.length > 0 ? sheet.geslacht.map((g) => (g === 'vrouw' ? 'vrouw' : 'man')).join(', ') : '—';
   const leeftijd = ageFromGeboorte(sheet.geboortedatum);
 
-  const sectionContactOk = !!(sheet.straat && sheet.postcode && sheet.gemeente && sheet.land && sheet.gsmModel);
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((user.email ?? '').trim());
+  const gsmDigits = sheet.gsmModel.replace(/\D/g, '');
+  const sectionContactOk = !!(
+    profile.firstName.trim() &&
+    profile.lastName.trim() &&
+    emailValid &&
+    sheet.geboortedatum &&
+    sheet.straat.trim() &&
+    sheet.postcode.trim() &&
+    sheet.gemeente.trim() &&
+    sheet.land.trim() &&
+    gsmDigits.length >= 8
+  );
   const sectionModelOk = !!(sheet.lengte && sheet.maat && sheet.schoenmaat);
   const sectionSocialOk = !!(sheet.instagram || sheet.facebook || sheet.tiktok);
 
@@ -338,10 +351,44 @@ export function ModelPortalProfile({
     [token],
   );
 
+  const deleteGalleryAsset = useCallback(
+    async (assetId: string) => {
+      if (!token || !canUploadMedia) return;
+      setMsg('');
+      try {
+        await apiFetch(`/portal/model/media/${assetId}`, { method: 'DELETE', token });
+        if (reloadMedia) await reloadMedia();
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : 'Verwijderen mislukt.');
+      }
+    },
+    [token, canUploadMedia],
+  );
+
   const save = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       setMsg('');
+      if (!profile.firstName.trim() || !profile.lastName.trim()) {
+        setMsg('Voornaam en familienaam zijn verplicht.');
+        return;
+      }
+      if (!emailValid) {
+        setMsg('E-mailadres ontbreekt of is ongeldig.');
+        return;
+      }
+      if (!sheet.geboortedatum) {
+        setMsg('Geboortedatum is verplicht.');
+        return;
+      }
+      if (!sheet.straat.trim() || !sheet.postcode.trim() || !sheet.gemeente.trim() || !sheet.land.trim()) {
+        setMsg('Adres (straat en nr, postcode, gemeente, land) is verplicht.');
+        return;
+      }
+      if (gsmDigits.length < 8) {
+        setMsg('GSM model is verplicht (alleen cijfers, minstens 8).');
+        return;
+      }
       try {
         await apiFetch('/users/me', {
           method: 'PATCH',
@@ -353,8 +400,9 @@ export function ModelPortalProfile({
             bio: null,
             modelSheet: {
               ...sheet,
-              gsmModel: sheet.gsmModel || profile.phone,
+              gsmModel: gsmDigits || sheet.gsmModel.replace(/\D/g, ''),
             },
+            phone: gsmDigits || profile.phone.replace(/\D/g, ''),
           }),
         });
         await refreshMe();
@@ -363,7 +411,7 @@ export function ModelPortalProfile({
         setMsg('Opslaan mislukt.');
       }
     },
-    [token, profile, sheet, refreshMe],
+    [token, profile, sheet, gsmDigits, emailValid, refreshMe],
   );
 
   const row = (label: string, value: string) => (
@@ -518,147 +566,115 @@ export function ModelPortalProfile({
     <form onSubmit={save} className="space-y-3 font-serif text-sm">
       {canReadMedia ? (
         <ProfileSection title="Foto's" complete={images.length > 0}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="min-w-0 space-y-2">
+          <div className="space-y-4">
+            <div className="space-y-2">
               <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Hoofdfoto</p>
-              {profileAsset ? (
-                <img
-                  src={publicMediaUrl(mediaPortalDetailKey(profileAsset))}
-                  alt=""
-                  className="mx-auto block h-auto w-full max-w-[220px] border border-line bg-zinc-100 object-contain"
-                />
-              ) : user.profileThumbKey ? (
-                <img
-                  src={publicMediaUrl(user.profileThumbKey)}
-                  alt=""
-                  className="mx-auto block h-auto w-full max-w-[220px] border border-line bg-zinc-100 object-contain"
-                />
-              ) : (
-                <p className="text-xs text-muted">Nog geen hoofdfoto gekozen.</p>
-              )}
-              {canUploadMedia ? (
-                <label className="inline-block cursor-pointer border border-ink bg-ink px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-white hover:bg-ink/90">
-                  {mediaBusy ? 'Uploaden…' : 'Hoofdfoto uploaden'}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { setAsProfilePhoto: true })}
+              <div className="flex flex-wrap items-start gap-3">
+                {profileAsset || user.profileThumbKey ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={publicMediaUrl(
+                      profileAsset ? mediaPortalDetailKey(profileAsset) : user.profileThumbKey!,
+                    )}
+                    alt=""
+                    className="h-24 w-auto max-w-[120px] border border-line bg-zinc-100 object-contain"
                   />
-                </label>
-              ) : null}
+                ) : (
+                  <p className="text-xs text-muted">Nog geen hoofdfoto.</p>
+                )}
+                {canUploadMedia ? (
+                  <label className="inline-block cursor-pointer border border-ink bg-ink px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-white hover:bg-ink/90">
+                    {mediaBusy ? 'Uploaden…' : 'Hoofdfoto uploaden'}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { setAsProfilePhoto: true })}
+                    />
+                  </label>
+                ) : null}
+              </div>
             </div>
-            <div className="min-w-0 space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Galerij</p>
-              <p className="text-xs leading-snug text-muted">
-                Extra portfoliofoto&apos;s: blader op je fiche met de pijltjes. Je hoofdfoto wordt getoond in het
-                modellenoverzicht. Met <strong className="text-ink">Download</strong> open je de beste kwaliteit; als de
-                beheerder een wis-termijn heeft ingesteld, start daarmee de teller om de bestanden later automatisch te
-                verwijderen.
-              </p>
-              {canUploadMedia ? (
-                <div className="flex flex-wrap gap-3 text-[11px] text-ink">
-                  <label className="flex items-center gap-1.5">
+
+            <div className="space-y-2 border-t border-line pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">
+                  Galerijfoto&apos;s (max. 8)
+                </p>
+                {canUploadMedia && galleryOnly.length < 8 ? (
+                  <label className="inline-block cursor-pointer border border-line bg-white px-2.5 py-1 text-[10px] font-bold uppercase leading-none text-ink hover:bg-panel">
+                    {mediaBusy ? '…' : '+ Foto'}
                     <input
-                      type="radio"
-                      name="gallery-upload-folder"
-                      checked={galleryUploadFolder === 'models'}
-                      onChange={() => setGalleryUploadFolder('models')}
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { folderSlug: 'models' })}
                     />
-                    Modellen (portfolio)
                   </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="gallery-upload-folder"
-                      checked={galleryUploadFolder === 'tijdelijke-uploads'}
-                      onChange={() => setGalleryUploadFolder('tijdelijke-uploads')}
-                    />
-                    Tijdelijke uploads (afspraken)
-                  </label>
+                ) : null}
+              </div>
+              {galleryOnly.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {galleryOnly.map((a) => (
+                    <div
+                      key={a.id}
+                      className="group relative flex h-16 w-14 shrink-0 flex-col items-center justify-center border border-line bg-white p-0.5"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={publicMediaUrl(mediaThumbKey(a))}
+                        alt=""
+                        className="max-h-full max-w-full object-contain"
+                      />
+                      {canUploadMedia ? (
+                        <button
+                          type="button"
+                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-700 text-[10px] font-bold leading-none text-white"
+                          title="Verwijderen"
+                          onClick={() => void deleteGalleryAsset(a.id)}
+                        >
+                          ×
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
-              ) : null}
-              {canUploadMedia ? (
-                <label className="inline-block cursor-pointer border border-line bg-white px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-ink hover:bg-panel">
-                  {mediaBusy ? 'Uploaden…' : 'Galerijfoto toevoegen'}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { folderSlug: galleryUploadFolder })}
-                  />
-                </label>
-              ) : null}
+              ) : (
+                <p className="text-xs text-muted">Nog geen galerijfoto&apos;s.</p>
+              )}
             </div>
           </div>
-          {images.length > 0 ? (
-            <ul className="mt-3 space-y-1.5 border-t border-line pt-2">
-              {images.map((a) => {
-                const isMain = user.profilePhotoAssetId === a.id;
-                return (
-                  <li
-                    key={a.id}
-                    className="flex flex-wrap items-center gap-2 border border-line bg-white px-2 py-1.5"
-                  >
-                    <img
-                      src={publicMediaUrl(mediaThumbKey(a))}
-                      alt=""
-                      className="h-14 w-11 shrink-0 border border-line bg-zinc-100 object-contain"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs text-muted">{a.originalName}</span>
-                    <a
-                      href={publicMediaUrl(mediaPortalDetailKey(a))}
-                      download
-                      target="_blank"
-                      rel="noreferrer"
-                      className="shrink-0 text-[10px] font-bold uppercase text-burgundy underline hover:text-burgundyDeep"
-                      onMouseDown={() => void ackPortfolioDownload(a.id)}
-                    >
-                      Download
-                    </a>
-                    {isMain ? (
-                      <span className="text-[10px] font-bold uppercase text-burgundy">Hoofdfoto</span>
-                    ) : canUploadMedia ? (
-                      <button
-                        type="button"
-                        disabled={mediaBusy}
-                        onClick={() => void setProfilePhotoFromAsset(a.id)}
-                        className="shrink-0 border border-burgundy bg-burgundy/10 px-2 py-0.5 text-[10px] font-bold uppercase text-burgundy hover:bg-burgundy/20 disabled:opacity-50"
-                      >
-                        Als hoofdfoto
-                      </button>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <p className="mt-2 text-xs text-muted">Nog geen foto&apos;s in je bibliotheek.</p>
-          )}
         </ProfileSection>
       ) : null}
 
       <ProfileSection title="Persoonlijke info" complete={sectionContactOk}>
         <div className="grid gap-x-2 gap-y-1.5 sm:grid-cols-2">
           <div>
-            <label className={labelClass()}>Voornaam</label>
+            <label className={labelClass()}>Voornaam *</label>
             <input
+              required
               className={fieldClass()}
               value={profile.firstName}
               onChange={(e) => setProfile((p) => ({ ...p, firstName: e.target.value }))}
             />
           </div>
           <div>
-            <label className={labelClass()}>Achternaam</label>
+            <label className={labelClass()}>Familienaam *</label>
             <input
+              required
               className={fieldClass()}
               value={profile.lastName}
               onChange={(e) => setProfile((p) => ({ ...p, lastName: e.target.value }))}
             />
           </div>
           <div>
-            <label className={labelClass()}>Geboortedatum</label>
+            <label className={labelClass()}>E-mail</label>
+            <input className={fieldClass()} value={user.email} readOnly disabled title="E-mail via account" />
+          </div>
+          <div>
+            <label className={labelClass()}>Geboortedatum *</label>
             <input
+              required
               type="date"
               className={fieldClass()}
               value={sheet.geboortedatum}
@@ -702,8 +718,9 @@ export function ModelPortalProfile({
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className={labelClass()}>Adres</label>
+            <label className={labelClass()}>Straat en nr *</label>
             <input
+              required
               className={fieldClass()}
               value={sheet.straat}
               onChange={(e) => setSheet((s) => ({ ...s, straat: e.target.value }))}
@@ -734,12 +751,15 @@ export function ModelPortalProfile({
             />
           </div>
           <div>
-            <label className={labelClass()}>Telefoon (GSM model)</label>
+            <label className={labelClass()}>GSM model *</label>
             <input
+              required
+              inputMode="numeric"
+              pattern="[0-9+\s]*"
               className={fieldClass()}
               value={sheet.gsmModel}
               onChange={(e) => {
-                const v = e.target.value;
+                const v = e.target.value.replace(/[^\d+\s]/g, '');
                 setSheet((s) => ({ ...s, gsmModel: v }));
                 setProfile((p) => ({ ...p, phone: v }));
               }}

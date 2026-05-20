@@ -6,18 +6,30 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 
-type Kind = 'premium' | 'tryout';
+type Kind = 'premium' | 'tryout' | 'setkaart';
 
 type TryoutState = {
   registration: { interestStatus: string };
 };
 
+type SetCardDraftState = {
+  setCardPaid?: boolean;
+  paymentRequired?: boolean;
+};
+
+function parseKind(raw: string | null): Kind {
+  if (raw === 'tryout') return 'tryout';
+  if (raw === 'setkaart') return 'setkaart';
+  return 'premium';
+}
+
 function BedanktInner() {
   const searchParams = useSearchParams();
-  const kind: Kind = searchParams.get('soort') === 'tryout' ? 'tryout' : 'premium';
+  const kind = parseKind(searchParams.get('soort'));
   const { user, loading, token, refreshMe } = useAuth();
   const [checking, setChecking] = useState(true);
   const [tryoutPaid, setTryoutPaid] = useState<boolean | null>(null);
+  const [setCardPaid, setSetCardPaid] = useState<boolean | null>(null);
 
   const refreshStatus = useCallback(async () => {
     await refreshMe().catch(() => null);
@@ -27,6 +39,14 @@ function BedanktInner() {
         setTryoutPaid(s.registration.interestStatus === 'paid');
       } catch {
         setTryoutPaid(null);
+      }
+    }
+    if (kind === 'setkaart' && token) {
+      try {
+        const d = await apiFetch<SetCardDraftState>('/portal/model/set-card', { token });
+        setSetCardPaid(!!d.setCardPaid || !d.paymentRequired);
+      } catch {
+        setSetCardPaid(null);
       }
     }
   }, [kind, token, refreshMe]);
@@ -50,16 +70,27 @@ function BedanktInner() {
     };
   }, [loading, refreshStatus]);
 
-  const backHref = kind === 'tryout' ? '/portal/model?tab=tryout-modeshow' : '/portal/model?tab=premium';
-  const backLabel = kind === 'tryout' ? 'Try-out modeshow' : 'Premium';
+  const backHref =
+    kind === 'tryout'
+      ? '/portal/model?tab=tryout-modeshow'
+      : kind === 'setkaart'
+        ? '/portal/model?tab=setkaarten'
+        : '/portal/model?tab=premium';
+  const backLabel =
+    kind === 'tryout' ? 'Try-out modeshow' : kind === 'setkaart' ? 'Setkaarten' : 'Premium';
   const title =
-    kind === 'tryout' ? 'Bedankt voor je inschrijving' : 'Bedankt voor je premium-betaling';
+    kind === 'tryout'
+      ? 'Bedankt voor je inschrijving'
+      : kind === 'setkaart'
+        ? 'Bedankt voor je betaling'
+        : 'Bedankt voor je premium-betaling';
 
   const premiumActive = user?.isPremium ?? false;
   const until = user?.premiumUntil
     ? new Date(user.premiumUntil).toLocaleDateString('nl-BE')
     : null;
-  const confirmed = kind === 'premium' ? premiumActive : tryoutPaid === true;
+  const confirmed =
+    kind === 'premium' ? premiumActive : kind === 'setkaart' ? setCardPaid === true : tryoutPaid === true;
 
   if (loading || checking) {
     return (
@@ -111,6 +142,8 @@ function BedanktInner() {
                   Premium staat actief op je account
                   {until ? ` tot ${until}.` : '.'}
                 </>
+              ) : kind === 'setkaart' ? (
+                <>Je setkaart-betaling is ontvangen. Je kunt nu versturen naar Class-Models.</>
               ) : (
                 <>Je inschrijving voor de try-out modeshow is bevestigd.</>
               )}

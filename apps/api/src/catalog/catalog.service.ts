@@ -48,7 +48,7 @@ function beschikbaarList(ms: Record<string, unknown> | null): string[] {
   return ms.beschikbaar.filter((x): x is string => typeof x === 'string' && x.trim() !== '');
 }
 
-/** Fiche-velden voor modaal / print; admin krijgt ook GSM-lijnen. */
+/** Fiche-velden voor modaal / print; geen volledig adres voor leden. */
 function catalogSheetPayload(
   ms: Record<string, unknown> | null,
   phone: string | null,
@@ -59,9 +59,6 @@ function catalogSheetPayload(
     gemeente: ms?.gemeente,
     nationaliteit: ms?.nationaliteit,
     geboortedatum: ms?.geboortedatum,
-    straat: ms?.straat,
-    postcode: ms?.postcode,
-    land: ms?.land,
     lengte: ms?.lengte,
     maat: ms?.maat,
     schoenmaat: ms?.schoenmaat,
@@ -77,6 +74,9 @@ function catalogSheetPayload(
     ervaringen: ms?.ervaringen,
   };
   if (mode === 'admin') {
+    base.straat = ms?.straat;
+    base.postcode = ms?.postcode;
+    base.land = ms?.land;
     base.gsmModel = ms?.gsmModel ?? phone;
     base.gsmMoeder = ms?.gsmMoeder;
     base.gsmVader = ms?.gsmVader;
@@ -322,5 +322,50 @@ export class CatalogService {
       where: { id: modelUserId },
       select: { id: true, roles: { include: { role: { select: { slug: true } } } } },
     });
+  }
+
+  /** Galerij-keys voor fiche (hoofdfoto eerst, daarna portfolio). */
+  async getModelGallery(
+    modelUserId: string,
+    viewer?: { sub: string; roles: string[] },
+  ): Promise<{ keys: string[] }> {
+    if (!viewer?.sub) return { keys: [] };
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: modelUserId },
+      select: {
+        profilePhotoAssetId: true,
+        profilePhoto: {
+          select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
+        },
+        mediaAssets: {
+          where: {
+            hardDeleted: false,
+            mimeType: { startsWith: 'image/' },
+            folder: { slug: 'models' },
+          },
+          orderBy: { createdAt: 'asc' },
+          select: { id: true, storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException();
+
+    const keys: string[] = [];
+    const pushKey = (asset: { storageKey: string; webpKey: string | null; thumbKey: string | null; mimeType: string }) => {
+      const k = this.media.resolvePublicFilename(asset);
+      if (k && !keys.includes(k)) keys.push(k);
+    };
+
+    if (user.profilePhoto) pushKey(user.profilePhoto);
+    for (const a of user.mediaAssets) {
+      if (user.profilePhotoAssetId && a.id === user.profilePhotoAssetId) continue;
+      pushKey(a);
+    }
+    if (!keys.length && user.mediaAssets.length) {
+      for (const a of user.mediaAssets) pushKey(a);
+    }
+
+    return { keys };
   }
 }

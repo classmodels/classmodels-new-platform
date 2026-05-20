@@ -11,7 +11,10 @@ import { resolveMediaRoot } from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PatchProfileDto } from './dto/patch-profile.dto';
 import { sanitizeModelSheetMerge } from './model-sheet.util';
+import { assertModelPersonalDataComplete, digitsOnlyPhone } from './model-profile-validation';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
+
+const MODEL_ROLE_SLUGS = new Set(['model', 'newface', 'tryout', 'inactief']);
 
 function mediaRoot(): string {
   return resolveMediaRoot();
@@ -143,6 +146,7 @@ export class UsersService {
     const before = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
+        email: true,
         firstName: true,
         lastName: true,
         phone: true,
@@ -150,19 +154,29 @@ export class UsersService {
         companyName: true,
         modelSheet: true,
         profilePhotoAssetId: true,
+        roles: { include: { role: { select: { slug: true } } } },
       },
     });
     if (!before) throw new BadRequestException('Gebruiker niet gevonden');
 
+    const isModelAccount = before.roles.some((r) => MODEL_ROLE_SLUGS.has(r.role.slug));
+
     const data: Record<string, unknown> = {};
     if (dto.firstName !== undefined) data.firstName = dto.firstName || null;
     if (dto.lastName !== undefined) data.lastName = dto.lastName || null;
-    if (dto.phone !== undefined) data.phone = dto.phone || null;
+    if (dto.phone !== undefined) {
+      const p = dto.phone || null;
+      data.phone = p && isModelAccount ? digitsOnlyPhone(p) || null : p;
+    }
     if (dto.bio !== undefined) data.bio = dto.bio || null;
     if (dto.companyName !== undefined) data.companyName = dto.companyName || null;
 
     if (dto.modelSheet !== undefined) {
-      data.modelSheet = sanitizeModelSheetMerge(before.modelSheet ?? null, dto.modelSheet);
+      const merged = sanitizeModelSheetMerge(before.modelSheet ?? null, dto.modelSheet) as Record<string, unknown>;
+      if (isModelAccount && typeof merged.gsmModel === 'string') {
+        merged.gsmModel = digitsOnlyPhone(merged.gsmModel);
+      }
+      data.modelSheet = merged;
     }
 
     if (dto.profilePhotoAssetId !== undefined) {
@@ -182,6 +196,23 @@ export class UsersService {
         }
         data.profilePhotoAssetId = dto.profilePhotoAssetId;
       }
+    }
+
+    if (isModelAccount && Object.keys(data).length > 0) {
+      const mergedSheet =
+        (data.modelSheet as Record<string, unknown> | undefined) ??
+        (before.modelSheet && typeof before.modelSheet === 'object' && !Array.isArray(before.modelSheet)
+          ? (before.modelSheet as Record<string, unknown>)
+          : null);
+      const gsm = String(mergedSheet?.gsmModel ?? '').trim() || digitsOnlyPhone(String(data.phone ?? before.phone ?? ''));
+      if (mergedSheet && gsm) mergedSheet.gsmModel = gsm;
+      assertModelPersonalDataComplete({
+        firstName: (data.firstName as string | null | undefined) ?? before.firstName,
+        lastName: (data.lastName as string | null | undefined) ?? before.lastName,
+        email: before.email,
+        phone: (data.phone as string | null | undefined) ?? before.phone,
+        modelSheet: mergedSheet,
+      });
     }
 
     if (Object.keys(data).length === 0) {

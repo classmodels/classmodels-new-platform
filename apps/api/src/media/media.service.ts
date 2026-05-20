@@ -809,11 +809,57 @@ export class MediaService {
   }
 
   /** Modelportaal: standaard map `models` (slug). */
+  /** Hoofdfoto + max 8 galerijfoto's in map Modellen. */
+  private static readonly MAX_PORTFOLIO_PHOTOS = 9;
+
+  async assertGalleryLimit(userId: string): Promise<void> {
+    const count = await this.prisma.mediaAsset.count({
+      where: {
+        uploadedById: userId,
+        hardDeleted: false,
+        mimeType: { startsWith: 'image/' },
+        folder: { slug: 'models' },
+      },
+    });
+    if (count >= MediaService.MAX_PORTFOLIO_PHOTOS) {
+      throw new BadRequestException(
+        'Maximaal 1 hoofdfoto en 8 galerijfoto\'s. Verwijder eerst een foto.',
+      );
+    }
+  }
+
+  async modelDeleteOwnAsset(userId: string, assetId: string) {
+    const a = await this.prisma.mediaAsset.findFirst({
+      where: {
+        id: assetId,
+        uploadedById: userId,
+        hardDeleted: false,
+        folder: { slug: { in: ['models', 'tijdelijke-uploads'] } },
+      },
+    });
+    if (!a) throw new NotFoundException();
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePhotoAssetId: true },
+    });
+    if (user?.profilePhotoAssetId === assetId) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { profilePhotoAssetId: null },
+      });
+    }
+    await this.moveAssetsToTrash([assetId]);
+    return { ok: true };
+  }
+
   async saveForPortalUser(
     file: Express.Multer.File,
     userId: string,
     folderSlug: string = 'models',
   ) {
+    if (folderSlug === 'models') {
+      await this.assertGalleryLimit(userId);
+    }
     const folder = await this.prisma.mediaFolder.findUnique({
       where: { slug: folderSlug },
     });

@@ -1,4 +1,4 @@
-import { Controller, Get, Headers } from '@nestjs/common';
+import { Controller, Get, Headers, Param, ParseUUIDPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getJwtSecret } from '../auth/jwt-module-options';
 import type { JwtPayload } from '../auth/jwt.strategy';
@@ -29,5 +29,14 @@ export class CatalogPublicController {
     return this.catalog.listModels(
       u ? { sub: u.sub, roles: u.roles ?? [] } : undefined,
     );
+  }
+
+  @Get('models/:id/gallery')
+  async modelGallery(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const u = this.parseUser(authorization);
+    return this.catalog.getModelGallery(id, u ? { sub: u.sub, roles: u.roles ?? [] } : undefined);
   }
 }

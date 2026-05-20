@@ -21,6 +21,7 @@ type MollieSettings = {
   webhookUrl: string | null;
   premiumPrice: string;
   tryoutPrice: string;
+  setCardPrice: string;
 };
 
 type TestResult = { ok: true; mode: string; message: string };
@@ -35,6 +36,7 @@ export default function AdminMolliePage() {
     webhookUrl: '',
     premiumPrice: '48',
     tryoutPrice: '600',
+    setCardPrice: '175',
   });
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [saveErr, setSaveErr] = useState<string | null>(null);
@@ -54,6 +56,7 @@ export default function AdminMolliePage() {
       webhookUrl: d.webhookUrl ?? '',
       premiumPrice: d.premiumPrice,
       tryoutPrice: d.tryoutPrice,
+      setCardPrice: d.setCardPrice ?? '175',
     }));
   }, [token]);
 
@@ -74,6 +77,7 @@ export default function AdminMolliePage() {
           webhookUrl: form.webhookUrl || null,
           premiumPrice: parseFloat(form.premiumPrice),
           tryoutPrice: parseFloat(form.tryoutPrice),
+          setCardPrice: parseFloat(form.setCardPrice),
           ...(form.apiKeyTest ? { apiKeyTest: form.apiKeyTest } : {}),
           ...(form.apiKeyLive ? { apiKeyLive: form.apiKeyLive } : {}),
         }),
@@ -317,6 +321,17 @@ export default function AdminMolliePage() {
             value={form.tryoutPrice}
             disabled={!canWrite}
             onChange={(e) => setForm({ ...form, tryoutPrice: e.target.value })}
+          />
+        </label>
+        <label className="block">
+          <span className="text-xs text-muted">Setkaart bestelling (EUR) — zichtbaar in Mollie als omschrijving met modelnaam</span>
+          <input
+            type="number"
+            step="0.01"
+            className="mt-1 w-full rounded border border-line px-2 py-1 text-xs"
+            value={form.setCardPrice}
+            disabled={!canWrite}
+            onChange={(e) => setForm({ ...form, setCardPrice: e.target.value })}
           />
         </label>
 

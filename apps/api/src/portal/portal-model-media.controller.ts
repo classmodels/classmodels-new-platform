@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -48,6 +51,12 @@ export class PortalModelMediaController {
   @Permissions('portal.model.media.read')
   async portfolioDeliveryZip(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
     await this.media.streamPortfolioDeliveryZipAndConsume(req.user.sub, res);
+  }
+
+  @Delete(':id')
+  @Permissions('portal.model.media.upload')
+  deleteOwn(@Req() req: { user: JwtPayload }, @Param('id', ParseUUIDPipe) id: string) {
+    return this.media.modelDeleteOwnAsset(req.user.sub, id);
   }
 
   @Post('upload')

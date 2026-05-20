@@ -30,6 +30,6 @@ import { ModelSetCardService } from './model-set-card.service';
     PortalModelSetCardController,
   ],
   providers: [BriefsService, TryoutModeshowService, ModelSetCardService],
-  exports: [BriefsService],
+  exports: [BriefsService, ModelSetCardService],
 })
 export class PortalModule {}

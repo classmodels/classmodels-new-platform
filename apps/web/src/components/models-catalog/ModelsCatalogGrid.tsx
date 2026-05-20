@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { getApiBase, apiFetch, publicMediaUrl } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
-import { adminFetch } from '@/lib/admin-api';
+import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 
@@ -45,6 +45,20 @@ function rosterFullName(m: CatalogModel): string {
   return m.displayName;
 }
 
+function ficheDisplayName(m: CatalogModel, isAdmin: boolean): string {
+  if (isAdmin) return rosterFullName(m);
+  return m.displayName || rosterFullName(m);
+}
+
+function formatAdminAddress(sh: Record<string, unknown>): string {
+  const parts = [
+    sheetStr(sh, 'straat'),
+    [sheetStr(sh, 'postcode'), sheetStr(sh, 'gemeente')].filter(Boolean).join(' '),
+    sheetStr(sh, 'land'),
+  ].filter(Boolean);
+  return parts.join(', ') || '—';
+}
+
 function sheetStr(sh: Record<string, unknown> | undefined, key: string): string {
   if (!sh) return '';
   const v = sh[key];
@@ -67,10 +81,10 @@ function genderNl(g: CatalogModel['gender']): string {
   return '—';
 }
 
-function buildMailBody(m: CatalogModel): string {
+function buildMailBody(m: CatalogModel, isAdmin: boolean): string {
   const sh = m.sheet ?? {};
   const lines = [
-    `Model: ${rosterFullName(m)}`,
+    `Model: ${ficheDisplayName(m, isAdmin)}`,
     m.age != null ? `Leeftijd: ${m.age} jaar` : '',
     `Geslacht: ${genderNl(m.gender)}`,
     '',
@@ -92,22 +106,30 @@ function buildMailBody(m: CatalogModel): string {
     `Ervaring: ${sheetStr(sh, 'ervaringen') || '—'}`,
     `Over mij: ${sheetStr(sh, 'overMij') || '—'}`,
     '',
-    `Straat: ${sheetStr(sh, 'straat') || '—'}`,
-    `Postcode: ${sheetStr(sh, 'postcode') || '—'}`,
-    `Land: ${sheetStr(sh, 'land') || '—'}`,
-    '',
     `Beschikbaar voor: ${m.beschikbaar.length ? m.beschikbaar.join(', ') : '—'}`,
   ];
-  if (m.email) lines.push('', `E-mail (admin): ${m.email}`);
-  const gsm = sheetStr(sh, 'gsmModel');
-  if (gsm) lines.push(`GSM: ${gsm}`);
+  if (isAdmin) {
+    lines.splice(
+      6,
+      0,
+      '',
+      `Straat: ${sheetStr(sh, 'straat') || '—'}`,
+      `Postcode: ${sheetStr(sh, 'postcode') || '—'}`,
+      `Land: ${sheetStr(sh, 'land') || '—'}`,
+    );
+    if (m.email) lines.push('', `E-mail: ${m.email}`);
+    const gsm = sheetStr(sh, 'gsmModel');
+    if (gsm) lines.push(`GSM: ${gsm}`);
+    const ln = (m.lastName ?? '').trim();
+    if (ln) lines.push(`Familienaam: ${ln}`);
+  }
   return lines.filter(Boolean).join('\n');
 }
 
-function printModelSheet(m: CatalogModel, photoSrc: string) {
+function printModelSheet(m: CatalogModel, photoSrc: string, isAdmin: boolean) {
   const sh = m.sheet ?? {};
   const val = (k: string) => escapeHtml(sheetStr(sh, k) || '—');
-  const naam = escapeHtml(rosterFullName(m));
+  const naam = escapeHtml(ficheDisplayName(m, isAdmin));
   const besch = escapeHtml(m.beschikbaar.length ? m.beschikbaar.join(', ') : '—');
   const photo =
     photoSrc && m.profileThumbKey
@@ -143,10 +165,9 @@ function printModelSheet(m: CatalogModel, photoSrc: string) {
       ${box('Ervaring', val('ervaringen'))}
       ${box('Over mij', val('overMij'))}
       ${box('Geboortedatum', val('geboortedatum'))}
-      ${box('Straat', val('straat'))}
-      ${box('Postcode', val('postcode'))}
+      ${isAdmin ? `${box('Straat', val('straat'))}${box('Postcode', val('postcode'))}` : ''}
     </div>
-    <div style="margin-top:8px">${box('Land', val('land'))}</div>
+    ${isAdmin ? `<div style="margin-top:8px">${box('Land', val('land'))}</div>` : ''}
     <div style="margin-top:8px">${box('Beschikbaar voor', besch)}</div>
   `;
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${naam}</title></head><body style="margin:24px;background:#fafafa">${inner}</body></html>`);
@@ -168,19 +189,47 @@ function FieldBox({ label, value }: { label: string; value: string }) {
   );
 }
 
+function imgUrlFromKey(key: string | null): string {
+  return key ? publicMediaUrl(key) : '';
+}
+
 function ModelDetailDialog({
   m,
-  photoSrc,
+  initialPhotoSrc,
   isAdmin,
+  token,
   onClose,
 }: {
   m: CatalogModel;
-  photoSrc: string;
+  initialPhotoSrc: string;
   isAdmin: boolean;
+  token: string | null;
   onClose: () => void;
 }) {
   const sh = m.sheet ?? {};
   const v = (key: string) => sheetStr(sh, key) || '—';
+  const [photoKeys, setPhotoKeys] = useState<string[]>(initialPhotoSrc ? [initialPhotoSrc] : []);
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  useEffect(() => {
+    if (!token) {
+      setPhotoKeys(initialPhotoSrc ? [initialPhotoSrc] : []);
+      return;
+    }
+    const h = new Headers({ Authorization: `Bearer ${token}` });
+    fetch(`${getApiBase()}/catalog/models/${m.id}/gallery`, { headers: h })
+      .then((r) => (r.ok ? r.json() : { keys: [] }))
+      .then((data: { keys?: string[] }) => {
+        const keys = Array.isArray(data.keys) && data.keys.length ? data.keys : initialPhotoSrc ? [initialPhotoSrc] : [];
+        setPhotoKeys(keys);
+        setSlideIndex(0);
+      })
+      .catch(() => setPhotoKeys(initialPhotoSrc ? [initialPhotoSrc] : []));
+  }, [m.id, token, initialPhotoSrc]);
+
+  const photoSrc = photoKeys[slideIndex] ? imgUrlFromKey(photoKeys[slideIndex]) : '';
+  const thumbNavDisabled = photoKeys.length <= 1;
+  const title = ficheDisplayName(m, isAdmin);
 
   return (
     <div
@@ -209,14 +258,36 @@ function ModelDetailDialog({
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,300px)_1fr] lg:items-start">
           <div className="min-w-0">
-            {m.profileThumbKey ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={photoSrc}
-                alt=""
-                className="w-full rounded-xl border border-zinc-200 object-cover shadow-sm"
-                style={{ aspectRatio: '3 / 4' }}
-              />
+            {photoSrc ? (
+              <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoSrc} alt="" className="mx-auto block w-full object-contain" style={{ aspectRatio: '3 / 4', maxHeight: 'min(70vh, 520px)' }} />
+                {photoKeys.length > 0 ? (
+                  <div className="flex items-center justify-between border-t border-zinc-300 bg-zinc-800 px-2 py-1.5 text-white">
+                    <button
+                      type="button"
+                      disabled={thumbNavDisabled}
+                      className={`px-2 py-0.5 text-lg font-semibold ${thumbNavDisabled ? 'opacity-40' : 'hover:bg-white/10'}`}
+                      aria-label="Vorige foto"
+                      onClick={() => setSlideIndex((i) => (i <= 0 ? photoKeys.length - 1 : i - 1))}
+                    >
+                      ‹
+                    </button>
+                    <span className="text-xs tabular-nums">
+                      {slideIndex + 1} / {photoKeys.length}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={thumbNavDisabled}
+                      className={`px-2 py-0.5 text-lg font-semibold ${thumbNavDisabled ? 'opacity-40' : 'hover:bg-white/10'}`}
+                      aria-label="Volgende foto"
+                      onClick={() => setSlideIndex((i) => (i >= photoKeys.length - 1 ? 0 : i + 1))}
+                    >
+                      ›
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <div className="flex aspect-[3/4] items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-white text-sm text-zinc-500">
                 Geen foto
@@ -226,15 +297,37 @@ function ModelDetailDialog({
 
           <div className="min-w-0">
             <h2 id="model-detail-title" className="font-serif text-2xl font-semibold text-zinc-900">
-              {rosterFullName(m)}
+              {title}
               {m.age != null ? (
                 <span className="text-base font-normal text-zinc-500"> — {m.age} jaar</span>
               ) : null}
             </h2>
-            {isAdmin && m.email ? <p className="mt-1 font-serif text-xs text-zinc-600">{m.email}</p> : null}
+
+            {isAdmin ? (
+              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/80 p-3 font-serif text-sm">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-900">Persoonlijke gegevens (admin)</p>
+                <dl className="mt-2 space-y-1 text-xs text-zinc-800">
+                  <div>
+                    <span className="font-semibold">Familienaam: </span>
+                    {(m.lastName ?? '').trim() || '—'}
+                  </div>
+                  <div>
+                    <span className="font-semibold">E-mail: </span>
+                    {m.email || '—'}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Telefoon: </span>
+                    {v('gsmModel') !== '—' ? v('gsmModel') : '—'}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Adres: </span>
+                    {formatAdminAddress(sh)}
+                  </div>
+                </dl>
+              </div>
+            ) : null}
 
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <FieldBox label="Naam" value={rosterFullName(m)} />
               <FieldBox label="Gemeente" value={v('gemeente')} />
               <FieldBox label="Geslacht" value={genderNl(m.gender)} />
               <FieldBox label="Nationaliteit" value={v('nationaliteit')} />
@@ -252,21 +345,31 @@ function ModelDetailDialog({
               <FieldBox label="Ervaring" value={v('ervaringen')} />
               <FieldBox label="Over mij" value={v('overMij')} />
               <FieldBox label="Geboortedatum" value={v('geboortedatum')} />
-              <FieldBox label="Straat" value={v('straat')} />
-              <FieldBox label="Postcode" value={v('postcode')} />
-              <div className="sm:col-span-2">
-                <FieldBox label="Land" value={v('land')} />
-              </div>
               <div className="sm:col-span-2">
                 <FieldBox label="Beschikbaar voor" value={m.beschikbaar.length ? m.beschikbaar.join(', ') : '—'} />
               </div>
             </div>
 
             <div className="mt-6 flex flex-wrap justify-end gap-2">
+              {isAdmin && token ? (
+                <button
+                  type="button"
+                  className="rounded-lg border border-zinc-400 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
+                  onClick={() => {
+                    void adminDownloadFile(
+                      `/admin/set-card/users/${m.id}/preview.zip`,
+                      token,
+                      `setkaart-${ficheDisplayName(m, true).replace(/\s+/g, '-')}.zip`,
+                    ).catch(() => window.alert('Setkaart download mislukt (concept moet compleet zijn).'));
+                  }}
+                >
+                  Setkaart PDF
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
-                onClick={() => printModelSheet(m, photoSrc)}
+                onClick={() => printModelSheet(m, photoSrc, isAdmin)}
               >
                 Afdrukken
               </button>
@@ -274,7 +377,7 @@ function ModelDetailDialog({
                 type="button"
                 className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
                 onClick={() => {
-                  window.location.href = `mailto:?subject=${encodeURIComponent(`Model: ${rosterFullName(m)}`)}&body=${encodeURIComponent(buildMailBody(m))}`;
+                  window.location.href = `mailto:?subject=${encodeURIComponent(`Model: ${title}`)}&body=${encodeURIComponent(buildMailBody(m, isAdmin))}`;
                 }}
               >
                 Doorsturen per mail
@@ -766,7 +869,13 @@ export function ModelsCatalogGrid({
       )}
 
       {modal ? (
-        <ModelDetailDialog m={modal} photoSrc={modalPhoto} isAdmin={isAdmin} onClose={() => setModal(null)} />
+        <ModelDetailDialog
+          m={modal}
+          initialPhotoSrc={modalPhoto}
+          isAdmin={isAdmin}
+          token={token}
+          onClose={() => setModal(null)}
+        />
       ) : null}
     </div>
   );

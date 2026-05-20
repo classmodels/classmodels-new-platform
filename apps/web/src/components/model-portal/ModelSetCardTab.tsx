@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
+import { adminDownloadFile } from '@/lib/admin-api';
+import { apiFetch, publicMediaUrl } from '@/lib/api';
 import type { ProfileMediaRow } from '@/components/model-portal/ModelPortalProfile';
 
 const VERSO_COUNT = 4;
@@ -19,6 +21,10 @@ type SetCardDraft = {
   status: string;
   noteFromModel: string | null;
   submittedAt: string | null;
+  setCardFreeOrder?: boolean;
+  setCardPaid?: boolean;
+  canSubmitWithoutPayment?: boolean;
+  paymentRequired?: boolean;
   profile: {
     displayName: string;
     ageYears: number | null;
@@ -61,23 +67,6 @@ function parseApiErrorMessage(raw: string): string {
   return t;
 }
 
-async function downloadPdf(token: string, path: string, filename: string): Promise<void> {
-  const res = await fetch(`${getApiBase()}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(parseApiErrorMessage(t || res.statusText));
-  }
-  const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export function ModelSetCardTab({
   token,
   canRead,
@@ -98,6 +87,8 @@ export function ModelSetCardTab({
     opts?: { folderSlug?: 'models' | 'tijdelijke-uploads' | 'setkaarten'; setAsProfilePhoto?: boolean },
   ) => Promise<{ id: string } | null>;
 }) {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('admin') ?? false;
   const [draft, setDraft] = useState<SetCardDraft | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -191,47 +182,41 @@ export function ModelSetCardTab({
     }
   };
 
-  const downloadZip = async () => {
-    if (!token || !canRead) return;
+  const startPayment = async () => {
+    if (!token || !canUpload) return;
     setBusy(true);
     setBanner(null);
     try {
       const ok = await persistDraft();
       if (!ok) return;
-      await downloadPdf(token, '/portal/model/set-card/preview.zip', 'setkaart-preview.zip');
-      setBanner({ tone: 'ok', text: 'ZIP gedownload.' });
+      const res = await apiFetch<
+        | { checkoutUrl: string }
+        | { skipCheckout: true; reason: string; freeOrder?: boolean; paid?: boolean }
+      >('/portal/model/set-card/checkout', { method: 'POST', token });
+      if ('skipCheckout' in res && res.skipCheckout) {
+        await load();
+        setBanner({ tone: 'ok', text: res.reason });
+        return;
+      }
+      if ('checkoutUrl' in res && res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
+      setBanner({ tone: 'err', text: 'Geen betaallink ontvangen.' });
     } catch (e) {
-      setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Download mislukt.' });
+      setBanner({ tone: 'err', text: e instanceof Error ? parseApiErrorMessage(e.message) : 'Betaling mislukt.' });
     } finally {
       setBusy(false);
     }
   };
 
-  const downloadRecto = async () => {
-    if (!token || !canRead) return;
+  const adminDownloadZip = async () => {
+    if (!token || !isAdmin || !user?.id) return;
     setBusy(true);
-    setBanner(null);
     try {
       const ok = await persistDraft();
       if (!ok) return;
-      await downloadPdf(token, '/portal/model/set-card/preview-recto.pdf', 'setkaart-voorzijde.pdf');
-      setBanner({ tone: 'ok', text: 'Voorzijde gedownload (A5 staand).' });
-    } catch (e) {
-      setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Download mislukt.' });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const downloadVerso = async () => {
-    if (!token || !canRead) return;
-    setBusy(true);
-    setBanner(null);
-    try {
-      const ok = await persistDraft();
-      if (!ok) return;
-      await downloadPdf(token, '/portal/model/set-card/preview-verso.pdf', 'setkaart-achterzijde.pdf');
-      setBanner({ tone: 'ok', text: 'Achterzijde gedownload (A5 liggend).' });
+      await adminDownloadFile(`/admin/set-card/users/${user.id}/preview.zip`, token, 'setkaart-preview.zip');
     } catch (e) {
       setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Download mislukt.' });
     } finally {
@@ -243,7 +228,7 @@ export function ModelSetCardTab({
     if (!token || !canUpload) return;
     if (
       !window.confirm(
-        'Setkaart naar het bureau versturen? Het bureau ontvangt een e-mail met je PDF (als SMTP actief is).',
+        'Setkaart bestellen en naar Class-Models versturen? Het bureau ontvangt een e-mail met je PDF.',
       )
     )
       return;
@@ -393,6 +378,9 @@ export function ModelSetCardTab({
   const beschikbaarLine = draft?.profile.beschikbaarLine?.trim() || '— (vul beschikbaarheid in je profiel in)';
   const versoStatRows = draft?.profile.versoStatEntries ?? [];
   const submitted = draft?.status === 'submitted';
+  const freeOrder = draft?.setCardFreeOrder ?? false;
+  const paymentRequired = draft?.paymentRequired ?? true;
+  const canSubmit = draft?.canSubmitWithoutPayment ?? false;
 
   const heroAsset = heroId ? assetById.get(heroId) : undefined;
   const heroPreviewSrc = heroLocalUrl ?? (heroAsset ? thumbSrc(heroAsset) : null);
@@ -417,7 +405,7 @@ export function ModelSetCardTab({
             <strong>4 foto&apos;s achterzijde:</strong> 3 klein links + 1 groot rechts (apart van hoofdfoto).
           </li>
           <li>
-            <strong>Opslaan concept</strong>, daarna PDF downloaden of versturen.
+            <strong>Opslaan concept</strong>, betalen (€175) indien nodig, daarna versturen naar Class-Models.
           </li>
         </ol>
       </div>
@@ -446,23 +434,40 @@ export function ModelSetCardTab({
         >
           Opslaan concept
         </button>
-        <button type="button" disabled={busy} onClick={() => void downloadRecto()} className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
-          PDF voorzijde
-        </button>
-        <button type="button" disabled={busy} onClick={() => void downloadVerso()} className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
-          PDF achterzijde
-        </button>
-        <button type="button" disabled={busy} onClick={() => void downloadZip()} className="rounded-full border border-zinc-300 bg-white px-3 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
-          ZIP (beide)
-        </button>
+        {freeOrder ? (
+          <p className="w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+            U kunt deze setkaarten <strong>gratis bestellen</strong> (inbegrepen in de try-out modeshow).
+          </p>
+        ) : paymentRequired ? (
+          <button
+            type="button"
+            disabled={!canUpload || busy}
+            onClick={() => void startPayment()}
+            className="rounded-full bg-burgundy px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:bg-burgundyDeep disabled:opacity-50"
+          >
+            Betaal €175 (Mollie)
+          </button>
+        ) : (
+          <p className="text-xs text-emerald-800">Betaling ontvangen — u kunt nu versturen.</p>
+        )}
         <button
           type="button"
-          disabled={!canUpload || busy}
+          disabled={!canUpload || busy || (paymentRequired && !canSubmit)}
           onClick={() => void submitToBureau()}
           className="rounded-full border border-burgundy bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-burgundy hover:bg-burgundy/10 disabled:opacity-50"
         >
-          Verstuur naar bureau
+          Verstuur naar Class-Models
         </button>
+        {isAdmin ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void adminDownloadZip()}
+            className="rounded-full border border-zinc-400 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+          >
+            Admin: download PDF
+          </button>
+        ) : null}
       </div>
 
       <div className="grid gap-10 lg:grid-cols-2">
@@ -580,59 +585,61 @@ export function ModelSetCardTab({
           </div>
 
           <div className="overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
-            <div className="flex aspect-[210/148] flex-col font-serif">
-              <div className="relative min-h-0 flex-1 px-[3.5%] pt-[2%]">
-                <div className="absolute bottom-[13%] left-[3.5%] right-[40%] top-[2%] flex flex-col">
-                  <div className="min-h-0 flex-1 text-left text-[6.5px] leading-none text-zinc-900">
-                    <p className="text-[8px] font-bold tracking-[0.08em] text-burgundy">MODEL INFO</p>
-                    <hr className="my-1 border-burgundy" />
-                    <div className="h-full border-x border-burgundy/90 px-2 py-1">
-                      <ul className="space-y-[3px]">
-                        {versoStatRows.map((e) => (
-                          <li key={e.label} className="flex justify-between gap-2">
-                            <span>{e.label}:</span>
-                            <span>{e.value}</span>
-                          </li>
+            <div className="aspect-[210/148] w-full overflow-hidden">
+              <div
+                className="origin-top-left font-serif"
+                style={{ width: '595px', height: '419px', transform: 'scale(0.52)', transformOrigin: 'top left' }}
+              >
+                <div className="flex h-full flex-col" style={{ padding: '12px 20px' }}>
+                  <div className="relative min-h-0 flex-1">
+                    <div className="absolute left-0 top-0 flex w-[270px] flex-col" style={{ bottom: '52px' }}>
+                      <p className="text-[11px] font-bold text-[#750f1a]">MODEL INFO</p>
+                      <hr className="my-1 border-[#750f1a]" />
+                      <div className="min-h-0 flex-1 border-x border-[#750f1a]/90 px-2 py-1 text-[8.5px]">
+                        <ul className="space-y-[2px]">
+                          {versoStatRows.map((e) => (
+                            <li key={e.label} className="flex justify-between gap-2">
+                              <span>{e.label}:</span>
+                              <span>{e.value}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="mt-auto flex gap-2 pt-2">
+                        {[0, 1, 2].map((i) => (
+                          <div key={i} className="h-[128px] w-[82px] shrink-0">
+                            {versoPreviewSrc(i) ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
+                            ) : (
+                              <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">{i + 1}</div>
+                            )}
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-auto flex shrink-0 gap-[6px] pt-2">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="h-[72px] flex-1 overflow-hidden shadow-[2px_2px_5px_rgba(0,0,0,0.1)]"
-                      >
-                        {versoPreviewSrc(i) ? (
+                    <div className="absolute right-0 top-0 flex flex-col" style={{ width: '231px', bottom: '40px' }}>
+                      <div className="min-h-0 flex-1">
+                        {versoPreviewSrc(3) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
+                          <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
                         ) : (
-                          <div className="flex h-full items-center justify-center bg-zinc-50 text-[8px] text-zinc-300">{i + 1}</div>
+                          <div className="flex h-full items-center justify-center bg-zinc-50 text-xs text-zinc-400">Grote foto</div>
                         )}
                       </div>
-                    ))}
+                      <div className="flex justify-between pt-1 text-[8px] text-zinc-700">
+                        <span>geboortejaar</span>
+                        <span>{birthYear ?? '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="shrink-0 pt-2 text-[8px] leading-snug text-zinc-800">
+                    <p>Beschikbaar voor</p>
+                    <hr className="my-0.5 border-zinc-500" />
+                    <p>{beschikbaarLine}</p>
+                    <hr className="mt-0.5 border-zinc-500" />
                   </div>
                 </div>
-                <div className="absolute bottom-[13%] right-[3.5%] top-[2%] flex w-[36%] flex-col">
-                  <div className="min-h-0 flex-1 overflow-hidden shadow-[2px_2px_6px_rgba(0,0,0,0.12)]">
-                    {versoPreviewSrc(3) ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center bg-zinc-50 text-[9px] text-zinc-400">Grote foto</div>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 justify-between pt-0.5 text-[7px] text-zinc-700">
-                    <span>geboortejaar</span>
-                    <span>{birthYear ?? '—'}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="shrink-0 px-[3.5%] py-1.5 text-[6px] leading-snug text-zinc-800">
-                <p>Beschikbaar voor</p>
-                <hr className="my-0.5 border-zinc-500" />
-                <p>{beschikbaarLine}</p>
-                <hr className="mt-0.5 border-zinc-500" />
               </div>
             </div>
           </div>

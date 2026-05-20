@@ -49,6 +49,7 @@ export class AdminMollieController {
       webhookUrl: s.webhookUrl,
       premiumPrice: s.premiumPrice.toString(),
       tryoutPrice: s.tryoutPrice.toString(),
+      setCardPrice: s.setCardPrice.toString(),
       updatedAt: s.updatedAt,
     };
   }
@@ -82,6 +83,9 @@ export class AdminMollieController {
     if (dto.tryoutPrice != null) {
       data.tryoutPrice = new Prisma.Decimal(dto.tryoutPrice);
     }
+    if (dto.setCardPrice != null) {
+      data.setCardPrice = new Prisma.Decimal(dto.setCardPrice);
+    }
     if (dto.apiKeyTest !== undefined && dto.apiKeyTest !== '') {
       data.apiKeyTest = dto.apiKeyTest;
     }
@@ -112,6 +116,7 @@ export class AdminMollieController {
       webhookUrl: s.webhookUrl,
       premiumPrice: s.premiumPrice.toString(),
       tryoutPrice: s.tryoutPrice.toString(),
+      setCardPrice: s.setCardPrice.toString(),
       updatedAt: s.updatedAt,
     };
   }
