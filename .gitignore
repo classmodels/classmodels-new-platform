@@ -5,6 +5,8 @@ apps/api/dist
 .turbo
 .env
 .env.local
+# Alleen lokaal: productie-DB voor CLI-scripts (nooit committen)
+apps/api/.env.production
 *.log
 coverage
 .DS_Store
