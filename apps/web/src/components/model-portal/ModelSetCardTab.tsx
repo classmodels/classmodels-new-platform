@@ -581,26 +581,32 @@ export function ModelSetCardTab({
 
           <div className="overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
             <div className="flex aspect-[210/148] flex-col font-serif">
-              <div className="relative min-h-0 flex-1">
-                <div className="absolute bottom-[14%] left-[7%] right-[38%] top-[3%] flex flex-col justify-between">
-                  <div className="text-[6.5px] leading-none text-zinc-900">
-                    {birthYear ? (
-                      <p className="mb-2 text-center text-[7px] tracking-wide">{birthYear}</p>
-                    ) : null}
-                    <p className="text-center text-[8px] font-bold tracking-[0.12em] text-burgundy">MODEL INFO</p>
-                    <hr className="my-1 border-burgundy/90" />
-                    <ul className="space-y-[3px]">
-                      {versoStatRows.map((e) => (
-                        <li key={e.label} className="flex justify-between gap-2">
-                          <span className="uppercase tracking-wide">{e.label}</span>
-                          <span>{e.value}</span>
-                        </li>
-                      ))}
-                    </ul>
+              <div className="relative min-h-0 flex-1 px-[3.5%] pt-[2%]">
+                <div
+                  className="absolute bottom-[13%] top-[2%] flex flex-col justify-between"
+                  style={{ left: '3.5%', right: '36%', width: 'auto' }}
+                >
+                  <div className="text-left text-[6.5px] leading-none text-zinc-900">
+                    <p className="text-[8px] font-bold tracking-[0.08em] text-burgundy">MODEL INFO</p>
+                    <p className="mt-1 text-[7px]">{birthYear ?? '—'}</p>
+                    <hr className="my-1.5 border-burgundy" />
+                    <div className="relative border-x border-burgundy/90 px-2 py-1">
+                      <ul className="space-y-[4px]">
+                        {versoStatRows.map((e) => (
+                          <li key={e.label} className="flex justify-between gap-3">
+                            <span className="uppercase tracking-wide">{e.label}</span>
+                            <span>{e.value}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     {[0, 1, 2].map((i) => (
-                      <div key={i} className="h-[62px] flex-1 overflow-hidden bg-zinc-50">
+                      <div
+                        key={i}
+                        className="h-[64px] flex-1 overflow-hidden bg-zinc-50 shadow-[2px_2px_6px_rgba(0,0,0,0.12)]"
+                      >
                         {versoPreviewSrc(i) ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
@@ -611,7 +617,7 @@ export function ModelSetCardTab({
                     ))}
                   </div>
                 </div>
-                <div className="absolute bottom-[14%] right-[7%] top-[3%] w-[34%] overflow-hidden bg-zinc-50">
+                <div className="absolute bottom-[13%] right-[3.5%] top-[2%] w-[38%] overflow-hidden bg-zinc-50 shadow-[3px_3px_8px_rgba(0,0,0,0.14)]">
                   {versoPreviewSrc(3) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
@@ -620,7 +626,7 @@ export function ModelSetCardTab({
                   )}
                 </div>
               </div>
-              <div className="shrink-0 px-[7%] py-1.5 text-[6px] leading-snug text-zinc-800">
+              <div className="shrink-0 px-[3.5%] py-1.5 text-[6px] leading-snug text-zinc-800">
                 <p>Beschikbaar voor</p>
                 <hr className="my-0.5 border-zinc-500" />
                 <p>{beschikbaarLine}</p>

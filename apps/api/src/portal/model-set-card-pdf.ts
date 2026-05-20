@@ -11,11 +11,12 @@ export const A5_LANDSCAPE_H = 419.53;
 
 export const VERSO_PHOTO_COUNT = 4;
 
-/** Marges verso (40px ≈ 40pt). */
-const VERSO_MARGIN_L = 40;
-const VERSO_MARGIN_R = 40;
+/** Marges verso (20pt ≈ 20px minder dan 40). */
+const VERSO_MARGIN_L = 20;
+const VERSO_MARGIN_R = 20;
 const VERSO_GAP_THUMB_HERO = 60;
 const VERSO_THUMB_GAP = 12;
+const PHOTO_SHADOW = rgb(0.9, 0.9, 0.9);
 
 const BURGUNDY = rgb(0.46, 0.09, 0.14);
 const INK = rgb(0.12, 0.12, 0.12);
@@ -152,6 +153,20 @@ function drawImageContain(page: PDFPage, img: PDFImage, x: number, y: number, w:
   });
 }
 
+/** Lichte schaduw achter foto (zakelijk). */
+function drawImageContainWithShadow(page: PDFPage, img: PDFImage, x: number, y: number, w: number, h: number) {
+  const pad = 2;
+  const off = 2.5;
+  page.drawRectangle({
+    x: x - pad + off,
+    y: y - pad,
+    width: w + pad * 2,
+    height: h + pad * 2,
+    color: PHOTO_SHADOW,
+  });
+  drawImageContain(page, img, x, y, w, h);
+}
+
 function drawHLine(page: PDFPage, x: number, y: number, w: number, thickness = 0.65, color = MUTED) {
   page.drawLine({ start: { x, y }, end: { x: x + w, y }, thickness, color });
 }
@@ -194,7 +209,7 @@ function drawAgencyFooterBetweenLines(
   drawHLine(page, boxX, yBottom, boxW);
 }
 
-/** MODEL INFO-blok: geboortejaar, titel, lijn, maten gelijkmatig verdeeld. */
+/** MODEL INFO links, geboortejaar eronder, maten met rode verticale lijnen. */
 function drawModelInfoBlock(
   page: PDFPage,
   font: PDFFont,
@@ -202,55 +217,70 @@ function drawModelInfoBlock(
   boxX: number,
   boxW: number,
   yTop: number,
-  yBottom: number,
+  statsBottomY: number,
   birthYear: string | null,
   statRows: StatEntry[],
 ) {
   const headerSize = 11;
   const yearSize = 9.5;
   const rowSize = 8.5;
-  const padX = 4;
+  const rowH = 14;
+  const textPad = 14;
 
-  let y = yTop - 8;
+  let y = yTop - 10;
 
-  if (birthYear) {
-    const yearLabel = birthYear;
-    const lw = font.widthOfTextAtSize(yearLabel, yearSize);
-    page.drawText(yearLabel, {
-      x: boxX + (boxW - lw) / 2,
-      y: y - yearSize,
-      size: yearSize,
-      font,
-      color: INK,
-    });
-    y -= yearSize + 10;
-  }
-
-  const title = 'MODEL INFO';
-  const tw = fontBold.widthOfTextAtSize(title, headerSize);
-  page.drawText(title, {
-    x: boxX + (boxW - tw) / 2,
+  page.drawText('MODEL INFO', {
+    x: boxX,
     y: y - headerSize,
     size: headerSize,
     font: fontBold,
     color: BURGUNDY,
   });
-  y -= headerSize + 4;
-  drawHLine(page, boxX, y, boxW, 0.8, BURGUNDY);
-  y -= 14;
+  y -= headerSize + 7;
 
-  const rowsBottom = yBottom + 6;
-  const available = y - rowsBottom;
-  const rowH = Math.max(13.5, available / Math.max(statRows.length, 1));
-  let rowY = y;
+  const yearText = birthYear?.trim() || '—';
+  page.drawText(yearText, {
+    x: boxX,
+    y: y - yearSize,
+    size: yearSize,
+    font,
+    color: INK,
+  });
+  y -= yearSize + 6;
+  drawHLine(page, boxX, y, boxW, 0.75, BURGUNDY);
+  y -= 12;
 
+  const statsTop = y;
+  const statsH = statRows.length * rowH + 6;
+  const statsBase = Math.max(statsBottomY, statsTop - statsH);
+
+  page.drawLine({
+    start: { x: boxX, y: statsBase },
+    end: { x: boxX, y: statsTop },
+    thickness: 0.85,
+    color: BURGUNDY,
+  });
+  page.drawLine({
+    start: { x: boxX + boxW, y: statsBase },
+    end: { x: boxX + boxW, y: statsTop },
+    thickness: 0.85,
+    color: BURGUNDY,
+  });
+
+  let rowY = statsTop - 8;
   for (const entry of statRows) {
     rowY -= rowH;
     const baseline = rowY + (rowH - rowSize) / 2;
-    page.drawText(entry.label, { x: boxX + padX, y: baseline, size: rowSize, font, color: INK });
+    page.drawText(entry.label, {
+      x: boxX + textPad,
+      y: baseline,
+      size: rowSize,
+      font,
+      color: INK,
+    });
     const vw = font.widthOfTextAtSize(entry.value, rowSize);
     page.drawText(entry.value, {
-      x: boxX + boxW - padX - vw,
+      x: boxX + boxW - textPad - vw,
       y: baseline,
       size: rowSize,
       font,
@@ -283,7 +313,7 @@ function computeVersoPhotoLayout() {
   const photosBottom = 12 + footerH;
   const photoH = contentTop - photosBottom;
 
-  const thumbW = 84;
+  const thumbW = 78;
   const thumbsTotalW = 3 * thumbW + 2 * VERSO_THUMB_GAP;
   const heroW = A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R - VERSO_GAP_THUMB_HERO - thumbsTotalW;
   const heroX = A5_LANDSCAPE_W - VERSO_MARGIN_R - heroW;
@@ -390,7 +420,7 @@ export async function buildSetCardVersoPdf(opts: {
   );
 
   for (let i = 0; i < 3; i++) {
-    drawImageContain(
+    drawImageContainWithShadow(
       page,
       thumbs[i],
       layout.thumbXs[i],
@@ -400,7 +430,7 @@ export async function buildSetCardVersoPdf(opts: {
     );
   }
 
-  drawImageContain(
+  drawImageContainWithShadow(
     page,
     thumbs[3],
     layout.heroX,
