@@ -39,7 +39,7 @@ export class ForgotPasswordDto {
 
 export class ResetPasswordDto {
   @IsString()
-  @MinLength(20)
+  @MinLength(32)
   token!: string;
 
   @IsString()

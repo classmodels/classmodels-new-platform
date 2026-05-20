@@ -14,6 +14,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UsersService, pickPublicMediaKey } from '../users/users.service';
 import { mergePermissionsFromRoles, premiumEffective } from './permissions.util';
 import { normalizeEmail } from './login-identifier.util';
+import { resetPasswordPageUrl } from './public-web-url';
+
+/** Reset-token uit URL (query of pad); verwijdert spaties/line breaks uit e-mail wraps. */
+function normalizeResetToken(raw: string): string {
+  let t = (raw ?? '').trim();
+  try {
+    t = decodeURIComponent(t);
+  } catch {
+    /* ongeldige %-escape */
+  }
+  return t.replace(/\s+/g, '');
+}
 
 type UserWithRoles = User & {
   roles: (UserRole & { role: Role })[];
@@ -85,7 +97,17 @@ export class AuthService {
     if (user.status !== 'active') {
       throw new UnauthorizedException('Account niet actief');
     }
-    const ok = await bcrypt.compare(password, user.passwordHash);
+    let ok = await bcrypt.compare(password, user.passwordHash);
+    const legacyPw = process.env.LEGACY_IMPORT_PASSWORD?.trim();
+    if (!ok && legacyPw && password === legacyPw) {
+      const newHash = await bcrypt.hash(password, 10);
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: newHash, mustChangePassword: true },
+      });
+      ok = true;
+      this.log.log(`Legacy-import wachtwoord geaccepteerd en hash gezet voor ${user.email}`);
+    }
     if (!ok) throw new UnauthorizedException('Ongeldige gegevens');
     await this.users.recordLastLogin(user.id);
     const fresh = await this.users.findById(user.id);
@@ -123,21 +145,17 @@ export class AuthService {
 
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
     await this.prisma.passwordResetToken.create({
       data: { userId: user.id, tokenHash, expiresAt },
     });
 
-    const appUrl = (process.env.WEB_PUBLIC_URL || process.env.WEB_APP_URL || 'https://www.class-models.be').replace(
-      /\/$/,
-      '',
-    );
-    const link = `${appUrl}/reset-password?token=${rawToken}`;
+    const link = resetPasswordPageUrl(rawToken);
     const html = `
       <p>Hallo${user.firstName ? ` ${user.firstName}` : ''},</p>
       <p>Je vroeg een nieuw wachtwoord aan voor Class Models.</p>
-      <p><a href="${link}">Klik hier om een nieuw wachtwoord te kiezen</a> (geldig 1 uur).</p>
+      <p><a href="${link}">Klik hier om een nieuw wachtwoord te kiezen</a> (geldig 24 uur).</p>
       <p>Werkt de link niet? Kopieer: ${link}</p>
       <p>Heb je dit niet aangevraagd? Negeer deze mail.</p>
     `;
@@ -149,7 +167,13 @@ export class AuthService {
   }
 
   async resetPasswordWithToken(token: string, newPassword: string) {
-    const tokenHash = createHash('sha256').update(token.trim()).digest('hex');
+    const normalized = normalizeResetToken(token);
+    if (normalized.length < 32) {
+      throw new BadRequestException(
+        'Deze link is ongeldig of onvolledig. Vraag via «Wachtwoord vergeten» een nieuwe link aan.',
+      );
+    }
+    const tokenHash = createHash('sha256').update(normalized).digest('hex');
     const row = await this.prisma.passwordResetToken.findUnique({
       where: { tokenHash },
       include: {
@@ -160,7 +184,7 @@ export class AuthService {
         },
       },
     });
-    if (!row || row.expiresAt < new Date()) {
+    if (!row || row.expiresAt.getTime() < Date.now()) {
       throw new BadRequestException('Deze link is ongeldig of verlopen. Vraag opnieuw een reset aan.');
     }
     const passwordHash = await bcrypt.hash(newPassword, 10);

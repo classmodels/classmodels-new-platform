@@ -12,6 +12,8 @@ NEXT_PUBLIC_API_URL=https://api.class-models.be
 # Zelfde waarde bij **web build** (Combell pipeline vóór `npm run build`): anders kunnen <img>-URL’s fout blijven.
 NEXT_PUBLIC_APP_URL=https://www.class-models.be
 WEB_PUBLIC_URL=https://www.class-models.be
+# Tijdelijk: modellen kunnen inloggen met import-wachtwoord; hash wordt bij eerste login gezet
+LEGACY_IMPORT_PASSWORD=classmodels2026!
 WEB_APP_URL=https://www.class-models.be
 NODE_ENV=production
 # dual-proxy zet MEDIA_ROOT automatisch naar $HOME/www/cm-media/uploads (absoluut).

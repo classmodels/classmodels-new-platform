@@ -1,80 +1,38 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import Link from 'next/link';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/context/auth-context';
-import { apiFetch } from '@/lib/api';
-import { redirectAfterPortalAuth } from '@/lib/redirect-after-auth';
+import Link from 'next/link';
+import { ResetPasswordForm } from '@/components/auth/ResetPasswordForm';
 
-function ResetPasswordForm() {
-  const token = useSearchParams().get('token') ?? '';
-  const { applySessionToken } = useAuth();
+function basePathPrefix(): string {
+  const bp = (process.env.NEXT_PUBLIC_BASE_PATH || '').trim().replace(/\/$/, '');
+  return bp.startsWith('/') ? bp : bp ? `/${bp}` : '';
+}
+
+function ResetPasswordRedirectOrForm() {
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const [pw, setPw] = useState('');
-  const [pw2, setPw2] = useState('');
-  const [err, setErr] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const tokenQ = searchParams.get('token')?.trim() ?? '';
 
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErr(null);
-    if (!token) {
-      setErr('Ongeldige link. Vraag opnieuw een reset aan.');
-      return;
-    }
-    if (pw !== pw2) {
-      setErr('Wachtwoorden komen niet overeen.');
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await apiFetch<{ access_token: string }>('/auth/reset-password', {
-        method: 'POST',
-        body: JSON.stringify({ token, newPassword: pw }),
-      });
-      const u = await applySessionToken(res.access_token);
-      redirectAfterPortalAuth(u, router);
-    } catch (er) {
-      setErr(er instanceof Error ? er.message : 'Reset mislukt.');
-    } finally {
-      setBusy(false);
-    }
-  };
+  useEffect(() => {
+    if (!tokenQ) return;
+    const clean = tokenQ.replace(/\s+/g, '');
+    router.replace(`${basePathPrefix()}/reset-password/${encodeURIComponent(clean)}`);
+  }, [tokenQ, router]);
+
+  if (tokenQ) {
+    return <div className="p-12 text-center text-sm text-muted">Link wordt geladen…</div>;
+  }
 
   return (
     <div className="mx-auto max-w-md px-4 py-12">
       <h1 className="font-serif text-2xl text-burgundy">Nieuw wachtwoord</h1>
-      {err ? <p className="mt-3 text-sm text-red-700">{err}</p> : null}
-      <form onSubmit={onSubmit} className="mt-6 space-y-4">
-        <input
-          type="password"
-          className="w-full rounded-cm border border-line px-3 py-2 text-sm"
-          placeholder="Nieuw wachtwoord (min. 8)"
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          required
-          minLength={8}
-        />
-        <input
-          type="password"
-          className="w-full rounded-cm border border-line px-3 py-2 text-sm"
-          placeholder="Opnieuw"
-          value={pw2}
-          onChange={(e) => setPw2(e.target.value)}
-          required
-          minLength={8}
-        />
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-cm bg-burgundy py-2.5 text-sm font-medium text-white disabled:opacity-60"
-        >
-          Wachtwoord opslaan
-        </button>
-      </form>
+      <p className="mt-3 text-sm text-red-700">
+        Geen geldige resetlink. Gebruik de knop in de e-mail of vraag hieronder een nieuwe link aan.
+      </p>
       <Link href="/wachtwoord-vergeten" className="mt-6 inline-block text-sm text-burgundy underline">
-        Nieuwe link aanvragen
+        Wachtwoord vergeten
       </Link>
     </div>
   );
@@ -83,7 +41,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <Suspense fallback={<div className="p-12 text-center text-sm text-muted">Laden…</div>}>
-      <ResetPasswordForm />
+      <ResetPasswordRedirectOrForm />
     </Suspense>
   );
 }
