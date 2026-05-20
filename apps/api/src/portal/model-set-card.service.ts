@@ -18,6 +18,7 @@ import {
   formatBeschikbaarLine,
   modelSheetStatEntries,
   modelSheetStatLines,
+  modelSheetVersoStatEntries,
 } from './model-set-card-pdf';
 
 const ALLOWED_UPLOAD_FOLDERS = new Set(['models', 'tijdelijke-uploads', 'setkaarten']);
@@ -132,7 +133,9 @@ export class ModelSetCardService {
       : null;
     const age = computeAgeYears(ms?.geboortedatum);
     const stats = modelSheetStatLines(ms);
+    const birthYear = computeBirthYear(ms?.geboortedatum);
     const statEntries = modelSheetStatEntries(ms);
+    const versoStatEntries = modelSheetVersoStatEntries(ms, birthYear);
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
     return {
@@ -144,10 +147,11 @@ export class ModelSetCardService {
       profile: {
         displayName,
         ageYears: age,
-        birthYear: computeBirthYear(ms?.geboortedatum),
+        birthYear,
         beschikbaarLine: formatBeschikbaarLine(ms),
         stats,
         statEntries,
+        versoStatEntries,
       },
     };
   }
@@ -203,15 +207,15 @@ export class ModelSetCardService {
     const ms = user.modelSheet && typeof user.modelSheet === 'object' && !Array.isArray(user.modelSheet)
       ? (user.modelSheet as Record<string, unknown>)
       : null;
-    const statEntries = modelSheetStatEntries(ms);
+    const birthYear = computeBirthYear(ms?.geboortedatum);
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
     return {
       heroId: draft.frontHeroAssetId,
       versoIds,
       displayName,
-      statEntries,
-      birthYear: computeBirthYear(ms?.geboortedatum),
+      versoStatEntries: modelSheetVersoStatEntries(ms, birthYear),
+      birthYear,
       beschikbaarLine: formatBeschikbaarLine(ms),
     };
   }
@@ -227,7 +231,7 @@ export class ModelSetCardService {
       heroBytes: hero,
       versoBytes: vb,
       displayName: ctx.displayName,
-      statEntries: ctx.statEntries,
+      versoStatEntries: ctx.versoStatEntries,
       birthYear: ctx.birthYear,
       beschikbaarLine: ctx.beschikbaarLine,
     });
@@ -249,7 +253,7 @@ export class ModelSetCardService {
     const { verso } = await this.buffersForPdf(userId, ctx.heroId, ctx.versoIds);
     return buildSetCardVersoPdf({
       versoBytes: verso,
-      statEntries: ctx.statEntries,
+      versoStatEntries: ctx.versoStatEntries,
       birthYear: ctx.birthYear,
       beschikbaarLine: ctx.beschikbaarLine,
     });

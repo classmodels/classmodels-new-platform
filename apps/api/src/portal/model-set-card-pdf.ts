@@ -11,6 +11,12 @@ export const A5_LANDSCAPE_H = 419.53;
 
 export const VERSO_PHOTO_COUNT = 4;
 
+/** Marges verso (40px ≈ 40pt). */
+const VERSO_MARGIN_L = 40;
+const VERSO_MARGIN_R = 40;
+const VERSO_GAP_THUMB_HERO = 60;
+const VERSO_THUMB_GAP = 12;
+
 const BURGUNDY = rgb(0.46, 0.09, 0.14);
 const INK = rgb(0.12, 0.12, 0.12);
 const MUTED = rgb(0.35, 0.35, 0.35);
@@ -18,7 +24,6 @@ const MUTED = rgb(0.35, 0.35, 0.35);
 const FOOTER_LINE_1 = 'Class-Models  ·  Provinciebaan 3, 2235 Hulshout  ·  www.class-models.be';
 const FOOTER_LINE_2 = 'info@class-models.be  ·  gsm +32 (0) 485 322 307';
 
-/** Zelfde opties als modellenfiche in portaal. */
 const BESCHIKBAAR_LABELS: Record<string, string> = {
   Modeshows: 'modeshows',
   'Foto opdrachten': 'Foto opdrachten',
@@ -26,9 +31,6 @@ const BESCHIKBAAR_LABELS: Record<string, string> = {
   'Host/hostess': 'Host / Hostess',
   'Lingerie/Bikini': 'Lingerie',
   'Artistiek naakt': 'Artistiek naakt',
-  kleding: 'Kleding',
-  lingerie: 'Lingerie',
-  modeshows: 'modeshows',
 };
 
 export type StatEntry = { label: string; value: string };
@@ -53,40 +55,61 @@ export function formatBeschikbaarLine(ms: Record<string, unknown> | null): strin
   const raw = ms?.beschikbaar;
   if (!Array.isArray(raw) || raw.length === 0) return '';
   const parts = raw
-    .map((x) => {
-      const k = String(x).trim();
-      return BESCHIKBAAR_LABELS[k] ?? k;
-    })
+    .map((x) => BESCHIKBAAR_LABELS[String(x).trim()] ?? String(x).trim())
     .filter(Boolean);
   if (!parts.length) return '';
   return `${parts.join(' - ')} -`;
 }
 
-function formatStatValue(label: string, raw: string): string {
+function readField(ms: Record<string, unknown> | null, ...keys: string[]): string {
+  if (!ms) return '';
+  for (const key of keys) {
+    const v = ms[key];
+    if (v == null || v === '') continue;
+    const t = typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '';
+    if (t) return t;
+  }
+  return '';
+}
+
+function formatMeasure(label: string, raw: string): string {
   const v = raw.trim();
-  if (!v) return v;
-  if (label === 'Schoenen' || label === 'Maat') return v;
+  if (!v) return '—';
+  const noCm = new Set(['SCHOENMAAT', 'MAAT', 'CONFECTIEMAAT', 'JEANSMAAT', 'BH-MAAT', 'GEBOORTEJAAR']);
+  if (noCm.has(label)) return v;
   if (/cm$/i.test(v)) return v;
   if (/^\d+([.,]\d+)?$/.test(v)) return `${v} cm`;
   return v;
 }
 
+/** Alle maten voor achterzijde (volgorde zoals MODEL INFO-voorbeeld). */
+export function modelSheetVersoStatEntries(
+  ms: Record<string, unknown> | null,
+  birthYear: string | null,
+): StatEntry[] {
+  const rows: StatEntry[] = [
+    { label: 'LENGTE', value: formatMeasure('LENGTE', readField(ms, 'lengte')) },
+    { label: 'MAAT', value: formatMeasure('MAAT', readField(ms, 'maat')) },
+    { label: 'SCHOENMAAT', value: formatMeasure('SCHOENMAAT', readField(ms, 'schoenmaat')) },
+    { label: 'BH-MAAT', value: formatMeasure('BH-MAAT', readField(ms, 'bhMaat', 'bh_maat')) },
+    { label: 'BORSTOMTREK', value: formatMeasure('BORSTOMTREK', readField(ms, 'borstomtrek', 'borst')) },
+    { label: 'CONFECTIEMAAT', value: formatMeasure('CONFECTIEMAAT', readField(ms, 'confectiemaat')) },
+    { label: 'HEUPOMTREK', value: formatMeasure('HEUPOMTREK', readField(ms, 'heupomtrek', 'heupen')) },
+    { label: 'JEANSMAAT', value: formatMeasure('JEANSMAAT', readField(ms, 'jeansmaat')) },
+    { label: 'TAILLE', value: formatMeasure('TAILLE', readField(ms, 'taille')) },
+    { label: 'HAARKLEUR', value: formatMeasure('HAARKLEUR', readField(ms, 'haarkleur', 'haar')) },
+    { label: 'KLEUR OGEN', value: formatMeasure('KLEUR OGEN', readField(ms, 'kleurOgen', 'ogen')) },
+  ];
+  return rows;
+}
+
+/** Korte lijst voor API-preview / legacy. */
 export function modelSheetStatEntries(ms: Record<string, unknown> | null): StatEntry[] {
   if (!ms) return [];
   const entries: StatEntry[] = [];
   const add = (label: string, key: string, altKeys: string[] = []) => {
-    const keys = [key, ...altKeys];
-    let raw: unknown;
-    for (const k of keys) {
-      if (ms[k] != null && ms[k] !== '') {
-        raw = ms[k];
-        break;
-      }
-    }
-    if (raw == null || raw === '') return;
-    const t = typeof raw === 'string' || typeof raw === 'number' ? String(raw).trim() : '';
-    if (!t) return;
-    entries.push({ label, value: formatStatValue(label, t) });
+    const t = readField(ms, key, ...altKeys);
+    if (t) entries.push({ label, value: formatMeasure(label.toUpperCase(), t) });
   };
   add('Lengte', 'lengte');
   add('Borst', 'borstomtrek', ['borst']);
@@ -95,8 +118,7 @@ export function modelSheetStatEntries(ms: Record<string, unknown> | null): StatE
   add('Schoenen', 'schoenmaat');
   add('Haar', 'haarkleur', ['haar']);
   add('Ogen', 'kleurOgen', ['ogen', 'kleur_ogen']);
-  add('Maat', 'confectiemaat');
-  if (!entries.some((e) => e.label === 'Maat')) add('Maat', 'maat');
+  add('Maat', 'confectiemaat', ['maat']);
   return entries;
 }
 
@@ -172,53 +194,68 @@ function drawAgencyFooterBetweenLines(
   drawHLine(page, boxX, yBottom, boxW);
 }
 
-function buildVersoStatRows(statEntries: StatEntry[], birthYear: string | null): StatEntry[] {
-  const rows = [...statEntries];
-  if (birthYear) rows.push({ label: 'Geboortejaar', value: birthYear });
-  return rows.length > 0 ? rows : [{ label: '—', value: 'Vul maten in je profiel' }];
-}
-
-function drawStatsWithRails(
+/** MODEL INFO-blok: geboortejaar, titel, lijn, maten gelijkmatig verdeeld. */
+function drawModelInfoBlock(
   page: PDFPage,
   font: PDFFont,
+  fontBold: PDFFont,
   boxX: number,
-  boxY: number,
   boxW: number,
-  entries: StatEntry[],
+  yTop: number,
+  yBottom: number,
+  birthYear: string | null,
+  statRows: StatEntry[],
 ) {
-  const size = 8.5;
-  const rowH = 16;
-  const padX = 12;
-  const rows = entries;
-  const boxH = rows.length * rowH + 10;
-  const yTop = boxY + boxH;
-  const yBottom = boxY;
+  const headerSize = 11;
+  const yearSize = 9.5;
+  const rowSize = 8.5;
+  const padX = 4;
 
-  page.drawLine({
-    start: { x: boxX, y: yBottom },
-    end: { x: boxX, y: yTop },
-    thickness: 0.75,
-    color: BURGUNDY,
-  });
-  page.drawLine({
-    start: { x: boxX + boxW, y: yBottom },
-    end: { x: boxX + boxW, y: yTop },
-    thickness: 0.75,
-    color: BURGUNDY,
-  });
+  let y = yTop - 8;
 
-  let y = yTop - 11;
-  for (const entry of rows) {
-    page.drawText(entry.label, { x: boxX + padX, y: y - size, size, font, color: INK });
-    const vw = font.widthOfTextAtSize(entry.value, size);
-    page.drawText(entry.value, {
-      x: boxX + boxW - padX - vw,
-      y: y - size,
-      size,
+  if (birthYear) {
+    const yearLabel = birthYear;
+    const lw = font.widthOfTextAtSize(yearLabel, yearSize);
+    page.drawText(yearLabel, {
+      x: boxX + (boxW - lw) / 2,
+      y: y - yearSize,
+      size: yearSize,
       font,
       color: INK,
     });
-    y -= rowH;
+    y -= yearSize + 10;
+  }
+
+  const title = 'MODEL INFO';
+  const tw = fontBold.widthOfTextAtSize(title, headerSize);
+  page.drawText(title, {
+    x: boxX + (boxW - tw) / 2,
+    y: y - headerSize,
+    size: headerSize,
+    font: fontBold,
+    color: BURGUNDY,
+  });
+  y -= headerSize + 4;
+  drawHLine(page, boxX, y, boxW, 0.8, BURGUNDY);
+  y -= 14;
+
+  const rowsBottom = yBottom + 6;
+  const available = y - rowsBottom;
+  const rowH = Math.max(13.5, available / Math.max(statRows.length, 1));
+  let rowY = y;
+
+  for (const entry of statRows) {
+    rowY -= rowH;
+    const baseline = rowY + (rowH - rowSize) / 2;
+    page.drawText(entry.label, { x: boxX + padX, y: baseline, size: rowSize, font, color: INK });
+    const vw = font.widthOfTextAtSize(entry.value, rowSize);
+    page.drawText(entry.value, {
+      x: boxX + boxW - padX - vw,
+      y: baseline,
+      size: rowSize,
+      font,
+      color: INK,
+    });
   }
 }
 
@@ -237,6 +274,36 @@ function drawVersoBottomFooter(
   const lineSize = fitFontSize(font, line, w - 4, 8);
   page.drawText(line, { x: x + 2, y: yBase + 6, size: lineSize, font, color: INK });
   drawHLine(page, x, yBase, w);
+}
+
+function computeVersoPhotoLayout() {
+  const padTop = 12;
+  const footerH = 40;
+  const contentTop = A5_LANDSCAPE_H - padTop;
+  const photosBottom = 12 + footerH;
+  const photoH = contentTop - photosBottom;
+
+  const thumbW = 84;
+  const thumbsTotalW = 3 * thumbW + 2 * VERSO_THUMB_GAP;
+  const heroW = A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R - VERSO_GAP_THUMB_HERO - thumbsTotalW;
+  const heroX = A5_LANDSCAPE_W - VERSO_MARGIN_R - heroW;
+  const leftZoneW = heroX - VERSO_GAP_THUMB_HERO - VERSO_MARGIN_L;
+
+  return {
+    contentTop,
+    photosBottom,
+    photoH,
+    thumbW,
+    thumbsTotalW,
+    heroW,
+    heroX,
+    leftZoneW,
+    thumbXs: [
+      VERSO_MARGIN_L,
+      VERSO_MARGIN_L + thumbW + VERSO_THUMB_GAP,
+      VERSO_MARGIN_L + 2 * (thumbW + VERSO_THUMB_GAP),
+    ],
+  };
 }
 
 /**
@@ -288,63 +355,68 @@ export async function buildSetCardRectoPdf(opts: {
 }
 
 /**
- * Verso — A5 liggend: maten (+ geboortejaar) linksboven, 3 kleine foto’s onderaan links,
- * rechts zeer grote foto (onderkanten gelijk).
+ * Verso — A5 liggend: MODEL INFO links, 3 grote thumbs, hero rechts (40pt marges).
  */
 export async function buildSetCardVersoPdf(opts: {
   versoBytes: Buffer[];
-  statEntries: StatEntry[];
+  versoStatEntries: StatEntry[];
   birthYear: string | null;
   beschikbaarLine: string;
 }): Promise<Uint8Array> {
-  const { versoBytes, statEntries, birthYear, beschikbaarLine } = opts;
+  const { versoBytes, versoStatEntries, birthYear, beschikbaarLine } = opts;
   if (versoBytes.length !== VERSO_PHOTO_COUNT) {
     throw new Error(`Precies ${VERSO_PHOTO_COUNT} foto’s nodig voor de achterzijde.`);
   }
 
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([A5_LANDSCAPE_W, A5_LANDSCAPE_H]);
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const font = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
   const thumbs: PDFImage[] = [];
   for (const b of versoBytes) thumbs.push(await embedRaster(pdfDoc, b));
 
-  const pad = 12;
-  const footerH = 40;
-  const colGap = 10;
-  const contentW = A5_LANDSCAPE_W - 2 * pad;
-  const contentTop = A5_LANDSCAPE_H - pad;
-  const photosBottom = pad + footerH;
+  const layout = computeVersoPhotoLayout();
 
-  const leftW = 200;
-  const rightX = pad + leftW + colGap;
-  const rightW = A5_LANDSCAPE_W - pad - rightX;
-
-  const heroH = contentTop - photosBottom;
-  const thumbH = 108;
-  const thumbGap = 9;
-  const thumbW = (leftW - 2 * thumbGap) / 3;
-
-  const statRows = buildVersoStatRows(statEntries, birthYear);
-  const statsRowH = 16;
-  const statsBoxH = statRows.length * statsRowH + 10;
-  const statsBottom = photosBottom + thumbH + 14;
-
-  drawStatsWithRails(page, font, pad, statsBottom, leftW, statRows);
+  drawModelInfoBlock(
+    page,
+    font,
+    fontBold,
+    VERSO_MARGIN_L,
+    layout.leftZoneW,
+    layout.contentTop,
+    layout.photosBottom + layout.photoH,
+    birthYear,
+    versoStatEntries,
+  );
 
   for (let i = 0; i < 3; i++) {
     drawImageContain(
       page,
       thumbs[i],
-      pad + i * (thumbW + thumbGap),
-      photosBottom,
-      thumbW,
-      thumbH,
+      layout.thumbXs[i],
+      layout.photosBottom,
+      layout.thumbW,
+      layout.photoH,
     );
   }
 
-  drawImageContain(page, thumbs[3], rightX, photosBottom, rightW, heroH);
+  drawImageContain(
+    page,
+    thumbs[3],
+    layout.heroX,
+    layout.photosBottom,
+    layout.heroW,
+    layout.photoH,
+  );
 
-  drawVersoBottomFooter(page, font, pad, contentW, pad, beschikbaarLine);
+  drawVersoBottomFooter(
+    page,
+    font,
+    VERSO_MARGIN_L,
+    A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R,
+    12,
+    beschikbaarLine,
+  );
 
   return pdfDoc.save();
 }
@@ -353,7 +425,7 @@ export async function buildModelSetCardPdfPair(opts: {
   heroBytes: Buffer;
   versoBytes: Buffer[];
   displayName: string;
-  statEntries: StatEntry[];
+  versoStatEntries: StatEntry[];
   birthYear: string | null;
   beschikbaarLine: string;
 }): Promise<{ recto: Uint8Array; verso: Uint8Array }> {
@@ -363,7 +435,7 @@ export async function buildModelSetCardPdfPair(opts: {
   });
   const verso = await buildSetCardVersoPdf({
     versoBytes: opts.versoBytes,
-    statEntries: opts.statEntries,
+    versoStatEntries: opts.versoStatEntries,
     birthYear: opts.birthYear,
     beschikbaarLine: opts.beschikbaarLine,
   });

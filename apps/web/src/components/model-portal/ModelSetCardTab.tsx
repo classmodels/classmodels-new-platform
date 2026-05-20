@@ -26,6 +26,7 @@ type SetCardDraft = {
     beschikbaarLine: string;
     stats: string[];
     statEntries: StatEntry[];
+    versoStatEntries: StatEntry[];
   };
 };
 
@@ -388,14 +389,9 @@ export function ModelSetCardTab({
   }
 
   const profileNameUpper = (draft?.profile.displayName ?? 'NAAM MODEL').trim().toUpperCase() || 'NAAM MODEL';
-  const statEntries = draft?.profile.statEntries ?? [];
   const birthYear = draft?.profile.birthYear ?? null;
   const beschikbaarLine = draft?.profile.beschikbaarLine?.trim() || '— (vul beschikbaarheid in je profiel in)';
-  const versoStatRows = useMemo(() => {
-    const rows = [...statEntries];
-    if (birthYear) rows.push({ label: 'Geboortejaar', value: birthYear });
-    return rows;
-  }, [statEntries, birthYear]);
+  const versoStatRows = draft?.profile.versoStatEntries ?? [];
   const submitted = draft?.status === 'submitted';
 
   const heroAsset = heroId ? assetById.get(heroId) : undefined;
@@ -584,26 +580,27 @@ export function ModelSetCardTab({
           </div>
 
           <div className="overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
-            <div className="flex aspect-[210/148] flex-col">
-              <div className="relative flex min-h-0 flex-1 p-2 pb-0">
-                <div className="flex w-[34%] shrink-0 flex-col pr-2">
-                  <div className="border-x border-burgundy/80 px-2.5 py-1.5">
-                    <ul className="space-y-[5px] text-[7px] leading-none text-zinc-900">
-                      {versoStatRows.length > 0 ? (
-                        versoStatRows.map((e) => (
-                          <li key={e.label} className="flex justify-between gap-2">
-                            <span>{e.label}</span>
-                            <span className="font-medium tabular-nums">{e.value}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-zinc-400">Vul maten in je profiel</li>
-                      )}
+            <div className="flex aspect-[210/148] flex-col font-serif">
+              <div className="relative min-h-0 flex-1">
+                <div className="absolute bottom-[14%] left-[7%] right-[38%] top-[3%] flex flex-col justify-between">
+                  <div className="text-[6.5px] leading-none text-zinc-900">
+                    {birthYear ? (
+                      <p className="mb-2 text-center text-[7px] tracking-wide">{birthYear}</p>
+                    ) : null}
+                    <p className="text-center text-[8px] font-bold tracking-[0.12em] text-burgundy">MODEL INFO</p>
+                    <hr className="my-1 border-burgundy/90" />
+                    <ul className="space-y-[3px]">
+                      {versoStatRows.map((e) => (
+                        <li key={e.label} className="flex justify-between gap-2">
+                          <span className="uppercase tracking-wide">{e.label}</span>
+                          <span>{e.value}</span>
+                        </li>
+                      ))}
                     </ul>
                   </div>
-                  <div className="mt-auto flex items-end gap-[9px]">
+                  <div className="flex gap-3">
                     {[0, 1, 2].map((i) => (
-                      <div key={i} className="h-[52px] flex-1 overflow-hidden bg-zinc-50">
+                      <div key={i} className="h-[62px] flex-1 overflow-hidden bg-zinc-50">
                         {versoPreviewSrc(i) ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
@@ -614,20 +611,20 @@ export function ModelSetCardTab({
                     ))}
                   </div>
                 </div>
-                <div className="absolute bottom-2 right-2 top-2 left-[36%] overflow-hidden bg-zinc-50">
+                <div className="absolute bottom-[14%] right-[7%] top-[3%] w-[34%] overflow-hidden bg-zinc-50">
                   {versoPreviewSrc(3) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
                   ) : (
-                    <div className="flex h-full items-center justify-center text-[9px] text-zinc-400">Grote foto (4)</div>
+                    <div className="flex h-full items-center justify-center text-[9px] text-zinc-400">Grote foto</div>
                   )}
                 </div>
               </div>
-              <div className="shrink-0 px-2 py-1.5 text-[6.5px] leading-snug text-zinc-800">
+              <div className="shrink-0 px-[7%] py-1.5 text-[6px] leading-snug text-zinc-800">
                 <p>Beschikbaar voor</p>
-                <hr className="my-0.5 border-zinc-400" />
+                <hr className="my-0.5 border-zinc-500" />
                 <p>{beschikbaarLine}</p>
-                <hr className="mt-0.5 border-zinc-400" />
+                <hr className="mt-0.5 border-zinc-500" />
               </div>
             </div>
           </div>
