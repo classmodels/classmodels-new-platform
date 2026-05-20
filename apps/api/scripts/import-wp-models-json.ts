@@ -4,7 +4,12 @@
  * Vanuit apps/api (met DATABASE_URL):
  *   npx ts-node --compiler-options "{\"module\":\"CommonJS\"}" scripts/import-wp-models-json.ts --file=/pad/wp-models-export.json --dry-run
  *
- * Echte import (nieuwe gebruikers krijgen dit wachtwoord; bestaande e-mails worden enkel bijgewerkt qua fiche):
+ * Echte import:
+ *   - **Nieuwe** e-mails krijgen `--temp-password` als wachtwoord-hash.
+ *   - **Bestaande** e-mails worden bijgewerkt (fiche, rollen, legacyWpUserId) maar het **wachtwoord
+ *     blijft ongewijzigd** — zet desgewenst achteraf hetzelfde tijdelijk wachtwoord met
+ *     `npm run tool:set-legacy-import-password` (alleen accounts met legacy import die nog
+ *     nooit ingelogd zijn).
  *   npx ts-node --compiler-options "{\"module\":\"CommonJS\"}" scripts/import-wp-models-json.ts --file=... --apply --temp-password='KiesEenTijdelijkWachtwoord123!'
  */
 import * as fs from 'fs';
