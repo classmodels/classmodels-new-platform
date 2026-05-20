@@ -18,15 +18,17 @@ const MUTED = rgb(0.35, 0.35, 0.35);
 const FOOTER_LINE_1 = 'Class-Models  ·  Provinciebaan 3, 2235 Hulshout  ·  www.class-models.be';
 const FOOTER_LINE_2 = 'info@class-models.be  ·  gsm +32 (0) 485 322 307';
 
+/** Zelfde opties als modellenfiche in portaal. */
 const BESCHIKBAAR_LABELS: Record<string, string> = {
-  kleding: 'Kleding',
-  lingerie: 'Lingerie',
-  'lingerie/bikini': 'Lingerie',
-  modeshows: 'modeshows',
+  Modeshows: 'modeshows',
   'Foto opdrachten': 'Foto opdrachten',
   Reklame: 'Reclame',
   'Host/hostess': 'Host / Hostess',
   'Lingerie/Bikini': 'Lingerie',
+  'Artistiek naakt': 'Artistiek naakt',
+  kleding: 'Kleding',
+  lingerie: 'Lingerie',
+  modeshows: 'modeshows',
 };
 
 export type StatEntry = { label: string; value: string };
@@ -49,36 +51,50 @@ export function computeBirthYear(geboortedatum: unknown): string | null {
 
 export function formatBeschikbaarLine(ms: Record<string, unknown> | null): string {
   const raw = ms?.beschikbaar;
-  if (!Array.isArray(raw) || raw.length === 0) {
-    return 'Kleding - Lingerie - modeshows -';
-  }
+  if (!Array.isArray(raw) || raw.length === 0) return '';
   const parts = raw
     .map((x) => {
       const k = String(x).trim();
       return BESCHIKBAAR_LABELS[k] ?? k;
     })
     .filter(Boolean);
-  if (!parts.length) return 'Kleding - Lingerie - modeshows -';
+  if (!parts.length) return '';
   return `${parts.join(' - ')} -`;
+}
+
+function formatStatValue(label: string, raw: string): string {
+  const v = raw.trim();
+  if (!v) return v;
+  if (label === 'Schoenen' || label === 'Maat') return v;
+  if (/cm$/i.test(v)) return v;
+  if (/^\d+([.,]\d+)?$/.test(v)) return `${v} cm`;
+  return v;
 }
 
 export function modelSheetStatEntries(ms: Record<string, unknown> | null): StatEntry[] {
   if (!ms) return [];
   const entries: StatEntry[] = [];
-  const add = (label: string, key: string) => {
-    const v = ms[key];
-    if (v == null || v === '') return;
-    const t = typeof v === 'string' || typeof v === 'number' ? String(v).trim() : '';
+  const add = (label: string, key: string, altKeys: string[] = []) => {
+    const keys = [key, ...altKeys];
+    let raw: unknown;
+    for (const k of keys) {
+      if (ms[k] != null && ms[k] !== '') {
+        raw = ms[k];
+        break;
+      }
+    }
+    if (raw == null || raw === '') return;
+    const t = typeof raw === 'string' || typeof raw === 'number' ? String(raw).trim() : '';
     if (!t) return;
-    entries.push({ label, value: t });
+    entries.push({ label, value: formatStatValue(label, t) });
   };
   add('Lengte', 'lengte');
-  add('Borst', 'borstomtrek');
+  add('Borst', 'borstomtrek', ['borst']);
   add('Taille', 'taille');
-  add('Heupen', 'heupomtrek');
+  add('Heupen', 'heupomtrek', ['heupen']);
   add('Schoenen', 'schoenmaat');
-  add('Haar', 'haarkleur');
-  add('Ogen', 'kleurOgen');
+  add('Haar', 'haarkleur', ['haar']);
+  add('Ogen', 'kleurOgen', ['ogen', 'kleur_ogen']);
   add('Maat', 'confectiemaat');
   if (!entries.some((e) => e.label === 'Maat')) add('Maat', 'maat');
   return entries;
@@ -114,6 +130,10 @@ function drawImageContain(page: PDFPage, img: PDFImage, x: number, y: number, w:
   });
 }
 
+function drawHLine(page: PDFPage, x: number, y: number, w: number, thickness = 0.65, color = MUTED) {
+  page.drawLine({ start: { x, y }, end: { x: x + w, y }, thickness, color });
+}
+
 function drawCenteredInBox(
   page: PDFPage,
   font: PDFFont,
@@ -134,7 +154,7 @@ function fitFontSize(font: PDFFont, text: string, maxW: number, startSize: numbe
   return size;
 }
 
-function drawFooterTwoLines(
+function drawAgencyFooterBetweenLines(
   page: PDFPage,
   font: PDFFont,
   fontBold: PDFFont,
@@ -142,31 +162,14 @@ function drawFooterTwoLines(
   boxW: number,
   yBottom: number,
 ) {
-  const lineGap = 12;
+  const blockH = 30;
+  const yTop = yBottom + blockH;
+  drawHLine(page, boxX, yTop, boxW);
   const size1 = fitFontSize(fontBold, FOOTER_LINE_1, boxW, 7.5);
   const size2 = fitFontSize(font, FOOTER_LINE_2, boxW, 7.5);
-  drawCenteredInBox(page, fontBold, FOOTER_LINE_1, boxX, boxW, yBottom + lineGap, size1, INK);
-  drawCenteredInBox(page, font, FOOTER_LINE_2, boxX, boxW, yBottom, size2, MUTED);
-}
-
-/** Kader met hoeklijnen (zoals voorbeeld voorzijde). */
-function drawPhotoFrame(page: PDFPage, x: number, y: number, w: number, h: number) {
-  const t = 0.8;
-  page.drawRectangle({ x, y, width: w, height: h, borderWidth: t, borderColor: INK });
-  const c = 11;
-  const lines: [number, number, number, number][] = [
-    [x, y + h, x + c, y + h],
-    [x, y + h, x, y + h - c],
-    [x + w, y + h, x + w - c, y + h],
-    [x + w, y + h, x + w, y + h - c],
-    [x, y, x + c, y],
-    [x, y, x, y + c],
-    [x + w, y, x + w - c, y],
-    [x + w, y, x + w, y + c],
-  ];
-  for (const [x1, y1, x2, y2] of lines) {
-    page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness: 1.4, color: INK });
-  }
+  drawCenteredInBox(page, fontBold, FOOTER_LINE_1, boxX, boxW, yBottom + 16, size1, INK);
+  drawCenteredInBox(page, font, FOOTER_LINE_2, boxX, boxW, yBottom + 4, size2, MUTED);
+  drawHLine(page, boxX, yBottom, boxW);
 }
 
 function drawStatsWithRails(
@@ -178,30 +181,28 @@ function drawStatsWithRails(
   boxH: number,
   entries: StatEntry[],
 ) {
-  const railInset = 6;
-  const x1 = boxX;
-  const x2 = boxX + boxW;
   const yTop = boxY + boxH;
   const yBottom = boxY;
   page.drawLine({
-    start: { x: x1, y: yBottom },
-    end: { x: x1, y: yTop },
+    start: { x: boxX, y: yBottom },
+    end: { x: boxX, y: yTop },
     thickness: 1.2,
     color: BURGUNDY,
   });
   page.drawLine({
-    start: { x: x2, y: yBottom },
-    end: { x: x2, y: yTop },
+    start: { x: boxX + boxW, y: yBottom },
+    end: { x: boxX + boxW, y: yTop },
     thickness: 1.2,
     color: BURGUNDY,
   });
 
   const size = 9;
   const rowH = 13.5;
-  const padX = railInset + 4;
-  let y = yTop - 10;
+  const padX = 10;
+  let y = yTop - 12;
 
-  for (const entry of entries) {
+  const rows = entries.length > 0 ? entries : [{ label: '—', value: 'Vul maten in je profiel' }];
+  for (const entry of rows) {
     page.drawText(entry.label, { x: boxX + padX, y: y - size, size, font, color: INK });
     const vw = font.widthOfTextAtSize(entry.value, size);
     page.drawText(entry.value, {
@@ -224,19 +225,16 @@ function drawVersoBottomFooter(
   beschikbaarLine: string,
 ) {
   const size = 8;
-  page.drawText('Beschikbaar voor', { x: x + 2, y: yBase + 22, size, font, color: INK });
-  page.drawLine({
-    start: { x, y: yBase + 16 },
-    end: { x: x + w, y: yBase + 16 },
-    thickness: 0.6,
-    color: MUTED,
-  });
-  const lineSize = fitFontSize(font, beschikbaarLine, w - 4, 8);
-  page.drawText(beschikbaarLine, { x: x + 2, y: yBase + 4, size: lineSize, font, color: INK });
+  page.drawText('Beschikbaar voor', { x: x + 2, y: yBase + 24, size, font, color: INK });
+  drawHLine(page, x, yBase + 18, w);
+  const line = beschikbaarLine.trim() || '—';
+  const lineSize = fitFontSize(font, line, w - 4, 8);
+  page.drawText(line, { x: x + 2, y: yBase + 6, size: lineSize, font, color: INK });
+  drawHLine(page, x, yBase, w);
 }
 
 /**
- * Recto — A5 staand: naam, foto in kader (contain), footer 2 regels.
+ * Recto — A5 staand: naam tussen lijnen, foto zonder kader, bureau tussen lijnen.
  */
 export async function buildSetCardRectoPdf(opts: {
   heroBytes: Buffer;
@@ -253,10 +251,9 @@ export async function buildSetCardRectoPdf(opts: {
   const nameUpper = opts.displayName.trim().toUpperCase() || 'NAAM MODEL';
   const nameSize = nameUpper.length > 26 ? 11 : 13;
 
-  const nameBlockH = 32;
-  const footerBlockH = 34;
-  const gap = 8;
-  const framePad = 4;
+  const nameBlockH = 28;
+  const footerBlockH = 36;
+  const gap = 6;
 
   const photoX = margin;
   const photoW = contentW;
@@ -264,29 +261,28 @@ export async function buildSetCardRectoPdf(opts: {
   const photoTop = A5_PORTRAIT_H - margin - nameBlockH - gap;
   const photoH = photoTop - photoBottom;
 
-  const nameY = A5_PORTRAIT_H - margin - nameSize;
+  const nameY = A5_PORTRAIT_H - margin - nameSize - 6;
   const nameW = fontBold.widthOfTextAtSize(nameUpper, nameSize);
+  const nameX = photoX + (photoW - nameW) / 2;
+
+  drawHLine(page, photoX, nameY + nameSize + 5, photoW, 0.7, INK);
   page.drawText(nameUpper, {
-    x: photoX + (photoW - nameW) / 2,
+    x: nameX,
     y: nameY,
     size: nameSize,
     font: fontBold,
     color: BURGUNDY,
   });
+  drawHLine(page, photoX, nameY - 5, photoW, 0.7, INK);
 
-  const frameX = photoX + framePad;
-  const frameY = photoBottom + framePad;
-  const frameW = photoW - 2 * framePad;
-  const frameH = photoH - 2 * framePad;
-  drawPhotoFrame(page, frameX, frameY, frameW, frameH);
-  drawImageContain(page, heroImg, frameX + 2, frameY + 2, frameW - 4, frameH - 4);
-  drawFooterTwoLines(page, font, fontBold, photoX, photoW, margin + 4);
+  drawImageContain(page, heroImg, photoX, photoBottom, photoW, photoH);
+  drawAgencyFooterBetweenLines(page, font, fontBold, photoX, photoW, margin + 2);
 
   return pdfDoc.save();
 }
 
 /**
- * Verso — A5 liggend: links maten + 3 kleine foto’s, rechts grote foto, footer beschikbaarheid.
+ * Verso — A5 liggend: maten linksboven, 3 grotere foto’s (onderkant = grote foto), rechts grote foto.
  */
 export async function buildSetCardVersoPdf(opts: {
   versoBytes: Buffer[];
@@ -306,54 +302,54 @@ export async function buildSetCardVersoPdf(opts: {
   for (const b of versoBytes) thumbs.push(await embedRaster(pdfDoc, b));
 
   const pad = 12;
-  const bottomH = 38;
-  const gap = 6;
-  const splitX = pad + (A5_LANDSCAPE_W - 2 * pad) * 0.5;
-  const leftW = splitX - pad - gap / 2;
-  const rightX = splitX + gap / 2;
+  const footerH = 42;
+  const geboorteRowH = 13;
+  const colGap = 8;
+
+  const contentW = A5_LANDSCAPE_W - 2 * pad;
+  const leftW = contentW * 0.48;
+  const rightX = pad + leftW + colGap;
   const rightW = A5_LANDSCAPE_W - pad - rightX;
-  const mainTop = pad;
-  const mainBottom = pad + bottomH;
-  const mainH = A5_LANDSCAPE_H - mainTop - mainBottom;
 
-  const statsH = Math.min(118, mainH * 0.42);
-  const thumbsH = 88;
-  const thumbsY = mainBottom + 8;
-  const statsY = mainBottom + thumbsH + 14;
+  const photosBottom = pad + footerH + geboorteRowH;
+  const contentTop = A5_LANDSCAPE_H - pad;
 
-  drawStatsWithRails(page, font, pad, statsY, leftW, statsH, statEntries);
+  const rowCount = Math.max(statEntries.length, 1);
+  const statsH = Math.min(120, rowCount * 13.5 + 18);
+  const statsBottom = contentTop - statsH - 10;
+  const photoH = statsBottom - photosBottom - 8;
 
-  const thumbGap = 5;
+  drawStatsWithRails(page, font, pad, statsBottom, leftW, statsH, statEntries);
+
+  const thumbGap = 8;
   const thumbW = (leftW - 2 * thumbGap) / 3;
   for (let i = 0; i < 3; i++) {
     drawImageContain(
       page,
       thumbs[i],
       pad + i * (thumbW + thumbGap),
-      thumbsY,
+      photosBottom,
       thumbW,
-      thumbsH,
+      photoH,
     );
   }
 
-  const heroCaptionY = mainBottom + 2;
-  page.drawText('geboortejaar', { x: rightX, y: heroCaptionY, size: 7.5, font, color: MUTED });
+  drawImageContain(page, thumbs[3], rightX, photosBottom, rightW, photoH);
+
+  const gebY = pad + footerH + 2;
+  page.drawText('geboortejaar', { x: rightX, y: gebY, size: 7.5, font, color: MUTED });
   if (birthYear) {
     const yw = font.widthOfTextAtSize(birthYear, 8);
     page.drawText(birthYear, {
       x: rightX + rightW - yw,
-      y: heroCaptionY,
+      y: gebY,
       size: 8,
       font,
       color: INK,
     });
   }
 
-  const heroY = heroCaptionY + 12;
-  const heroH = mainH - 14;
-  drawImageContain(page, thumbs[3], rightX, heroY, rightW, heroH);
-
-  drawVersoBottomFooter(page, font, pad, A5_LANDSCAPE_W - 2 * pad, pad, beschikbaarLine);
+  drawVersoBottomFooter(page, font, pad, contentW, pad, beschikbaarLine);
 
   return pdfDoc.save();
 }

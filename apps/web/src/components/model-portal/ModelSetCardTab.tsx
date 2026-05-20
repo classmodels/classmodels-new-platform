@@ -390,7 +390,7 @@ export function ModelSetCardTab({
   const profileNameUpper = (draft?.profile.displayName ?? 'NAAM MODEL').trim().toUpperCase() || 'NAAM MODEL';
   const statEntries = draft?.profile.statEntries ?? [];
   const birthYear = draft?.profile.birthYear ?? null;
-  const beschikbaarLine = draft?.profile.beschikbaarLine ?? 'Kleding - Lingerie - modeshows -';
+  const beschikbaarLine = draft?.profile.beschikbaarLine?.trim() || '— (vul beschikbaarheid in je profiel in)';
   const submitted = draft?.status === 'submitted';
 
   const heroAsset = heroId ? assetById.get(heroId) : undefined;
@@ -495,28 +495,26 @@ export function ModelSetCardTab({
           </div>
 
           <div className="mx-auto w-full max-w-[300px] overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
-            <div className="flex aspect-[148/210] flex-col">
-              <p className="shrink-0 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-burgundy">
+            <div className="flex aspect-[148/210] flex-col px-3">
+              <hr className="mt-3 border-zinc-400" />
+              <p className="shrink-0 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-burgundy">
                 {profileNameUpper}
               </p>
-              <div className="relative flex min-h-0 flex-1 items-center justify-center bg-zinc-50 px-3 py-2">
-                <div className="relative flex h-full w-full max-h-full max-w-full items-center justify-center border border-zinc-800 p-1">
-                  <span className="pointer-events-none absolute left-0 top-0 h-2.5 w-2.5 border-l-2 border-t-2 border-zinc-800" />
-                  <span className="pointer-events-none absolute right-0 top-0 h-2.5 w-2.5 border-r-2 border-t-2 border-zinc-800" />
-                  <span className="pointer-events-none absolute bottom-0 left-0 h-2.5 w-2.5 border-b-2 border-l-2 border-zinc-800" />
-                  <span className="pointer-events-none absolute bottom-0 right-0 h-2.5 w-2.5 border-b-2 border-r-2 border-zinc-800" />
-                  {heroPreviewSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={heroPreviewSrc} alt="" className="max-h-full max-w-full object-contain" />
-                  ) : (
-                    <p className="px-2 text-center text-[10px] text-zinc-400">Upload hoofdfoto</p>
-                  )}
-                </div>
+              <hr className="border-zinc-400" />
+              <div className="relative flex min-h-0 flex-1 items-center justify-center bg-white py-2">
+                {heroPreviewSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={heroPreviewSrc} alt="" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <p className="px-2 text-center text-[10px] text-zinc-400">Upload hoofdfoto</p>
+                )}
               </div>
-              <div className="shrink-0 border-t border-zinc-100 px-2 py-2.5 text-center text-[6.5px] leading-snug text-zinc-600">
+              <hr className="border-zinc-400" />
+              <div className="shrink-0 py-2 text-center text-[6.5px] leading-snug text-zinc-600">
                 <p className="font-bold text-zinc-800">{FOOTER_PREVIEW[0]}</p>
                 <p className="mt-0.5">{FOOTER_PREVIEW[1]}</p>
               </div>
+              <hr className="mb-3 border-zinc-400" />
             </div>
           </div>
         </section>
@@ -582,25 +580,25 @@ export function ModelSetCardTab({
 
           <div className="overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
             <div className="flex aspect-[210/148] flex-col">
-              <div className="flex min-h-0 flex-1">
-                <div className="flex min-w-0 flex-1 flex-col border-r border-zinc-100 p-2">
-                  <div className="relative border-x-2 border-burgundy/70 px-2 py-1.5">
+              <div className="flex min-h-0 flex-1 p-2 pb-0">
+                <div className="flex min-w-0 flex-[0.48] flex-col pr-2">
+                  <div className="border-x-2 border-burgundy/80 px-2 py-1">
                     <ul className="space-y-0.5 text-[7px] leading-tight text-zinc-900">
                       {statEntries.length > 0 ? (
                         statEntries.map((e) => (
-                          <li key={e.label} className="flex justify-between gap-2">
+                          <li key={e.label} className="flex justify-between gap-1">
                             <span>{e.label}</span>
                             <span className="font-medium">{e.value}</span>
                           </li>
                         ))
                       ) : (
-                        <li className="text-zinc-400">Vul maten in je profiel in</li>
+                        <li className="text-zinc-400">Vul maten in je profiel</li>
                       )}
                     </ul>
                   </div>
-                  <div className="mt-auto grid grid-cols-3 gap-1 pt-2">
+                  <div className="mt-auto flex items-end gap-2 pt-2">
                     {[0, 1, 2].map((i) => (
-                      <div key={i} className="aspect-[3/4] overflow-hidden rounded bg-zinc-100">
+                      <div key={i} className="h-[72px] flex-1 overflow-hidden bg-zinc-100">
                         {versoPreviewSrc(i) ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
@@ -611,13 +609,13 @@ export function ModelSetCardTab({
                     ))}
                   </div>
                 </div>
-                <div className="flex w-[48%] shrink-0 flex-col px-2 py-2">
-                  <div className="relative min-h-0 flex-1 overflow-hidden rounded bg-zinc-100">
+                <div className="flex min-w-0 flex-[0.52] flex-col pl-1">
+                  <div className="flex min-h-0 flex-1 items-end overflow-hidden bg-zinc-100">
                     {versoPreviewSrc(3) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
                     ) : (
-                      <div className="flex h-full min-h-[120px] items-center justify-center text-[9px] text-zinc-400">
+                      <div className="flex h-full min-h-[100px] w-full items-center justify-center text-[9px] text-zinc-400">
                         Grote foto
                       </div>
                     )}
@@ -628,10 +626,11 @@ export function ModelSetCardTab({
                   </div>
                 </div>
               </div>
-              <div className="shrink-0 border-t border-zinc-200 px-2 py-1.5 text-[6.5px] leading-snug text-zinc-800">
+              <div className="shrink-0 px-2 py-1.5 text-[6.5px] leading-snug text-zinc-800">
                 <p>Beschikbaar voor</p>
-                <hr className="my-0.5 border-zinc-300" />
+                <hr className="my-0.5 border-zinc-400" />
                 <p>{beschikbaarLine}</p>
+                <hr className="mt-0.5 border-zinc-400" />
               </div>
             </div>
           </div>
