@@ -31,6 +31,14 @@ Website-backend (Websites & SSL → Beheer website):
 Pipeline (Combell → Node.js-app → tab Build / Pipeline):
   Build command (één regel):
     npm run combell:build
+  Start command (runtime):
+    npm run serve
+
+  Docker-build faalt soms met "rpc error ... EOF" tijdens apt upgrade in Combell's
+  standaard CaasDockerfile (niet onze repo). Oplossing: opnieuw deployen, of in het paneel
+  de Node-pipeline gebruiken (build + serve scripts in package.json) i.p.v. zware apt-stap.
+  Gebruik onze CaasDockerfile-nodeapp uit de repo (alleen git + ca-certificates, geen apt upgrade).
+
   Daarna: app herstarten (of wacht op automatische restart). Geen aparte SSH-stappen voor
   shared/API-build: het script bouwt @cm/shared → @cm/api → @cm/web in de juiste volgorde.
   Migraties: bij start van de app (dual-proxy) draait prisma migrate deploy als DB_URL gezet is.
