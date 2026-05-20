@@ -172,36 +172,42 @@ function drawAgencyFooterBetweenLines(
   drawHLine(page, boxX, yBottom, boxW);
 }
 
+function buildVersoStatRows(statEntries: StatEntry[], birthYear: string | null): StatEntry[] {
+  const rows = [...statEntries];
+  if (birthYear) rows.push({ label: 'Geboortejaar', value: birthYear });
+  return rows.length > 0 ? rows : [{ label: '—', value: 'Vul maten in je profiel' }];
+}
+
 function drawStatsWithRails(
   page: PDFPage,
   font: PDFFont,
   boxX: number,
   boxY: number,
   boxW: number,
-  boxH: number,
   entries: StatEntry[],
 ) {
+  const size = 8.5;
+  const rowH = 16;
+  const padX = 12;
+  const rows = entries;
+  const boxH = rows.length * rowH + 10;
   const yTop = boxY + boxH;
   const yBottom = boxY;
+
   page.drawLine({
     start: { x: boxX, y: yBottom },
     end: { x: boxX, y: yTop },
-    thickness: 1.2,
+    thickness: 0.75,
     color: BURGUNDY,
   });
   page.drawLine({
     start: { x: boxX + boxW, y: yBottom },
     end: { x: boxX + boxW, y: yTop },
-    thickness: 1.2,
+    thickness: 0.75,
     color: BURGUNDY,
   });
 
-  const size = 9;
-  const rowH = 13.5;
-  const padX = 10;
-  let y = yTop - 12;
-
-  const rows = entries.length > 0 ? entries : [{ label: '—', value: 'Vul maten in je profiel' }];
+  let y = yTop - 11;
   for (const entry of rows) {
     page.drawText(entry.label, { x: boxX + padX, y: y - size, size, font, color: INK });
     const vw = font.widthOfTextAtSize(entry.value, size);
@@ -282,7 +288,8 @@ export async function buildSetCardRectoPdf(opts: {
 }
 
 /**
- * Verso — A5 liggend: maten linksboven, 3 grotere foto’s (onderkant = grote foto), rechts grote foto.
+ * Verso — A5 liggend: maten (+ geboortejaar) linksboven, 3 kleine foto’s onderaan links,
+ * rechts zeer grote foto (onderkanten gelijk).
  */
 export async function buildSetCardVersoPdf(opts: {
   versoBytes: Buffer[];
@@ -302,27 +309,28 @@ export async function buildSetCardVersoPdf(opts: {
   for (const b of versoBytes) thumbs.push(await embedRaster(pdfDoc, b));
 
   const pad = 12;
-  const footerH = 42;
-  const geboorteRowH = 13;
-  const colGap = 8;
-
+  const footerH = 40;
+  const colGap = 10;
   const contentW = A5_LANDSCAPE_W - 2 * pad;
-  const leftW = contentW * 0.48;
+  const contentTop = A5_LANDSCAPE_H - pad;
+  const photosBottom = pad + footerH;
+
+  const leftW = 200;
   const rightX = pad + leftW + colGap;
   const rightW = A5_LANDSCAPE_W - pad - rightX;
 
-  const photosBottom = pad + footerH + geboorteRowH;
-  const contentTop = A5_LANDSCAPE_H - pad;
-
-  const rowCount = Math.max(statEntries.length, 1);
-  const statsH = Math.min(120, rowCount * 13.5 + 18);
-  const statsBottom = contentTop - statsH - 10;
-  const photoH = statsBottom - photosBottom - 8;
-
-  drawStatsWithRails(page, font, pad, statsBottom, leftW, statsH, statEntries);
-
-  const thumbGap = 8;
+  const heroH = contentTop - photosBottom;
+  const thumbH = 108;
+  const thumbGap = 9;
   const thumbW = (leftW - 2 * thumbGap) / 3;
+
+  const statRows = buildVersoStatRows(statEntries, birthYear);
+  const statsRowH = 16;
+  const statsBoxH = statRows.length * statsRowH + 10;
+  const statsBottom = photosBottom + thumbH + 14;
+
+  drawStatsWithRails(page, font, pad, statsBottom, leftW, statRows);
+
   for (let i = 0; i < 3; i++) {
     drawImageContain(
       page,
@@ -330,24 +338,11 @@ export async function buildSetCardVersoPdf(opts: {
       pad + i * (thumbW + thumbGap),
       photosBottom,
       thumbW,
-      photoH,
+      thumbH,
     );
   }
 
-  drawImageContain(page, thumbs[3], rightX, photosBottom, rightW, photoH);
-
-  const gebY = pad + footerH + 2;
-  page.drawText('geboortejaar', { x: rightX, y: gebY, size: 7.5, font, color: MUTED });
-  if (birthYear) {
-    const yw = font.widthOfTextAtSize(birthYear, 8);
-    page.drawText(birthYear, {
-      x: rightX + rightW - yw,
-      y: gebY,
-      size: 8,
-      font,
-      color: INK,
-    });
-  }
+  drawImageContain(page, thumbs[3], rightX, photosBottom, rightW, heroH);
 
   drawVersoBottomFooter(page, font, pad, contentW, pad, beschikbaarLine);
 
