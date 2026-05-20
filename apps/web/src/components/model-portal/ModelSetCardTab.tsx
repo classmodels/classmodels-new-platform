@@ -11,14 +11,25 @@ const FOOTER_PREVIEW = [
   'info@class-models.be  ·  gsm +32 (0) 485 322 307',
 ];
 
+type StatEntry = { label: string; value: string };
+
 type SetCardDraft = {
   frontHeroAssetId: string | null;
   versoPhotoAssetIds: (string | null)[];
   status: string;
   noteFromModel: string | null;
   submittedAt: string | null;
-  profile: { displayName: string; ageYears: number | null; stats: string[] };
+  profile: {
+    displayName: string;
+    ageYears: number | null;
+    birthYear: string | null;
+    beschikbaarLine: string;
+    stats: string[];
+    statEntries: StatEntry[];
+  };
 };
+
+const VERSO_SLOT_LABELS = ['Klein links 1', 'Klein links 2', 'Klein links 3', 'Groot rechts'];
 
 function thumbSrc(a: ProfileMediaRow): string {
   const key = a.publicKey ?? a.thumbKey ?? a.webpKey ?? a.storageKey;
@@ -377,7 +388,9 @@ export function ModelSetCardTab({
   }
 
   const profileNameUpper = (draft?.profile.displayName ?? 'NAAM MODEL').trim().toUpperCase() || 'NAAM MODEL';
-  const statEntries = draft?.profile.stats ?? [];
+  const statEntries = draft?.profile.statEntries ?? [];
+  const birthYear = draft?.profile.birthYear ?? null;
+  const beschikbaarLine = draft?.profile.beschikbaarLine ?? 'Kleding - Lingerie - modeshows -';
   const submitted = draft?.status === 'submitted';
 
   const heroAsset = heroId ? assetById.get(heroId) : undefined;
@@ -400,7 +413,7 @@ export function ModelSetCardTab({
             <strong>Hoofdfoto</strong> van je computer (staande foto, niets afgekapt op de PDF).
           </li>
           <li>
-            <strong>4 aparte foto&apos;s</strong> voor de achterzijde — per vak te vervangen.
+            <strong>4 foto&apos;s achterzijde:</strong> 3 klein links + 1 groot rechts (apart van hoofdfoto).
           </li>
           <li>
             <strong>Opslaan concept</strong>, daarna PDF downloaden of versturen.
@@ -486,13 +499,19 @@ export function ModelSetCardTab({
               <p className="shrink-0 py-3 text-center text-[11px] font-bold uppercase tracking-wide text-burgundy">
                 {profileNameUpper}
               </p>
-              <div className="relative flex min-h-0 flex-1 items-center justify-center bg-zinc-50 px-2">
-                {heroPreviewSrc ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={heroPreviewSrc} alt="" className="max-h-full max-w-full object-contain" />
-                ) : (
-                  <p className="px-4 text-center text-[10px] text-zinc-400">Upload een staande hoofdfoto</p>
-                )}
+              <div className="relative flex min-h-0 flex-1 items-center justify-center bg-zinc-50 px-3 py-2">
+                <div className="relative flex h-full w-full max-h-full max-w-full items-center justify-center border border-zinc-800 p-1">
+                  <span className="pointer-events-none absolute left-0 top-0 h-2.5 w-2.5 border-l-2 border-t-2 border-zinc-800" />
+                  <span className="pointer-events-none absolute right-0 top-0 h-2.5 w-2.5 border-r-2 border-t-2 border-zinc-800" />
+                  <span className="pointer-events-none absolute bottom-0 left-0 h-2.5 w-2.5 border-b-2 border-l-2 border-zinc-800" />
+                  <span className="pointer-events-none absolute bottom-0 right-0 h-2.5 w-2.5 border-b-2 border-r-2 border-zinc-800" />
+                  {heroPreviewSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={heroPreviewSrc} alt="" className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <p className="px-2 text-center text-[10px] text-zinc-400">Upload hoofdfoto</p>
+                  )}
+                </div>
               </div>
               <div className="shrink-0 border-t border-zinc-100 px-2 py-2.5 text-center text-[6.5px] leading-snug text-zinc-600">
                 <p className="font-bold text-zinc-800">{FOOTER_PREVIEW[0]}</p>
@@ -526,11 +545,11 @@ export function ModelSetCardTab({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
             {Array.from({ length: VERSO_COUNT }, (_, i) => (
               <div key={i} className="space-y-1.5 rounded-lg border border-zinc-200 bg-zinc-50/80 p-2">
-                <p className="text-[10px] font-bold text-zinc-500">Foto {i + 1}</p>
-                <div className="aspect-[3/4] overflow-hidden rounded bg-white">
+                <p className="text-[10px] font-bold text-zinc-500">{VERSO_SLOT_LABELS[i]}</p>
+                <div className={`overflow-hidden rounded bg-white ${i === 3 ? 'aspect-[3/4]' : 'aspect-[3/4]'}`}>
                   {versoPreviewSrc(i) ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-cover" />
+                    <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain bg-zinc-100" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-[10px] text-zinc-300">—</div>
                   )}
@@ -562,30 +581,57 @@ export function ModelSetCardTab({
           </div>
 
           <div className="overflow-hidden rounded border border-zinc-200 bg-white shadow-sm">
-            <div className="flex aspect-[210/148]">
-              <div className="grid min-w-0 flex-[1.15] grid-cols-2 grid-rows-2 gap-1 p-2">
-                {Array.from({ length: VERSO_COUNT }, (_, i) => (
-                  <div key={i} className="overflow-hidden rounded bg-zinc-100">
-                    {versoPreviewSrc(i) ? (
+            <div className="flex aspect-[210/148] flex-col">
+              <div className="flex min-h-0 flex-1">
+                <div className="flex min-w-0 flex-1 flex-col border-r border-zinc-100 p-2">
+                  <div className="relative border-x-2 border-burgundy/70 px-2 py-1.5">
+                    <ul className="space-y-0.5 text-[7px] leading-tight text-zinc-900">
+                      {statEntries.length > 0 ? (
+                        statEntries.map((e) => (
+                          <li key={e.label} className="flex justify-between gap-2">
+                            <span>{e.label}</span>
+                            <span className="font-medium">{e.value}</span>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-zinc-400">Vul maten in je profiel in</li>
+                      )}
+                    </ul>
+                  </div>
+                  <div className="mt-auto grid grid-cols-3 gap-1 pt-2">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="aspect-[3/4] overflow-hidden rounded bg-zinc-100">
+                        {versoPreviewSrc(i) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[8px] text-zinc-300">{i + 1}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex w-[48%] shrink-0 flex-col px-2 py-2">
+                  <div className="relative min-h-0 flex-1 overflow-hidden rounded bg-zinc-100">
+                    {versoPreviewSrc(3) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-cover" />
+                      <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
                     ) : (
-                      <div className="flex h-full min-h-[60px] items-center justify-center text-[9px] text-zinc-400">
-                        {i + 1}
+                      <div className="flex h-full min-h-[120px] items-center justify-center text-[9px] text-zinc-400">
+                        Grote foto
                       </div>
                     )}
                   </div>
-                ))}
+                  <div className="mt-1 flex justify-between text-[7px] text-zinc-600">
+                    <span>geboortejaar</span>
+                    <span className="font-medium text-zinc-900">{birthYear ?? '—'}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex w-[40%] shrink-0 flex-col justify-start border-l border-zinc-100 px-2 py-2 text-[8px] leading-snug">
-                <p className="text-[9px] font-bold uppercase text-zinc-900">NAAM: {profileNameUpper}</p>
-                <ul className="mt-2 space-y-0.5 text-zinc-800">
-                  {statEntries.length > 0 ? (
-                    statEntries.map((line, li) => <li key={li}>{line}</li>)
-                  ) : (
-                    <li className="text-zinc-400">Maten uit je profiel verschijnen hier</li>
-                  )}
-                </ul>
+              <div className="shrink-0 border-t border-zinc-200 px-2 py-1.5 text-[6.5px] leading-snug text-zinc-800">
+                <p>Beschikbaar voor</p>
+                <hr className="my-0.5 border-zinc-300" />
+                <p>{beschikbaarLine}</p>
               </div>
             </div>
           </div>

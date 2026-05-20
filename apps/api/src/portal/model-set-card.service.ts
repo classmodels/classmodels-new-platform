@@ -14,6 +14,8 @@ import {
   buildSetCardRectoPdf,
   buildSetCardVersoPdf,
   computeAgeYears,
+  computeBirthYear,
+  formatBeschikbaarLine,
   modelSheetStatEntries,
   modelSheetStatLines,
 } from './model-set-card-pdf';
@@ -130,6 +132,7 @@ export class ModelSetCardService {
       : null;
     const age = computeAgeYears(ms?.geboortedatum);
     const stats = modelSheetStatLines(ms);
+    const statEntries = modelSheetStatEntries(ms);
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
     return {
@@ -141,7 +144,10 @@ export class ModelSetCardService {
       profile: {
         displayName,
         ageYears: age,
+        birthYear: computeBirthYear(ms?.geboortedatum),
+        beschikbaarLine: formatBeschikbaarLine(ms),
         stats,
+        statEntries,
       },
     };
   }
@@ -205,6 +211,8 @@ export class ModelSetCardService {
       versoIds,
       displayName,
       statEntries,
+      birthYear: computeBirthYear(ms?.geboortedatum),
+      beschikbaarLine: formatBeschikbaarLine(ms),
     };
   }
 
@@ -220,6 +228,8 @@ export class ModelSetCardService {
       versoBytes: vb,
       displayName: ctx.displayName,
       statEntries: ctx.statEntries,
+      birthYear: ctx.birthYear,
+      beschikbaarLine: ctx.beschikbaarLine,
     });
 
     return { ...pdfs, displayName: ctx.displayName };
@@ -239,8 +249,9 @@ export class ModelSetCardService {
     const { verso } = await this.buffersForPdf(userId, ctx.heroId, ctx.versoIds);
     return buildSetCardVersoPdf({
       versoBytes: verso,
-      displayName: ctx.displayName,
       statEntries: ctx.statEntries,
+      birthYear: ctx.birthYear,
+      beschikbaarLine: ctx.beschikbaarLine,
     });
   }
 
