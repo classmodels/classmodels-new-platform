@@ -4,8 +4,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
-import { MODEL_BTN_SILVER } from '@/components/model-portal/model-portal-buttons';
-
 type RoleOpt = { id: string; slug: string; label: string };
 
 type UserRow = {
@@ -22,6 +20,7 @@ type UserRow = {
   premiumUntil?: string | null;
   defaultPortal?: string | null;
   legacyWpUserId?: number | null;
+  lastLoginAt?: string | null;
   createdAt?: string;
   roles: { role: { slug: string; label: string } }[];
 };
@@ -66,6 +65,11 @@ function formatTimelineWhen(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' });
+}
+
+function formatLastLogin(iso?: string | null): string {
+  if (!iso) return '—';
+  return formatTimelineWhen(iso);
 }
 
 function sortTimelineDesc(entries: TimelineEntry[]): TimelineEntry[] {
@@ -351,11 +355,15 @@ function AdminGebruikersPageContent() {
     };
   }, [rows]);
 
-  const filteredRows = useMemo(
-    () =>
-      rows.filter((u) => userMatchesRoleFilters(u, roleFilters) && userMatchesSearch(u, userSearch)),
-    [rows, roleFilters, userSearch],
-  );
+  const filteredRows = useMemo(() => {
+    const base = rows.filter((u) => userMatchesRoleFilters(u, roleFilters) && userMatchesSearch(u, userSearch));
+    return [...base].sort((a, b) => {
+      const ta = a.lastLoginAt ? new Date(a.lastLoginAt).getTime() : 0;
+      const tb = b.lastLoginAt ? new Date(b.lastLoginAt).getTime() : 0;
+      if (tb !== ta) return tb - ta;
+      return (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+    });
+  }, [rows, roleFilters, userSearch]);
 
   const sortedEditTimeline = useMemo(() => sortTimelineDesc(editTimeline), [editTimeline]);
 
@@ -698,6 +706,7 @@ function AdminGebruikersPageContent() {
               <th className="px-3 py-2">Rollen</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Premium</th>
+              <th className="whitespace-nowrap px-3 py-2">Laatst ingelogd</th>
               <th className="px-3 py-2">Acties</th>
             </tr>
           </thead>
@@ -733,43 +742,48 @@ function AdminGebruikersPageContent() {
                 <td className="px-3 py-2 text-muted">
                   {u.isPremium ? 'ja' : 'nee'}
                 </td>
-                <td className="min-w-[220px] px-3 py-2">
-                  <button
-                    type="button"
-                    className="mr-2 text-burgundy hover:underline"
-                    onClick={() => openEdit(u.id)}
-                  >
-                    Bewerken
-                  </button>
-                  {can('admin.users.write') ? (
-                    <>
-                      {u.roles.some((r) => r.role.slug === 'newface') ? (
+                <td className="whitespace-nowrap px-3 py-2 text-muted" title={u.lastLoginAt ?? undefined}>
+                  {formatLastLogin(u.lastLoginAt)}
+                </td>
+                <td className="min-w-[200px] max-w-[260px] px-3 py-2 align-top">
+                  <div className="flex flex-col items-stretch gap-1.5">
+                    <button
+                      type="button"
+                      className="w-fit text-left text-burgundy hover:underline"
+                      onClick={() => openEdit(u.id)}
+                    >
+                      Bewerken
+                    </button>
+                    {can('admin.users.write') ? (
+                      <>
+                        {u.roles.some((r) => r.role.slug === 'newface') ? (
+                          <button
+                            type="button"
+                            className="w-full max-w-[11rem] rounded border border-zinc-400/70 bg-gradient-to-b from-zinc-100 to-zinc-300 px-2 py-1 text-left text-[10px] font-semibold leading-tight text-zinc-900 shadow-sm hover:from-white hover:to-zinc-200"
+                            title="New face → model (zilver)"
+                            onClick={() => void gradeToSilver(u)}
+                          >
+                            Graderen naar zilver
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          className={`mr-2 ${MODEL_BTN_SILVER} !px-2 !py-0.5 text-[10px]`}
-                          title="New face → model (zilver)"
-                          onClick={() => void gradeToSilver(u)}
+                          className="w-fit text-left text-burgundy hover:underline"
+                          title="Zet premium aan of uit (handmatig of naast betaling)."
+                          onClick={() => toggleQuick(u.id, { isPremium: !u.isPremium })}
                         >
-                          Graderen naar zilver
+                          Premium {u.isPremium ? 'uit' : 'aan'}
                         </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="mr-2 text-burgundy hover:underline"
-                        title="Zet premium aan of uit (handmatig of naast betaling)."
-                        onClick={() => toggleQuick(u.id, { isPremium: !u.isPremium })}
-                      >
-                        Premium {u.isPremium ? 'uit' : 'aan'}
-                      </button>
-                      <button
-                        type="button"
-                        className="text-red-700 hover:underline"
-                        onClick={() => void deleteOne(u.id, u.email)}
-                      >
-                        Verwijderen
-                      </button>
-                    </>
-                  ) : null}
+                        <button
+                          type="button"
+                          className="w-fit text-left text-red-700 hover:underline"
+                          onClick={() => void deleteOne(u.id, u.email)}
+                        >
+                          Verwijderen
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}

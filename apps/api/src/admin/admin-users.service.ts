@@ -25,6 +25,7 @@ const userPublicSelect = {
   premiumUntil: true,
   mollieCustomerId: true,
   legacyWpUserId: true,
+  lastLoginAt: true,
   createdAt: true,
   updatedAt: true,
   roles: { include: { role: true } },
@@ -41,7 +42,8 @@ export class AdminUsersService {
   list() {
     return this.prisma.user.findMany({
       select: userPublicSelect,
-      orderBy: { createdAt: 'desc' },
+      /** Meest recent ingelogd bovenaan; accounts zonder login onderaan. */
+      orderBy: { lastLoginAt: 'desc' },
       take: 500,
     });
   }
