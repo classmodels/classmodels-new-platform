@@ -2,6 +2,7 @@ node_modules
 # Nest-output; niet globaal "dist" — packages/shared/dist wordt wél gecommit (Combell).
 apps/api/dist
 .next
+*.tsbuildinfo
 .turbo
 .env
 .env.local
