@@ -358,8 +358,8 @@ function ModelPortalPageInner() {
   const uploadMedia = async (
     file: File | null,
     opts?: { setAsProfilePhoto?: boolean; folderSlug?: 'models' | 'tijdelijke-uploads' | 'setkaarten' },
-  ) => {
-    if (!file || !token || !can('portal.model.media.upload')) return;
+  ): Promise<{ id: string } | null> => {
+    if (!file || !token || !can('portal.model.media.upload')) return null;
     setMediaBusy(true);
     try {
       const fd = new FormData();
@@ -382,6 +382,7 @@ function ModelPortalPageInner() {
         });
         await refreshMe();
       }
+      return row?.id ? { id: row.id } : null;
     } finally {
       setMediaBusy(false);
     }

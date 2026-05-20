@@ -13,6 +13,8 @@ type SetCardDraft = {
   profile: { displayName: string; ageYears: number | null; stats: string[] };
 };
 
+type PhotoTarget = 'hero' | 'verso';
+
 function thumbSrc(a: ProfileMediaRow): string {
   const key = a.publicKey ?? a.thumbKey ?? a.webpKey ?? a.storageKey;
   return publicMediaUrl(key);
@@ -20,6 +22,20 @@ function thumbSrc(a: ProfileMediaRow): string {
 
 function slotsFromDraft(ids: (string | null)[]): (string | null)[] {
   return [0, 1, 2, 3, 4].map((i) => ids[i] ?? null);
+}
+
+function parseApiErrorMessage(raw: string): string {
+  const t = raw.trim();
+  if (!t.startsWith('{')) return t || 'Er ging iets mis.';
+  try {
+    const j = JSON.parse(t) as { message?: string | string[] };
+    const m = j.message;
+    if (Array.isArray(m)) return m.join(' ');
+    if (typeof m === 'string') return m;
+  } catch {
+    /* fall through */
+  }
+  return t;
 }
 
 export function ModelSetCardTab({
@@ -40,7 +56,7 @@ export function ModelSetCardTab({
   uploadMedia: (
     file: File | null,
     opts?: { folderSlug?: 'models' | 'tijdelijke-uploads' | 'setkaarten'; setAsProfilePhoto?: boolean },
-  ) => Promise<void>;
+  ) => Promise<{ id: string } | null>;
 }) {
   const [draft, setDraft] = useState<SetCardDraft | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -51,6 +67,7 @@ export function ModelSetCardTab({
   const [versoSlots, setVersoSlots] = useState<(string | null)[]>([null, null, null, null, null]);
   const [note, setNote] = useState('');
   const [activeVersoSlot, setActiveVersoSlot] = useState(0);
+  const [photoTarget, setPhotoTarget] = useState<PhotoTarget>('hero');
 
   const assetById = useMemo(() => new Map(media.map((m) => [m.id, m])), [media]);
 
@@ -72,8 +89,24 @@ export function ModelSetCardTab({
     void load();
   }, [load]);
 
+  const validationHint = useMemo(() => {
+    if (!heroId) return 'Kies een hoofdfoto: zet de schakelaar op «Voorzijde» en klik een foto hieronder.';
+    if (versoSlots.some((x) => !x)) return 'Vul alle 5 vakken op de achterzijde in.';
+    return null;
+  }, [heroId, versoSlots]);
+
   const persistDraft = useCallback(async (): Promise<boolean> => {
     if (!token || !canUpload) return false;
+    if (!heroId) {
+      setBanner({ tone: 'err', text: 'Kies eerst een hoofdfoto (schakelaar «Voorzijde», dan een foto). Klik daarna Opslaan concept.' });
+      setPhotoTarget('hero');
+      return false;
+    }
+    if (versoSlots.some((x) => !x)) {
+      setBanner({ tone: 'err', text: 'Vul alle 5 foto-vakken op de achterzijde in.' });
+      setPhotoTarget('verso');
+      return false;
+    }
     try {
       await apiFetch('/portal/model/set-card', {
         method: 'PUT',
@@ -88,10 +121,24 @@ export function ModelSetCardTab({
       await reloadMedia();
       return true;
     } catch (e) {
-      setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Opslaan mislukt.' });
+      const msg = e instanceof Error ? e.message : 'Opslaan mislukt.';
+      setBanner({ tone: 'err', text: parseApiErrorMessage(msg) });
       return false;
     }
   }, [token, canUpload, heroId, versoSlots, note, load, reloadMedia]);
+
+  const assignPhoto = (assetId: string) => {
+    if (photoTarget === 'hero') {
+      setHeroId(assetId);
+      setBanner({ tone: 'ok', text: 'Hoofdfoto gekozen. Klik Opslaan concept om te bewaren.' });
+      return;
+    }
+    setVersoSlots((prev) => {
+      const next = [...prev];
+      next[activeVersoSlot] = assetId;
+      return next;
+    });
+  };
 
   const saveLocalToServer = async () => {
     if (!token || !canUpload) return;
@@ -110,19 +157,21 @@ export function ModelSetCardTab({
     setBusy(true);
     setBanner(null);
     try {
+      const ok = await persistDraft();
+      if (!ok) return;
       const res = await fetch(`${getApiBase()}/portal/model/set-card/preview.pdf`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const t = await res.text();
-        throw new Error(t || res.statusText);
+        throw new Error(parseApiErrorMessage(t || res.statusText));
       }
       const blob = await res.blob();
       window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer');
     } catch (e) {
       setBanner({
         tone: 'err',
-        text: e instanceof Error ? e.message : 'PDF kon niet worden geladen. Controleer of alles opgeslagen is en volledig ingevuld.',
+        text: e instanceof Error ? e.message : 'PDF kon niet worden geladen.',
       });
     } finally {
       setBusy(false);
@@ -133,7 +182,7 @@ export function ModelSetCardTab({
     if (!token || !canUpload) return;
     if (
       !window.confirm(
-        'Setkaart naar het bureau versturen? Je krijgt een PDF per e-mail bij het bureau (als SMTP actief is).',
+        'Setkaart naar het bureau versturen? Het bureau ontvangt een e-mail met je PDF (als SMTP actief is).',
       )
     )
       return;
@@ -154,18 +203,26 @@ export function ModelSetCardTab({
           : 'Ingediend opgeslagen; de e-mail naar het bureau kon niet worden verstuurd (controleer SMTP).',
       });
     } catch (e) {
-      setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Versturen mislukt.' });
+      setBanner({
+        tone: 'err',
+        text: e instanceof Error ? parseApiErrorMessage(e.message) : 'Versturen mislukt.',
+      });
     } finally {
       setBusy(false);
     }
   };
 
-  const assignToActiveSlot = (assetId: string) => {
-    setVersoSlots((prev) => {
-      const next = [...prev];
-      next[activeVersoSlot] = assetId;
-      return next;
-    });
+  const onUploadSetkaart = async (file: File | null) => {
+    if (!file) return;
+    const row = await uploadMedia(file, { folderSlug: 'setkaarten' });
+    if (row?.id) {
+      if (!heroId) {
+        setHeroId(row.id);
+        setBanner({ tone: 'ok', text: 'Foto geüpload en als hoofdfoto gezet. Klik Opslaan concept.' });
+      } else {
+        assignPhoto(row.id);
+      }
+    }
   };
 
   const clearVersoSlot = (idx: number) => {
@@ -207,7 +264,8 @@ export function ModelSetCardTab({
       <div className="rounded-cm border border-burgundy/20 bg-burgundy/5 px-4 py-3 text-sm leading-relaxed text-zinc-800">
         <p className="font-semibold text-burgundy">Setkaart (composit)</p>
         <p className="mt-1 text-xs text-zinc-700">
-          Twee pagina&apos;s A5 in landschap voor duplexafdruk: voorzijde met grote hoofdfoto, naam en leeftijd; achterzijde met vijf beelden en je maten uit de modellenfiche. Upload foto&apos;s hieronder (map &quot;Setkaarten&quot;) of gebruik bestaande portfoliofoto&apos;s.
+          <strong>Stap 1:</strong> kies een hoofdfoto (voorzijde). <strong>Stap 2:</strong> vul 5 vakken op de achterzijde.
+          <strong> Stap 3:</strong> Opslaan concept, daarna PDF bekijken of versturen.
         </p>
       </div>
 
@@ -215,11 +273,14 @@ export function ModelSetCardTab({
       {banner ? (
         <p className={`text-sm ${banner.tone === 'ok' ? 'text-emerald-800' : 'text-red-700'}`}>{banner.text}</p>
       ) : null}
+      {validationHint && !banner ? (
+        <p className="text-xs text-amber-800">{validationHint}</p>
+      ) : null}
 
       {submitted ? (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
           Laatste versie staat als <strong>ingediend</strong>
-          {draft?.submittedAt ? ` (${new Date(draft.submittedAt).toLocaleString('nl-BE')})` : ''}. Bewaar opnieuw om een nieuw concept te starten en opnieuw te versturen.
+          {draft?.submittedAt ? ` (${new Date(draft.submittedAt).toLocaleString('nl-BE')})` : ''}. Bewaar opnieuw om een nieuw concept te starten.
         </p>
       ) : null}
 
@@ -231,7 +292,7 @@ export function ModelSetCardTab({
             accept="image/*"
             className="hidden"
             disabled={!canUpload || mediaBusy || busy}
-            onChange={(e) => void uploadMedia(e.target.files?.[0] ?? null, { folderSlug: 'setkaarten' })}
+            onChange={(e) => void onUploadSetkaart(e.target.files?.[0] ?? null)}
           />
         </label>
         <button
@@ -260,40 +321,87 @@ export function ModelSetCardTab({
         </button>
       </div>
 
+      <div
+        className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 p-0.5 text-xs font-semibold"
+        role="group"
+        aria-label="Waar foto's naartoe gaan"
+      >
+        <button
+          type="button"
+          onClick={() => setPhotoTarget('hero')}
+          className={`rounded-full px-4 py-1.5 transition ${
+            photoTarget === 'hero' ? 'bg-burgundy text-white shadow-sm' : 'text-zinc-700 hover:bg-white'
+          }`}
+        >
+          Voorzijde (hoofdfoto)
+        </button>
+        <button
+          type="button"
+          onClick={() => setPhotoTarget('verso')}
+          className={`rounded-full px-4 py-1.5 transition ${
+            photoTarget === 'verso' ? 'bg-burgundy text-white shadow-sm' : 'text-zinc-700 hover:bg-white'
+          }`}
+        >
+          Achterzijde vak {activeVersoSlot + 1}
+        </button>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Hoofdfoto (voorzijde)</p>
+            {heroId ? (
+              <button
+                type="button"
+                onClick={() => setHeroId(null)}
+                className="mt-1 text-[11px] text-zinc-500 underline hover:text-zinc-800"
+              >
+                Wis hoofdfoto
+              </button>
+            ) : (
+              <p className="mt-1 text-[11px] text-amber-800">
+                Zet de schakelaar op «Voorzijde» en klik een foto in het raster hieronder.
+              </p>
+            )}
             <button
               type="button"
-              onClick={() => setHeroId(null)}
-              className="mt-1 text-[11px] text-zinc-500 underline hover:text-zinc-800"
+              onClick={() => setPhotoTarget('hero')}
+              className={`mt-2 block w-full max-w-md overflow-hidden rounded-cm border-2 bg-zinc-100 text-left transition ${
+                photoTarget === 'hero' ? 'border-burgundy ring-2 ring-burgundy/25' : 'border-zinc-200 hover:border-burgundy/40'
+              }`}
             >
-              Wis hoofdfoto
+              <div className="aspect-[210/148] max-h-56 w-full">
+                {heroId && assetById.get(heroId) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumbSrc(assetById.get(heroId)!)} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-1 px-4 text-center text-xs text-muted">
+                    <span className="font-semibold text-burgundy">Nog geen hoofdfoto</span>
+                    <span>Klik hieronder een foto (modus Voorzijde)</span>
+                  </div>
+                )}
+              </div>
             </button>
-            <div className="mt-2 aspect-[210/148] max-h-56 overflow-hidden rounded-cm border border-zinc-200 bg-zinc-100">
-              {heroId && assetById.get(heroId) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={thumbSrc(assetById.get(heroId)!)} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center text-xs text-muted">Nog geen hoofdfoto</div>
-              )}
-            </div>
           </div>
 
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Vijf foto&apos;s (achterzijde)</p>
             <p className="mt-1 text-xs text-muted">
-              Klik een vak om het actief te maken; daarna tik je een thumbnail hieronder om die foto in het vak te zetten.
+              Zet de schakelaar op «Achterzijde», klik een vak (1–5), daarna een foto in het raster.
             </p>
             <div className="mt-2 grid grid-cols-5 gap-2">
               {versoSlots.map((id, idx) => (
                 <div key={idx} className="flex flex-col gap-1">
                   <button
                     type="button"
-                    onClick={() => setActiveVersoSlot(idx)}
+                    onClick={() => {
+                      setActiveVersoSlot(idx);
+                      setPhotoTarget('verso');
+                    }}
                     className={`relative aspect-[3/4] w-full overflow-hidden rounded border-2 bg-zinc-50 ${
-                      activeVersoSlot === idx ? 'border-burgundy ring-2 ring-burgundy/30' : 'border-zinc-200'
+                      photoTarget === 'verso' && activeVersoSlot === idx
+                        ? 'border-burgundy ring-2 ring-burgundy/30'
+                        : 'border-zinc-200'
                     }`}
                   >
                     {id && assetById.get(id) ? (
@@ -426,38 +534,41 @@ export function ModelSetCardTab({
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Jouw foto&apos;s</p>
             <p className="mt-1 text-xs text-muted">
-              Tik om toe te wijzen: actief achterzijde-vak ({activeVersoSlot + 1}) of gebruik de knop voor hoofdfoto.
+              {photoTarget === 'hero' ? (
+                <span className="font-medium text-burgundy">Modus voorzijde:</span>
+              ) : (
+                <span className="font-medium text-burgundy">Modus achterzijde vak {activeVersoSlot + 1}:</span>
+              )}{' '}
+              klik een foto om die toe te wijzen.
             </p>
             <div className="mt-2 grid max-h-[320px] grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
-              {media.map((a) => (
-                <div key={a.id} className="flex flex-col gap-1">
+              {media.map((a) => {
+                const isHero = heroId === a.id;
+                const inVerso = versoSlots.includes(a.id);
+                return (
                   <button
+                    key={a.id}
                     type="button"
-                    className="aspect-[3/4] overflow-hidden rounded border border-zinc-200 bg-zinc-50 hover:border-burgundy/40"
-                    onClick={() => assignToActiveSlot(a.id)}
+                    className={`relative aspect-[3/4] overflow-hidden rounded border-2 bg-zinc-50 transition hover:border-burgundy/50 ${
+                      isHero ? 'border-burgundy' : inVerso ? 'border-zinc-400' : 'border-zinc-200'
+                    }`}
+                    onClick={() => assignPhoto(a.id)}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={thumbSrc(a)} alt="" className="h-full w-full object-cover" />
+                    {isHero ? (
+                      <span className="absolute bottom-0 left-0 right-0 bg-burgundy/90 py-0.5 text-center text-[8px] font-bold uppercase text-white">
+                        Voorzijde
+                      </span>
+                    ) : null}
                   </button>
-                  <button
-                    type="button"
-                    className="rounded bg-zinc-100 px-1 py-0.5 text-[9px] font-semibold text-burgundy hover:bg-burgundy/10"
-                    onClick={() => setHeroId(a.id)}
-                  >
-                    Hoofdfoto
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
             {media.length === 0 ? <p className="mt-2 text-xs text-muted">Nog geen foto&apos;s — upload hierboven.</p> : null}
           </div>
         </div>
       </div>
-
-      <p className="text-[11px] text-muted">
-        PDF bekijken werkt nadat je exact vijf achterzijde-foto&apos;s hebt gekozen en een hoofdfoto — gebruik eerst{' '}
-        <strong>Opslaan concept</strong>.
-      </p>
     </div>
   );
 }
