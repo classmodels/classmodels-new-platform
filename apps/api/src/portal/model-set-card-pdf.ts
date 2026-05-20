@@ -1,9 +1,15 @@
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFImage, type PDFFont, type PDFPage } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from 'pdf-lib';
 import sharp from 'sharp';
+
+/** A5 staand (breedte × hoogte in pt). */
+export const A5_PORTRAIT_W = 419.53;
+export const A5_PORTRAIT_H = 595.28;
 
 /** A5 liggend (breedte × hoogte in pt). */
 export const A5_LANDSCAPE_W = 595.28;
 export const A5_LANDSCAPE_H = 419.53;
+
+export const VERSO_PHOTO_COUNT = 4;
 
 const BURGUNDY = rgb(0.46, 0.09, 0.14);
 const INK = rgb(0.12, 0.12, 0.12);
@@ -85,63 +91,57 @@ function drawImageCover(page: PDFPage, img: PDFImage, x: number, y: number, w: n
   });
 }
 
-/** Tekst langs linkerkant, leesbaar van onder naar boven (zoals voorbeeld). */
-function drawVerticalNameLeft(
+function drawCenteredText(
   page: PDFPage,
   font: PDFFont,
   text: string,
-  x: number,
-  yBottom: number,
+  centerX: number,
+  y: number,
   size: number,
+  color = INK,
 ) {
   const tw = font.widthOfTextAtSize(text, size);
-  page.drawText(text, {
-    x,
-    y: yBottom + tw,
-    size,
-    font,
-    color: BURGUNDY,
-    rotate: degrees(90),
-  });
+  page.drawText(text, { x: centerX - tw / 2, y, size, font, color });
 }
 
-/** Tekst langs rechterkant, van boven naar beneden leesbaar (niet omgekeerd). */
-function drawVerticalAgencyRight(page: PDFPage, font: PDFFont, fontBold: PDFFont, x: number, yTop: number) {
-  let y = yTop;
-  for (const line of AGENCY_LINES) {
-    const isBold = line === AGENCY_LINES[0];
+function drawAgencyFooter(page: PDFPage, font: PDFFont, fontBold: PDFFont, pageW: number, yStart: number) {
+  const cx = pageW / 2;
+  let y = yStart;
+  for (let i = 0; i < AGENCY_LINES.length; i++) {
+    const line = AGENCY_LINES[i];
+    const isBold = i === 0;
     const f = isBold ? fontBold : font;
-    const size = isBold ? 8.5 : 7;
-    const lw = f.widthOfTextAtSize(line, size);
-    page.drawText(line, {
-      x,
-      y: y - lw,
-      size,
-      font: f,
-      color: isBold ? INK : MUTED,
-      rotate: degrees(-90),
-    });
-    y -= lw + 5;
+    const size = isBold ? 9.5 : 8;
+    drawCenteredText(page, f, line, cx, y, size, isBold ? INK : MUTED);
+    y -= isBold ? 14 : 12;
   }
 }
 
 function drawStatBlock(
   page: PDFPage,
   font: PDFFont,
+  fontBold: PDFFont,
   x: number,
   yTop: number,
   width: number,
+  displayName: string,
   entries: StatEntry[],
 ) {
+  const nameUpper = displayName.trim().toUpperCase() || 'NAAM MODEL';
+  const header = `NAAM: ${nameUpper}`;
+  const headerSize = 10;
+  page.drawText(header, { x, y: yTop - headerSize, size: headerSize, font: fontBold, color: INK });
+
+  const labelColW = 52;
   const rowH = 15;
   const size = 9;
-  let y = yTop;
+  let y = yTop - headerSize - 18;
+
   for (const entry of entries) {
     const label = `${entry.label}:`;
     page.drawText(label, { x, y: y - size, size, font, color: INK });
-    const vw = font.widthOfTextAtSize(entry.value, size);
     page.drawText(entry.value, {
-      x: x + width - vw,
+      x: x + labelColW,
       y: y - size,
       size,
       font,
@@ -152,79 +152,68 @@ function drawStatBlock(
 }
 
 /**
- * Recto — A5 liggend: grote liggende foto, naam links (verticaal), bureau rechts (verticaal, juiste richting).
+ * Recto — A5 staand: naam bovenaan, grote staande foto, bureaugegevens onderaan gecentreerd.
  */
 export async function buildSetCardRectoPdf(opts: {
   heroBytes: Buffer;
   displayName: string;
-  ageLabel: string | null;
 }): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([A5_LANDSCAPE_W, A5_LANDSCAPE_H]);
+  const page = pdfDoc.addPage([A5_PORTRAIT_W, A5_PORTRAIT_H]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const heroImg = await embedRaster(pdfDoc, opts.heroBytes);
 
-  const pad = 10;
-  const sideW = 48;
-  const photoX = pad + sideW;
-  const photoY = pad;
-  const photoW = A5_LANDSCAPE_W - 2 * pad - 2 * sideW;
-  const photoH = A5_LANDSCAPE_H - 2 * pad;
-
-  drawImageCover(page, heroImg, photoX, photoY, photoW, photoH);
-
+  const pad = 14;
+  const cx = A5_PORTRAIT_W / 2;
   const nameUpper = opts.displayName.trim().toUpperCase() || 'NAAM MODEL';
-  const nameSize = nameUpper.length > 22 ? 8 : 10;
-  drawVerticalNameLeft(page, fontBold, nameUpper, pad + 12, pad + 8, nameSize);
+  const nameSize = nameUpper.length > 24 ? 11 : 13;
 
-  if (opts.ageLabel) {
-    const ageSize = 7;
-    const ageW = font.widthOfTextAtSize(opts.ageLabel, ageSize);
-    page.drawText(opts.ageLabel, {
-      x: pad + 12,
-      y: pad + 28 + ageW,
-      size: ageSize,
-      font,
-      color: INK,
-      rotate: degrees(90),
-    });
-  }
+  const footerH = 72;
+  const headerH = 36;
+  const photoY = pad + footerH;
+  const photoH = A5_PORTRAIT_H - photoY - headerH - pad;
+  const photoX = pad;
+  const photoW = A5_PORTRAIT_W - 2 * pad;
 
-  drawVerticalAgencyRight(page, font, fontBold, A5_LANDSCAPE_W - pad - 10, A5_LANDSCAPE_H - pad - 6);
+  drawCenteredText(page, fontBold, nameUpper, cx, A5_PORTRAIT_H - pad - nameSize, nameSize, BURGUNDY);
+  drawImageCover(page, heroImg, photoX, photoY, photoW, photoH);
+  drawAgencyFooter(page, font, fontBold, A5_PORTRAIT_W, pad + footerH - 8);
 
   return pdfDoc.save();
 }
 
 /**
- * Verso — A5 liggend: links kleinere foto’s (2×2 + één onder), rechts maten (geen naam).
+ * Verso — A5 liggend: links 2×2 foto’s, rechts naam + maten.
  */
 export async function buildSetCardVersoPdf(opts: {
   versoBytes: Buffer[];
+  displayName: string;
   statEntries: StatEntry[];
 }): Promise<Uint8Array> {
-  const { versoBytes, statEntries } = opts;
-  if (versoBytes.length !== 5) throw new Error('Precies 5 foto’s nodig voor de achterzijde.');
+  const { versoBytes, statEntries, displayName } = opts;
+  if (versoBytes.length !== VERSO_PHOTO_COUNT) {
+    throw new Error(`Precies ${VERSO_PHOTO_COUNT} foto’s nodig voor de achterzijde.`);
+  }
 
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([A5_LANDSCAPE_W, A5_LANDSCAPE_H]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const thumbs: PDFImage[] = [];
   for (const b of versoBytes) thumbs.push(await embedRaster(pdfDoc, b));
 
-  const pad = 10;
-  const gap = 5;
-  const statsW = 155;
+  const pad = 12;
+  const gap = 6;
+  const statsW = 168;
   const photosX = pad;
   const photosY = pad;
   const photosW = A5_LANDSCAPE_W - 2 * pad - statsW - gap;
   const photosH = A5_LANDSCAPE_H - 2 * pad;
   const statsX = photosX + photosW + gap;
 
-  const gridH = photosH * 0.7;
-  const fifthH = photosH - gridH - gap;
   const cellW = (photosW - gap) / 2;
-  const cellH = (gridH - gap) / 2;
+  const cellH = (photosH - gap) / 2;
   const row1Y = photosY + cellH + gap;
   const row2Y = photosY;
 
@@ -232,9 +221,8 @@ export async function buildSetCardVersoPdf(opts: {
   drawImageCover(page, thumbs[1], photosX + cellW + gap, row1Y, cellW, cellH);
   drawImageCover(page, thumbs[2], photosX, row2Y, cellW, cellH);
   drawImageCover(page, thumbs[3], photosX + cellW + gap, row2Y, cellW, cellH);
-  drawImageCover(page, thumbs[4], photosX, photosY + gridH + gap, photosW, fifthH);
 
-  drawStatBlock(page, font, statsX + 4, photosY + photosH - 8, statsW - 8, statEntries);
+  drawStatBlock(page, font, fontBold, statsX, photosY + photosH, statsW, displayName, statEntries);
 
   return pdfDoc.save();
 }
@@ -243,16 +231,15 @@ export async function buildModelSetCardPdfPair(opts: {
   heroBytes: Buffer;
   versoBytes: Buffer[];
   displayName: string;
-  ageLabel: string | null;
   statEntries: StatEntry[];
 }): Promise<{ recto: Uint8Array; verso: Uint8Array }> {
   const recto = await buildSetCardRectoPdf({
     heroBytes: opts.heroBytes,
     displayName: opts.displayName,
-    ageLabel: opts.ageLabel,
   });
   const verso = await buildSetCardVersoPdf({
     versoBytes: opts.versoBytes,
+    displayName: opts.displayName,
     statEntries: opts.statEntries,
   });
   return { recto, verso };

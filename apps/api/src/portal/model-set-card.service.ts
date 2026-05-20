@@ -9,6 +9,7 @@ import { resolveMediaRoot } from '../config/resolve-media-root';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { ModelPortalHistoryService } from './model-portal-history.service';
 import {
+  VERSO_PHOTO_COUNT,
   buildModelSetCardPdfPair,
   buildSetCardRectoPdf,
   buildSetCardVersoPdf,
@@ -19,11 +20,11 @@ import {
 
 const ALLOWED_UPLOAD_FOLDERS = new Set(['models', 'tijdelijke-uploads', 'setkaarten']);
 
-const VERSO_EMPTY: (string | null)[] = [null, null, null, null, null];
+const VERSO_EMPTY: (string | null)[] = Array.from({ length: VERSO_PHOTO_COUNT }, () => null);
 
 function parseVersoSlots(raw: unknown): (string | null)[] {
   if (!Array.isArray(raw)) return [...VERSO_EMPTY];
-  return [0, 1, 2, 3, 4].map((i) => {
+  return Array.from({ length: VERSO_PHOTO_COUNT }, (_, i) => {
     const x = raw[i];
     return typeof x === 'string' && x.length > 8 ? x : null;
   });
@@ -83,8 +84,8 @@ export class ModelSetCardService {
       select: { storageKey: true },
     });
     if (!heroRow) throw new BadRequestException('Hoofdfoto niet gevonden.');
-    if (versoIds.length > 0 && versoIds.length !== 5) {
-      throw new BadRequestException('Precies 5 achterzijde-foto’s nodig.');
+    if (versoIds.length > 0 && versoIds.length !== VERSO_PHOTO_COUNT) {
+      throw new BadRequestException(`Precies ${VERSO_PHOTO_COUNT} achterzijde-foto’s nodig.`);
     }
     const versoBuffers: Buffer[] = [];
     for (const id of versoIds) {
@@ -183,7 +184,7 @@ export class ModelSetCardService {
     if (!draft?.frontHeroAssetId) throw new BadRequestException('Kies eerst een hoofdfoto.');
     const slots = parseVersoSlots(draft.versoPhotoAssetIds);
     if (slots.some((x) => !x)) {
-      throw new BadRequestException('Vul alle 5 foto-posities voor de achterzijde in.');
+      throw new BadRequestException(`Upload ${VERSO_PHOTO_COUNT} foto’s voor de achterzijde.`);
     }
     const versoIds = slots as string[];
 
@@ -196,7 +197,6 @@ export class ModelSetCardService {
     const ms = user.modelSheet && typeof user.modelSheet === 'object' && !Array.isArray(user.modelSheet)
       ? (user.modelSheet as Record<string, unknown>)
       : null;
-    const age = computeAgeYears(ms?.geboortedatum);
     const statEntries = modelSheetStatEntries(ms);
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
@@ -204,7 +204,6 @@ export class ModelSetCardService {
       heroId: draft.frontHeroAssetId,
       versoIds,
       displayName,
-      ageLabel: age != null ? `${age} jaar` : null,
       statEntries,
     };
   }
@@ -220,7 +219,6 @@ export class ModelSetCardService {
       heroBytes: hero,
       versoBytes: vb,
       displayName: ctx.displayName,
-      ageLabel: ctx.ageLabel,
       statEntries: ctx.statEntries,
     });
 
@@ -233,7 +231,6 @@ export class ModelSetCardService {
     return buildSetCardRectoPdf({
       heroBytes: hero,
       displayName: ctx.displayName,
-      ageLabel: ctx.ageLabel,
     });
   }
 
@@ -242,6 +239,7 @@ export class ModelSetCardService {
     const { verso } = await this.buffersForPdf(userId, ctx.heroId, ctx.versoIds);
     return buildSetCardVersoPdf({
       versoBytes: verso,
+      displayName: ctx.displayName,
       statEntries: ctx.statEntries,
     });
   }
@@ -292,7 +290,7 @@ export class ModelSetCardService {
 <p>Hallo,</p>
 <p>${escapeHtml(displayName)} heeft een <strong>setkaart</strong> ingestuurd via het modellenportaal.</p>
 ${note ? `<p><strong>Bericht van het model:</strong><br/>${escapeHtml(note)}</p>` : ''}
-<p>In bijlage: <strong>voorzijde</strong> en <strong>achterzijde</strong> (twee PDF’s, A5 liggend).</p>
+<p>In bijlage: <strong>voorzijde</strong> (A5 staand) en <strong>achterzijde</strong> (A5 liggend).</p>
 `;
 
     const mailed = await this.sendPdfMail(this.bureauEmail(), `Setkaart — ${displayName}`, html, [
