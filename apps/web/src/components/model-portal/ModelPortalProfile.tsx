@@ -240,8 +240,11 @@ export function ModelPortalProfile({
   mediaBusy: boolean;
   uploadMedia: (
     f: File | null,
-    opts?: { setAsProfilePhoto?: boolean; folderSlug?: 'models' | 'tijdelijke-uploads' },
-  ) => void | Promise<void>;
+    opts?: {
+      setAsProfilePhoto?: boolean;
+      folderSlug?: 'models' | 'tijdelijke-uploads' | 'setkaarten';
+    },
+  ) => void | Promise<void> | Promise<{ id: string } | null>;
   setProfilePhotoFromAsset: (assetId: string) => void | Promise<void>;
   premiumSection: ReactNode;
 }) {
