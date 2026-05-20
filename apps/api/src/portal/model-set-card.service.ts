@@ -2,14 +2,16 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as nodemailer from 'nodemailer';
+import archiver from 'archiver';
 import { ModelSetCardStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveMediaRoot } from '../config/resolve-media-root';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { ModelPortalHistoryService } from './model-portal-history.service';
 import {
-  buildModelSetCardPdf,
+  buildModelSetCardPdfPair,
   computeAgeYears,
+  modelSheetStatEntries,
   modelSheetStatLines,
 } from './model-set-card-pdf';
 
@@ -172,7 +174,11 @@ export class ModelSetCardService {
     return this.getDraft(userId);
   }
 
-  async buildPdfBytes(userId: string): Promise<{ pdf: Uint8Array; displayName: string }> {
+  async buildPdfBytes(userId: string): Promise<{
+    recto: Uint8Array;
+    verso: Uint8Array;
+    displayName: string;
+  }> {
     const draft = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
     if (!draft?.frontHeroAssetId) throw new BadRequestException('Kies eerst een hoofdfoto.');
     const slots = parseVersoSlots(draft.versoPhotoAssetIds);
@@ -191,28 +197,44 @@ export class ModelSetCardService {
       ? (user.modelSheet as Record<string, unknown>)
       : null;
     const age = computeAgeYears(ms?.geboortedatum);
-    const stats = modelSheetStatLines(ms);
+    const statEntries = modelSheetStatEntries(ms);
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
     const { hero, verso: vb } = await this.buffersForPdf(userId, draft.frontHeroAssetId, verso);
-    const pdf = await buildModelSetCardPdf({
+    const pdfs = await buildModelSetCardPdfPair({
       heroBytes: hero,
       versoBytes: vb,
       displayName,
       ageLabel: age != null ? `${age} jaar` : null,
-      statLines: stats,
+      statEntries,
     });
 
-    return { pdf, displayName };
+    return { ...pdfs, displayName };
   }
 
-  async previewPdf(userId: string): Promise<Uint8Array> {
-    const { pdf } = await this.buildPdfBytes(userId);
-    return pdf;
+  async previewZip(userId: string): Promise<Buffer> {
+    const { recto, verso, displayName } = await this.buildPdfBytes(userId);
+    const safe = displayName.replace(/[^\w\s\-]/g, '').replace(/\s+/g, '-') || 'model';
+    return this.zipPdfs([
+      { name: `setkaart-voorzijde-${safe}.pdf`, data: Buffer.from(recto) },
+      { name: `setkaart-achterzijde-${safe}.pdf`, data: Buffer.from(verso) },
+    ]);
+  }
+
+  private zipPdfs(files: { name: string; data: Buffer }[]): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      const chunks: Buffer[] = [];
+      archive.on('data', (c: Buffer) => chunks.push(c));
+      archive.on('error', reject);
+      archive.on('end', () => resolve(Buffer.concat(chunks)));
+      for (const f of files) archive.append(f.data, { name: f.name });
+      void archive.finalize();
+    });
   }
 
   async submit(userId: string): Promise<{ ok: true; mailed: boolean }> {
-    const { pdf, displayName } = await this.buildPdfBytes(userId);
+    const { recto, verso, displayName } = await this.buildPdfBytes(userId);
 
     const draft = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
     const note = draft?.noteFromModel?.trim();
@@ -231,16 +253,18 @@ export class ModelSetCardService {
     });
 
     const safeName = displayName.replace(/[^\w\s\-]/g, '').replace(/\s+/g, '-') || 'model';
-    const filename = `setkaart-${safeName}.pdf`;
 
     const html = `
 <p>Hallo,</p>
 <p>${escapeHtml(displayName)} heeft een <strong>setkaart</strong> ingestuurd via het modellenportaal.</p>
 ${note ? `<p><strong>Bericht van het model:</strong><br/>${escapeHtml(note)}</p>` : ''}
-<p>De PDF staat in bijlage (twee pagina’s A5 landschap).</p>
+<p>In bijlage: <strong>voorzijde</strong> en <strong>achterzijde</strong> (twee PDF’s, A5 liggend).</p>
 `;
 
-    const mailed = await this.sendPdfMail(this.bureauEmail(), `Setkaart — ${displayName}`, html, filename, Buffer.from(pdf));
+    const mailed = await this.sendPdfMail(this.bureauEmail(), `Setkaart — ${displayName}`, html, [
+      { filename: `setkaart-voorzijde-${safeName}.pdf`, content: Buffer.from(recto) },
+      { filename: `setkaart-achterzijde-${safeName}.pdf`, content: Buffer.from(verso) },
+    ]);
     if (!mailed) this.log.warn(`Setkaart kon niet gemaild worden naar ${this.bureauEmail()} (SMTP?).`);
 
     return { ok: true, mailed };
@@ -250,8 +274,7 @@ ${note ? `<p><strong>Bericht van het model:</strong><br/>${escapeHtml(note)}</p>
     to: string,
     subject: string,
     html: string,
-    filename: string,
-    pdf: Buffer,
+    attachments: { filename: string; content: Buffer }[],
   ): Promise<boolean> {
     const addr = to.trim();
     if (!addr) return false;
@@ -274,7 +297,11 @@ ${note ? `<p><strong>Bericht van het model:</strong><br/>${escapeHtml(note)}</p>
         to: addr,
         subject,
         html,
-        attachments: [{ filename, content: pdf, contentType: 'application/pdf' }],
+        attachments: attachments.map((a) => ({
+          filename: a.filename,
+          content: a.content,
+          contentType: 'application/pdf',
+        })),
       });
       return true;
     } catch (e) {

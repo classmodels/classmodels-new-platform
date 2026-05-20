@@ -159,7 +159,7 @@ export function ModelSetCardTab({
     try {
       const ok = await persistDraft();
       if (!ok) return;
-      const res = await fetch(`${getApiBase()}/portal/model/set-card/preview.pdf`, {
+      const res = await fetch(`${getApiBase()}/portal/model/set-card/preview.zip`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
@@ -167,7 +167,16 @@ export function ModelSetCardTab({
         throw new Error(parseApiErrorMessage(t || res.statusText));
       }
       const blob = await res.blob();
-      window.open(URL.createObjectURL(blob), '_blank', 'noopener,noreferrer');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'setkaart-preview.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+      setBanner({
+        tone: 'ok',
+        text: 'ZIP gedownload met voorzijde.pdf en achterzijde.pdf (A5 liggend).',
+      });
     } catch (e) {
       setBanner({
         tone: 'err',
@@ -265,7 +274,7 @@ export function ModelSetCardTab({
         <p className="font-semibold text-burgundy">Setkaart (composit)</p>
         <p className="mt-1 text-xs text-zinc-700">
           <strong>Stap 1:</strong> kies een hoofdfoto (voorzijde). <strong>Stap 2:</strong> vul 5 vakken op de achterzijde.
-          <strong> Stap 3:</strong> Opslaan concept, daarna PDF bekijken of versturen.
+          <strong> Stap 3:</strong> Opslaan concept, daarna ZIP downloaden (2 PDF&apos;s) of versturen.
         </p>
       </div>
 
@@ -309,7 +318,7 @@ export function ModelSetCardTab({
           onClick={() => void openPreviewPdf()}
           className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-xs font-semibold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
         >
-          PDF bekijken
+          Download PDF&apos;s (ZIP)
         </button>
         <button
           type="button"

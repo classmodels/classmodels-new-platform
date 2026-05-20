@@ -30,13 +30,13 @@ export class PortalModelSetCardController {
     return this.setCard.saveDraft(req.user.sub, body);
   }
 
-  @Get('preview.pdf')
+  @Get('preview.zip')
   @Permissions('portal.model.media.read')
-  async previewPdf(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
-    const pdf = await this.setCard.previewPdf(req.user.sub);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="setkaart-preview.pdf"');
-    res.send(Buffer.from(pdf));
+  async previewZip(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
+    const zip = await this.setCard.previewZip(req.user.sub);
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="setkaart-preview.zip"');
+    res.send(zip);
   }
 
   @Post('submit')
