@@ -396,13 +396,12 @@ export function ModelPortalProfile({
           body: JSON.stringify({
             firstName: profile.firstName,
             lastName: profile.lastName,
-            phone: sheet.gsmModel || profile.phone,
+            phone: gsmDigits || profile.phone.replace(/\D/g, ''),
             bio: null,
             modelSheet: {
               ...sheet,
               gsmModel: gsmDigits || sheet.gsmModel.replace(/\D/g, ''),
             },
-            phone: gsmDigits || profile.phone.replace(/\D/g, ''),
           }),
         });
         await refreshMe();
