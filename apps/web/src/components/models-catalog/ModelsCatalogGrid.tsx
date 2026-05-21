@@ -12,7 +12,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { getApiBase, apiFetch, publicMediaUrl, parseApiErrorBody } from '@/lib/api';
 import { CmProgressBar } from '@/components/CmProgressBar';
-import { loadingBegin, loadingEnd } from '@/lib/loading-bus';
 import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
@@ -232,7 +231,6 @@ function ModelDetailDialog({
     let cancelled = false;
     setDetailLoading(true);
     setDetailErr(null);
-    loadingBegin('Modellenfiche laden…');
     fetch(`${getApiBase()}/catalog/models/${m.id}`, { headers: h })
       .then(async (r) => {
         if (!r.ok) throw new Error(await r.text());
@@ -248,7 +246,6 @@ function ModelDetailDialog({
         }
       })
       .finally(() => {
-        loadingEnd();
         if (!cancelled) setDetailLoading(false);
       });
     return () => {
@@ -616,7 +613,6 @@ export function ModelsCatalogGrid({
     loadAbortRef.current = ac;
     setLoading(true);
     setLoadErr(null);
-    loadingBegin('Modellen laden…');
     try {
       const h = new Headers();
       if (token) h.set('Authorization', `Bearer ${token}`);
@@ -633,7 +629,6 @@ export function ModelsCatalogGrid({
       setLoadErr(friendlyCatalogError(msg));
       setRows([]);
     } finally {
-      loadingEnd();
       if (!ac.signal.aborted) setLoading(false);
     }
   }, [token]);
@@ -759,7 +754,7 @@ export function ModelsCatalogGrid({
 
   return (
     <div className="rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6">
-      {loading ? <CmProgressBar label="Modellen laden…" className="mb-4" /> : null}
+      {loading && !rows.length ? <CmProgressBar label="Modellen laden…" className="mb-4" /> : null}
       {loadErr ? (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-red-300">{loadErr}</p>
@@ -869,11 +864,11 @@ export function ModelsCatalogGrid({
         </div>
       ) : null}
 
-      {!loading && !shown.length ? (
+      {!shown.length && !loading ? (
         <p className="py-8 text-center text-sm text-zinc-400">
           {loadErr ? 'Geen modellen geladen.' : 'Geen modellen voor deze filters.'}
         </p>
-      ) : !loading && shown.length ? (
+      ) : shown.length ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {shown.map((m) => (
             <div key={m.id} className="min-w-0">
@@ -891,7 +886,6 @@ export function ModelsCatalogGrid({
                       className="h-full w-full object-cover"
                       loading="lazy"
                       decoding="async"
-                      fetchPriority="low"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-2 text-center text-[10px] text-zinc-500">

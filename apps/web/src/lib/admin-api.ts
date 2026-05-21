@@ -2,7 +2,6 @@ import { getApiBase, parseApiErrorBody } from '@/lib/api';
 import { loadingBegin, loadingEnd } from '@/lib/loading-bus';
 
 export type AdminFetchInit = RequestInit & {
-  skipLoading?: boolean;
   loadingLabel?: string;
 };
 
@@ -12,8 +11,9 @@ export async function adminFetch<T>(
   init?: AdminFetchInit,
 ): Promise<T> {
   const API = getApiBase();
-  const { skipLoading, loadingLabel, ...rest } = init ?? {};
-  if (!skipLoading) loadingBegin(loadingLabel ?? 'Bezig…');
+  const { loadingLabel, ...rest } = init ?? {};
+  const showLoading = Boolean(loadingLabel);
+  if (showLoading) loadingBegin(loadingLabel);
   try {
     const headers = new Headers(rest.headers);
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -31,7 +31,7 @@ export async function adminFetch<T>(
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   } finally {
-    if (!skipLoading) loadingEnd();
+    if (showLoading) loadingEnd();
   }
 }
 
@@ -42,6 +42,7 @@ export async function adminDownloadFile(
   filename: string,
 ): Promise<void> {
   const API = getApiBase();
+  const showLoading = true;
   loadingBegin('Downloaden…');
   try {
     const res = await fetch(`${API}${path.startsWith('/') ? path : `/${path}`}`, {
@@ -62,6 +63,6 @@ export async function adminDownloadFile(
     a.remove();
     URL.revokeObjectURL(url);
   } finally {
-    loadingEnd();
+    if (showLoading) loadingEnd();
   }
 }

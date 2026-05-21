@@ -93,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       return null;
     }
-    const me = await apiFetch<AuthUser>('/users/me', { token: tok, skipLoading: true });
+    const me = await apiFetch<AuthUser>('/users/me', { token: tok });
     const u = {
       ...me,
       permissions: me.permissions ?? [],

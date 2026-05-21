@@ -40,9 +40,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await apiFetch<ContentRow[]>(`/content/strings?locale=${encodeURIComponent(locale)}`, {
-        skipLoading: true,
-      });
+      const rows = await apiFetch<ContentRow[]>(`/content/strings?locale=${encodeURIComponent(locale)}`);
       const m: Record<string, string> = {};
       for (const r of rows) m[r.key] = r.value;
       setByKey(m);

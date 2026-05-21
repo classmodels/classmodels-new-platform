@@ -9,7 +9,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { CmProgressBar } from '@/components/CmProgressBar';
 import { registerLoadingHandlers } from '@/lib/loading-bus';
 
 type LoadingContextValue = {
@@ -44,16 +43,6 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
 
   return (
     <LoadingContext.Provider value={{ begin, end, active, label }}>
-      {active ? (
-        <div
-          className="pointer-events-none fixed inset-x-0 top-0 z-[200] px-0"
-          aria-hidden={false}
-        >
-          <div className="border-b border-zinc-800/80 bg-zinc-950/95 px-4 py-2 shadow-md backdrop-blur-sm">
-            <CmProgressBar label={label} />
-          </div>
-        </div>
-      ) : null}
       {children}
     </LoadingContext.Provider>
   );

@@ -102,15 +102,15 @@ export function publicFolderZipUrl(folderSlug: string | null | undefined): strin
 
 export type ApiFetchInit = RequestInit & {
   token?: string | null;
-  /** Geen globale voortgangsbalk (bv. achtergrond-polling). */
-  skipLoading?: boolean;
+  /** Toon voortgang via useLoading() — alleen als je expliciet een label meegeeft. */
   loadingLabel?: string;
 };
 
 export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
   const API = getApiBase();
-  const { token, skipLoading, loadingLabel, ...rest } = init ?? {};
-  if (!skipLoading) loadingBegin(loadingLabel ?? 'Bezig…');
+  const { token, loadingLabel, ...rest } = init ?? {};
+  const showLoading = Boolean(loadingLabel);
+  if (showLoading) loadingBegin(loadingLabel);
   try {
     const headers = new Headers(rest.headers);
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -133,6 +133,6 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   } finally {
-    if (!skipLoading) loadingEnd();
+    if (showLoading) loadingEnd();
   }
 }

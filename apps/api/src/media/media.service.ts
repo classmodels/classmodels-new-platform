@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  OnModuleInit,
 } from '@nestjs/common';
 import {
   createReadStream,
@@ -110,7 +109,7 @@ type AssetWithFolder = {
 };
 
 @Injectable()
-export class MediaService implements OnModuleInit {
+export class MediaService {
   /** Cache: basename → pad relatief t.o.v. MEDIA_ROOT (lege map = geen cache). */
   private diskBasenameIndex: { root: string; map: Map<string, string> } | null = null;
 
@@ -118,10 +117,6 @@ export class MediaService implements OnModuleInit {
     private prisma: PrismaService,
     private modelHistory: ModelPortalHistoryService,
   ) {}
-
-  onModuleInit() {
-    void this.reconcileModelsFolderWebpOnly(30).catch(() => undefined);
-  }
 
   private invalidateDiskBasenameIndex() {
     this.diskBasenameIndex = null;
@@ -261,25 +256,26 @@ export class MediaService implements OnModuleInit {
     return asset.storageKey;
   }
 
-  /** Modellenrooster: nooit grote JPG/PNG — alleen thumb of compacte WebP. */
+  /**
+   * Modellenrooster: thumb → webp → storage (alleen .webp).
+   * Geen existsSync per model (dat maakte het rooster traag op hosting).
+   */
   resolveCatalogThumbKey(asset: {
     storageKey: string;
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string | null {
-    const root = this.root();
-    const tryKey = (k: string | null | undefined): string | null => {
-      if (!k) return null;
-      if (existsSync(join(root, k))) return k;
-      const rel = this.lookupDiskRelativePath(basename(k));
-      return rel ? basename(k) : null;
+    const pick = (k: string | null | undefined): string | null => {
+      if (!k?.trim()) return null;
+      const b = basename(k.trim());
+      return b || null;
     };
-    const thumb = tryKey(asset.thumbKey);
+    const thumb = pick(asset.thumbKey);
     if (thumb) return thumb;
-    const webp = tryKey(asset.webpKey);
+    const webp = pick(asset.webpKey);
     if (webp) return webp;
     if (asset.storageKey.toLowerCase().endsWith('.webp')) {
-      return tryKey(asset.storageKey);
+      return pick(asset.storageKey);
     }
     return null;
   }
@@ -290,19 +286,17 @@ export class MediaService implements OnModuleInit {
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string | null {
-    const root = this.root();
-    const tryKey = (k: string | null | undefined): string | null => {
-      if (!k) return null;
-      if (existsSync(join(root, k))) return k;
-      const rel = this.lookupDiskRelativePath(basename(k));
-      return rel ? basename(k) : null;
+    const pick = (k: string | null | undefined): string | null => {
+      if (!k?.trim()) return null;
+      const b = basename(k.trim());
+      return b || null;
     };
-    const webp = tryKey(asset.webpKey);
+    const webp = pick(asset.webpKey);
     if (webp) return webp;
     if (asset.storageKey.toLowerCase().endsWith('.webp')) {
-      return tryKey(asset.storageKey);
+      return pick(asset.storageKey);
     }
-    return tryKey(asset.thumbKey);
+    return pick(asset.thumbKey);
   }
 
   /** Grotere weergave: webp/full vóór thumbnail. */
