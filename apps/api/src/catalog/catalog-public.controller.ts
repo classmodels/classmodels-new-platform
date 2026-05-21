@@ -31,6 +31,15 @@ export class CatalogPublicController {
     );
   }
 
+  @Get('models/:id')
+  async modelDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const u = this.parseUser(authorization);
+    return this.catalog.getModelDetail(id, u ? { sub: u.sub, roles: u.roles ?? [] } : undefined);
+  }
+
   @Get('models/:id/gallery')
   async modelGallery(
     @Param('id', ParseUUIDPipe) id: string,

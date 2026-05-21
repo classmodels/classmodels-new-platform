@@ -61,3 +61,16 @@ body {
 .notranslate * {
   translate: no;
 }
+
+@keyframes catalog-load-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.catalog-load-bar {
+  animation: catalog-load-progress 1.4s ease-in-out infinite;
+}

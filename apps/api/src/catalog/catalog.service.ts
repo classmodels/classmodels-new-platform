@@ -97,12 +97,137 @@ function publicDisplayName(
   return `${fn} ${ln.charAt(0)}.`;
 }
 
+type ThumbAsset = {
+  storageKey: string;
+  webpKey: string | null;
+  thumbKey: string | null;
+  mimeType: string;
+};
+
+type CatalogUserRow = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  modelSheet: unknown;
+  profilePhoto: ThumbAsset | null;
+  roles: { role: { slug: string } }[];
+};
+
+const CATALOG_USER_WHERE = {
+  status: 'active' as const,
+  OR: [
+    {
+      roles: {
+        some: {
+          role: { slug: { in: [ROLE_MODEL, ROLE_NEWFACE, ROLE_TRYOUT, ROLE_INACTIEF] } },
+        },
+      },
+    },
+    { defaultPortal: 'model' as const },
+  ],
+};
+
 @Injectable()
 export class CatalogService {
   constructor(
     private prisma: PrismaService,
     private media: MediaService,
   ) {}
+
+  /** Eén query voor fallback-thumbs i.p.v. per model een mediaAssets-subquery. */
+  private async fallbackThumbsByUserId(userIds: string[]): Promise<Map<string, ThumbAsset>> {
+    const out = new Map<string, ThumbAsset>();
+    if (!userIds.length) return out;
+    const assets = await this.prisma.mediaAsset.findMany({
+      where: {
+        uploadedById: { in: userIds },
+        hardDeleted: false,
+        mimeType: { startsWith: 'image/' },
+        folder: { slug: 'models' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        uploadedById: true,
+        storageKey: true,
+        webpKey: true,
+        thumbKey: true,
+        mimeType: true,
+      },
+    });
+    for (const a of assets) {
+      if (!a.uploadedById || out.has(a.uploadedById)) continue;
+      out.set(a.uploadedById, a);
+    }
+    return out;
+  }
+
+  private sortCatalogRows<T extends { firstName: string | null; lastName: string | null }>(rows: T[]): T[] {
+    return rows.sort((a, b) => {
+      const fa = (a.firstName ?? '').trim();
+      const fb = (b.firstName ?? '').trim();
+      const c = fa.localeCompare(fb, 'nl', { sensitivity: 'base' });
+      if (c !== 0) return c;
+      const la = (a.lastName ?? '').trim();
+      const lb = (b.lastName ?? '').trim();
+      return la.localeCompare(lb, 'nl', { sensitivity: 'base' });
+    });
+  }
+
+  private mapCatalogUser(
+    u: CatalogUserRow,
+    opts: {
+      isAdmin: boolean;
+      authenticated: boolean;
+      favSet: Set<string>;
+      fallbackThumbs: Map<string, ThumbAsset>;
+      includeSheet: boolean;
+    },
+  ) {
+    const ms =
+      (u.modelSheet && typeof u.modelSheet === 'object' && !Array.isArray(u.modelSheet)
+        ? (u.modelSheet as Record<string, unknown>)
+        : null) ?? null;
+    const slugs = roleSlugs(u);
+    const inactive = hasRole(slugs, ROLE_INACTIEF);
+    const newface = hasRole(slugs, ROLE_NEWFACE);
+    const tryout = hasRole(slugs, ROLE_TRYOUT);
+    const fallbackAsset = opts.fallbackThumbs.get(u.id);
+    const thumbKey =
+      u.profilePhoto != null
+        ? this.media.resolvePublicFilename(u.profilePhoto)
+        : fallbackAsset != null
+          ? this.media.resolvePublicFilename(fallbackAsset)
+          : null;
+    const sheetMode: 'admin' | 'member' | 'none' = opts.isAdmin
+      ? 'admin'
+      : opts.authenticated
+        ? 'member'
+        : 'none';
+    const besch = beschikbaarList(ms);
+    return {
+      id: u.id,
+      email: opts.isAdmin ? u.email : undefined,
+      displayName: publicDisplayName(u.firstName, u.lastName, opts.isAdmin),
+      ...(opts.authenticated ? { firstName: u.firstName, lastName: u.lastName } : {}),
+      age: ageFromGeboorte(ms?.geboortedatum),
+      gender: normGender(ms?.geslacht),
+      beschikbaar: besch,
+      beschikbaarSlugs: besch.map((b) =>
+        b
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '-'),
+      ),
+      profileThumbKey: thumbKey,
+      isNewface: newface,
+      isTryout: tryout,
+      isInactive: inactive,
+      isFavorite: opts.isAdmin ? opts.favSet.has(u.id) : false,
+      ...(opts.includeSheet ? { sheet: catalogSheetPayload(ms, u.phone, sheetMode) } : {}),
+    };
+  }
 
   async listModels(viewer?: { sub: string; roles: string[] }) {
     const isAdmin = !!viewer?.roles?.includes('admin');
@@ -118,20 +243,7 @@ export class CatalogService {
     }
 
     const rows = await this.prisma.user.findMany({
-      where: {
-        status: 'active',
-        OR: [
-          {
-            roles: {
-              some: {
-                role: { slug: { in: [ROLE_MODEL, ROLE_NEWFACE, ROLE_TRYOUT, ROLE_INACTIEF] } },
-              },
-            },
-          },
-          /** Accounts gemarkeerd als modelportaal maar zonder UserRole (import / oude data). */
-          { defaultPortal: 'model' },
-        ],
-      },
+      where: CATALOG_USER_WHERE,
       select: {
         id: true,
         email: true,
@@ -142,72 +254,67 @@ export class CatalogService {
         profilePhoto: {
           select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
         },
-        /** Fallback als er geen profilePhotoAssetId is maar wél uploads in Modellen (zelfde als profiel-slides). */
-        mediaAssets: {
-          where: {
-            hardDeleted: false,
-            mimeType: { startsWith: 'image/' },
-            folder: { slug: 'models' },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+        roles: { include: { role: { select: { slug: true } } } },
+      },
+    });
+
+    this.sortCatalogRows(rows);
+
+    const needsFallback = rows.filter((u) => !u.profilePhoto).map((u) => u.id);
+    const fallbackThumbs = await this.fallbackThumbsByUserId(needsFallback);
+    const authenticated = !!viewer?.sub;
+
+    return rows.map((u) =>
+      this.mapCatalogUser(u, {
+        isAdmin,
+        authenticated,
+        favSet,
+        fallbackThumbs,
+        includeSheet: false,
+      }),
+    );
+  }
+
+  /** Volledige fiche (sheet) voor modaal — apart van het snelle rooster. */
+  async getModelDetail(modelUserId: string, viewer?: { sub: string; roles: string[] }) {
+    const isAdmin = !!viewer?.roles?.includes('admin');
+    const adminId = viewer?.sub;
+    const favSet = new Set<string>();
+    if (isAdmin && adminId) {
+      const favs = await this.prisma.modelAdminFavorite.findMany({
+        where: { adminUserId: adminId },
+        select: { modelUserId: true },
+      });
+      for (const f of favs) favSet.add(f.modelUserId);
+    }
+
+    const u = await this.prisma.user.findFirst({
+      where: { id: modelUserId, ...CATALOG_USER_WHERE },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        modelSheet: true,
+        profilePhoto: {
           select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
         },
         roles: { include: { role: { select: { slug: true } } } },
       },
     });
+    if (!u) throw new NotFoundException();
 
-    // DB ORDER BY is hoofdlettergevoelig; alleen kleine letters in voornaam komen dan ver
-    // na namen met hoofdletter — waardoor een model "weg" lijkt tussen Aaa en Alexandra.
-    rows.sort((a, b) => {
-      const fa = (a.firstName ?? '').trim();
-      const fb = (b.firstName ?? '').trim();
-      const c = fa.localeCompare(fb, 'nl', { sensitivity: 'base' });
-      if (c !== 0) return c;
-      const la = (a.lastName ?? '').trim();
-      const lb = (b.lastName ?? '').trim();
-      return la.localeCompare(lb, 'nl', { sensitivity: 'base' });
-    });
+    const fallbackThumbs = u.profilePhoto
+      ? new Map<string, ThumbAsset>()
+      : await this.fallbackThumbsByUserId([u.id]);
 
-    const authenticated = !!viewer?.sub;
-
-    return rows.map((u) => {
-      const ms = (u.modelSheet && typeof u.modelSheet === 'object' && !Array.isArray(u.modelSheet)
-        ? (u.modelSheet as Record<string, unknown>)
-        : null) ?? null;
-      const slugs = roleSlugs(u);
-      const inactive = hasRole(slugs, ROLE_INACTIEF);
-      const newface = hasRole(slugs, ROLE_NEWFACE);
-      const tryout = hasRole(slugs, ROLE_TRYOUT);
-      const fallbackAsset = u.mediaAssets?.[0];
-      const thumbKey =
-        u.profilePhoto != null
-          ? this.media.resolvePublicFilename(u.profilePhoto)
-          : fallbackAsset != null
-            ? this.media.resolvePublicFilename(fallbackAsset)
-            : null;
-      const sheetMode: 'admin' | 'member' | 'none' = isAdmin ? 'admin' : authenticated ? 'member' : 'none';
-      return {
-        id: u.id,
-        email: isAdmin ? u.email : undefined,
-        displayName: publicDisplayName(u.firstName, u.lastName, isAdmin),
-        ...(authenticated ? { firstName: u.firstName, lastName: u.lastName } : {}),
-        age: ageFromGeboorte(ms?.geboortedatum),
-        gender: normGender(ms?.geslacht),
-        beschikbaar: beschikbaarList(ms),
-        beschikbaarSlugs: beschikbaarList(ms).map((b) =>
-          b
-            .toLowerCase()
-            .trim()
-            .replace(/\s+/g, '-'),
-        ),
-        profileThumbKey: thumbKey,
-        isNewface: newface,
-        isTryout: tryout,
-        isInactive: inactive,
-        isFavorite: isAdmin ? favSet.has(u.id) : false,
-        sheet: catalogSheetPayload(ms, u.phone, sheetMode),
-      };
+    return this.mapCatalogUser(u, {
+      isAdmin,
+      authenticated: !!viewer?.sub,
+      favSet,
+      fallbackThumbs,
+      includeSheet: true,
     });
   }
 

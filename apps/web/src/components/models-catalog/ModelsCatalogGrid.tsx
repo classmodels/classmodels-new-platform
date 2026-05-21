@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { getApiBase, apiFetch, publicMediaUrl } from '@/lib/api';
+import { getApiBase, apiFetch, publicMediaUrl, parseApiErrorBody } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
@@ -193,6 +193,26 @@ function imgUrlFromKey(key: string | null): string {
   return key ? publicMediaUrl(key) : '';
 }
 
+function friendlyCatalogError(raw: string): string {
+  const t = raw.trim();
+  if (!t) return 'Modellen laden mislukt. Probeer opnieuw.';
+  if (/ECONNRESET|upstream timeout|Upstream fout/i.test(t)) {
+    return 'Verbinding met de server verbroken. Vernieuw de pagina of klik op Opnieuw proberen.';
+  }
+  return parseApiErrorBody(t);
+}
+
+function CatalogLoadingBar({ label }: { label: string }) {
+  return (
+    <div className="mb-4" role="status" aria-live="polite" aria-busy="true">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
+        <div className="catalog-load-bar h-full w-1/3 rounded-full bg-lime-400" />
+      </div>
+      <p className="mt-2 text-center text-sm text-zinc-400">{label}</p>
+    </div>
+  );
+}
+
 function ModelDetailDialog({
   m,
   initialPhotoSrc,
@@ -206,7 +226,45 @@ function ModelDetailDialog({
   token: string | null;
   onClose: () => void;
 }) {
-  const sh = m.sheet ?? {};
+  const [detail, setDetail] = useState<CatalogModel | null>(m.sheet ? m : null);
+  const [detailErr, setDetailErr] = useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = useState(!m.sheet);
+
+  useEffect(() => {
+    if (m.sheet) {
+      setDetail(m);
+      setDetailLoading(false);
+      return;
+    }
+    const h = new Headers();
+    if (token) h.set('Authorization', `Bearer ${token}`);
+    let cancelled = false;
+    setDetailLoading(true);
+    setDetailErr(null);
+    fetch(`${getApiBase()}/catalog/models/${m.id}`, { headers: h })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(await r.text());
+        return r.json() as Promise<CatalogModel>;
+      })
+      .then((data) => {
+        if (!cancelled) setDetail(data);
+      })
+      .catch((e) => {
+        if (!cancelled) {
+          setDetailErr(e instanceof Error ? e.message : 'Fiche laden mislukt');
+          setDetail(m);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [m, token]);
+
+  const active = detail ?? m;
+  const sh = active.sheet ?? {};
   const v = (key: string) => sheetStr(sh, key) || '—';
   const [photoKeys, setPhotoKeys] = useState<string[]>(initialPhotoSrc ? [initialPhotoSrc] : []);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -229,7 +287,7 @@ function ModelDetailDialog({
 
   const photoSrc = photoKeys[slideIndex] ? imgUrlFromKey(photoKeys[slideIndex]) : '';
   const thumbNavDisabled = photoKeys.length <= 1;
-  const title = ficheDisplayName(m, isAdmin);
+  const title = ficheDisplayName(active, isAdmin);
 
   return (
     <div
@@ -244,6 +302,14 @@ function ModelDetailDialog({
         aria-labelledby="model-detail-title"
         onClick={(e) => e.stopPropagation()}
       >
+        {detailLoading ? (
+          <div className="mb-4 px-1">
+            <CatalogLoadingBar label="Modellenfiche laden…" />
+          </div>
+        ) : null}
+        {detailErr ? (
+          <p className="mb-3 text-sm text-amber-800">Sommige gegevens konden niet worden geladen.</p>
+        ) : null}
         <div className="mb-4 flex items-start justify-between gap-3">
           <p className="font-serif text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Class-Models</p>
           <button
@@ -298,8 +364,8 @@ function ModelDetailDialog({
           <div className="min-w-0">
             <h2 id="model-detail-title" className="font-serif text-2xl font-semibold text-zinc-900">
               {title}
-              {m.age != null ? (
-                <span className="text-base font-normal text-zinc-500"> — {m.age} jaar</span>
+              {active.age != null ? (
+                <span className="text-base font-normal text-zinc-500"> — {active.age} jaar</span>
               ) : null}
             </h2>
 
@@ -309,11 +375,11 @@ function ModelDetailDialog({
                 <dl className="mt-2 space-y-1 text-xs text-zinc-800">
                   <div>
                     <span className="font-semibold">Familienaam: </span>
-                    {(m.lastName ?? '').trim() || '—'}
+                    {(active.lastName ?? '').trim() || '—'}
                   </div>
                   <div>
                     <span className="font-semibold">E-mail: </span>
-                    {m.email || '—'}
+                    {active.email || '—'}
                   </div>
                   <div>
                     <span className="font-semibold">Telefoon: </span>
@@ -329,7 +395,7 @@ function ModelDetailDialog({
 
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <FieldBox label="Gemeente" value={v('gemeente')} />
-              <FieldBox label="Geslacht" value={genderNl(m.gender)} />
+              <FieldBox label="Geslacht" value={genderNl(active.gender)} />
               <FieldBox label="Nationaliteit" value={v('nationaliteit')} />
               <FieldBox label="Lengte" value={v('lengte')} />
               <FieldBox label="Maat" value={v('maat')} />
@@ -346,7 +412,7 @@ function ModelDetailDialog({
               <FieldBox label="Over mij" value={v('overMij')} />
               <FieldBox label="Geboortedatum" value={v('geboortedatum')} />
               <div className="sm:col-span-2">
-                <FieldBox label="Beschikbaar voor" value={m.beschikbaar.length ? m.beschikbaar.join(', ') : '—'} />
+                <FieldBox label="Beschikbaar voor" value={active.beschikbaar.length ? active.beschikbaar.join(', ') : '—'} />
               </div>
             </div>
 
@@ -357,9 +423,9 @@ function ModelDetailDialog({
                   className="rounded-lg border border-zinc-400 bg-white px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50"
                   onClick={() => {
                     void adminDownloadFile(
-                      `/admin/set-card/users/${m.id}/preview.zip`,
+                      `/admin/set-card/users/${active.id}/preview.zip`,
                       token,
-                      `setkaart-${ficheDisplayName(m, true).replace(/\s+/g, '-')}.zip`,
+                      `setkaart-${ficheDisplayName(active, true).replace(/\s+/g, '-')}.zip`,
                     ).catch(() => window.alert('Setkaart download mislukt (concept moet compleet zijn).'));
                   }}
                 >
@@ -369,7 +435,8 @@ function ModelDetailDialog({
               <button
                 type="button"
                 className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
-                onClick={() => printModelSheet(m, photoSrc, isAdmin)}
+                onClick={() => printModelSheet(active, photoSrc, isAdmin)}
+                disabled={detailLoading}
               >
                 Afdrukken
               </button>
@@ -377,7 +444,7 @@ function ModelDetailDialog({
                 type="button"
                 className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
                 onClick={() => {
-                  window.location.href = `mailto:?subject=${encodeURIComponent(`Model: ${title}`)}&body=${encodeURIComponent(buildMailBody(m, isAdmin))}`;
+                  window.location.href = `mailto:?subject=${encodeURIComponent(`Model: ${title}`)}&body=${encodeURIComponent(buildMailBody(active, isAdmin))}`;
                 }}
               >
                 Doorsturen per mail
@@ -498,6 +565,7 @@ export function ModelsCatalogGrid({
   const isAdmin = user?.roles?.includes('admin') ?? false;
   const canImpersonate = can('admin.users.write');
   const [rows, setRows] = useState<CatalogModel[]>([]);
+  const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>('alle');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -547,23 +615,37 @@ export function ModelsCatalogGrid({
     return () => setSlot(null);
   }, [toolbarPlacement, tab, filtersOpen, isAdmin, tabCounts]);
 
+  const loadAbortRef = useRef<AbortController | null>(null);
+
   const load = useCallback(async () => {
+    loadAbortRef.current?.abort();
+    const ac = new AbortController();
+    loadAbortRef.current = ac;
+    setLoading(true);
     setLoadErr(null);
     try {
       const h = new Headers();
       if (token) h.set('Authorization', `Bearer ${token}`);
-      const res = await fetch(`${getApiBase()}/catalog/models`, { headers: h });
+      const res = await fetch(`${getApiBase()}/catalog/models`, {
+        headers: h,
+        signal: ac.signal,
+      });
       if (!res.ok) throw new Error(await res.text());
       const data = (await res.json()) as CatalogModel[];
       setRows(Array.isArray(data) ? data : []);
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'Laden mislukt');
+      if (e instanceof Error && e.name === 'AbortError') return;
+      const msg = e instanceof Error ? e.message : 'Laden mislukt';
+      setLoadErr(friendlyCatalogError(msg));
       setRows([]);
+    } finally {
+      if (!ac.signal.aborted) setLoading(false);
     }
   }, [token]);
 
   useEffect(() => {
-    load().catch(() => null);
+    void load();
+    return () => loadAbortRef.current?.abort();
   }, [load]);
 
   const allAvail = useMemo(() => {
@@ -682,7 +764,19 @@ export function ModelsCatalogGrid({
 
   return (
     <div className="rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6">
-      {loadErr ? <p className="mb-3 text-sm text-red-300">{loadErr}</p> : null}
+      {loading ? <CatalogLoadingBar label="Modellen laden…" /> : null}
+      {loadErr ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-red-300">{loadErr}</p>
+          <button
+            type="button"
+            className="rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
+            onClick={() => void load()}
+          >
+            Opnieuw proberen
+          </button>
+        </div>
+      ) : null}
 
       {toolbarPlacement === 'inline' ? (
         <CatalogToolbarControls
@@ -780,9 +874,11 @@ export function ModelsCatalogGrid({
         </div>
       ) : null}
 
-      {!shown.length ? (
-        <p className="py-8 text-center text-sm text-zinc-400">Geen modellen voor deze filters.</p>
-      ) : (
+      {!loading && !shown.length ? (
+        <p className="py-8 text-center text-sm text-zinc-400">
+          {loadErr ? 'Geen modellen geladen.' : 'Geen modellen voor deze filters.'}
+        </p>
+      ) : !loading && shown.length ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {shown.map((m) => (
             <div key={m.id} className="min-w-0">
@@ -866,7 +962,7 @@ export function ModelsCatalogGrid({
             </div>
           ))}
         </div>
-      )}
+      ) : null}
 
       {modal ? (
         <ModelDetailDialog
