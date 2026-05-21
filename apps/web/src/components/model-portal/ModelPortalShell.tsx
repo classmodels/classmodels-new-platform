@@ -72,10 +72,13 @@ export function ModelPortalShell({
   userFirstName,
   premiumButton,
   pushUnreadCount = 0,
+  menuTabs,
   children,
 }: {
   activeTab: ModelPortalTabId;
   onTabChange: (id: ModelPortalTabId) => void;
+  /** Optioneel: bv. historiek/bericht verbergen zonder premium */
+  menuTabs?: readonly { id: ModelPortalTabId; label: string }[];
   sectionTitle: string;
   sectionTitleSlot?: ReactNode | null;
   replaceSectionTitleBar?: boolean;
@@ -90,7 +93,8 @@ export function ModelPortalShell({
   pushUnreadCount?: number;
   children: ReactNode;
 }) {
-  const portalTabs = useModelPortalTabLabels();
+  const defaultTabs = useModelPortalTabLabels();
+  const portalTabs = menuTabs ?? defaultTabs;
 
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">

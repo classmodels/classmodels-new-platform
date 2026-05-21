@@ -31,8 +31,19 @@ import { MODEL_BTN_GOLD } from '@/components/model-portal/model-portal-buttons';
 import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data';
 import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
+import { useModelPortalTabLabels } from '@/i18n/portal-labels';
+import { PremiumUpsellBanner, PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
 
-type PremiumInfo = { currency: string; amount: string; premiumDurationDays: number };
+type PremiumInfo = {
+  currency: string;
+  amount: string;
+  premiumDurationDays: number;
+  promoActive?: boolean;
+  promoEndsAt?: string;
+  promoPrice?: string;
+  yearlyPrice?: string;
+  billingLabel?: string;
+};
 
 type CheckoutOk = { checkoutUrl: string; paymentId: string; subscriptionId: string };
 
@@ -172,6 +183,7 @@ function ModelPortalPageInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const tab = parseModelPortalTab(searchParams.get('tab'));
+  const allPortalTabs = useModelPortalTabLabels();
 
   const setTab = useCallback(
     (id: ModelPortalTabId) => {
@@ -429,6 +441,12 @@ function ModelPortalPageInner() {
     return briefs.filter((b) => b.responses.some((r) => r.modelUserId === myId));
   }, [briefs, briefFilter, myId]);
 
+  const isPremium = portalUser?.isPremium ?? false;
+  const menuTabs = useMemo(() => {
+    if (!portalUser || isPremium) return allPortalTabs;
+    return allPortalTabs.filter((t) => t.id !== 'historiek' && t.id !== 'bericht');
+  }, [allPortalTabs, portalUser, isPremium]);
+
   const sendMessageMailto = async () => {
     const name = [portalUser?.firstName, portalUser?.lastName].filter(Boolean).join(' ') || 'Model';
     const footer = `\n\n---\nNaam: ${name}\nE-mail: ${portalUser?.email ?? ''}\nGSM: ${portalUser?.phone ?? '—'}\nProfiel: ${typeof window !== 'undefined' ? window.location.origin : ''}/portal/model?tab=profiel`;
@@ -508,14 +526,11 @@ function ModelPortalPageInner() {
     );
     main = (
       <div className="space-y-4">
-        {!portalUser.isPremium ? (
-          <div className="rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
-            <strong>Tip:</strong> met{' '}
-            <Link href="/portal/model?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
-              Premium
-            </Link>{' '}
-            krijg je onder meer pushmeldingen bij nieuwe opdrachten en updates — ideaal om snel te reageren.
-          </div>
+        {!isPremium ? (
+          <PremiumUpsellBanner>
+            Met premium krijg je <strong>pushmeldingen</strong> zodra er een opdracht binnenkomt die bij jouw profiel past
+            (leeftijd, geslacht, …), plus historiek, berichten sturen en alle portaalmodules — zo mis je geen kans.
+          </PremiumUpsellBanner>
         ) : null}
         <p className="text-xs text-muted">
           Opdrachten staan op datum gesorteerd (eerstvolgende bovenaan). Vul je modellenfiche aan (geboortedatum als
@@ -837,7 +852,7 @@ function ModelPortalPageInner() {
         <ModelsCatalogGrid toolbarPlacement="titlebar" onTitlebarContent={setModellenTitlebarSlot} />
       </div>
     );
-  } else if (tab === 'historiek' && can('portal.model.history.read')) {
+  } else if (tab === 'historiek' && isPremium && can('portal.model.history.read')) {
     sectionTitle = 'Historiek';
     sectionHeaderRight = historiekHeaderSlot ?? undefined;
     main = (
@@ -848,29 +863,21 @@ function ModelPortalPageInner() {
       />
     );
   } else if (tab === 'historiek') {
+    sectionTitle = 'Historiek';
     main = (
-      <p className="text-sm text-muted">
-        Je account heeft geen rechten voor de historiek. Vraag een beheerder om de permissie{' '}
-        <code className="rounded bg-zinc-100 px-1 text-xs">portal.model.history.read</code> op de modelrol te zetten.
-      </p>
+      <PremiumUpsellPanel
+        title="Historiek is premium"
+        body="Bekijk je volledige activiteitengeschiedenis (profiel, opdrachten, betalingen) alleen met een premium account."
+      />
     );
   } else if (tab === 'push') {
     sectionTitle = 'Pushberichten';
-    if (!portalUser.isPremium) {
+    if (!isPremium) {
       main = (
-        <div className="mx-auto max-w-lg rounded-2xl border border-zinc-200 bg-white px-6 py-10 text-center shadow-sm">
-          <h2 className="font-serif text-xl font-semibold text-ink">Pushberichten zijn premium</h2>
-          <p className="mt-3 text-sm leading-relaxed text-muted">
-            Als premium model ontvang je webpush bij nieuwe opdrachten, herinneringen en acties van het bureau — zo
-            blijf je zonder e-mail te verversen op de hoogte.
-          </p>
-          <Link
-            href="/portal/model?tab=premium"
-            className="mt-6 inline-flex rounded-full bg-burgundy px-6 py-2.5 text-sm font-bold uppercase tracking-wide text-white hover:bg-burgundyDeep"
-          >
-            Bekijk Premium
-          </Link>
-        </div>
+        <PremiumUpsellPanel
+          title="Pushberichten zijn premium"
+          body="Ontvang meldingen op je telefoon of computer zodra er een opdracht past bij jouw profiel, plus herinneringen van het bureau — zonder steeds het portaal te verversen."
+        />
       );
     } else {
       main = (
@@ -885,66 +892,77 @@ function ModelPortalPageInner() {
       );
     }
   } else if (tab === 'bericht') {
-    main = (
-      <div className="space-y-4 text-sm">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <label className="w-28 shrink-0 text-xs font-semibold text-zinc-700">Betreft</label>
-          <input
-            className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-            placeholder="Titel / onderwerp"
-            value={messageSubject}
-            onChange={(e) => setMessageSubject(e.target.value)}
-          />
-        </div>
-        <textarea
-          className="min-h-[160px] w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
-          placeholder="Schrijf hier uw bericht aan Class-Models…"
-          value={messageBody}
-          onChange={(e) => setMessageBody(e.target.value)}
+    sectionTitle = 'Bericht sturen';
+    if (!isPremium) {
+      main = (
+        <PremiumUpsellPanel
+          title="Berichten sturen is premium"
+          body="Stuur rechtstreeks een bericht naar Class-Models vanuit je portaal — alleen beschikbaar met premium."
         />
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <p className="text-xs font-semibold text-zinc-800">Uw gegevens worden mee verstuurd</p>
-          <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
-            <div>
-              <dt className="text-muted">Naam</dt>
-              <dd className="font-medium text-ink">
-                {[portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ') || '—'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-muted">E-mail</dt>
-              <dd className="font-medium text-ink">{portalUser.email}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">GSM</dt>
-              <dd className="font-medium text-ink">{portalUser.phone || '—'}</dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-muted">Profiel model</dt>
-              <dd className="text-ink">Wordt als link opgenomen in het bericht.</dd>
-            </div>
-          </dl>
+      );
+    } else {
+      main = (
+        <div className="space-y-4 text-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="w-28 shrink-0 text-xs font-semibold text-zinc-700">Betreft</label>
+            <input
+              className="flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+              placeholder="Titel / onderwerp"
+              value={messageSubject}
+              onChange={(e) => setMessageSubject(e.target.value)}
+            />
+          </div>
+          <textarea
+            className="min-h-[160px] w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm"
+            placeholder="Schrijf hier uw bericht aan Class-Models…"
+            value={messageBody}
+            onChange={(e) => setMessageBody(e.target.value)}
+          />
+          <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+            <p className="text-xs font-semibold text-zinc-800">Uw gegevens worden mee verstuurd</p>
+            <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+              <div>
+                <dt className="text-muted">Naam</dt>
+                <dd className="font-medium text-ink">
+                  {[portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ') || '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted">E-mail</dt>
+                <dd className="font-medium text-ink">{portalUser.email}</dd>
+              </div>
+              <div>
+                <dt className="text-muted">GSM</dt>
+                <dd className="font-medium text-ink">{portalUser.phone || '—'}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-muted">Profiel model</dt>
+                <dd className="text-ink">Wordt als link opgenomen in het bericht.</dd>
+              </div>
+            </dl>
+          </div>
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={sendMessageMailto}
+              className="rounded-full bg-zinc-800 px-6 py-2.5 text-sm font-semibold text-white hover:bg-zinc-900"
+            >
+              Bericht versturen
+            </button>
+          </div>
         </div>
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={sendMessageMailto}
-            className="rounded-full bg-zinc-800 px-6 py-2.5 text-sm font-semibold text-white hover:bg-zinc-900"
-          >
-            Bericht versturen
-          </button>
-        </div>
-      </div>
-    );
+      );
+    }
   }
 
   const pushRead = can('portal.model.push.read');
-  const pushToolbar = pushRead && portalUser.isPremium;
+  const pushToolbar = pushRead && isPremium;
 
   return (
     <ModelPortalShell
       activeTab={tab}
       onTabChange={setTab}
+      menuTabs={menuTabs}
       sectionTitle={sectionTitle}
       replaceSectionTitleBar={tab === 'push' && pushToolbar}
       sectionTitleSlot={tab === 'push' && pushToolbar ? pushTitleSlot : undefined}

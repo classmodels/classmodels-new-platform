@@ -1,13 +1,26 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import type { AuthUser } from '@/context/auth-context';
+import {
+  isPremiumPromoActive,
+  PREMIUM_PROMO_PRICE,
+  PREMIUM_YEARLY_PRICE,
+} from '@/lib/premium-promo';
+import { PremiumPromoCountdown } from '@/components/model-portal/PremiumPromoCountdown';
 import { MODEL_BTN_GOLD } from './model-portal-buttons';
 
-/** Adviesprijs voor marketing (niet uit Mollie). */
-const PREMIUM_REFERENCE_PRICE = 99;
-
-type PremiumInfo = { currency: string; amount: string; premiumDurationDays: number };
+type PremiumInfo = {
+  currency: string;
+  amount: string;
+  premiumDurationDays: number;
+  promoActive?: boolean;
+  promoEndsAt?: string;
+  promoPrice?: string;
+  yearlyPrice?: string;
+  billingLabel?: string;
+};
 
 type Props = {
   user: AuthUser;
@@ -28,8 +41,18 @@ export function ModelPremiumTab({
   canCheckout,
   onStartCheckout,
 }: Props) {
-  const price = premiumInfo?.amount ?? '48';
-  const days = premiumInfo?.premiumDurationDays ?? 365;
+  const [promoActive, setPromoActive] = useState(() => isPremiumPromoActive());
+
+  useEffect(() => {
+    const tick = () => setPromoActive(isPremiumPromoActive());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const promoPrice = premiumInfo?.promoPrice ?? String(PREMIUM_PROMO_PRICE);
+  const yearlyPrice = premiumInfo?.yearlyPrice ?? String(PREMIUM_YEARLY_PRICE);
+  const price = promoActive ? (premiumInfo?.amount ?? promoPrice) : yearlyPrice;
   const active = user.isPremium;
   const until = user.premiumUntil ? new Date(user.premiumUntil).toLocaleDateString('nl-BE') : null;
 
@@ -38,7 +61,7 @@ export function ModelPremiumTab({
       {premiumReturn && active ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
           <strong>Bedankt!</strong> Je betaling werd verwerkt. Premium staat nu actief op je account
-          {until ? ` (geldig t.e.m. ${until}).` : '.'}
+          {until ? ` (geldig t.e.m. ${until}).` : user.premiumUntil === null ? ' (levenslang).' : '.'}
         </div>
       ) : null}
       {premiumReturn && !active ? (
@@ -60,14 +83,23 @@ export function ModelPremiumTab({
           <div className="mt-8 flex flex-wrap items-end gap-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Jouw tarief</p>
-              <p className="mt-1 flex flex-wrap items-baseline gap-2">
-                <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
-                <span className="text-sm text-white/80">eenmalig · {days} dagen premium</span>
-              </p>
-              <p className="mt-1 text-xs text-white/60">
-                <span className="line-through decoration-white/40">€{PREMIUM_REFERENCE_PRICE}</span> adviesprijs — jij
-                profiteert van introductievoorwaarden.
-              </p>
+              {promoActive ? (
+                <>
+                  <p className="mt-1 font-serif text-lg text-white/90 line-through decoration-white/50">
+                    €{yearlyPrice} / jaar
+                  </p>
+                  <p className="mt-1 flex flex-wrap items-baseline gap-2">
+                    <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
+                    <span className="text-sm text-white/90">éénmalig · premium voor het leven</span>
+                  </p>
+                  <PremiumPromoCountdown className="mt-2" />
+                </>
+              ) : (
+                <p className="mt-1 flex flex-wrap items-baseline gap-2">
+                  <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
+                  <span className="text-sm text-white/80">per jaar</span>
+                </p>
+              )}
             </div>
             {active ? (
               <span className="rounded-full bg-emerald-500/20 px-4 py-2 text-xs font-bold uppercase tracking-wide text-emerald-100 ring-1 ring-emerald-400/40">
@@ -114,12 +146,12 @@ export function ModelPremiumTab({
             <li className="flex gap-2">
               <span className="text-burgundy">✓</span>
               <span>
-                <strong>Pushberichten</strong> bij relevante acties en updates — sneller dan enkel e-mail.
+                <strong>Pushberichten</strong> bij nieuwe opdrachten die bij je profiel passen — sneller reageren.
               </span>
             </li>
             <li className="flex gap-2">
               <span className="text-burgundy">✓</span>
-              <span>Volledige opdrachtenflow, historiek en instellingen zoals voorzien op je account.</span>
+              <span>Historiek, berichten sturen en volledige opdrachtenflow.</span>
             </li>
             <li className="flex gap-2">
               <span className="text-burgundy">✓</span>
@@ -132,12 +164,8 @@ export function ModelPremiumTab({
         <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
           <h2 className="font-serif text-lg font-semibold text-burgundy">Zonder premium</h2>
           <p className="mt-3 text-sm leading-relaxed text-zinc-700">
-            Je houdt toegang tot de <strong>basisfuncties</strong> van het portaal. Pushberichten en een aantal
-            uitgebreide onderdelen zijn voorbehouden aan premium — ideaal als je later volledig mee wilt in tempo van
-            het bureau.
-          </p>
-          <p className="mt-4 text-xs text-muted">
-            Vragen over factuur of duur? Mail het bureau via het tabblad &quot;Bericht sturen&quot;.
+            Je houdt toegang tot de <strong>basisfuncties</strong> van het portaal. Pushberichten, historiek, berichten
+            sturen en meldingen bij passende opdrachten zijn voorbehouden aan premium.
           </p>
         </section>
       </div>
@@ -147,8 +175,9 @@ export function ModelPremiumTab({
           <div>
             <h2 className="font-serif text-xl font-semibold text-ink">Klaar om te upgraden?</h2>
             <p className="mt-1 max-w-xl text-sm text-muted">
-              Je wordt doorgestuurd naar Mollie voor een veilige betaling. Daarna keren we terug naar dit scherm —
-              premium staat dan zo snel mogelijk actief.
+              {promoActive
+                ? `Promotie t/m zaterdag 12:00 — daarna €${yearlyPrice} per jaar.`
+                : `Jaarabonnement €${yearlyPrice} per jaar.`}
             </p>
           </div>
           {!active && canCheckout ? (

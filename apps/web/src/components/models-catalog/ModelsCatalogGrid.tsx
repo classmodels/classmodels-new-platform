@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { getApiBase, apiFetch, publicMediaUrl, parseApiErrorBody } from '@/lib/api';
 import { CmProgressBar } from '@/components/CmProgressBar';
+import { CatalogModelThumb } from '@/components/models-catalog/CatalogModelThumb';
 import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
@@ -658,6 +659,18 @@ export function ModelsCatalogGrid({
       const next = Array.isArray(data) ? data : [];
       setRows(next);
       writeCatalogCache(cacheId, next);
+      if (typeof document !== 'undefined') {
+        for (const m of next.slice(0, 6)) {
+          if (!m.profileThumbKey) continue;
+          const href = imgUrl(m.profileThumbKey);
+          if (!href) continue;
+          const link = document.createElement('link');
+          link.rel = 'preload';
+          link.as = 'image';
+          link.href = href;
+          document.head.appendChild(link);
+        }
+      }
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return;
       const msg = e instanceof Error ? e.message : 'Laden mislukt';
@@ -796,6 +809,9 @@ export function ModelsCatalogGrid({
           />
         </div>
       ) : null}
+      {!loading && shown.length && !shown.some((m) => m.profileThumbKey) ? (
+        <p className="mb-3 text-center text-xs text-zinc-500">Foto&apos;s worden geladen…</p>
+      ) : null}
       {loadErr ? (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-red-300">{loadErr}</p>
@@ -920,23 +936,16 @@ export function ModelsCatalogGrid({
                 className="w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 text-left shadow-sm outline-none transition hover:border-zinc-500 focus-visible:ring-2 focus-visible:ring-lime-300/50"
                 onClick={() => setModal(m)}
               >
-                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md bg-zinc-800">
-                  {m.profileThumbKey ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={imgUrl(m.profileThumbKey)}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading={idx < 16 ? 'eager' : 'lazy'}
-                      decoding="async"
-                      fetchPriority={idx < 8 ? 'high' : 'auto'}
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-2 text-center text-[10px] text-zinc-500">
-                      Geen foto
-                    </div>
-                  )}
-                </div>
+                {m.profileThumbKey ? (
+                  <CatalogModelThumb
+                    src={imgUrl(m.profileThumbKey)}
+                    priority={idx < 12}
+                  />
+                ) : (
+                  <div className="flex aspect-[3/4] items-center justify-center rounded-md bg-zinc-800 px-2 text-center text-[10px] text-zinc-500">
+                    Geen foto
+                  </div>
+                )}
                 <p className="mt-1.5 truncate px-0.5 text-xs font-semibold text-white">
                   {m.displayName}
                   {m.age != null ? <span className="font-normal text-zinc-400"> ({m.age})</span> : null}

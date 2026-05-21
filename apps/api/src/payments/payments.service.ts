@@ -9,6 +9,7 @@ import { Prisma } from '@prisma/client';
 import createMollieClient, { Payment } from '@mollie/api-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
+import { isPremiumPromoActive, PREMIUM_YEARLY_EUROS, premiumPromoDeadlineMs } from './premium-promo.util';
 
 export type MollieMode = 'test' | 'live';
 
@@ -461,11 +462,18 @@ export class PaymentsService {
   }
 
   async getPremiumInfo() {
-    const amount = await this.premiumAmount();
+    const promoActive = isPremiumPromoActive();
+    const promoPrice = await this.premiumAmount();
+    const amount = promoActive ? promoPrice : PREMIUM_YEARLY_EUROS;
     return {
       currency: 'EUR',
       amount: amount.toString(),
-      premiumDurationDays: this.premiumDays(),
+      premiumDurationDays: promoActive ? this.premiumDays() : 365,
+      promoActive,
+      promoEndsAt: new Date(premiumPromoDeadlineMs()).toISOString(),
+      promoPrice: promoPrice.toString(),
+      yearlyPrice: PREMIUM_YEARLY_EUROS.toString(),
+      billingLabel: promoActive ? 'eenmalig · premium voor het leven' : 'per jaar',
     };
   }
 
@@ -487,7 +495,8 @@ export class PaymentsService {
       };
     }
 
-    const amount = await this.premiumAmount();
+    const promoActive = isPremiumPromoActive();
+    const amount = promoActive ? await this.premiumAmount() : PREMIUM_YEARLY_EUROS;
     const value = amount.toFixed(2);
 
     const sub = await this.prisma.subscription.create({
@@ -511,10 +520,14 @@ export class PaymentsService {
     try {
       payment = await mollie.payments.create({
         amount: { currency: 'EUR', value },
-        description: 'Class Models Premium',
+        description: promoActive ? 'Class Models Premium (levenslang)' : 'Class Models Premium (jaar)',
         redirectUrl,
         webhookUrl,
-        metadata: { userId: String(userId), subscriptionId: String(sub.id) },
+        metadata: {
+          userId: String(userId),
+          subscriptionId: String(sub.id),
+          promoLifetime: promoActive ? '1' : '0',
+        },
       });
     } catch (e) {
       await this.prisma.subscription.update({
@@ -647,24 +660,48 @@ export class PaymentsService {
     if (!user) return;
 
     if (payment.status === 'paid') {
-      const days = this.premiumDays();
-      const until = new Date();
-      until.setUTCDate(until.getUTCDate() + days);
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { isPremium: true, premiumUntil: until },
-      });
-      await this.prisma.auditLog.create({
-        data: {
-          userId: user.id,
-          action: 'premium.mollie_paid',
-          meta: { paymentId: payment.id, subscriptionId: sub.id, premiumUntil: until.toISOString() },
-        },
-      });
-      void this.modelHistory.log(user.id, 'premium_paid', {
-        paymentId: payment.id,
-        premiumUntil: until.toISOString(),
-      });
+      const lifetime =
+        meta?.promoLifetime === '1' || (meta?.promoLifetime !== '0' && isPremiumPromoActive());
+      if (lifetime) {
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isPremium: true, premiumUntil: null, premiumOverride: true },
+        });
+        await this.prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'premium.mollie_paid',
+            meta: {
+              paymentId: payment.id,
+              subscriptionId: sub.id,
+              lifetime: true,
+            },
+          },
+        });
+        void this.modelHistory.log(user.id, 'premium_paid', {
+          paymentId: payment.id,
+          lifetime: true,
+        });
+      } else {
+        const days = this.premiumDays();
+        const until = new Date();
+        until.setUTCDate(until.getUTCDate() + days);
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: { isPremium: true, premiumUntil: until, premiumOverride: false },
+        });
+        await this.prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: 'premium.mollie_paid',
+            meta: { paymentId: payment.id, subscriptionId: sub.id, premiumUntil: until.toISOString() },
+          },
+        });
+        void this.modelHistory.log(user.id, 'premium_paid', {
+          paymentId: payment.id,
+          premiumUntil: until.toISOString(),
+        });
+      }
       return;
     }
 
