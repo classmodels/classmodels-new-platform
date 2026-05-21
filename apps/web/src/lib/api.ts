@@ -29,24 +29,25 @@ export function parseApiErrorBody(text: string): string {
   return text;
 }
 
-/** Voor zeer grote uploads: optioneel rechtstreeks naar API-host (minder proxy-lagen). */
+/** Voor zeer grote ZIP’s: rechtstreeks naar API-host (api.*), niet via www-proxy. */
 export function getLargeUploadApiBase(): string {
   const direct = process.env.NEXT_PUBLIC_LARGE_UPLOAD_API_URL?.replace(/\/$/, '');
   if (direct) return direct;
-  /** Productie: same-origin `/media/*` → Nest via dual-proxy (geen Next-body). */
-  if (typeof window !== 'undefined' && shouldUseSameOriginApiProxy(window.location.hostname)) {
-    return window.location.origin.replace(/\/$/, '');
-  }
+
   const pub = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
   if (
     pub &&
     typeof window !== 'undefined' &&
-    (pub.startsWith('http://') || pub.startsWith('https://')) &&
-    !pub.includes('localhost') &&
-    !pub.includes('127.0.0.1')
+    /^https?:\/\//i.test(pub) &&
+    !/localhost|127\.0\.0\.1/i.test(pub)
   ) {
     return pub;
   }
+
+  if (typeof window !== 'undefined' && shouldUseSameOriginApiProxy(window.location.hostname)) {
+    return window.location.origin.replace(/\/$/, '');
+  }
+
   const api = getApiBase();
   if (api.startsWith('http')) return api;
   return `${typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : ''}${api}`;

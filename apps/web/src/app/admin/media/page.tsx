@@ -12,7 +12,6 @@ import {
   publicMediaUrl,
 } from '@/lib/api';
 import { formatEtaSeconds, uploadWithProgress } from '@/lib/upload-with-progress';
-import { uploadZipChunked, ZIP_CHUNKED_THRESHOLD_BYTES } from '@/lib/upload-zip-chunked';
 import { CmProgressBar } from '@/components/CmProgressBar';
 
 type MediaAssetRow = {
@@ -296,26 +295,17 @@ export default function AdminMediaPage() {
           }),
       };
 
-      const text =
-        zipFile.size >= ZIP_CHUNKED_THRESHOLD_BYTES ?
-          await uploadZipChunked(zipFile, {
-            apiBase: uploadBase,
-            folderId: selectedFolderId,
-            token,
-            ...progressCb,
-          })
-        : await (async () => {
-            const fd = new FormData();
-            fd.append('file', zipFile);
-            return uploadWithProgress(
-              `${uploadBase}/media/upload-zip?folderId=${encodeURIComponent(selectedFolderId)}`,
-              {
-                headers: { Authorization: `Bearer ${token}` },
-                body: fd,
-                ...progressCb,
-              },
-            );
-          })();
+      const fd = new FormData();
+      fd.append('file', zipFile);
+      const text = await uploadWithProgress(
+        `${uploadBase}/media/upload-zip?folderId=${encodeURIComponent(selectedFolderId)}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+          timeoutMs: 21_600_000,
+          ...progressCb,
+        },
+      );
       const r = JSON.parse(text) as {
         zipName?: string;
         sizeBytes?: number;
@@ -891,10 +881,8 @@ export default function AdminMediaPage() {
                   indeterminate={uploadProgress.processing}
                 />
                 <p className="text-[10px] text-amber-900">
-                  Ververs de pagina niet tijdens upload of verwerking — anders moet u opnieuw beginnen.
-                  {zipUploading && zipFile && zipFile.size >= ZIP_CHUNKED_THRESHOLD_BYTES ?
-                    ' Grote ZIP’s worden in delen van ±32 MB geüpload (stabieler).'
-                  : null}
+                  Ververs de pagina niet tijdens upload of verwerking — anders moet u opnieuw beginnen. Grote ZIP’s
+                  gaan in één bestand rechtstreeks naar de API-server (kan 30–90 minuten duren bij 4+ GB).
                 </p>
               </div>
             ) : null}

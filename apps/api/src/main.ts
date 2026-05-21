@@ -46,8 +46,18 @@ async function bootstrap() {
   ];
   app.enableCors({ origin, credentials: true });
   const port = parseInt(process.env.API_PORT ?? '4000', 10);
-  await app.listen(port, process.env.API_HOST ?? '0.0.0.0');
-  console.log(`API http://localhost:${port}`);
+  const server = await app.listen(port, process.env.API_HOST ?? '0.0.0.0');
+  /** Grote ZIP-uploads (uren): geen socket-timeout op Nest. */
+  const uploadMs = parseInt(process.env.API_UPLOAD_TIMEOUT_MS || '21600000', 10);
+  if (Number.isFinite(uploadMs) && uploadMs > 0) {
+    server.requestTimeout = uploadMs;
+    server.headersTimeout = uploadMs + 120_000;
+  } else {
+    server.requestTimeout = 0;
+    server.headersTimeout = 0;
+  }
+  server.keepAliveTimeout = 120_000;
+  console.log(`API http://localhost:${port} (upload timeout ${server.requestTimeout || 'uit'})`);
 }
 
 bootstrap().catch((err) => {

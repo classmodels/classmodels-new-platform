@@ -1,3 +1,5 @@
+import { parseApiErrorBody } from '@/lib/api';
+
 export type UploadProgressUpdate = {
   percent: number;
   loaded: number;
@@ -5,8 +7,8 @@ export type UploadProgressUpdate = {
   etaSeconds: number | null;
 };
 
-/** 4 uur per request — chunked ZIP gebruikt kortere timeout per deel. */
-const DEFAULT_UPLOAD_TIMEOUT_MS = 14_400_000;
+/** 6 uur — enkele POST van ZIP tot ~6 GB. */
+const DEFAULT_UPLOAD_TIMEOUT_MS = 21_600_000;
 
 export function uploadWithProgress(
   url: string,
@@ -54,7 +56,7 @@ export function uploadWithProgress(
         resolve(xhr.responseText);
         return;
       }
-      reject(new Error(xhr.responseText || xhr.statusText || `HTTP ${xhr.status}`));
+      reject(new Error(parseApiErrorBody(xhr.responseText || xhr.statusText || `HTTP ${xhr.status}`)));
     };
     xhr.onerror = () =>
       reject(

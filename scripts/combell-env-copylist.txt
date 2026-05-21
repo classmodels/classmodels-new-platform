@@ -21,9 +21,10 @@ NODE_ENV=production
 # (overschrijft de proxy en schrijft in de release-map → alles weg na deploy).
 # MEDIA_ROOT=/home/JOUWUSER/www/cm-media/uploads
 # MEDIA_SYNC_SOURCE=/pad/naar/oude-uploads-bron
-# Grote ZIP in mediatheek (admin): standaard max 6 GB; proxy-timeout 2 uur
+# Grote ZIP in mediatheek (admin): standaard max 6 GB; één POST naar api.* — timeout 6 uur
 # MEDIA_ZIP_UPLOAD_MAX_BYTES=6442450944
-# COMBELL_UPLOAD_TIMEOUT_MS=7200000
+# COMBELL_UPLOAD_TIMEOUT_MS=21600000
+# API_UPLOAD_TIMEOUT_MS=21600000
 # Modellenportaal modeshow-downloads (map fotomodeshow-klein in mediatheek)
 # MODEL_MODESHOW_FILM_FROM=2026-05-21T00:00:00+02:00
 # MODEL_MODESHOW_PHOTOS_FOLDER=uploads,fotomodeshow-klein

@@ -24,8 +24,8 @@ const publicPort = parseInt(process.env.PORT || '3000', 10);
 const maxBootMs = parseInt(process.env.COMBELL_DUAL_BOOT_MS || '180000', 10);
 const strictNest = String(process.env.COMBELL_DUAL_STRICT_NEST || '').trim() === '1';
 /** Grote ZIP-uploads (tot ~6 GB): lange request-timeout op proxy + upstream. */
-/** Standaard 4 uur — grote ZIP’s (4+ GB) via chunked upload of enkele POST. */
-const uploadTimeoutMs = parseInt(process.env.COMBELL_UPLOAD_TIMEOUT_MS || '14400000', 10);
+/** Standaard 6 uur — enkele POST ZIP tot ~6 GB. */
+const uploadTimeoutMs = parseInt(process.env.COMBELL_UPLOAD_TIMEOUT_MS || '21600000', 10);
 
 const taken = new Set([publicPort]);
 function pickPort(envKey, fallback) {
