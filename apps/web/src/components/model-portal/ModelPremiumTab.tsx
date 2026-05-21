@@ -73,26 +73,38 @@ export function ModelPremiumTab({
 
       <header className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-gradient-to-br from-zinc-900 via-[#2a1219] to-burgundyDeep px-6 py-10 text-white shadow-xl md:px-10">
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
-        <div className="relative max-w-3xl">
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">Class Models</p>
-          <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight md:text-4xl">Premium modelaccount</h1>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/90">
-            Volledige toegang tot je modellenportaal: opdrachten, agenda, portfolio en alle communicatie — met{' '}
-            <strong className="text-white">pushberichten</strong> bij nieuwe acties en updates, zodat je niets mist.
-          </p>
-          <div className="mt-8 flex flex-wrap items-end gap-4">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Jouw tarief</p>
+        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 max-w-xl">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">Class Models</p>
+            <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight md:text-4xl">Premium modelaccount</h1>
+            <p className="mt-4 text-sm leading-relaxed text-white/90">
+              Volledige toegang tot je modellenportaal: opdrachten, agenda, portfolio en alle communicatie — met{' '}
+              <strong className="text-white">pushberichten</strong> bij nieuwe acties en updates, zodat je niets mist.
+            </p>
+            <div className="mt-8">
+              {promoActive ? (
+                <p className="text-xs font-bold uppercase tracking-[0.15em] text-amber-200">Eenmalige actie</p>
+              ) : null}
+              <p className={`text-[10px] font-semibold uppercase tracking-wide text-white/60 ${promoActive ? 'mt-2' : ''}`}>
+                Jouw tarief
+              </p>
               {promoActive ? (
                 <>
-                  <p className="mt-1 font-serif text-lg text-white/90 line-through decoration-white/50">
-                    €{yearlyPrice} / jaar
+                  <p className="relative mt-2 inline-block font-serif text-lg text-white/90">
+                    <span aria-hidden className="select-none">€{yearlyPrice} / jaar</span>
+                    <span
+                      className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                      aria-hidden
+                    >
+                      <span className="absolute h-[3px] w-[108%] rotate-[-14deg] rounded-sm bg-red-500 shadow-sm" />
+                      <span className="absolute h-[3px] w-[108%] rotate-[14deg] rounded-sm bg-red-500 shadow-sm" />
+                    </span>
+                    <span className="sr-only">Normaal €{yearlyPrice} per jaar</span>
                   </p>
-                  <p className="mt-1 flex flex-wrap items-baseline gap-2">
+                  <p className="mt-2 flex flex-wrap items-baseline gap-2">
                     <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
                     <span className="text-sm text-white/90">éénmalig · premium voor het leven</span>
                   </p>
-                  <PremiumPromoCountdown className="mt-2" />
                 </>
               ) : (
                 <p className="mt-1 flex flex-wrap items-baseline gap-2">
@@ -101,6 +113,12 @@ export function ModelPremiumTab({
                 </p>
               )}
             </div>
+            {checkoutErr ? <p className="mt-4 text-sm text-amber-200">{checkoutErr}</p> : null}
+          </div>
+          <div className="flex w-full shrink-0 flex-col items-end gap-3 lg:w-auto lg:pt-2">
+            {promoActive ? (
+              <PremiumPromoCountdown className="text-right" size="md" />
+            ) : null}
             {active ? (
               <span className="rounded-full bg-emerald-500/20 px-4 py-2 text-xs font-bold uppercase tracking-wide text-emerald-100 ring-1 ring-emerald-400/40">
                 Premium actief
@@ -115,12 +133,11 @@ export function ModelPremiumTab({
                 {checkoutBusy ? 'Even geduld…' : 'Premium worden'}
               </button>
             ) : (
-              <p className="max-w-xs text-xs text-white/70">
+              <p className="max-w-xs text-right text-xs text-white/70">
                 Online afrekenen is voor dit account niet geactiveerd. Neem contact op met het bureau.
               </p>
             )}
           </div>
-          {checkoutErr ? <p className="relative mt-4 max-w-xl text-sm text-amber-200">{checkoutErr}</p> : null}
         </div>
       </header>
 
@@ -200,7 +217,7 @@ export function ModelPremiumTab({
           Terug naar profiel
         </Link>
         {' · '}
-        <Link href="/portal/model" className="text-burgundy underline hover:text-burgundyDeep">
+        <Link href="/portal/model?tab=home" className="text-burgundy underline hover:text-burgundyDeep">
           Home portaal
         </Link>
       </p>

@@ -3,8 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { apiFetch, getApiBase } from '@/lib/api';
 import type { AuthUser, ModelPushSummary } from '@/context/auth-context';
-import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
-import { PushFilterPill, PushCountBadge } from '@/components/model-portal/push-count-badge';
+import { PushFilterPill } from '@/components/model-portal/push-count-badge';
+
+const pushContentBtn =
+  'inline-flex items-center gap-1.5 border border-burgundy/40 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-burgundy shadow-sm hover:bg-burgundy/[0.06] disabled:opacity-50 sm:text-[11px]';
+
+function pushActionCount(n: number) {
+  if (n <= 0) return null;
+  const label = n > 99 ? '99+' : String(n);
+  return (
+    <span className="min-w-[1rem] text-right text-[10px] font-bold tabular-nums text-burgundy" aria-hidden>
+      {label}
+    </span>
+  );
+}
 
 type InboxRow = {
   id: string;
@@ -61,6 +73,7 @@ export function ModelPortalPushTab({
   const [pushFilter, setPushFilter] = useState<'all' | 'read' | 'unread'>('all');
 
   const refreshedPushSummary = useRef(false);
+  const autoPushAttempted = useRef(false);
   useEffect(() => {
     if (!token || !canRead || refreshedPushSummary.current) return;
     refreshedPushSummary.current = true;
@@ -113,100 +126,6 @@ export function ModelPortalPushTab({
       cancelled = true;
     };
   }, [canSubscribe, token, pushSummary?.unreadCount]);
-
-  useEffect(() => {
-    setSelected({});
-  }, [pushFilter]);
-
-  useEffect(() => {
-    const n = pushSummary?.unreadCount ?? 0;
-    syncAppBadge(n);
-  }, [pushSummary?.unreadCount, syncAppBadge]);
-
-  const selectedIds = useMemo(
-    () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
-    [selected],
-  );
-
-  const markRead = useCallback(
-    async (id: string) => {
-      if (!token || !canRead) return;
-      try {
-        await apiFetch(`/portal/model/push/inbox/${id}/read`, { method: 'PATCH', token });
-        await loadInbox();
-        await refreshMe();
-      } catch (_) {
-        /* ignore */
-      }
-    },
-    [token, canRead, loadInbox, refreshMe],
-  );
-
-  const markReadMany = useCallback(
-    async (ids: string[]) => {
-      if (!token || !canRead || !ids.length) return;
-      setBusy(true);
-      try {
-        await apiFetch('/portal/model/push/inbox/read-many', {
-          method: 'POST',
-          token,
-          body: JSON.stringify({ ids }),
-        });
-        await loadInbox();
-        await refreshMe();
-      } finally {
-        setBusy(false);
-      }
-    },
-    [token, canRead, loadInbox, refreshMe],
-  );
-
-  const markAllRead = useCallback(async () => {
-    if (!token || !canRead) return;
-    setBusy(true);
-    try {
-      await apiFetch('/portal/model/push/inbox/read-all', { method: 'POST', token });
-      await loadInbox();
-      await refreshMe();
-    } finally {
-      setBusy(false);
-    }
-  }, [token, canRead, loadInbox, refreshMe]);
-
-  const deleteOne = useCallback(
-    async (id: string) => {
-      if (!token || !canRead) return;
-      if (!confirm('Dit bericht verwijderen?')) return;
-      try {
-        await apiFetch(`/portal/model/push/inbox/${id}`, { method: 'DELETE', token });
-        await loadInbox();
-        await refreshMe();
-      } catch (_) {
-        /* ignore */
-      }
-    },
-    [token, canRead, loadInbox, refreshMe],
-  );
-
-  const deleteMany = useCallback(
-    async (ids: string[]) => {
-      if (!token || !canRead || !ids.length) return;
-      if (!confirm(`${ids.length} bericht(en) verwijderen?`)) return;
-      setBusy(true);
-      try {
-        await apiFetch('/portal/model/push/inbox/delete-many', {
-          method: 'POST',
-          token,
-          body: JSON.stringify({ ids }),
-        });
-        await loadInbox();
-        await refreshMe();
-      } finally {
-        setBusy(false);
-      }
-    },
-    [token, canRead, loadInbox, refreshMe],
-  );
 
   const enablePushOnDevice = useCallback(async () => {
     if (!token || !canSubscribe) return;
@@ -313,6 +232,118 @@ export function ModelPortalPushTab({
     }
   }, [token, canSubscribe, refreshMe]);
 
+  useEffect(() => {
+    if (!canSubscribe || autoPushAttempted.current || devicePushActive || busy) return;
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    autoPushAttempted.current = true;
+    void (async () => {
+      try {
+        const reg = await navigator.serviceWorker.register(
+          `${process.env.NEXT_PUBLIC_BASE_PATH?.trim() || ''}/sw.js`,
+        );
+        await reg.update().catch(() => undefined);
+        const sub = await reg.pushManager.getSubscription();
+        if (!sub) await enablePushOnDevice();
+      } catch {
+        /* gebruiker kan handmatig aanzetten */
+      }
+    })();
+  }, [canSubscribe, devicePushActive, busy, enablePushOnDevice]);
+
+  useEffect(() => {
+    setSelected({});
+  }, [pushFilter]);
+
+  useEffect(() => {
+    const n = pushSummary?.unreadCount ?? 0;
+    syncAppBadge(n);
+  }, [pushSummary?.unreadCount, syncAppBadge]);
+
+  const selectedIds = useMemo(
+    () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
+    [selected],
+  );
+
+  const markRead = useCallback(
+    async (id: string) => {
+      if (!token || !canRead) return;
+      try {
+        await apiFetch(`/portal/model/push/inbox/${id}/read`, { method: 'PATCH', token });
+        await loadInbox();
+        await refreshMe();
+      } catch (_) {
+        /* ignore */
+      }
+    },
+    [token, canRead, loadInbox, refreshMe],
+  );
+
+  const markReadMany = useCallback(
+    async (ids: string[]) => {
+      if (!token || !canRead || !ids.length) return;
+      setBusy(true);
+      try {
+        await apiFetch('/portal/model/push/inbox/read-many', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({ ids }),
+        });
+        await loadInbox();
+        await refreshMe();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token, canRead, loadInbox, refreshMe],
+  );
+
+  const markAllRead = useCallback(async () => {
+    if (!token || !canRead) return;
+    setBusy(true);
+    try {
+      await apiFetch('/portal/model/push/inbox/read-all', { method: 'POST', token });
+      await loadInbox();
+      await refreshMe();
+    } finally {
+      setBusy(false);
+    }
+  }, [token, canRead, loadInbox, refreshMe]);
+
+  const deleteOne = useCallback(
+    async (id: string) => {
+      if (!token || !canRead) return;
+      if (!confirm('Dit bericht verwijderen?')) return;
+      try {
+        await apiFetch(`/portal/model/push/inbox/${id}`, { method: 'DELETE', token });
+        await loadInbox();
+        await refreshMe();
+      } catch (_) {
+        /* ignore */
+      }
+    },
+    [token, canRead, loadInbox, refreshMe],
+  );
+
+  const deleteMany = useCallback(
+    async (ids: string[]) => {
+      if (!token || !canRead || !ids.length) return;
+      if (!confirm(`${ids.length} bericht(en) verwijderen?`)) return;
+      setBusy(true);
+      try {
+        await apiFetch('/portal/model/push/inbox/delete-many', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({ ids }),
+        });
+        await loadInbox();
+        await refreshMe();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [token, canRead, loadInbox, refreshMe],
+  );
+
   const filteredInbox = useMemo(() => {
     if (pushFilter === 'read') return inbox.filter((r) => r.readAt);
     if (pushFilter === 'unread') return inbox.filter((r) => !r.readAt);
@@ -332,22 +363,9 @@ export function ModelPortalPushTab({
       return;
     }
 
-    const selectAll = () => {
-      const next: Record<string, boolean> = {};
-      for (const id of inboxIds) next[id] = true;
-      setSelected(next);
-    };
-    const clearSel = () => setSelected({});
-
-    const pill = portalTitlebarPillClass(false);
-    const pillCompact = `${pill} shrink-0 !px-2 !py-0.5 text-[10px] sm:!px-2.5 sm:!py-1 sm:!text-[11px]`;
-    const countPillBase = `relative overflow-visible ${pillCompact}`;
-    const countPill =
-      selectedIds.length > 0 ? `${countPillBase} min-w-[4.75rem] pr-3` : countPillBase;
-
     const pushBarClick = () => {
       if (devicePushActive) {
-        if (confirm('Pushmeldingen op dit toestel uitschakelen?')) void disablePushOnDevice();
+        void disablePushOnDevice();
         return;
       }
       void enablePushOnDevice();
@@ -363,72 +381,37 @@ export function ModelPortalPushTab({
             aria-checked={devicePushActive}
             disabled={busy}
             onClick={pushBarClick}
-            className="shrink-0 border border-zinc-900 bg-zinc-950 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-black disabled:opacity-50 sm:px-3 sm:text-[11px]"
+            className="shrink-0 border-2 border-white/90 bg-zinc-950 px-3 py-1.5 text-[11px] font-bold text-white shadow-sm hover:bg-black disabled:opacity-50 sm:text-xs"
           >
-            {devicePushActive ? 'Push uit' : 'Push aan'}
+            {devicePushActive ? 'Push uitzetten' : 'Push aanzetten'}
           </button>
         ) : null}
-        <>
-            <span className="min-w-1 shrink-0" aria-hidden />
-            <PushFilterPill
-              label="Alle"
-              count={countAll}
-              active={pushFilter === 'all'}
-              disabled={busy}
-              compact
-              onClick={() => setPushFilter('all')}
-            />
-            <PushFilterPill
-              label="Gelezen"
-              count={countRead}
-              active={pushFilter === 'read'}
-              disabled={busy}
-              compact
-              onClick={() => setPushFilter('read')}
-            />
-            <PushFilterPill
-              label="Nieuw"
-              count={unreadFromApi}
-              active={pushFilter === 'unread'}
-              disabled={busy}
-              compact
-              onClick={() => setPushFilter('unread')}
-            />
-            <span className="mx-0.5 hidden h-5 w-px shrink-0 self-center bg-white/30 sm:block" aria-hidden />
-            <button
-              type="button"
-              disabled={busy || !inboxIds.length}
-              onClick={allSelected ? clearSel : selectAll}
-              className={pillCompact}
-            >
-              {allSelected ? 'Geen' : 'Alles aanwijzen'}
-            </button>
-            <button
-              type="button"
-              disabled={busy || !selectedIds.length}
-              onClick={() => void markReadMany(selectedIds)}
-              className={`shrink-0 ${countPill}`}
-            >
-              <span className="inline-block whitespace-nowrap pr-0.5">Selectie gelezen</span>
-              {selectedIds.length > 0 ? (
-                <PushCountBadge count={selectedIds.length} variant="titlebar" aria-hidden />
-              ) : null}
-            </button>
-            <button type="button" disabled={busy} onClick={() => void markAllRead()} className={pillCompact}>
-              Alles gelezen
-            </button>
-            <button
-              type="button"
-              disabled={busy || !selectedIds.length}
-              onClick={() => void deleteMany(selectedIds)}
-              className={`shrink-0 ${countPill}`}
-            >
-              <span className="inline-block whitespace-nowrap pr-0.5">Verwijderen</span>
-              {selectedIds.length > 0 ? (
-                <PushCountBadge count={selectedIds.length} variant="titlebar" aria-hidden />
-              ) : null}
-            </button>
-        </>
+        <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-1">
+          <PushFilterPill
+            label="Alle"
+            count={countAll}
+            active={pushFilter === 'all'}
+            disabled={busy}
+            compact
+            onClick={() => setPushFilter('all')}
+          />
+          <PushFilterPill
+            label="Gelezen"
+            count={countRead}
+            active={pushFilter === 'read'}
+            disabled={busy}
+            compact
+            onClick={() => setPushFilter('read')}
+          />
+          <PushFilterPill
+            label="Nieuw"
+            count={unreadFromApi}
+            active={pushFilter === 'unread'}
+            disabled={busy}
+            compact
+            onClick={() => setPushFilter('unread')}
+          />
+        </div>
       </div>,
     );
     return () => onTitleBar(null);
@@ -437,12 +420,6 @@ export function ModelPortalPushTab({
     canRead,
     canSubscribe,
     busy,
-    inboxIds,
-    allSelected,
-    selectedIds,
-    markAllRead,
-    markReadMany,
-    deleteMany,
     disablePushOnDevice,
     enablePushOnDevice,
     pushFilter,
@@ -462,9 +439,48 @@ export function ModelPortalPushTab({
     );
   }
 
+  const selectAll = () => {
+    const next: Record<string, boolean> = {};
+    for (const id of inboxIds) next[id] = true;
+    setSelected(next);
+  };
+  const clearSel = () => setSelected({});
+
   return (
     <div className="text-sm">
       {pushMsg ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
+
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-1.5">
+        <button
+          type="button"
+          disabled={busy || !inboxIds.length}
+          onClick={allSelected ? clearSel : selectAll}
+          className={pushContentBtn}
+        >
+          <span>{allSelected ? 'Geen' : 'Alles aanwijzen'}</span>
+        </button>
+        <button
+          type="button"
+          disabled={busy || !selectedIds.length}
+          onClick={() => void markReadMany(selectedIds)}
+          className={pushContentBtn}
+        >
+          <span>Selectie gelezen</span>
+          {pushActionCount(selectedIds.length)}
+        </button>
+        <button type="button" disabled={busy} onClick={() => void markAllRead()} className={pushContentBtn}>
+          <span>Alles gelezen</span>
+        </button>
+        <button
+          type="button"
+          disabled={busy || !selectedIds.length}
+          onClick={() => void deleteMany(selectedIds)}
+          className={pushContentBtn}
+        >
+          <span>Verwijderen</span>
+          {pushActionCount(selectedIds.length)}
+        </button>
+      </div>
 
       <div className="space-y-3">
           {loadErr ? <p className="text-xs text-red-700">{loadErr}</p> : null}

@@ -980,7 +980,7 @@ function ModelPortalPageInner() {
       ) : null}
       {main}
       <div className="mt-8 border-t border-zinc-100 pt-4">
-        <Link href="/" className="text-sm text-burgundy hover:underline">
+        <Link href="/portal/model?tab=home" className="text-sm text-burgundy hover:underline">
           ← Naar home
         </Link>
       </div>
