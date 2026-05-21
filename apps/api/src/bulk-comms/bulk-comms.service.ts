@@ -31,8 +31,8 @@ export class BulkCommsService {
   private readonly log = new Logger(BulkCommsService.name);
 
   private static backgroundMinRecipients(): number {
-    const n = parseInt(process.env.BULK_COMMS_BACKGROUND_MIN || '30', 10);
-    return Number.isFinite(n) && n > 0 ? n : 30;
+    const n = parseInt(process.env.BULK_COMMS_BACKGROUND_MIN || '10', 10);
+    return Number.isFinite(n) && n > 0 ? n : 10;
   }
 
   private static emailDelayMs(): number {
@@ -158,6 +158,18 @@ export class BulkCommsService {
     return { imported: created.count };
   }
 
+  /** Ontvangers voor verzenden (hergebruikt selectie uit preview-request). */
+  private async recipientsToSend(dto: BulkCommsSendDto): Promise<BulkRecipientRow[]> {
+    const rows = await this.resolveRecipients(dto);
+    const selection = new Map((dto.recipients ?? []).map((r) => [r.key, r.include]));
+    return rows
+      .map((r) => ({
+        ...r,
+        include: selection.has(r.key) ? selection.get(r.key)! : r.include,
+      }))
+      .filter((r) => r.include && r.eligible);
+  }
+
   async preview(dto: BulkCommsPreviewDto) {
     const rows = await this.resolveRecipients(dto);
     const selection = new Map((dto.recipients ?? []).map((r) => [r.key, r.include]));
@@ -177,8 +189,7 @@ export class BulkCommsService {
   }
 
   async send(dto: BulkCommsSendDto, adminUserId: string) {
-    const preview = await this.preview(dto);
-    const toSend = preview.recipients.filter((r) => r.include && r.eligible);
+    const toSend = await this.recipientsToSend(dto);
     if (!toSend.length) throw new BadRequestException('Geen ontvangers geselecteerd.');
 
     const campaign = await this.prisma.bulkMessageCampaign.create({

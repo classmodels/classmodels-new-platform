@@ -19,6 +19,24 @@ function shouldUseSameOriginApiProxy(hostname: string): boolean {
 export function parseApiErrorBody(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return text;
+  if (
+    trimmed.includes('Temporary failure') ||
+    trimmed.includes('Gateway Time-out') ||
+    trimmed.includes('504 Gateway') ||
+    trimmed.includes('502 Bad Gateway') ||
+    trimmed.includes('503 Service')
+  ) {
+    return (
+      'De server (Combell/proxy) kon het verzoek niet op tijd afronden. ' +
+      'Wacht tot een grote upload klaar is, probeer over 1–2 minuten opnieuw, of ververs de pagina. ' +
+      'Bij bulk-mail: de verzending kan alsnog op de server doorlopen — kijk bij Communicatie → Geschiedenis.'
+    );
+  }
+  if (trimmed.includes('<!DOCTYPE') || trimmed.includes('<html') || trimmed.includes('<title>')) {
+    return (
+      'Geen geldig antwoord van de API (hosting-foutpagina). API mogelijk overbelast of herstart. Probeer later opnieuw.'
+    );
+  }
   try {
     const j = JSON.parse(trimmed) as { message?: string | string[] };
     if (typeof j.message === 'string') return j.message;
@@ -26,6 +44,7 @@ export function parseApiErrorBody(text: string): string {
   } catch {
     /* geen JSON */
   }
+  if (trimmed.length > 280) return `${trimmed.slice(0, 280)}…`;
   return text;
 }
 
