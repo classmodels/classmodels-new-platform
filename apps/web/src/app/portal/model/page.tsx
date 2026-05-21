@@ -968,6 +968,7 @@ function ModelPortalPageInner() {
       sectionTitleBarClassName={tab === 'push' && pushToolbar ? '!h-auto min-h-[44px] py-2' : undefined}
       sectionTitleBarInnerClassName={undefined}
       pushUnreadCount={portalUser.push?.unreadCount ?? 0}
+      isPremium={isPremium}
       userFirstName={firstName}
       premiumButton={premiumButton}
     >

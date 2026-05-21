@@ -10,6 +10,8 @@ import {
   publicMediaDownloadUrl,
   publicMediaUrl,
 } from '@/lib/api';
+import { formatEtaSeconds, uploadWithProgress } from '@/lib/upload-with-progress';
+import { CmProgressBar } from '@/components/CmProgressBar';
 
 type MediaAssetRow = {
   id: string;
@@ -90,6 +92,12 @@ export default function AdminMediaPage() {
   const [zipFile, setZipFile] = useState<File | null>(null);
   const [zipUploading, setZipUploading] = useState(false);
   const [zipMsg, setZipMsg] = useState('');
+  const [fileUploading, setFileUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{
+    label: string;
+    percent: number;
+    etaSeconds: number | null;
+  } | null>(null);
 
   const [folderZipLoading, setFolderZipLoading] = useState(false);
   const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
@@ -219,20 +227,24 @@ export default function AdminMediaPage() {
     );
     if (!ok) return;
     setZipUploading(true);
-    setZipMsg('ZIP uploaden… het bestand wordt als geheel in de mediatheek gezet (niet uitgepakt).');
+    setZipMsg('');
+    setUploadProgress({ label: zipFile.name, percent: 0, etaSeconds: null });
     try {
       const fd = new FormData();
       fd.append('file', zipFile);
-      const res = await fetch(
+      const text = await uploadWithProgress(
         `${getApiBase()}/media/upload-zip?folderId=${encodeURIComponent(selectedFolderId)}`,
         {
-          method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
+          onProgress: (p) =>
+            setUploadProgress({
+              label: zipFile.name,
+              percent: p.percent,
+              etaSeconds: p.etaSeconds,
+            }),
         },
       );
-      const text = await res.text();
-      if (!res.ok) throw new Error(parseApiErrorBody(text || res.statusText));
       const r = JSON.parse(text) as {
         zipName?: string;
         sizeBytes?: number;
@@ -248,28 +260,45 @@ export default function AdminMediaPage() {
       setZipMsg(e instanceof Error ? e.message : 'ZIP-upload mislukt');
     } finally {
       setZipUploading(false);
+      setUploadProgress(null);
     }
   };
 
   const upload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !file || !selectedFolderId) return;
+    if (!token || !file || !selectedFolderId || fileUploading || zipUploading) return;
     const fd = new FormData();
     fd.append('file', file);
     const params = new URLSearchParams();
     params.set('folderId', selectedFolderId);
     if (fileLabel.trim()) params.set('fileLabel', fileLabel.trim());
     const q = `?${params.toString()}`;
-    const res = await fetch(`${getApiBase()}/media/upload${q}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    });
-    if (!res.ok) alert(await res.text());
-    setFile(null);
-    if (imgInputRef.current) imgInputRef.current.value = '';
-    if (vidInputRef.current) vidInputRef.current.value = '';
-    await load();
+    setFileUploading(true);
+    setUploadProgress({ label: file.name, percent: 0, etaSeconds: null });
+    try {
+      const text = await uploadWithProgress(`${getApiBase()}/media/upload${q}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+        onProgress: (p) =>
+          setUploadProgress({
+            label: file.name,
+            percent: p.percent,
+            etaSeconds: p.etaSeconds,
+          }),
+      });
+      if (!text) {
+        /* lege body = ok */
+      }
+      setFile(null);
+      if (imgInputRef.current) imgInputRef.current.value = '';
+      if (vidInputRef.current) vidInputRef.current.value = '';
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Upload mislukt');
+    } finally {
+      setFileUploading(false);
+      setUploadProgress(null);
+    }
   };
 
   const pub = useCallback((key: string) => publicMediaUrl(key), []);
@@ -315,6 +344,22 @@ export default function AdminMediaPage() {
       const n = new Set(prev);
       if (n.has(id)) n.delete(id);
       else n.add(id);
+      return n;
+    });
+  };
+
+  const allFilteredSelected =
+    filteredAssets.length > 0 && filteredAssets.every((a) => selectedIds.has(a.id));
+
+  const selectAllOnPage = () => {
+    if (!bulkMode) setBulkMode(true);
+    setSelectedIds(new Set(filteredAssets.map((a) => a.id)));
+  };
+
+  const clearPageSelection = () => {
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      for (const a of filteredAssets) n.delete(a.id);
       return n;
     });
   };
@@ -629,10 +674,10 @@ export default function AdminMediaPage() {
                 </label>
                 <button
                   type="submit"
-                  disabled={!file || !selectedFolderId || isTrashFolder}
+                  disabled={!file || !selectedFolderId || isTrashFolder || fileUploading || zipUploading}
                   className="rounded bg-burgundy px-2.5 py-1 text-[11px] font-medium text-white hover:bg-burgundyDeep disabled:opacity-40"
                 >
-                  Uploaden
+                  {fileUploading ? 'Uploaden…' : 'Uploaden'}
                 </button>
                 <input
                   ref={zipInputRef}
@@ -663,6 +708,19 @@ export default function AdminMediaPage() {
               <p className="mt-1 truncate text-[10px] text-amber-900" title={zipFile.name}>
                 ZIP: {zipFile.name} ({formatBytes(zipFile.size)}) — max. 6 GB
               </p>
+            ) : null}
+            {uploadProgress ? (
+              <div className="mt-2 max-w-md">
+                <CmProgressBar
+                  label={`${zipUploading ? 'ZIP' : 'Bestand'} uploaden: ${uploadProgress.label} (${uploadProgress.percent}%)`}
+                  sublabel={
+                    uploadProgress.etaSeconds != null
+                      ? `Geschatte resterende tijd: ${formatEtaSeconds(uploadProgress.etaSeconds)}`
+                      : 'Bezig…'
+                  }
+                  percent={uploadProgress.percent}
+                />
+              </div>
             ) : null}
             {zipMsg ? (
               <p className="mt-1 whitespace-pre-wrap break-all text-[10px] text-ink">{zipMsg}</p>
@@ -845,6 +903,24 @@ export default function AdminMediaPage() {
               >
                 Bulk selecteren
               </button>
+              {bulkMode && filteredAssets.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => (allFilteredSelected ? clearPageSelection() : selectAllOnPage())}
+                  className="rounded border border-line bg-white px-2 py-1 text-[10px] font-medium text-ink hover:bg-panel"
+                >
+                  {allFilteredSelected ? 'Geen op pagina' : 'Alles aanvinken'}
+                </button>
+              ) : null}
+              {bulkMode && selectedIds.size > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="rounded border border-line bg-white px-2 py-1 text-[10px] font-medium text-muted hover:bg-panel"
+                >
+                  Selectie wissen
+                </button>
+              ) : null}
               {bulkMode && selectedIds.size > 0 ? (
                 isTrashFolder ? (
                   <button

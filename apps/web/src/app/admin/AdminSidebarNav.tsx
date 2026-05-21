@@ -105,7 +105,7 @@ export function AdminSidebarNav({ pathname, can }: Props) {
     pathname === '/admin/';
 
   const linkBase =
-    'flex items-center gap-2.5 rounded-md py-2 pl-2 pr-2 text-[13px] leading-snug transition outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60';
+    'flex items-center gap-2 rounded-md py-1.5 pl-2 pr-2 text-[12px] leading-snug transition outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60';
 
   return (
     <nav className="flex-1 overflow-y-auto px-2 pb-4 pt-1" aria-label="Admin menu">
@@ -131,7 +131,7 @@ export function AdminSidebarNav({ pathname, can }: Props) {
                 type="button"
                 onClick={() => toggle(sec.id)}
                 className={[
-                  'flex w-full items-center gap-2.5 rounded-md py-2 pl-2 pr-2 text-left text-[13px] font-semibold transition',
+                  'flex w-full items-center gap-2 rounded-md py-1.5 pl-2 pr-2 text-left text-[12px] font-semibold transition',
                   sectionActive && !open ? 'text-white' : 'text-zinc-100',
                   'hover:bg-white/[0.06]',
                 ].join(' ')}
@@ -161,7 +161,7 @@ export function AdminSidebarNav({ pathname, can }: Props) {
                             href={it.href}
                             prefetch={false}
                             className={[
-                              'block rounded py-1.5 pl-2 pr-2 text-[12.5px] transition',
+                              'block rounded py-1.5 pl-2 pr-2 text-[11.5px] transition',
                               active
                                 ? 'bg-[#2271b1] font-medium text-white shadow-[inset_3px_0_0_0_#72aee6]'
                                 : 'text-zinc-300 hover:bg-white/[0.06] hover:text-white',

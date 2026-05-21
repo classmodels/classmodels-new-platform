@@ -1,7 +1,11 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { type ModelPortalTabId } from '@/components/model-portal/model-portal-nav';
+import {
+  MODEL_PORTAL_PREMIUM_TAB_IDS,
+  type ModelPortalTabId,
+} from '@/components/model-portal/model-portal-nav';
+import Link from 'next/link';
 import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { CmText } from '@/components/CmText';
@@ -72,6 +76,7 @@ export function ModelPortalShell({
   userFirstName,
   premiumButton,
   pushUnreadCount = 0,
+  isPremium = true,
   menuTabs,
   children,
 }: {
@@ -91,6 +96,8 @@ export function ModelPortalShell({
   premiumButton?: ReactNode;
   /** Ongelezen pushberichten (tab Pushberichten in het menu). */
   pushUnreadCount?: number;
+  /** Zonder premium: badge op premium-tabs in het menu. */
+  isPremium?: boolean;
   children: ReactNode;
 }) {
   const defaultTabs = useModelPortalTabLabels();
@@ -124,29 +131,30 @@ export function ModelPortalShell({
             >
               {portalTabs.map((t, index) => {
                 const isActive = activeTab === t.id;
+                const showPremiumBadge = !isPremium && MODEL_PORTAL_PREMIUM_TAB_IDS.has(t.id);
+                const rowClass = `flex w-full items-center gap-3 py-2.5 pl-4 pr-3 text-left text-[13px] font-medium transition ${
+                  index > 0 ? 'border-t border-line' : ''
+                } ${
+                  isActive
+                    ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+                    : 'text-ink hover:bg-panel/70'
+                }`;
                 return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => onTabChange(t.id)}
-                    className={`flex w-full items-center justify-between gap-2 py-3 pl-4 pr-4 text-left text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0 ${
-                      index > 0 ? 'border-t border-line' : ''
-                    } ${
-                      isActive
-                        ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
-                        : 'text-ink hover:bg-panel/70'
-                    }`}
-                  >
-                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                  <div key={t.id} className={rowClass}>
+                    <button
+                      type="button"
+                      onClick={() => onTabChange(t.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0"
+                    >
                       <CmText
                         contentKey={`portal.model.nav.${t.id}.label`}
                         as="span"
                         className="min-w-0 truncate text-ink"
                         fallback={t.label}
                       />
-                      {t.id === 'push' ? (
+                      {t.id === 'push' && isPremium ? (
                         <span
-                          className={`push-menu-badge shrink-0 px-1.5 py-0.5 text-[10px] font-bold leading-none ${
+                          className={`push-menu-badge shrink-0 px-1.5 py-0.5 text-[9px] font-bold leading-none ${
                             pushUnreadCount > 0
                               ? 'bg-burgundy text-white'
                               : 'border border-zinc-200 bg-zinc-100 text-zinc-600'
@@ -156,11 +164,21 @@ export function ModelPortalShell({
                           {pushUnreadCount > 99 ? '99+' : pushUnreadCount}
                         </span>
                       ) : null}
-                    </span>
-                    <span className="text-muted" aria-hidden>
-                      ›
-                    </span>
-                  </button>
+                    </button>
+                    {showPremiumBadge ? (
+                      <Link
+                        href="/portal/model?tab=premium"
+                        className="shrink-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-900 shadow-sm ring-1 ring-amber-600/30 hover:from-amber-300 hover:to-amber-400"
+                        title="Vereist premium account"
+                      >
+                        Premium
+                      </Link>
+                    ) : (
+                      <span className="shrink-0 pr-0.5 text-muted" aria-hidden>
+                        ›
+                      </span>
+                    )}
+                  </div>
                 );
               })}
             </nav>

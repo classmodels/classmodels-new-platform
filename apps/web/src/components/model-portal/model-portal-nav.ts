@@ -16,6 +16,13 @@ export const MODEL_PORTAL_TABS = [
 
 export type ModelPortalTabId = (typeof MODEL_PORTAL_TABS)[number]['id'];
 
+/** Tabs die volledige premium-toegang vereisen (badge in menu zonder premium). */
+export const MODEL_PORTAL_PREMIUM_TAB_IDS: ReadonlySet<ModelPortalTabId> = new Set([
+  'historiek',
+  'push',
+  'bericht',
+]);
+
 const TAB_IDS = new Set<string>(MODEL_PORTAL_TABS.map((t) => t.id));
 
 export function parseModelPortalTab(raw: string | null): ModelPortalTabId {
