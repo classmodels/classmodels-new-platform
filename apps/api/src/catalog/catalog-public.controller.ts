@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, Param, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Header, Headers, Param, ParseUUIDPipe } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { getJwtSecret } from '../auth/jwt-module-options';
 import type { JwtPayload } from '../auth/jwt.strategy';
@@ -24,6 +24,7 @@ export class CatalogPublicController {
 
   /** Publiek modellenrooster (+ admin-velden als Bearer admin). */
   @Get('models')
+  @Header('Cache-Control', 'private, max-age=30')
   async models(@Headers('authorization') authorization?: string) {
     const u = this.parseUser(authorization);
     return this.catalog.listModels(

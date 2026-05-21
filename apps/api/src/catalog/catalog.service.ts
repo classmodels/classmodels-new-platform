@@ -129,12 +129,25 @@ const CATALOG_USER_WHERE = {
   ],
 };
 
+const CATALOG_LIST_CACHE_MS = 45_000;
+
 @Injectable()
 export class CatalogService {
+  private listCache: { key: string; at: number; data: unknown[] } | null = null;
+
   constructor(
     private prisma: PrismaService,
     private media: MediaService,
   ) {}
+
+  private listCacheKey(viewer?: { sub: string; roles: string[] }): string {
+    if (!viewer?.sub) return 'public';
+    return `${viewer.sub}:${(viewer.roles ?? []).includes('admin') ? 'admin' : 'member'}`;
+  }
+
+  invalidateListCache() {
+    this.listCache = null;
+  }
 
   /** Eén query voor fallback-thumbs i.p.v. per model een mediaAssets-subquery. */
   private async fallbackThumbsByUserId(userIds: string[]): Promise<Map<string, ThumbAsset>> {
@@ -230,6 +243,17 @@ export class CatalogService {
   }
 
   async listModels(viewer?: { sub: string; roles: string[] }) {
+    const key = this.listCacheKey(viewer);
+    const now = Date.now();
+    if (this.listCache && this.listCache.key === key && now - this.listCache.at < CATALOG_LIST_CACHE_MS) {
+      return this.listCache.data;
+    }
+    const data = await this.listModelsUncached(viewer);
+    this.listCache = { key, at: now, data };
+    return data;
+  }
+
+  private async listModelsUncached(viewer?: { sub: string; roles: string[] }) {
     const isAdmin = !!viewer?.roles?.includes('admin');
     const adminId = viewer?.sub;
 
@@ -328,6 +352,7 @@ export class CatalogService {
   }
 
   async toggleFavorite(adminId: string, roles: string[], modelUserId: string) {
+    this.invalidateListCache();
     await this.assertAdmin(adminId, roles);
     const model = await this.prisma.user.findUnique({ where: { id: modelUserId }, select: { id: true } });
     if (!model) throw new NotFoundException();
@@ -368,6 +393,7 @@ export class CatalogService {
     modelUserId: string,
     body: { inactive?: boolean; newface?: boolean; tryout?: boolean },
   ) {
+    this.invalidateListCache();
     await this.assertAdmin(adminId, roles);
     const user = await this.prisma.user.findUnique({
       where: { id: modelUserId },

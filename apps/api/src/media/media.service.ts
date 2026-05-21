@@ -277,6 +277,10 @@ export class MediaService {
     if (asset.storageKey.toLowerCase().endsWith('.webp')) {
       return pick(asset.storageKey);
     }
+    const storage = pick(asset.storageKey);
+    if (storage && /\.(jpe?g|png)$/i.test(storage)) {
+      return storage;
+    }
     return null;
   }
 

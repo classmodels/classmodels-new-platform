@@ -194,6 +194,38 @@ function imgUrlFromKey(key: string | null): string {
   return key ? publicMediaUrl(key) : '';
 }
 
+const CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
+
+function catalogCacheId(token: string | null, isAdmin: boolean): string {
+  if (!token) return 'public';
+  return isAdmin ? `admin:${token.slice(0, 8)}` : `member:${token.slice(0, 8)}`;
+}
+
+function readCatalogCache(cacheId: string): CatalogModel[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(`cm_catalog_${cacheId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at: number; rows: CatalogModel[] };
+    if (Date.now() - parsed.at > CATALOG_CACHE_TTL_MS) return null;
+    return Array.isArray(parsed.rows) ? parsed.rows : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCatalogCache(cacheId: string, rows: CatalogModel[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(
+      `cm_catalog_${cacheId}`,
+      JSON.stringify({ at: Date.now(), rows }),
+    );
+  } catch {
+    /* quota */
+  }
+}
+
 function friendlyCatalogError(raw: string): string {
   const t = raw.trim();
   if (!t) return 'Modellen laden mislukt. Probeer opnieuw.';
@@ -554,8 +586,9 @@ export function ModelsCatalogGrid({
   const { token, user, can, applySessionToken } = useAuth();
   const isAdmin = user?.roles?.includes('admin') ?? false;
   const canImpersonate = can('admin.users.write');
-  const [rows, setRows] = useState<CatalogModel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheId = catalogCacheId(token, isAdmin);
+  const [rows, setRows] = useState<CatalogModel[]>(() => readCatalogCache(cacheId) ?? []);
+  const [loading, setLoading] = useState(() => !readCatalogCache(cacheId)?.length);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>('alle');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -622,7 +655,9 @@ export function ModelsCatalogGrid({
       });
       if (!res.ok) throw new Error(await res.text());
       const data = (await res.json()) as CatalogModel[];
-      setRows(Array.isArray(data) ? data : []);
+      const next = Array.isArray(data) ? data : [];
+      setRows(next);
+      writeCatalogCache(cacheId, next);
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') return;
       const msg = e instanceof Error ? e.message : 'Laden mislukt';
@@ -631,7 +666,7 @@ export function ModelsCatalogGrid({
     } finally {
       if (!ac.signal.aborted) setLoading(false);
     }
-  }, [token]);
+  }, [token, cacheId]);
 
   useEffect(() => {
     void load();
@@ -754,7 +789,13 @@ export function ModelsCatalogGrid({
 
   return (
     <div className="rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6">
-      {loading && !rows.length ? <CmProgressBar label="Modellen laden…" className="mb-4" /> : null}
+      {loading ? (
+        <div className={shown.length === 0 ? 'py-10' : 'mb-4'}>
+          <CmProgressBar
+            label={shown.length === 0 ? 'Modellen laden…' : 'Modellen bijwerken…'}
+          />
+        </div>
+      ) : null}
       {loadErr ? (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-red-300">{loadErr}</p>
@@ -864,13 +905,15 @@ export function ModelsCatalogGrid({
         </div>
       ) : null}
 
-      {!shown.length && !loading ? (
+      {loading && !shown.length ? null : !shown.length && !loading ? (
         <p className="py-8 text-center text-sm text-zinc-400">
           {loadErr ? 'Geen modellen geladen.' : 'Geen modellen voor deze filters.'}
         </p>
       ) : shown.length ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {shown.map((m) => (
+        <div
+          className={`grid grid-cols-2 gap-3 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`}
+        >
+          {shown.map((m, idx) => (
             <div key={m.id} className="min-w-0">
               <button
                 type="button"
@@ -884,8 +927,9 @@ export function ModelsCatalogGrid({
                       src={imgUrl(m.profileThumbKey)}
                       alt=""
                       className="h-full w-full object-cover"
-                      loading="lazy"
+                      loading={idx < 16 ? 'eager' : 'lazy'}
                       decoding="async"
+                      fetchPriority={idx < 8 ? 'high' : 'auto'}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-2 text-center text-[10px] text-zinc-500">
