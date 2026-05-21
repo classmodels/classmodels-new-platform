@@ -24,7 +24,8 @@ const publicPort = parseInt(process.env.PORT || '3000', 10);
 const maxBootMs = parseInt(process.env.COMBELL_DUAL_BOOT_MS || '180000', 10);
 const strictNest = String(process.env.COMBELL_DUAL_STRICT_NEST || '').trim() === '1';
 /** Grote ZIP-uploads (tot ~6 GB): lange request-timeout op proxy + upstream. */
-const uploadTimeoutMs = parseInt(process.env.COMBELL_UPLOAD_TIMEOUT_MS || '7200000', 10);
+/** Standaard 4 uur — grote ZIP’s (4+ GB) via chunked upload of enkele POST. */
+const uploadTimeoutMs = parseInt(process.env.COMBELL_UPLOAD_TIMEOUT_MS || '14400000', 10);
 
 const taken = new Set([publicPort]);
 function pickPort(envKey, fallback) {
@@ -95,6 +96,9 @@ function forward(req, res, port) {
     if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end(`Upstream fout (${port}): ${e.message}`);
   });
+  /** Geen socket-timeout tijdens lange uploads (chunked of enkelvoudige ZIP). */
+  req.setTimeout(0);
+  res.setTimeout(0);
   req.pipe(p);
 }
 
@@ -250,17 +254,10 @@ function shouldRouteToNest(req) {
   if (pathOnly.startsWith('/__cm_api/') || pathOnly === '/__cm_api') {
     return true;
   }
-  /** Media op www zonder proxy-prefix (GET publiek; POST grote uploads rechtstreeks naar Nest). */
+  /** Media op www zonder proxy-prefix (GET publiek; POST uploads rechtstreeks naar Nest). */
   if (pathOnly.startsWith('/media/')) {
     if (req.method === 'GET' || req.method === 'HEAD') return true;
-    if (
-      req.method === 'POST' &&
-      (pathOnly === '/media/upload' ||
-        pathOnly === '/media/upload-zip' ||
-        pathOnly.startsWith('/media/upload'))
-    ) {
-      return true;
-    }
+    if (req.method === 'POST' && pathOnly.startsWith('/media/upload')) return true;
   }
   return hostToNest(effectiveHost(req));
 }

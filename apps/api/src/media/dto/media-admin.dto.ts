@@ -16,6 +16,25 @@ export class MoveAssetsFolderDto {
 }
 
 /** Nieuwe mediamap (slug wordt automatisch afgeleid, uniek). */
+export class InitZipChunkedDto {
+  @IsUUID('4')
+  folderId!: string;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(255)
+  fileName!: string;
+
+  @IsNumber()
+  @Min(1)
+  totalSize!: number;
+}
+
+export class FinishZipChunkedDto {
+  @IsUUID('4')
+  uploadId!: string;
+}
+
 export class CreateMediaFolderDto {
   @IsString()
   @MinLength(1)

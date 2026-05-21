@@ -26,6 +26,12 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { countMediaFilesShallow, resolveMediaRoot } from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  assemblyPath,
+  assertZipChunkSessionComplete,
+  createZipChunkSession,
+  writeZipChunk,
+} from './media-zip-chunked';
 import sharp from 'sharp';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 import {
@@ -1518,6 +1524,61 @@ export class MediaService {
       storageKey: created.storageKey,
       sizeBytes,
     };
+  }
+
+  /** Grote ZIP in stukken (±32 MB) — voorkomt proxy-timeout bij 4+ GB enkelvoudige POST. */
+  initZipChunkedUpload(folderId: string, fileName: string, totalSize: number, userId: string) {
+    try {
+      return createZipChunkSession(folderId, fileName, totalSize, userId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'init_failed';
+      if (msg === 'not_a_zip') throw new BadRequestException('Alleen .zip-bestanden.');
+      if (msg === 'size_out_of_range') {
+        throw new BadRequestException('ZIP is te groot of ongeldig (max. volgens serverlimiet).');
+      }
+      throw new BadRequestException('ZIP-upload kon niet starten.');
+    }
+  }
+
+  writeZipChunkedPart(
+    uploadId: string,
+    chunkIndex: number,
+    chunkDiskPath: string,
+    userId: string,
+  ) {
+    try {
+      return writeZipChunk(uploadId, chunkIndex, chunkDiskPath, userId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'chunk_failed';
+      if (msg === 'upload_session_not_found') throw new BadRequestException('Uploadsessie verlopen of ongeldig.');
+      if (msg === 'forbidden') throw new BadRequestException('Geen toegang tot deze upload.');
+      if (msg === 'invalid_chunk_index' || msg === 'chunk_size_mismatch') {
+        throw new BadRequestException('Ongeldig uploadfragment.');
+      }
+      throw new BadRequestException('Fragment uploaden mislukt.');
+    }
+  }
+
+  async finalizeZipChunkedUpload(uploadId: string, userId: string) {
+    let meta;
+    try {
+      meta = assertZipChunkSessionComplete(uploadId, userId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'finish_failed';
+      if (msg === 'incomplete_chunks') {
+        throw new BadRequestException('Niet alle delen zijn ontvangen — upload opnieuw.');
+      }
+      if (msg === 'upload_session_not_found') throw new BadRequestException('Uploadsessie verlopen.');
+      if (msg === 'forbidden') throw new BadRequestException('Geen toegang.');
+      throw new BadRequestException('ZIP afronden mislukt.');
+    }
+    const assembly = assemblyPath(uploadId);
+    const fake = {
+      path: assembly,
+      originalname: meta.fileName,
+      size: meta.totalSize,
+    } as Express.Multer.File;
+    return this.importZipUpload(fake, userId, meta.folderId);
   }
 
   private async findModeshowZipInFolder(folderId: string) {

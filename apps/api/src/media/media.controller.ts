@@ -25,10 +25,13 @@ import { mediaZipUploadMaxBytes } from './media-zip-import';
 import type { Response } from 'express';
 import {
   CreateMediaFolderDto,
+  FinishZipChunkedDto,
+  InitZipChunkedDto,
   MoveAssetsFolderDto,
   MoveToTrashDto,
   UpdateFolderSettingsDto,
 } from './dto/media-admin.dto';
+import { ZIP_UPLOAD_CHUNK_BYTES } from './media-zip-chunked';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
@@ -209,6 +212,56 @@ export class MediaController {
     const fid = folderId?.trim();
     if (!fid) return { error: 'folderId is verplicht' };
     return this.media.importZipUpload(file, req.user.sub, fid);
+  }
+
+  /** Start chunked ZIP (grote bestanden, ±32 MB per request). */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('upload-zip/init')
+  initZipChunked(@Body() body: InitZipChunkedDto, @Req() req: { user: JwtPayload }) {
+    return this.media.initZipChunkedUpload(
+      body.folderId,
+      body.fileName.trim(),
+      Math.floor(body.totalSize),
+      req.user.sub,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('upload-zip/chunk')
+  @UseInterceptors(
+    FileInterceptor('chunk', {
+      storage: diskStorage({
+        destination: (_req, _file, cb) => {
+          cb(null, zipUploadTmpDir());
+        },
+        filename: (_req, _file, cb) => {
+          cb(null, `chunk-${randomUUID()}`);
+        },
+      }),
+      limits: { fileSize: ZIP_UPLOAD_CHUNK_BYTES + 8 * 1024 * 1024 },
+    }),
+  )
+  uploadZipChunk(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: { user: JwtPayload },
+    @Query('uploadId') uploadId?: string,
+    @Query('chunkIndex') chunkIndex?: string,
+  ) {
+    if (!file?.path) return { error: 'Geen chunk' };
+    const id = uploadId?.trim();
+    if (!id) return { error: 'uploadId is verplicht' };
+    const idx = chunkIndex != null ? parseInt(chunkIndex, 10) : NaN;
+    if (!Number.isFinite(idx)) return { error: 'chunkIndex is verplicht' };
+    return this.media.writeZipChunkedPart(id, idx, file.path, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('upload-zip/finish')
+  finishZipChunked(@Body() body: FinishZipChunkedDto, @Req() req: { user: JwtPayload }) {
+    return this.media.finalizeZipChunkedUpload(body.uploadId, req.user.sub);
   }
 
   /** Herstel: zelfde bestandsnaam als in DB, geen nieuw mediarecord. */

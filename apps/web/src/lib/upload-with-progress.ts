@@ -5,8 +5,8 @@ export type UploadProgressUpdate = {
   etaSeconds: number | null;
 };
 
-/** 2 uur — grote ZIP/film via Combell-proxy. */
-const DEFAULT_UPLOAD_TIMEOUT_MS = 7_200_000;
+/** 4 uur per request — chunked ZIP gebruikt kortere timeout per deel. */
+const DEFAULT_UPLOAD_TIMEOUT_MS = 14_400_000;
 
 export function uploadWithProgress(
   url: string,
