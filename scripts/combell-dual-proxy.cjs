@@ -250,12 +250,17 @@ function shouldRouteToNest(req) {
   if (pathOnly.startsWith('/__cm_api/') || pathOnly === '/__cm_api') {
     return true;
   }
-  /** Publieke media op www zonder proxy-prefix (e-mail / oude links). */
-  if (
-    (req.method === 'GET' || req.method === 'HEAD') &&
-    pathOnly.startsWith('/media/')
-  ) {
-    return true;
+  /** Media op www zonder proxy-prefix (GET publiek; POST grote uploads rechtstreeks naar Nest). */
+  if (pathOnly.startsWith('/media/')) {
+    if (req.method === 'GET' || req.method === 'HEAD') return true;
+    if (
+      req.method === 'POST' &&
+      (pathOnly === '/media/upload' ||
+        pathOnly === '/media/upload-zip' ||
+        pathOnly.startsWith('/media/upload'))
+    ) {
+      return true;
+    }
   }
   return hostToNest(effectiveHost(req));
 }

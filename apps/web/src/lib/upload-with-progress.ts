@@ -31,18 +31,20 @@ export function uploadWithProgress(
       xhr.setRequestHeader(k, v);
     }
     xhr.upload.onprogress = (e) => {
-      if (!e.lengthComputable || !options.onProgress) return;
-      const percent = Math.min(100, Math.round((e.loaded / e.total) * 100));
+      if (!e.lengthComputable) return;
+      const bytesDone = e.loaded >= e.total;
+      const percent = bytesDone ? 100 : Math.min(99, Math.floor((e.loaded / e.total) * 100));
       const elapsed = Math.max(0.001, (Date.now() - start) / 1000);
       const rate = e.loaded / elapsed;
-      const remaining = rate > 0 && e.total > e.loaded ? (e.total - e.loaded) / rate : null;
-      options.onProgress({
+      const remaining =
+        !bytesDone && rate > 0 && e.total > e.loaded ? (e.total - e.loaded) / rate : null;
+      options.onProgress?.({
         percent,
         loaded: e.loaded,
         total: e.total,
         etaSeconds: remaining,
       });
-      if (e.loaded >= e.total && !bytesCompleteCalled) {
+      if (bytesDone && !bytesCompleteCalled) {
         bytesCompleteCalled = true;
         options.onUploadBytesComplete?.();
       }

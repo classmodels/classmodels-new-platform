@@ -103,6 +103,14 @@ export function ModelPortalShell({
   const defaultTabs = useModelPortalTabLabels();
   const portalTabs = menuTabs ?? defaultTabs;
 
+  const handleTabClick = (id: ModelPortalTabId) => {
+    if (!isPremium && MODEL_PORTAL_PREMIUM_TAB_IDS.has(id)) {
+      onTabChange('premium');
+      return;
+    }
+    onTabChange(id);
+  };
+
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
       <ImpersonationBanner />
@@ -132,7 +140,7 @@ export function ModelPortalShell({
               {portalTabs.map((t, index) => {
                 const isActive = activeTab === t.id;
                 const showPremiumBadge = !isPremium && MODEL_PORTAL_PREMIUM_TAB_IDS.has(t.id);
-                const rowClass = `flex w-full items-center gap-3 py-2.5 pl-4 pr-3 text-left text-[13px] font-medium transition ${
+                const rowClass = `flex w-full items-center gap-2 py-2 pl-3 pr-2 text-left text-[11px] font-medium transition ${
                   index > 0 ? 'border-t border-line' : ''
                 } ${
                   isActive
@@ -143,7 +151,7 @@ export function ModelPortalShell({
                   <div key={t.id} className={rowClass}>
                     <button
                       type="button"
-                      onClick={() => onTabChange(t.id)}
+                      onClick={() => handleTabClick(t.id)}
                       className="flex min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-burgundy/35 focus-visible:ring-offset-0"
                     >
                       <CmText
@@ -168,10 +176,10 @@ export function ModelPortalShell({
                     {showPremiumBadge ? (
                       <Link
                         href="/portal/model?tab=premium"
-                        className="shrink-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-zinc-900 shadow-sm ring-1 ring-amber-600/30 hover:from-amber-300 hover:to-amber-400"
-                        title="Vereist premium account"
+                        className="shrink-0 rounded border border-amber-500/40 bg-amber-50 px-1.5 py-px text-[8px] font-normal leading-tight text-amber-950 hover:bg-amber-100"
+                        title="Vereist premium — klik voor uitleg"
                       >
-                        Premium
+                        vereist premium
                       </Link>
                     ) : (
                       <span className="shrink-0 pr-0.5 text-muted" aria-hidden>

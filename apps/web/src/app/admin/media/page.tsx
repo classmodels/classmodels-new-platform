@@ -102,6 +102,7 @@ export default function AdminMediaPage() {
   } | null>(null);
   const [selectAllBusy, setSelectAllBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState<{ done: number; total: number } | null>(null);
 
   const [folderZipLoading, setFolderZipLoading] = useState(false);
   const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
@@ -422,14 +423,20 @@ export default function AdminMediaPage() {
   const hardRemoveAsset = async (id: string) => {
     if (!token) return;
     if (!confirm('Dit bestand permanent verwijderen?')) return;
-    await adminFetch(`/media/assets/${id}?hard=1`, token, { method: 'DELETE' });
-    setDetail(null);
-    setSelectedIds((prev) => {
-      const n = new Set(prev);
-      n.delete(id);
-      return n;
-    });
-    await load();
+    setDeleteProgress({ done: 0, total: 1 });
+    try {
+      await adminFetch(`/media/assets/${id}?hard=1`, token, { method: 'DELETE' });
+      setDeleteProgress({ done: 1, total: 1 });
+      setDetail(null);
+      setSelectedIds((prev) => {
+        const n = new Set(prev);
+        n.delete(id);
+        return n;
+      });
+      await load();
+    } finally {
+      setDeleteProgress(null);
+    }
   };
 
   const chunkIds = (ids: string[], size = 400) => {
@@ -444,14 +451,18 @@ export default function AdminMediaPage() {
     if (!ids.length) return;
     if (!confirm(`${ids.length} bestand(en) naar Verwijderde verplaatsen?`)) return;
     setBulkBusy(true);
+    setDeleteProgress({ done: 0, total: ids.length });
     try {
       let moved = 0;
+      let done = 0;
       for (const batch of chunkIds(ids)) {
         const r = await adminFetch<{ moved: number }>('/media/assets/move-trash', token, {
           method: 'POST',
           body: JSON.stringify({ ids: batch }),
         });
         moved += r.moved ?? batch.length;
+        done += batch.length;
+        setDeleteProgress({ done, total: ids.length });
       }
       if (moved < ids.length) {
         alert(`${moved} van ${ids.length} verplaatst. Vernieuw de lijst als er items ontbreken.`);
@@ -462,6 +473,7 @@ export default function AdminMediaPage() {
       await load({ page: 1 });
     } finally {
       setBulkBusy(false);
+      setDeleteProgress(null);
     }
   };
 
@@ -500,13 +512,17 @@ export default function AdminMediaPage() {
     if (!ids.length) return;
     if (!confirm(`${ids.length} bestand(en) permanent wissen?`)) return;
     setBulkBusy(true);
+    setDeleteProgress({ done: 0, total: ids.length });
     try {
+      let done = 0;
       for (const batch of chunkIds(ids, 50)) {
         await Promise.all(
           batch.map((id) =>
             adminFetch(`/media/assets/${id}?hard=1`, token, { method: 'DELETE' }).catch(() => undefined),
           ),
         );
+        done += batch.length;
+        setDeleteProgress({ done, total: ids.length });
       }
       setSelectedIds(new Set());
       setBulkMode(false);
@@ -514,6 +530,7 @@ export default function AdminMediaPage() {
       await load({ page: 1 });
     } finally {
       setBulkBusy(false);
+      setDeleteProgress(null);
     }
   };
 
@@ -817,6 +834,19 @@ export default function AdminMediaPage() {
                 <p className="text-[10px] text-amber-900">
                   Ververs de pagina niet tijdens upload of verwerking — anders moet u opnieuw beginnen.
                 </p>
+              </div>
+            ) : null}
+            {deleteProgress ? (
+              <div className="mt-2 max-w-lg space-y-1">
+                <CmProgressBar
+                  label={`Verwijderen: ${deleteProgress.done} van ${deleteProgress.total}`}
+                  sublabel="Even geduld — grote selecties kunnen enkele minuten duren."
+                  percent={
+                    deleteProgress.total > 0 ?
+                      Math.min(100, Math.round((deleteProgress.done / deleteProgress.total) * 100))
+                    : 0
+                  }
+                />
               </div>
             ) : null}
             {zipMsg ? (

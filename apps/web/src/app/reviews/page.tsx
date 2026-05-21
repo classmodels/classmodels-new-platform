@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { SiteHeader } from '@/components/SiteHeader';
 import { getApiBase } from '@/lib/api';
 import { CmText } from '@/components/CmText';
 
@@ -38,7 +37,6 @@ export default function ReviewsPage() {
 
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
-      <SiteHeader />
       <main className="mx-auto w-full max-w-page px-4 py-10 md:px-6 md:py-14">
         <CmText
           contentKey="home.reviews.title"
