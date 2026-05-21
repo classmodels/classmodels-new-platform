@@ -442,10 +442,7 @@ function ModelPortalPageInner() {
   }, [briefs, briefFilter, myId]);
 
   const isPremium = portalUser?.isPremium ?? false;
-  const menuTabs = useMemo(() => {
-    if (!portalUser || isPremium) return allPortalTabs;
-    return allPortalTabs.filter((t) => t.id !== 'historiek' && t.id !== 'bericht');
-  }, [allPortalTabs, portalUser, isPremium]);
+  const menuTabs = allPortalTabs;
 
   const sendMessageMailto = async () => {
     const name = [portalUser?.firstName, portalUser?.lastName].filter(Boolean).join(' ') || 'Model';
@@ -852,23 +849,24 @@ function ModelPortalPageInner() {
         <ModelsCatalogGrid toolbarPlacement="titlebar" onTitlebarContent={setModellenTitlebarSlot} />
       </div>
     );
-  } else if (tab === 'historiek' && isPremium && can('portal.model.history.read')) {
+  } else if (tab === 'historiek' && can('portal.model.history.read')) {
     sectionTitle = 'Historiek';
-    sectionHeaderRight = historiekHeaderSlot ?? undefined;
+    sectionHeaderRight = isPremium ? historiekHeaderSlot ?? undefined : undefined;
     main = (
       <ModelPortalHistoriekTab
         token={token}
         lastLoginAt={portalUser.lastLoginAt ?? null}
-        onHeaderExtras={setHistoriekHeaderSlot}
+        onHeaderExtras={isPremium ? setHistoriekHeaderSlot : undefined}
+        blurDetails={!isPremium}
       />
     );
   } else if (tab === 'historiek') {
     sectionTitle = 'Historiek';
     main = (
-      <PremiumUpsellPanel
-        title="Historiek is premium"
-        body="Bekijk je volledige activiteitengeschiedenis (profiel, opdrachten, betalingen) alleen met een premium account."
-      />
+      <p className="text-sm text-muted">
+        Je account heeft geen rechten voor historiek. Vraag het bureau om{' '}
+        <code className="rounded bg-zinc-100 px-1 text-xs">portal.model.history.read</code>.
+      </p>
     );
   } else if (tab === 'push') {
     sectionTitle = 'Pushberichten';

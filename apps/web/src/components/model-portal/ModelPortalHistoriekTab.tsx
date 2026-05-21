@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { apiFetch } from '@/lib/api';
 
@@ -121,10 +122,13 @@ export function ModelPortalHistoriekTab({
   token,
   lastLoginAt,
   onHeaderExtras,
+  blurDetails = false,
 }: {
   token: string | null;
   lastLoginAt?: string | null;
-  onHeaderExtras: (node: ReactNode | null) => void;
+  onHeaderExtras?: (node: ReactNode | null) => void;
+  /** Zonder premium: titel/omschrijving rechts vervagen. */
+  blurDetails?: boolean;
 }) {
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -192,6 +196,7 @@ export function ModelPortalHistoriekTab({
   );
 
   useEffect(() => {
+    if (!onHeaderExtras) return;
     onHeaderExtras(headerNode);
     return () => {
       onHeaderExtras(null);
@@ -204,34 +209,45 @@ export function ModelPortalHistoriekTab({
 
   return (
     <div className="space-y-4">
+      {blurDetails ? (
+        <p className="rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
+          <strong>Premium:</strong> met een premium account kunt u de volledige historiek raadplegen (profiel,
+          opdrachten, betalingen, …).{' '}
+          <Link href="/portal/model?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
+            Bekijk Premium
+          </Link>
+        </p>
+      ) : null}
       {err ? <p className="text-sm text-red-700">{err}</p> : null}
 
       <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3">
-          <h3 className="font-serif text-sm font-semibold uppercase tracking-wide text-ink">Historiek</h3>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (!token) return;
-              if (!confirm('Volledige historiek wissen?')) return;
-              void (async () => {
-                setBusy(true);
-                try {
-                  await apiFetch('/portal/model/history', { method: 'DELETE', token });
-                  await load();
-                } catch (e: unknown) {
-                  alert(e instanceof Error ? e.message : 'Reset mislukt');
-                } finally {
-                  setBusy(false);
-                }
-              })();
-            }}
-            className="rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-zinc-50 disabled:opacity-50"
-          >
-            Historiek resetten
-          </button>
-        </div>
+        {!blurDetails ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3">
+            <h3 className="font-serif text-sm font-semibold uppercase tracking-wide text-ink">Historiek</h3>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (!token) return;
+                if (!confirm('Volledige historiek wissen?')) return;
+                void (async () => {
+                  setBusy(true);
+                  try {
+                    await apiFetch('/portal/model/history', { method: 'DELETE', token });
+                    await load();
+                  } catch (e: unknown) {
+                    alert(e instanceof Error ? e.message : 'Reset mislukt');
+                  } finally {
+                    setBusy(false);
+                  }
+                })();
+              }}
+              className="rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Historiek resetten
+            </button>
+          </div>
+        ) : null}
 
         <div className="p-4">
           {rows === null ? (
@@ -258,29 +274,36 @@ export function ModelPortalHistoriekTab({
                     <div className="relative z-[1] flex shrink-0 flex-col items-center pt-1">
                       <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-teal-600 shadow-sm ring-2 ring-white" />
                     </div>
-                    <div className="min-w-0 flex-1 pb-1">
-                      <p className="text-sm font-semibold text-ink">{title}</p>
-                      {sub ? <p className="mt-0.5 text-xs text-zinc-600">{sub}</p> : null}
-                      {lines.length > 0 ? (
-                        <button
-                          type="button"
-                          className="mt-1 text-xs font-medium text-sky-700 underline hover:text-sky-900"
-                          onClick={() =>
-                            setExpanded((prev) => {
-                              const n = new Set(prev);
-                              if (n.has(row.id)) n.delete(row.id);
-                              else n.add(row.id);
-                              return n;
-                            })
-                          }
-                        >
-                          {open ? 'info verbergen' : 'info'}
-                        </button>
-                      ) : null}
-                      {open && lines.length > 0 ? (
-                        <pre className="mt-2 max-h-40 overflow-auto rounded border border-zinc-100 bg-zinc-50 p-2 text-[11px] leading-snug text-zinc-800">
-                          {lines.join('\n')}
-                        </pre>
+                    <div className="relative min-w-0 flex-1 pb-1">
+                      <div className={blurDetails ? 'select-none blur-[5px]' : undefined} aria-hidden={blurDetails}>
+                        <p className="text-sm font-semibold text-ink">{title}</p>
+                        {sub ? <p className="mt-0.5 text-xs text-zinc-600">{sub}</p> : null}
+                        {lines.length > 0 && !blurDetails ? (
+                          <button
+                            type="button"
+                            className="mt-1 text-xs font-medium text-sky-700 underline hover:text-sky-900"
+                            onClick={() =>
+                              setExpanded((prev) => {
+                                const n = new Set(prev);
+                                if (n.has(row.id)) n.delete(row.id);
+                                else n.add(row.id);
+                                return n;
+                              })
+                            }
+                          >
+                            {open ? 'info verbergen' : 'info'}
+                          </button>
+                        ) : null}
+                        {open && lines.length > 0 && !blurDetails ? (
+                          <pre className="mt-2 max-h-40 overflow-auto rounded border border-zinc-100 bg-zinc-50 p-2 text-[11px] leading-snug text-zinc-800">
+                            {lines.join('\n')}
+                          </pre>
+                        ) : null}
+                      </div>
+                      {blurDetails ? (
+                        <p className="pointer-events-none absolute inset-0 flex items-center text-[10px] font-medium text-zinc-500">
+                          Premium vereist
+                        </p>
                       ) : null}
                     </div>
                   </li>

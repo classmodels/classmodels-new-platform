@@ -52,19 +52,27 @@ export function PushFilterPill({
   compact?: boolean;
 }) {
   const pill = portalTitlebarPillClass(active);
-  const showBadge = count > 0;
+  const showCount = count > 0;
+  const countLabel = count > 99 ? '99+' : String(count);
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`relative inline-flex items-center overflow-visible ${showBadge ? 'pr-3' : 'pr-2'} ${
-        compact ? 'min-h-[1.5rem] !px-2 !py-0.5' : 'min-h-[1.75rem]'
+      className={`inline-flex flex-col items-center justify-center gap-0 ${
+        compact ? 'min-h-[1.5rem] !px-2 !py-0.5' : 'min-h-[1.75rem] px-2.5 py-1'
       } ${pill}`}
     >
-      <span className={`font-medium ${compact ? '!text-[10px]' : 'text-[11px]'}`}>{label}</span>
-      {showBadge ? (
-        <PushCountBadge count={count} variant={active ? 'onWhite' : 'titlebar'} aria-hidden />
+      <span className={`font-medium leading-tight ${compact ? '!text-[10px]' : 'text-[11px]'}`}>{label}</span>
+      {showCount ? (
+        <span
+          className={`text-[9px] font-bold leading-none ${
+            active ? 'text-burgundy/90' : 'text-white/85'
+          }`}
+          aria-label={`${countLabel} berichten`}
+        >
+          {countLabel}
+        </span>
       ) : null}
     </button>
   );

@@ -55,7 +55,6 @@ export function ModelPortalPushTab({
   const [inbox, setInbox] = useState<InboxRow[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [prefsBusy, setPrefsBusy] = useState(false);
   const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [devicePushActive, setDevicePushActive] = useState(false);
@@ -127,27 +126,6 @@ export function ModelPortalPushTab({
   const selectedIds = useMemo(
     () => Object.entries(selected).filter(([, v]) => v).map(([k]) => k),
     [selected],
-  );
-
-  const patchPushPrefs = useCallback(
-    async (body: { notifyHistoryEvents?: boolean; notifyAgencyBroadcasts?: boolean }) => {
-      if (!token || !canRead) return;
-      setPrefsBusy(true);
-      setPushMsg(null);
-      try {
-        await apiFetch('/portal/model/push/settings', {
-          method: 'PATCH',
-          token,
-          body: JSON.stringify(body),
-        });
-        await refreshMe();
-      } catch (e) {
-        setPushMsg(e instanceof Error ? e.message : 'Voorkeur opslaan mislukt');
-      } finally {
-        setPrefsBusy(false);
-      }
-    },
-    [token, canRead, refreshMe],
   );
 
   const markRead = useCallback(
@@ -348,9 +326,6 @@ export function ModelPortalPushTab({
   const inboxIds = useMemo(() => filteredInbox.map((r) => r.id), [filteredInbox]);
   const allSelected = inboxIds.length > 0 && inboxIds.every((id) => selected[id]);
 
-  const vapidOk = pushSummary?.webPushConfigured && !!pushSummary?.vapidPublicKey;
-  const compactPushTitleBar = canSubscribe && devicePushActive;
-
   useEffect(() => {
     if (!onTitleBar || !canRead) {
       onTitleBar?.(null);
@@ -393,8 +368,7 @@ export function ModelPortalPushTab({
             {devicePushActive ? 'Push uit' : 'Push aan'}
           </button>
         ) : null}
-        {!compactPushTitleBar ? (
-          <>
+        <>
             <span className="min-w-1 shrink-0" aria-hidden />
             <PushFilterPill
               label="Alle"
@@ -454,8 +428,7 @@ export function ModelPortalPushTab({
                 <PushCountBadge count={selectedIds.length} variant="titlebar" aria-hidden />
               ) : null}
             </button>
-          </>
-        ) : null}
+        </>
       </div>,
     );
     return () => onTitleBar(null);
@@ -477,7 +450,6 @@ export function ModelPortalPushTab({
     countRead,
     unreadFromApi,
     devicePushActive,
-    compactPushTitleBar,
   ]);
 
   if (!canRead) {
@@ -490,81 +462,11 @@ export function ModelPortalPushTab({
     );
   }
 
-  const showPushIntro = canSubscribe && !devicePushActive;
-
   return (
     <div className="text-sm">
       {pushMsg ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
 
-      {compactPushTitleBar ? (
-        <div className="mb-4 space-y-2 text-xs leading-relaxed text-muted">
-          <p>
-            Push op dit apparaat staat <strong className="text-ink">aan</strong>. Voorkeuren en inbox staan hier uit de
-            weg; schakel uit met <strong className="text-ink">Push uit</strong> in de rode titelbalk om alles terug te
-            zien.
-          </p>
-          {!vapidOk ? (
-            <p className="text-amber-900">
-              Server-VAPID ontbreekt of is ongeldig — dan werkt inschakelen niet. Laat de beheerder de API-.env of{' '}
-              <code className="rounded bg-amber-100 px-1">apps/api/data/vapid-keys.json</code> controleren.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!compactPushTitleBar && showPushIntro ? (
-        <div className="mb-5 space-y-2 text-xs leading-relaxed text-zinc-700">
-          <p>
-            Zet <strong>systeemmeldingen</strong> aan of uit met <strong className="text-ink">Push aan</strong> in de
-            rode titelbalk. Hieronder kies je welke <strong>soorten berichten</strong> in je inbox terechtkomen (je
-            voorkeuren blijven bewaard).
-          </p>
-          <p className="text-muted">
-            Op iPhone: voeg de site toe aan het beginscherm via Safari → Deel → Zet op beginscherm, en sta meldingen toe.
-          </p>
-          {!vapidOk ? (
-            <p className="text-amber-900">
-              De server heeft (nog) geen werkende VAPID-sleutels. Genereer met{' '}
-              <code className="rounded bg-amber-100 px-1">npx web-push generate-vapid-keys</code> en zet{' '}
-              <code className="rounded bg-amber-100 px-1">VAPID_PUBLIC_KEY</code> /{' '}
-              <code className="rounded bg-amber-100 px-1">VAPID_PRIVATE_KEY</code> in de API-.env — of laat de API een
-              sleutelpaar aanmaken (bestand <code className="rounded bg-amber-100 px-1">apps/api/data/vapid-keys.json</code>) en herstart.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {!compactPushTitleBar && pushSummary ? (
-        <div className="mb-4 space-y-2 rounded border border-line bg-zinc-50/80 p-3 text-xs leading-snug text-zinc-800">
-          <p className="font-medium text-ink">Meldingen in je account</p>
-          <label className="flex cursor-pointer items-start gap-2">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 shrink-0"
-              checked={pushSummary.notifyHistoryEvents}
-              disabled={prefsBusy}
-              onChange={(e) => void patchPushPrefs({ notifyHistoryEvents: e.target.checked })}
-            />
-            <span>Historiek (agenda, status, …): inbox en — als push op dit toestel aan staat — systeemmelding</span>
-          </label>
-          <label className="flex cursor-pointer items-start gap-2">
-            <input
-              type="checkbox"
-              className="mt-0.5 h-4 w-4 shrink-0"
-              checked={pushSummary.notifyAgencyBroadcasts}
-              disabled={prefsBusy}
-              onChange={(e) => void patchPushPrefs({ notifyAgencyBroadcasts: e.target.checked })}
-            />
-            <span>Berichten van het bureau (opdrachten, casting, …)</span>
-          </label>
-          <p className="text-[10px] text-muted">
-            Uit = geen nieuwe berichten meer voor die categorie. Je bestaande inbox blijft staan.
-          </p>
-        </div>
-      ) : null}
-
-      {!compactPushTitleBar ? (
-        <div className="space-y-3">
+      <div className="space-y-3">
           {loadErr ? <p className="text-xs text-red-700">{loadErr}</p> : null}
           <ul className="space-y-2">
             {filteredInbox.map((row) => (
@@ -624,8 +526,7 @@ export function ModelPortalPushTab({
                 : 'Geen berichten in deze weergave — kies een andere tab in de titelbalk (of zet Push uit om de lijst hier te tonen).'}
             </p>
           ) : null}
-        </div>
-      ) : null}
+      </div>
     </div>
   );
 }
