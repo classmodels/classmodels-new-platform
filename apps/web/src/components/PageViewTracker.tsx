@@ -31,6 +31,7 @@ export function PageViewTracker() {
     const path = pathname.split('?')[0] || '/';
     void apiFetch('/analytics/pageview', {
       method: 'POST',
+      skipLoading: true,
       body: JSON.stringify({
         path,
         sessionId: getSessionId(),

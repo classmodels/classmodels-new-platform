@@ -425,6 +425,23 @@ export default function AdminMediaPage() {
     setSettingsMsg(`WebP opnieuw gegenereerd: ${res.processed} / ${res.scanned}.`);
   };
 
+  const convertModelsWebpOnly = async () => {
+    if (!token || !activeFolder || activeFolder.slug !== 'models') return;
+    if (
+      !confirm(
+        'Alle afbeeldingen in Modellen omzetten naar alleen WebP + thumbnail (max. 200 per batch)? Grote JPG/PNG worden van de server verwijderd.',
+      )
+    )
+      return;
+    const res = await adminFetch<{ processed: number; scanned: number }>(
+      `/media/folders/${activeFolder.id}/convert-webp-only?limit=200`,
+      token,
+      { method: 'POST', loadingLabel: 'Modellenmap omzetten naar WebP…' },
+    );
+    await load();
+    setSettingsMsg(`Modellen WebP-only: ${res.processed} / ${res.scanned} verwerkt. Herhaal indien nodig.`);
+  };
+
   const convertPrimaryToJpegFolder = async () => {
     if (!token || !activeFolder || activeFolder.slug === 'verwijderde') return;
     if (
@@ -779,6 +796,15 @@ export default function AdminMediaPage() {
                   >
                     Primair → JPEG (compact)
                   </button>
+                  {activeFolder.slug === 'models' ? (
+                    <button
+                      type="button"
+                      onClick={() => void convertModelsWebpOnly()}
+                      className="rounded border border-lime-700 bg-lime-50 px-2 py-1 text-[10px] font-medium text-lime-900 hover:bg-lime-100"
+                    >
+                      Modellen → alleen WebP
+                    </button>
+                  ) : null}
                 </div>
                 <p className="mt-1 text-[9px] text-muted">
                   Zet dagen bv. op 2: na bevestigde download in het modelportaal worden portfoliofoto&apos;s daarna

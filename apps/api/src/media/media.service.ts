@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import {
   createReadStream,
@@ -109,7 +110,7 @@ type AssetWithFolder = {
 };
 
 @Injectable()
-export class MediaService {
+export class MediaService implements OnModuleInit {
   /** Cache: basename → pad relatief t.o.v. MEDIA_ROOT (lege map = geen cache). */
   private diskBasenameIndex: { root: string; map: Map<string, string> } | null = null;
 
@@ -117,6 +118,10 @@ export class MediaService {
     private prisma: PrismaService,
     private modelHistory: ModelPortalHistoryService,
   ) {}
+
+  onModuleInit() {
+    void this.reconcileModelsFolderWebpOnly(30).catch(() => undefined);
+  }
 
   private invalidateDiskBasenameIndex() {
     this.diskBasenameIndex = null;
@@ -254,6 +259,50 @@ export class MediaService {
       if (rel) return basename(k);
     }
     return asset.storageKey;
+  }
+
+  /** Modellenrooster: nooit grote JPG/PNG — alleen thumb of compacte WebP. */
+  resolveCatalogThumbKey(asset: {
+    storageKey: string;
+    webpKey?: string | null;
+    thumbKey?: string | null;
+  }): string | null {
+    const root = this.root();
+    const tryKey = (k: string | null | undefined): string | null => {
+      if (!k) return null;
+      if (existsSync(join(root, k))) return k;
+      const rel = this.lookupDiskRelativePath(basename(k));
+      return rel ? basename(k) : null;
+    };
+    const thumb = tryKey(asset.thumbKey);
+    if (thumb) return thumb;
+    const webp = tryKey(asset.webpKey);
+    if (webp) return webp;
+    if (asset.storageKey.toLowerCase().endsWith('.webp')) {
+      return tryKey(asset.storageKey);
+    }
+    return null;
+  }
+
+  /** Galerij in modellenfiche: compacte WebP, geen bron-JPG/PNG. */
+  resolveGalleryWebKey(asset: {
+    storageKey: string;
+    webpKey?: string | null;
+    thumbKey?: string | null;
+  }): string | null {
+    const root = this.root();
+    const tryKey = (k: string | null | undefined): string | null => {
+      if (!k) return null;
+      if (existsSync(join(root, k))) return k;
+      const rel = this.lookupDiskRelativePath(basename(k));
+      return rel ? basename(k) : null;
+    };
+    const webp = tryKey(asset.webpKey);
+    if (webp) return webp;
+    if (asset.storageKey.toLowerCase().endsWith('.webp')) {
+      return tryKey(asset.storageKey);
+    }
+    return tryKey(asset.thumbKey);
   }
 
   /** Grotere weergave: webp/full vóór thumbnail. */
@@ -408,7 +457,112 @@ export class MediaService {
       });
     }
 
+    const modelsFolder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'models' } });
+    if (modelsFolder) {
+      await this.updateFolderSettings(modelsFolder.id, { storeUploadsAsWebpOnly: true });
+    }
+
     return this.prisma.mediaFolder.findMany({ orderBy: { slug: 'asc' } });
+  }
+
+  private assetBaseId(storageKey: string): string {
+    const base = basename(storageKey);
+    return base.replace(/_thumb\.webp$/i, '').replace(/\.[^.]+$/, '') || base;
+  }
+
+  private safeUnlink(root: string, key: string | null | undefined) {
+    if (!key) return;
+    try {
+      const p = join(root, key);
+      if (existsSync(p)) unlinkSync(p);
+    } catch {
+      /* */
+    }
+  }
+
+  /**
+   * Map Modellen: alleen WebP + thumb op schijf (geen losse JPG/PNG).
+   * Verwerkt in batches (startup, catalogus, admin-knop).
+   */
+  async reconcileModelsFolderWebpOnly(limit = 40): Promise<{ processed: number; scanned: number }> {
+    await this.ensureDefaultFolders();
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'models' } });
+    if (!folder) return { processed: 0, scanned: 0 };
+
+    const root = this.root();
+    const assets = await this.prisma.mediaAsset.findMany({
+      where: { folderId: folder.id, hardDeleted: false, mimeType: { startsWith: 'image/' } },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+
+    let processed = 0;
+    for (const a of assets) {
+      const baseId = this.assetBaseId(a.storageKey);
+      const newStorageKey = `${baseId}.webp`;
+      const newThumbKey = `${baseId}_thumb.webp`;
+
+      const srcPath = [a.storageKey, a.webpKey, a.thumbKey]
+        .filter(Boolean)
+        .map((k) => join(root, k!))
+        .find((p) => existsSync(p));
+
+      if (!srcPath) continue;
+
+      try {
+        const fullPath = join(root, newStorageKey);
+        if (!existsSync(fullPath)) {
+          await sharp(srcPath)
+            .rotate()
+            .webp({ quality: WEBP_FULL_QUALITY, effort: WEBP_EFFORT })
+            .toFile(fullPath);
+        }
+        const thumbPath = join(root, newThumbKey);
+        if (!existsSync(thumbPath)) {
+          await sharp(fullPath)
+            .rotate()
+            .resize(360, 360, { fit: 'inside' })
+            .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
+            .toFile(thumbPath);
+        }
+
+        const stat = statSync(fullPath);
+        const orphans = new Set<string>();
+        if (a.storageKey !== newStorageKey) orphans.add(a.storageKey);
+        if (a.webpKey && a.webpKey !== newStorageKey && a.webpKey !== newThumbKey) orphans.add(a.webpKey);
+        if (a.thumbKey && a.thumbKey !== newThumbKey) orphans.add(a.thumbKey);
+        for (const ext of ['.jpg', '.jpeg', '.png', '.gif', '.JPG', '.JPEG', '.PNG']) {
+          orphans.add(`${baseId}${ext}`);
+        }
+        for (const k of orphans) this.safeUnlink(root, k);
+
+        await this.prisma.mediaAsset.update({
+          where: { id: a.id },
+          data: {
+            storageKey: newStorageKey,
+            mimeType: 'image/webp',
+            sizeBytes: stat.size,
+            webpKey: null,
+            thumbKey: newThumbKey,
+          },
+        });
+        processed++;
+      } catch {
+        /* volgende */
+      }
+    }
+
+    this.invalidateDiskBasenameIndex();
+    return { processed, scanned: assets.length };
+  }
+
+  async reconcileFolderWebpOnly(folderId: string, limit = 200) {
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException();
+    if (folder.slug !== 'models') {
+      throw new BadRequestException('WebP-only opschoning is alleen voor map Modellen (slug models).');
+    }
+    return this.reconcileModelsFolderWebpOnly(limit);
   }
 
   /** Nieuwe lege map (slug uniek, afgeleid van label). */

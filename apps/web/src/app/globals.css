@@ -62,7 +62,7 @@ body {
   translate: no;
 }
 
-@keyframes catalog-load-progress {
+@keyframes cm-progress-slide {
   0% {
     transform: translateX(-100%);
   }
@@ -71,6 +71,6 @@ body {
   }
 }
 
-.catalog-load-bar {
-  animation: catalog-load-progress 1.4s ease-in-out infinite;
+.cm-progress-bar {
+  animation: cm-progress-slide 1.4s ease-in-out infinite;
 }

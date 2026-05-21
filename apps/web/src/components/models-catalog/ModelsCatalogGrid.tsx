@@ -11,6 +11,8 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiBase, apiFetch, publicMediaUrl, parseApiErrorBody } from '@/lib/api';
+import { CmProgressBar } from '@/components/CmProgressBar';
+import { loadingBegin, loadingEnd } from '@/lib/loading-bus';
 import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
@@ -202,17 +204,6 @@ function friendlyCatalogError(raw: string): string {
   return parseApiErrorBody(t);
 }
 
-function CatalogLoadingBar({ label }: { label: string }) {
-  return (
-    <div className="mb-4" role="status" aria-live="polite" aria-busy="true">
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-800">
-        <div className="catalog-load-bar h-full w-1/3 rounded-full bg-lime-400" />
-      </div>
-      <p className="mt-2 text-center text-sm text-zinc-400">{label}</p>
-    </div>
-  );
-}
-
 function ModelDetailDialog({
   m,
   initialPhotoSrc,
@@ -241,6 +232,7 @@ function ModelDetailDialog({
     let cancelled = false;
     setDetailLoading(true);
     setDetailErr(null);
+    loadingBegin('Modellenfiche laden…');
     fetch(`${getApiBase()}/catalog/models/${m.id}`, { headers: h })
       .then(async (r) => {
         if (!r.ok) throw new Error(await r.text());
@@ -256,6 +248,7 @@ function ModelDetailDialog({
         }
       })
       .finally(() => {
+        loadingEnd();
         if (!cancelled) setDetailLoading(false);
       });
     return () => {
@@ -304,7 +297,7 @@ function ModelDetailDialog({
       >
         {detailLoading ? (
           <div className="mb-4 px-1">
-            <CatalogLoadingBar label="Modellenfiche laden…" />
+            <CmProgressBar label="Modellenfiche laden…" />
           </div>
         ) : null}
         {detailErr ? (
@@ -623,6 +616,7 @@ export function ModelsCatalogGrid({
     loadAbortRef.current = ac;
     setLoading(true);
     setLoadErr(null);
+    loadingBegin('Modellen laden…');
     try {
       const h = new Headers();
       if (token) h.set('Authorization', `Bearer ${token}`);
@@ -639,6 +633,7 @@ export function ModelsCatalogGrid({
       setLoadErr(friendlyCatalogError(msg));
       setRows([]);
     } finally {
+      loadingEnd();
       if (!ac.signal.aborted) setLoading(false);
     }
   }, [token]);
@@ -764,7 +759,7 @@ export function ModelsCatalogGrid({
 
   return (
     <div className="rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6">
-      {loading ? <CatalogLoadingBar label="Modellen laden…" /> : null}
+      {loading ? <CmProgressBar label="Modellen laden…" className="mb-4" /> : null}
       {loadErr ? (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-red-300">{loadErr}</p>
@@ -890,7 +885,14 @@ export function ModelsCatalogGrid({
                 <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md bg-zinc-800">
                   {m.profileThumbKey ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imgUrl(m.profileThumbKey)} alt="" className="h-full w-full object-cover" />
+                    <img
+                      src={imgUrl(m.profileThumbKey)}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      decoding="async"
+                      fetchPriority="low"
+                    />
                   ) : (
                     <div className="flex h-full items-center justify-center px-2 text-center text-[10px] text-zinc-500">
                       Geen foto

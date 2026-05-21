@@ -315,6 +315,17 @@ export class MediaController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('folders/:folderId/convert-webp-only')
+  convertWebpOnly(
+    @Param('folderId', ParseUUIDPipe) folderId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const n = limit ? parseInt(limit, 10) : 200;
+    return this.media.reconcileFolderWebpOnly(folderId, Number.isFinite(n) ? n : 200);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.read')
   @Get('folders/:folderId/download.zip')
   async folderDownloadZip(

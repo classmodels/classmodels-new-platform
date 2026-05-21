@@ -1,3 +1,5 @@
+import { loadingBegin, loadingEnd } from '@/lib/loading-bus';
+
 /** Zelfde domein als de site → geen CORS (Combell: Next + API op één origin). */
 export const CM_API_PROXY_PREFIX = '/__cm_api';
 
@@ -98,30 +100,39 @@ export function publicFolderZipUrl(folderSlug: string | null | undefined): strin
   return `${getMediaPublicBaseUrl()}/media/folder/${encodeURIComponent(s)}/download.zip`;
 }
 
-export async function apiFetch<T>(
-  path: string,
-  init?: RequestInit & { token?: string | null },
-): Promise<T> {
+export type ApiFetchInit = RequestInit & {
+  token?: string | null;
+  /** Geen globale voortgangsbalk (bv. achtergrond-polling). */
+  skipLoading?: boolean;
+  loadingLabel?: string;
+};
+
+export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
   const API = getApiBase();
-  const { token, ...rest } = init ?? {};
-  const headers = new Headers(rest.headers);
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-  if (!headers.has('Content-Type') && rest.body && typeof rest.body === 'string') {
-    headers.set('Content-Type', 'application/json');
-  }
-  const res = await fetch(`${API}${path.startsWith('/') ? path : `/${path}`}`, {
-    ...rest,
-    headers,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    if (text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
-      throw new Error(
-        'Server gaf een webpagina i.p.v. API-data. Wacht op deploy of controleer /__cm_api (zie Combell pipeline).',
-      );
+  const { token, skipLoading, loadingLabel, ...rest } = init ?? {};
+  if (!skipLoading) loadingBegin(loadingLabel ?? 'Bezig…');
+  try {
+    const headers = new Headers(rest.headers);
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    if (!headers.has('Content-Type') && rest.body && typeof rest.body === 'string') {
+      headers.set('Content-Type', 'application/json');
     }
-    throw new Error(parseApiErrorBody(text || res.statusText));
+    const res = await fetch(`${API}${path.startsWith('/') ? path : `/${path}`}`, {
+      ...rest,
+      headers,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      if (text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
+        throw new Error(
+          'Server gaf een webpagina i.p.v. API-data. Wacht op deploy of controleer /__cm_api (zie Combell pipeline).',
+        );
+      }
+      throw new Error(parseApiErrorBody(text || res.statusText));
+    }
+    if (res.status === 204) return undefined as T;
+    return res.json() as Promise<T>;
+  } finally {
+    if (!skipLoading) loadingEnd();
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
 }

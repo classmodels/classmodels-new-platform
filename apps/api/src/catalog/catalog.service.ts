@@ -196,9 +196,9 @@ export class CatalogService {
     const fallbackAsset = opts.fallbackThumbs.get(u.id);
     const thumbKey =
       u.profilePhoto != null
-        ? this.media.resolvePublicFilename(u.profilePhoto)
+        ? this.media.resolveCatalogThumbKey(u.profilePhoto)
         : fallbackAsset != null
-          ? this.media.resolvePublicFilename(fallbackAsset)
+          ? this.media.resolveCatalogThumbKey(fallbackAsset)
           : null;
     const sheetMode: 'admin' | 'member' | 'none' = opts.isAdmin
       ? 'admin'
@@ -460,7 +460,8 @@ export class CatalogService {
 
     const keys: string[] = [];
     const pushKey = (asset: { storageKey: string; webpKey: string | null; thumbKey: string | null; mimeType: string }) => {
-      const k = this.media.resolvePublicFilename(asset);
+      const k =
+        this.media.resolveGalleryWebKey(asset) ?? this.media.resolveCatalogThumbKey(asset);
       if (k && !keys.includes(k)) keys.push(k);
     };
 
