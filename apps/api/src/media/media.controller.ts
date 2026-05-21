@@ -218,7 +218,7 @@ export class MediaController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('upload-zip/init')
-  initZipChunked(@Body() body: InitZipChunkedDto, @Req() req: { user: JwtPayload }) {
+  async initZipChunked(@Body() body: InitZipChunkedDto, @Req() req: { user: JwtPayload }) {
     return this.media.initZipChunkedUpload(
       body.folderId,
       body.fileName.trim(),
@@ -240,7 +240,7 @@ export class MediaController {
           cb(null, `chunk-${randomUUID()}`);
         },
       }),
-      limits: { fileSize: ZIP_UPLOAD_CHUNK_BYTES + 8 * 1024 * 1024 },
+      limits: { fileSize: ZIP_UPLOAD_CHUNK_BYTES + 4 * 1024 * 1024 },
     }),
   )
   uploadZipChunk(
@@ -254,7 +254,7 @@ export class MediaController {
     if (!id) return { error: 'uploadId is verplicht' };
     const idx = chunkIndex != null ? parseInt(chunkIndex, 10) : NaN;
     if (!Number.isFinite(idx)) return { error: 'chunkIndex is verplicht' };
-    return this.media.writeZipChunkedPart(id, idx, file.path, req.user.sub);
+    return this.media.writeZipChunkedPart(id, idx, file.path, req.user.sub, file.size);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

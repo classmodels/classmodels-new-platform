@@ -141,13 +141,45 @@ export default function CommunicatieVerzendenPage() {
         channel === 'email'
           ? { ...base, subject, htmlBody }
           : { ...base, smsBody };
-      const res = await adminFetch<{ campaignId: string; sent: number; failed: number; skipped: number }>(
-        '/admin/comms/send',
-        token,
-        { method: 'POST', body: JSON.stringify(body) },
-      );
+      const res = await adminFetch<{
+        campaignId: string;
+        sent: number;
+        failed: number;
+        skipped: number;
+        total?: number;
+        background?: boolean;
+        message?: string;
+      }>('/admin/comms/send', token, { method: 'POST', body: JSON.stringify(body) });
       setLastCampaignId(res.campaignId ?? null);
-      setOk(`Verzonden: ${res.sent}, mislukt: ${res.failed}, overgeslagen: ${res.skipped}.`);
+
+      if (res.background && res.campaignId) {
+        setOk(res.message ?? `Verzending gestart (${res.total ?? included} ontvangers)…`);
+        const campaignId = res.campaignId;
+        const poll = async () => {
+          try {
+            const c = await adminFetch<{
+              sentCount: number;
+              failedCount: number;
+              stats: { sent: number; failed: number; total: number };
+            }>(`/admin/comms/campaigns/${campaignId}`, token);
+            const done = (c.stats?.sent ?? 0) + (c.stats?.failed ?? 0);
+            const total = c.stats?.total ?? res.total ?? included;
+            if (done < total) {
+              setOk(`Bezig met verzenden: ${done} / ${total} (verzonden: ${c.sentCount}, mislukt: ${c.failedCount})…`);
+              window.setTimeout(() => void poll(), 4000);
+            } else {
+              setOk(
+                `Klaar: ${c.sentCount} verzonden, ${c.failedCount} mislukt, ${res.skipped ?? 0} overgeslagen.`,
+              );
+            }
+          } catch {
+            setOk('Verzending loopt op de server. Bekijk Communicatie → Geschiedenis.');
+          }
+        };
+        window.setTimeout(() => void poll(), 3000);
+      } else {
+        setOk(`Verzonden: ${res.sent}, mislukt: ${res.failed}, overgeslagen: ${res.skipped}.`);
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Versturen mislukt');
     } finally {

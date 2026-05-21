@@ -86,6 +86,11 @@ export function normalizeBelgiumMsisdn(raw: string | null | undefined): string |
 @Injectable()
 export class AgendaNotificationService {
   private readonly log = new Logger(AgendaNotificationService.name);
+  private smtpCache: {
+    key: string;
+    transporter: nodemailer.Transporter;
+    from: string;
+  } | null = null;
 
   constructor(private prisma: PrismaService) {}
 
@@ -260,6 +265,39 @@ export class AgendaNotificationService {
     }
   }
 
+  private async getSmtpTransport(): Promise<{
+    transporter: nodemailer.Transporter;
+    from: string;
+  } | null> {
+    let cfg: Awaited<ReturnType<typeof resolveSmtpConfig>>;
+    try {
+      cfg = await resolveSmtpConfig(this.prisma);
+    } catch (e) {
+      this.log.warn(`SMTP-config lezen mislukt: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }
+    if (!cfg) return null;
+    const key = `${cfg.host}:${cfg.port}:${cfg.user}:${cfg.from}`;
+    if (this.smtpCache?.key === key) {
+      return { transporter: this.smtpCache.transporter, from: this.smtpCache.from };
+    }
+    try {
+      const transporter = nodemailer.createTransport({
+        host: cfg.host,
+        port: cfg.port,
+        secure: cfg.secure,
+        auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+        pool: true,
+        maxConnections: 3,
+      });
+      this.smtpCache = { key, transporter, from: cfg.from };
+      return { transporter, from: cfg.from };
+    } catch (e) {
+      this.log.warn(`SMTP-transport ongeldig: ${e instanceof Error ? e.message : String(e)}`);
+      return null;
+    }
+  }
+
   private async trySendSmtp(
     to: string | null,
     subject: string,
@@ -269,31 +307,12 @@ export class AgendaNotificationService {
     const addr = to?.trim();
     if (!addr) return false;
 
-    let cfg: Awaited<ReturnType<typeof resolveSmtpConfig>>;
-    try {
-      cfg = await resolveSmtpConfig(this.prisma);
-    } catch (e) {
-      this.log.warn(`SMTP-config lezen mislukt: ${e instanceof Error ? e.message : String(e)}`);
-      return false;
-    }
-    if (!cfg) return false;
-
-    let transporter: nodemailer.Transporter;
-    try {
-      transporter = nodemailer.createTransport({
-        host: cfg.host,
-        port: cfg.port,
-        secure: cfg.secure,
-        auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
-      });
-    } catch (e) {
-      this.log.warn(`SMTP-transport ongeldig: ${e instanceof Error ? e.message : String(e)}`);
-      return false;
-    }
+    const smtp = await this.getSmtpTransport();
+    if (!smtp) return false;
 
     try {
-      await transporter.sendMail({
-        from: cfg.from,
+      await smtp.transporter.sendMail({
+        from: smtp.from,
         to: addr,
         subject,
         html,

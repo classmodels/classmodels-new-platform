@@ -1,10 +1,12 @@
 import { parseApiErrorBody } from '@/lib/api';
 import { type UploadProgressUpdate, uploadWithProgress } from '@/lib/upload-with-progress';
 
-/** Vanaf deze grootte: upload in stukken van ±32 MB (stabieler dan één POST van 4+ GB). */
-export const ZIP_CHUNKED_THRESHOLD_BYTES = 50 * 1024 * 1024;
+const CHUNK_REQUEST_TIMEOUT_MS = 600_000;
+const MAX_CHUNK_RETRIES = 4;
 
-const CHUNK_REQUEST_TIMEOUT_MS = 900_000;
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
 export async function uploadZipChunked(
   file: File,
@@ -41,24 +43,39 @@ export async function uploadZipChunked(
     const start = i * chunkSize;
     const end = Math.min(start + chunkSize, file.size);
     const blob = file.slice(start, end);
-    const fd = new FormData();
-    fd.append('chunk', blob, `part-${String(i).padStart(5, '0')}.bin`);
-
     const chunkUrl = `${base}/media/upload-zip/chunk?uploadId=${encodeURIComponent(uploadId)}&chunkIndex=${i}`;
-    await uploadWithProgress(chunkUrl, {
-      headers: auth,
-      body: fd,
-      timeoutMs: CHUNK_REQUEST_TIMEOUT_MS,
-      onProgress: (p) => {
-        const overall = Math.floor(((i + p.percent / 100) / totalChunks) * 100);
-        opts.onProgress?.({
-          percent: Math.min(99, overall),
-          loaded: end,
-          total: file.size,
-          etaSeconds: p.etaSeconds,
+
+    let lastErr: Error | null = null;
+    for (let attempt = 0; attempt < MAX_CHUNK_RETRIES; attempt++) {
+      if (attempt > 0) await sleep(1500 * attempt);
+      const fd = new FormData();
+      fd.append('chunk', blob, `part-${String(i).padStart(5, '0')}.bin`);
+      try {
+        await uploadWithProgress(chunkUrl, {
+          headers: auth,
+          body: fd,
+          timeoutMs: CHUNK_REQUEST_TIMEOUT_MS,
+          onProgress: (p) => {
+            const overall = Math.floor(((i + p.percent / 100) / totalChunks) * 100);
+            opts.onProgress?.({
+              percent: Math.min(99, overall),
+              loaded: end,
+              total: file.size,
+              etaSeconds: p.etaSeconds,
+            });
+          },
         });
-      },
-    });
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e instanceof Error ? e : new Error(String(e));
+      }
+    }
+    if (lastErr) {
+      throw new Error(
+        `Deel ${i + 1}/${totalChunks} mislukt na ${MAX_CHUNK_RETRIES} pogingen: ${parseApiErrorBody(lastErr.message)}`,
+      );
+    }
 
     opts.onProgress?.({
       percent: Math.min(99, Math.floor(((i + 1) / totalChunks) * 100)),

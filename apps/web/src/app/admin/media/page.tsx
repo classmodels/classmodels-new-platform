@@ -12,6 +12,11 @@ import {
   publicMediaUrl,
 } from '@/lib/api';
 import { formatEtaSeconds, uploadWithProgress } from '@/lib/upload-with-progress';
+import {
+  formatZipUploadError,
+  uploadZipReliable,
+  zipUploadModeLabel,
+} from '@/lib/upload-zip-reliable';
 import { CmProgressBar } from '@/components/CmProgressBar';
 
 type MediaAssetRow = {
@@ -277,7 +282,6 @@ export default function AdminMediaPage() {
       );
     }
     try {
-      const uploadBase = getLargeUploadApiBase();
       const progressCb = {
         onProgress: (p: { percent: number; etaSeconds: number | null }) =>
           setUploadProgress({
@@ -295,17 +299,12 @@ export default function AdminMediaPage() {
           }),
       };
 
-      const fd = new FormData();
-      fd.append('file', zipFile);
-      const text = await uploadWithProgress(
-        `${uploadBase}/media/upload-zip?folderId=${encodeURIComponent(selectedFolderId)}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-          timeoutMs: 21_600_000,
-          ...progressCb,
-        },
-      );
+      const text = await uploadZipReliable({
+        file: zipFile,
+        folderId: selectedFolderId,
+        token,
+        ...progressCb,
+      });
       const r = JSON.parse(text) as {
         zipName?: string;
         sizeBytes?: number;
@@ -319,7 +318,7 @@ export default function AdminMediaPage() {
       sessionStorage.removeItem('cm_media_zip_upload');
       await load({ page: 1 });
     } catch (e) {
-      setZipMsg(e instanceof Error ? e.message : 'ZIP-upload mislukt');
+      setZipMsg(formatZipUploadError(e));
       sessionStorage.removeItem('cm_media_zip_upload');
     } finally {
       setZipUploading(false);
@@ -881,8 +880,8 @@ export default function AdminMediaPage() {
                   indeterminate={uploadProgress.processing}
                 />
                 <p className="text-[10px] text-amber-900">
-                  Ververs de pagina niet tijdens upload of verwerking — anders moet u opnieuw beginnen. Grote ZIP’s
-                  gaan in één bestand rechtstreeks naar de API-server (kan 30–90 minuten duren bij 4+ GB).
+                  Ververs de pagina niet tijdens upload of verwerking — anders moet u opnieuw beginnen.
+                  {zipFile ? ` ${zipUploadModeLabel(zipFile)}.` : ''} Bij 4+ GB kan dit 30–90 minuten duren.
                 </p>
               </div>
             ) : null}

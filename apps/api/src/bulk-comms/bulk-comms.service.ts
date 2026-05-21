@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
@@ -28,6 +28,18 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 @Injectable()
 export class BulkCommsService {
+  private readonly log = new Logger(BulkCommsService.name);
+
+  private static backgroundMinRecipients(): number {
+    const n = parseInt(process.env.BULK_COMMS_BACKGROUND_MIN || '30', 10);
+    return Number.isFinite(n) && n > 0 ? n : 30;
+  }
+
+  private static emailDelayMs(): number {
+    const n = parseInt(process.env.BULK_EMAIL_DELAY_MS || '80', 10);
+    return Number.isFinite(n) && n >= 0 ? n : 80;
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: AgendaNotificationService,
@@ -181,9 +193,36 @@ export class BulkCommsService {
       },
     });
 
+    const bgMin = BulkCommsService.backgroundMinRecipients();
+    if (toSend.length >= bgMin) {
+      void this.runCampaignDispatch(campaign.id, dto, toSend).catch((e) => {
+        this.log.error(
+          `Bulk campagne ${campaign.id} afgebroken: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
+      return {
+        campaignId: campaign.id,
+        background: true as const,
+        sent: 0,
+        failed: 0,
+        skipped: 0,
+        total: toSend.length,
+        message: `Verzending gestart op de server (${toSend.length} ontvangers). Voortgang: Communicatie → Geschiedenis.`,
+      };
+    }
+
+    return this.runCampaignDispatch(campaign.id, dto, toSend);
+  }
+
+  private async runCampaignDispatch(
+    campaignId: string,
+    dto: BulkCommsSendDto,
+    toSend: BulkRecipientRow[],
+  ) {
     let sent = 0;
     let failed = 0;
     let skipped = 0;
+    const emailDelay = BulkCommsService.emailDelayMs();
 
     if (dto.channel === 'email') {
       const subject = dto.subject?.trim();
@@ -200,7 +239,7 @@ export class BulkCommsService {
         const token = randomUUID();
         const delivery = await this.prisma.bulkMessageDelivery.create({
           data: {
-            campaignId: campaign.id,
+            campaignId,
             userId: r.userId || null,
             email: to,
             phone: r.phone || null,
@@ -221,6 +260,7 @@ export class BulkCommsService {
         });
         if (ok) sent += 1;
         else failed += 1;
+        if (emailDelay > 0) await new Promise((res) => setTimeout(res, emailDelay));
       }
     } else {
       const text = dto.smsBody?.trim();
@@ -233,7 +273,7 @@ export class BulkCommsService {
         }
         const delivery = await this.prisma.bulkMessageDelivery.create({
           data: {
-            campaignId: campaign.id,
+            campaignId,
             userId: r.userId || null,
             email: r.email || null,
             phone,
@@ -256,11 +296,11 @@ export class BulkCommsService {
     }
 
     await this.prisma.bulkMessageCampaign.update({
-      where: { id: campaign.id },
+      where: { id: campaignId },
       data: { sentCount: sent, failedCount: failed, skippedCount: skipped },
     });
 
-    return { campaignId: campaign.id, sent, failed, skipped, total: toSend.length };
+    return { campaignId, sent, failed, skipped, total: toSend.length, background: false as const };
   }
 
   listCampaigns(limit = 50) {

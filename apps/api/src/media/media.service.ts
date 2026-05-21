@@ -1527,7 +1527,10 @@ export class MediaService {
   }
 
   /** Grote ZIP in stukken (±32 MB) — voorkomt proxy-timeout bij 4+ GB enkelvoudige POST. */
-  initZipChunkedUpload(folderId: string, fileName: string, totalSize: number, userId: string) {
+  async initZipChunkedUpload(folderId: string, fileName: string, totalSize: number, userId: string) {
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new BadRequestException('Map niet gevonden.');
+    if (folder.slug === 'verwijderde') throw new BadRequestException('ZIP kan niet naar de prullenbak.');
     try {
       return createZipChunkSession(folderId, fileName, totalSize, userId);
     } catch (e) {
@@ -1540,19 +1543,25 @@ export class MediaService {
     }
   }
 
-  writeZipChunkedPart(
+  async writeZipChunkedPart(
     uploadId: string,
     chunkIndex: number,
     chunkDiskPath: string,
     userId: string,
+    reportedBytes?: number,
   ) {
     try {
-      return writeZipChunk(uploadId, chunkIndex, chunkDiskPath, userId);
+      return await writeZipChunk(uploadId, chunkIndex, chunkDiskPath, userId, reportedBytes);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'chunk_failed';
       if (msg === 'upload_session_not_found') throw new BadRequestException('Uploadsessie verlopen of ongeldig.');
       if (msg === 'forbidden') throw new BadRequestException('Geen toegang tot deze upload.');
-      if (msg === 'invalid_chunk_index' || msg === 'chunk_size_mismatch') {
+      if (msg.startsWith('chunk_size_mismatch')) {
+        throw new BadRequestException(
+          'Uploadfragment incompleet (netwerk of proxy). Probeer opnieuw; grote ZIP’s worden in delen geüpload.',
+        );
+      }
+      if (msg === 'invalid_chunk_index' || msg === 'chunk_empty') {
         throw new BadRequestException('Ongeldig uploadfragment.');
       }
       throw new BadRequestException('Fragment uploaden mislukt.');
