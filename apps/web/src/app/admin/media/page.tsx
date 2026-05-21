@@ -109,33 +109,64 @@ export default function AdminMediaPage() {
   const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
 
   const [totalAllBytes, setTotalAllBytes] = useState(0);
+  /** Tijdens upload: map vastzetten zodat de UI niet springt. */
+  const [pinnedFolderId, setPinnedFolderId] = useState<string | null>(null);
+  const loadSeqRef = useRef(0);
 
   const load = useCallback(
     async (override?: { folderId?: string; page?: number }) => {
       if (!token) return;
       const fid = override?.folderId ?? selectedFolderId;
       const pageNum = override?.page ?? assetPage;
+      const seq = ++loadSeqRef.current;
       const params = new URLSearchParams();
       if (fid) params.set('folderId', fid);
       params.set('page', String(pageNum));
       params.set('pageSize', String(ASSET_PAGE_SIZE));
       const res = await adminFetch<MediaLibraryResponse>(`/media/library?${params.toString()}`, token);
+      if (seq !== loadSeqRef.current) return;
       setLib(res.folders);
       setTotalAssets(res.totalAssets);
       setTotalAllBytes(typeof res.totalAllBytes === 'number' ? res.totalAllBytes : 0);
       setAssetPage(res.page);
-      setSelectedFolderId(res.folderId);
+      /** Mapkeuze komt van de gebruiker — niet overschrijven met API-default (models). */
     },
     [token, selectedFolderId, assetPage],
   );
 
   useEffect(() => {
-    load().catch(() => {
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const params = new URLSearchParams({ page: '1', pageSize: String(ASSET_PAGE_SIZE) });
+        const res = await adminFetch<MediaLibraryResponse>(`/media/library?${params.toString()}`, token);
+        if (cancelled) return;
+        setLib(res.folders);
+        setTotalAssets(res.totalAssets);
+        setTotalAllBytes(typeof res.totalAllBytes === 'number' ? res.totalAllBytes : 0);
+        setAssetPage(res.page);
+        setSelectedFolderId((prev) => prev || res.folderId);
+      } catch {
+        if (!cancelled) {
+          setLib([]);
+          setTotalAssets(0);
+          setTotalAllBytes(0);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    if (!token || !selectedFolderId || zipUploading || fileUploading) return;
+    load({ folderId: selectedFolderId, page: assetPage }).catch(() => {
       setLib([]);
       setTotalAssets(0);
-      setTotalAllBytes(0);
     });
-  }, [load]);
+  }, [token, selectedFolderId, assetPage, zipUploading, fileUploading, load]);
 
   const filteredFolders = useMemo(() => {
     const q = folderSearch.trim().toLowerCase();
@@ -145,10 +176,14 @@ export default function AdminMediaPage() {
     return tr ? [...rest, tr] : rest;
   }, [lib, folderSearch]);
 
+  const effectiveFolderId = pinnedFolderId ?? selectedFolderId;
+
   const activeFolder = useMemo(
-    () => lib.find((f) => f.id === selectedFolderId) ?? lib[0] ?? null,
-    [lib, selectedFolderId],
+    () => lib.find((f) => f.id === effectiveFolderId) ?? lib.find((f) => f.id === selectedFolderId) ?? null,
+    [lib, effectiveFolderId, selectedFolderId],
   );
+
+  const mediaBusy = zipUploading || fileUploading;
 
   const isTrashFolder = activeFolder?.slug === 'verwijderde';
 
@@ -233,6 +268,7 @@ export default function AdminMediaPage() {
     );
     if (!ok) return;
     setZipUploading(true);
+    setPinnedFolderId(selectedFolderId);
     setZipMsg('');
     setUploadProgress({ label: zipFile.name, percent: 0, etaSeconds: null, processing: false });
     if (typeof sessionStorage !== 'undefined') {
@@ -297,6 +333,7 @@ export default function AdminMediaPage() {
       sessionStorage.removeItem('cm_media_zip_upload');
     } finally {
       setZipUploading(false);
+      setPinnedFolderId(null);
       setUploadProgress(null);
     }
   };
@@ -311,6 +348,7 @@ export default function AdminMediaPage() {
     if (fileLabel.trim()) params.set('fileLabel', fileLabel.trim());
     const q = `?${params.toString()}`;
     setFileUploading(true);
+    setPinnedFolderId(selectedFolderId);
     setUploadProgress({ label: file.name, percent: 0, etaSeconds: null });
     try {
       const text = await uploadWithProgress(`${getLargeUploadApiBase()}/media/upload${q}`, {
@@ -334,8 +372,17 @@ export default function AdminMediaPage() {
       alert(err instanceof Error ? err.message : 'Upload mislukt');
     } finally {
       setFileUploading(false);
+      setPinnedFolderId(null);
       setUploadProgress(null);
     }
+  };
+
+  const selectFolder = (folderId: string) => {
+    if (mediaBusy) return;
+    setSelectedFolderId(folderId);
+    setAssetPage(1);
+    setAssetSearch('');
+    void load({ folderId, page: 1 });
   };
 
   const pub = useCallback((key: string) => publicMediaUrl(key), []);
@@ -692,18 +739,15 @@ export default function AdminMediaPage() {
           <nav className="flex-1 overflow-y-auto p-1.5" aria-label="Mediamappen">
             <ul className="space-y-0.5">
               {filteredFolders.map((f) => {
-                const selected = f.id === selectedFolderId;
+                const selected = f.id === effectiveFolderId;
                 const count = f.assetCount ?? f.assets.length;
                 return (
                   <li key={f.id}>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedFolderId(f.id);
-                        setAssetPage(1);
-                        setAssetSearch('');
-                      }}
-                      className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition ${
+                      disabled={mediaBusy}
+                      onClick={() => selectFolder(f.id)}
+                      className={`flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60 ${
                         selected
                           ? 'bg-burgundy text-white shadow-sm'
                           : 'text-ink hover:bg-white hover:shadow-sm'
@@ -886,12 +930,9 @@ export default function AdminMediaPage() {
                   <button
                     key={slug}
                     type="button"
-                    onClick={() => {
-                      setSelectedFolderId(f.id);
-                      setAssetPage(1);
-                      setAssetSearch('');
-                    }}
-                    className="rounded border border-line bg-white px-1.5 py-0.5 text-[9px] text-ink hover:bg-panel"
+                    disabled={mediaBusy}
+                    onClick={() => selectFolder(f.id)}
+                    className="rounded border border-line bg-white px-1.5 py-0.5 text-[9px] text-ink hover:bg-panel disabled:opacity-50"
                   >
                     {f.label}
                   </button>
