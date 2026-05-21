@@ -29,6 +29,22 @@ export function parseApiErrorBody(text: string): string {
   return text;
 }
 
+/** Voor zeer grote uploads: optioneel rechtstreeks naar API-host (minder proxy-lagen). */
+export function getLargeUploadApiBase(): string {
+  const direct = process.env.NEXT_PUBLIC_LARGE_UPLOAD_API_URL?.replace(/\/$/, '');
+  if (direct) return direct;
+  const pub = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
+  if (
+    pub &&
+    typeof window !== 'undefined' &&
+    (pub.startsWith('http://') || pub.startsWith('https://')) &&
+    !pub.includes('localhost')
+  ) {
+    return pub;
+  }
+  return getApiBase();
+}
+
 export function getApiBase() {
   if (typeof window !== 'undefined' && shouldUseSameOriginApiProxy(window.location.hostname)) {
     return CM_API_PROXY_PREFIX;

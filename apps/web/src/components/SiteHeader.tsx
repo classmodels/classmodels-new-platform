@@ -47,6 +47,9 @@ export function SiteHeader() {
             <Link href="/portal/client" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.client" as="span" className="text-white/90" fallback="Klantenportaal" />
             </Link>
+            <Link href="/reviews" className="text-white/90 hover:text-white">
+              <CmText contentKey="site.header.nav.reviews" as="span" className="text-white/90" fallback="Reviews" />
+            </Link>
             <Link href="/portal/guest?p=contact" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.contact" as="span" className="text-white/90" fallback="Contact" />
             </Link>

@@ -5,19 +5,27 @@ export type UploadProgressUpdate = {
   etaSeconds: number | null;
 };
 
+/** 2 uur — grote ZIP/film via Combell-proxy. */
+const DEFAULT_UPLOAD_TIMEOUT_MS = 7_200_000;
+
 export function uploadWithProgress(
   url: string,
   options: {
     method?: string;
     headers?: Record<string, string>;
     body: FormData;
+    timeoutMs?: number;
     onProgress?: (p: UploadProgressUpdate) => void;
+    /** Aanroep zodra alle bytes naar de server zijn gestuurd (server verwerkt nog). */
+    onUploadBytesComplete?: () => void;
   },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const start = Date.now();
+    let bytesCompleteCalled = false;
     xhr.open(options.method ?? 'POST', url, true);
+    xhr.timeout = options.timeoutMs ?? DEFAULT_UPLOAD_TIMEOUT_MS;
     const headers = options.headers ?? {};
     for (const [k, v] of Object.entries(headers)) {
       xhr.setRequestHeader(k, v);
@@ -34,6 +42,10 @@ export function uploadWithProgress(
         total: e.total,
         etaSeconds: remaining,
       });
+      if (e.loaded >= e.total && !bytesCompleteCalled) {
+        bytesCompleteCalled = true;
+        options.onUploadBytesComplete?.();
+      }
     };
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -42,7 +54,18 @@ export function uploadWithProgress(
       }
       reject(new Error(xhr.responseText || xhr.statusText || `HTTP ${xhr.status}`));
     };
-    xhr.onerror = () => reject(new Error('Netwerkfout tijdens upload'));
+    xhr.onerror = () =>
+      reject(
+        new Error(
+          'Netwerkfout tijdens upload. Laat de upload afronden zonder te verversen; bij een grote ZIP kan dit 30–60 minuten duren.',
+        ),
+      );
+    xhr.ontimeout = () =>
+      reject(
+        new Error(
+          'Upload-timeout. Probeer opnieuw of gebruik een stabiele verbinding; ververs de pagina niet tijdens de upload.',
+        ),
+      );
     xhr.onabort = () => reject(new Error('Upload geannuleerd'));
     xhr.send(options.body);
   });

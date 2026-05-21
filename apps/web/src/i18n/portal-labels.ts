@@ -41,6 +41,7 @@ export function useModelPortalTabLabels() {
         { id: 'push' as ModelPortalTabId, label: t('modelPortal.tabPush') },
         { id: 'bericht' as ModelPortalTabId, label: t('modelPortal.tabMessage') },
         { id: 'modellen' as ModelPortalTabId, label: t('modelPortal.tabModels') },
+        { id: 'review-schrijven' as ModelPortalTabId, label: t('modelPortal.tabReviewWrite') },
       ] as const,
     [t],
   );

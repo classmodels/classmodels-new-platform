@@ -14,11 +14,13 @@ import { PortalModelMediaController } from './portal-model-media.controller';
 import { PortalModelModeshowDownloadsController } from './portal-model-modeshow-downloads.controller';
 import { PortalModelSetCardController } from './portal-model-set-card.controller';
 import { PortalModelTryoutModeshowController } from './portal-model-tryout-modeshow.controller';
+import { PortalModelReviewsController } from './portal-model-reviews.controller';
+import { ReviewsModule } from '../reviews/reviews.module';
 import { TryoutModeshowService } from './tryout-modeshow.service';
 import { ModelSetCardService } from './model-set-card.service';
 
 @Module({
-  imports: [AuthModule, MediaModule, AgendaModule, ModelPortalHistoryModule, PushModule, PaymentsModule],
+  imports: [AuthModule, MediaModule, AgendaModule, ModelPortalHistoryModule, PushModule, PaymentsModule, ReviewsModule],
   controllers: [
     PortalClientBriefsController,
     PortalModelBriefsController,
@@ -28,6 +30,7 @@ import { ModelSetCardService } from './model-set-card.service';
     PortalModelTryoutModeshowController,
     PortalModelModeshowDownloadsController,
     PortalModelSetCardController,
+    PortalModelReviewsController,
   ],
   providers: [BriefsService, TryoutModeshowService, ModelSetCardService],
   exports: [BriefsService, ModelSetCardService],

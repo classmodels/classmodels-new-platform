@@ -99,6 +99,7 @@ const LITERAL_KEYS: string[] = [
   'site.header.nav.guest',
   'site.header.nav.model',
   'site.header.nav.client',
+  'site.header.nav.reviews',
   'site.header.nav.contact',
   'site.header.nav.logout',
   'site.header.nav.login',

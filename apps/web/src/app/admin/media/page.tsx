@@ -5,6 +5,7 @@ import { useAuth } from '@/context/auth-context';
 import { adminFetch, adminDownloadFile } from '@/lib/admin-api';
 import {
   getApiBase,
+  getLargeUploadApiBase,
   parseApiErrorBody,
   publicFolderZipUrl,
   publicMediaDownloadUrl,
@@ -97,6 +98,7 @@ export default function AdminMediaPage() {
     label: string;
     percent: number;
     etaSeconds: number | null;
+    processing?: boolean;
   } | null>(null);
   const [selectAllBusy, setSelectAllBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -230,12 +232,19 @@ export default function AdminMediaPage() {
     if (!ok) return;
     setZipUploading(true);
     setZipMsg('');
-    setUploadProgress({ label: zipFile.name, percent: 0, etaSeconds: null });
+    setUploadProgress({ label: zipFile.name, percent: 0, etaSeconds: null, processing: false });
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem(
+        'cm_media_zip_upload',
+        JSON.stringify({ name: zipFile.name, startedAt: Date.now() }),
+      );
+    }
     try {
       const fd = new FormData();
       fd.append('file', zipFile);
+      const uploadBase = getLargeUploadApiBase();
       const text = await uploadWithProgress(
-        `${getApiBase()}/media/upload-zip?folderId=${encodeURIComponent(selectedFolderId)}`,
+        `${uploadBase}/media/upload-zip?folderId=${encodeURIComponent(selectedFolderId)}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
@@ -244,6 +253,14 @@ export default function AdminMediaPage() {
               label: zipFile.name,
               percent: p.percent,
               etaSeconds: p.etaSeconds,
+              processing: false,
+            }),
+          onUploadBytesComplete: () =>
+            setUploadProgress({
+              label: zipFile.name,
+              percent: 100,
+              etaSeconds: null,
+              processing: true,
             }),
         },
       );
@@ -257,9 +274,11 @@ export default function AdminMediaPage() {
       );
       setZipFile(null);
       if (zipInputRef.current) zipInputRef.current.value = '';
+      sessionStorage.removeItem('cm_media_zip_upload');
       await load({ page: 1 });
     } catch (e) {
       setZipMsg(e instanceof Error ? e.message : 'ZIP-upload mislukt');
+      sessionStorage.removeItem('cm_media_zip_upload');
     } finally {
       setZipUploading(false);
       setUploadProgress(null);
@@ -278,7 +297,7 @@ export default function AdminMediaPage() {
     setFileUploading(true);
     setUploadProgress({ label: file.name, percent: 0, etaSeconds: null });
     try {
-      const text = await uploadWithProgress(`${getApiBase()}/media/upload${q}`, {
+      const text = await uploadWithProgress(`${getLargeUploadApiBase()}/media/upload${q}`, {
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
         onProgress: (p) =>
@@ -778,16 +797,26 @@ export default function AdminMediaPage() {
               </p>
             ) : null}
             {uploadProgress ? (
-              <div className="mt-2 max-w-md">
+              <div className="mt-2 max-w-lg space-y-1">
                 <CmProgressBar
-                  label={`${zipUploading ? 'ZIP' : 'Bestand'} uploaden: ${uploadProgress.label} (${uploadProgress.percent}%)`}
-                  sublabel={
-                    uploadProgress.etaSeconds != null
-                      ? `Geschatte resterende tijd: ${formatEtaSeconds(uploadProgress.etaSeconds)}`
-                      : 'Bezig…'
+                  label={
+                    uploadProgress.processing
+                      ? `Server verwerkt ZIP: ${uploadProgress.label} — even geduld, niet verversen`
+                      : `${zipUploading ? 'ZIP' : 'Bestand'} uploaden: ${uploadProgress.label} (${uploadProgress.percent}%)`
                   }
-                  percent={uploadProgress.percent}
+                  sublabel={
+                    uploadProgress.processing
+                      ? 'Bestand is ontvangen; wordt opgeslagen in de mediatheek (grote bestanden kunnen enkele minuten duren).'
+                      : uploadProgress.etaSeconds != null
+                        ? `Geschatte resterende uploadtijd: ${formatEtaSeconds(uploadProgress.etaSeconds)}`
+                        : 'Bezig…'
+                  }
+                  percent={uploadProgress.processing ? undefined : uploadProgress.percent}
+                  indeterminate={uploadProgress.processing}
                 />
+                <p className="text-[10px] text-amber-900">
+                  Ververs de pagina niet tijdens upload of verwerking — anders moet u opnieuw beginnen.
+                </p>
               </div>
             ) : null}
             {zipMsg ? (

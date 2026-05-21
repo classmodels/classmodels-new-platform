@@ -33,6 +33,7 @@ import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { PremiumUpsellBanner, PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
+import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalReviewTab';
 
 type PremiumInfo = {
   currency: string;
@@ -889,6 +890,9 @@ function ModelPortalPageInner() {
         />
       );
     }
+  } else if (tab === 'review-schrijven') {
+    sectionTitle = 'Review schrijven';
+    main = <ModelPortalReviewTab token={token} user={portalUser} />;
   } else if (tab === 'bericht') {
     sectionTitle = 'Bericht sturen';
     if (!isPremium) {

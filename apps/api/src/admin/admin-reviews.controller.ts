@@ -13,12 +13,17 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { ReviewsService } from '../reviews/reviews.service';
+import { seedLegacyReviews } from '../reviews/seed-legacy-reviews';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewAdminDto, UpdateReviewAdminDto } from './dto/review-admin.dto';
 
 @Controller('admin/reviews')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AdminReviewsController {
-  constructor(private reviews: ReviewsService) {}
+  constructor(
+    private reviews: ReviewsService,
+    private prisma: PrismaService,
+  ) {}
 
   @Get()
   @Permissions('admin.reviews.read')
@@ -30,6 +35,13 @@ export class AdminReviewsController {
   @Permissions('admin.reviews.write')
   create(@Body() dto: CreateReviewAdminDto) {
     return this.reviews.create(dto);
+  }
+
+  /** Import reviews van de oude site (idempotent). */
+  @Post('seed-legacy')
+  @Permissions('admin.reviews.write')
+  seedLegacy() {
+    return seedLegacyReviews(this.prisma);
   }
 
   @Patch(':id')

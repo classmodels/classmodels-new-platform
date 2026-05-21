@@ -111,6 +111,7 @@ export const messagesEn = {
     tabHistory: 'History',
     tabPush: 'Push messages',
     tabMessage: 'Send message',
+    tabReviewWrite: 'Write review',
     tabModels: 'Models',
   },
   admin: {

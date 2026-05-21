@@ -111,6 +111,7 @@ export const messagesFr = {
     tabHistory: 'Historique',
     tabPush: 'Notifications push',
     tabMessage: 'Envoyer un message',
+    tabReviewWrite: 'Écrire un avis',
     tabModels: 'Mannequins',
   },
   admin: {

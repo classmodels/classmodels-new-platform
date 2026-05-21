@@ -40,6 +40,26 @@ export class ReviewsService {
     });
   }
 
+  /** Review vanuit modellenportaal — direct zichtbaar voor iedereen. */
+  async createFromModel(
+    authorName: string,
+    data: { title: string; body: string; rating?: number },
+  ) {
+    const max = await this.prisma.review.aggregate({ _max: { sortOrder: true } });
+    const sortOrder = (max._max.sortOrder ?? 0) + 1;
+    return this.prisma.review.create({
+      data: {
+        title: data.title.trim(),
+        body: data.body.trim(),
+        authorName: authorName.trim() || 'Model',
+        rating: data.rating ?? 5,
+        sortOrder,
+        approved: true,
+        visible: true,
+      },
+    });
+  }
+
   async update(
     id: string,
     data: Partial<{

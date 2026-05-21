@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { seedLegacyReviews } from '../src/reviews/seed-legacy-reviews';
 
 const prisma = new PrismaClient();
 
@@ -680,7 +681,8 @@ async function main() {
       value: 'Offertes, casting en facturatie sluiten hier later op aan.',
       portal: 'client',
     },
-    { key: 'home.reviews.title', value: 'Ervaringen' },
+    { key: 'home.reviews.title', value: 'Hoe onze modellen hun avontuur ervaren' },
+    { key: 'site.header.nav.reviews', value: 'Reviews' },
   ];
   for (const c of extraContent) {
     await prisma.contentString.upsert({
@@ -695,6 +697,11 @@ async function main() {
     await prisma.testshootModel.create({
       data: { name: 'Model 1', sortOrder: 0 },
     });
+  }
+
+  const legacyRev = await seedLegacyReviews(prisma);
+  if (legacyRev.inserted > 0) {
+    console.log(`Legacy reviews: ${legacyRev.inserted} toegevoegd.`);
   }
 
   await seedAgenda(prisma);

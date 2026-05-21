@@ -111,6 +111,7 @@ export const messagesNl = {
     tabHistory: 'Historiek',
     tabPush: 'Pushberichten',
     tabMessage: 'Bericht sturen',
+    tabReviewWrite: 'Review schrijven',
     tabModels: 'Modellen',
   },
   admin: {

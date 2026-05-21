@@ -12,6 +12,7 @@ export const MODEL_PORTAL_TABS = [
   { id: 'push', label: 'Pushberichten' },
   { id: 'bericht', label: 'Bericht sturen' },
   { id: 'modellen', label: 'Modellen' },
+  { id: 'review-schrijven', label: 'Review schrijven' },
 ] as const;
 
 export type ModelPortalTabId = (typeof MODEL_PORTAL_TABS)[number]['id'];

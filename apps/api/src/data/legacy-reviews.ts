@@ -1,0 +1,412 @@
+/** Reviews van de vorige Street Models / Class-Models site (import). */
+export const LEGACY_REVIEWS: {
+  title: string;
+  body: string;
+  authorName?: string;
+  rating: number;
+}[] = [
+  {
+    title: 'Zenuwachtig maar gerustgesteld',
+    body: 'Wat een fijne ervaring was dit. Ik was heel zenuwachtig, maar u stelde me direct gerust.',
+    rating: 5,
+  },
+  {
+    title: 'Bedankt Street Models',
+    body: 'Bedankt Street Models, het was heel leuk!',
+    rating: 5,
+  },
+  {
+    title: 'Mooie foto\'s',
+    body: 'Bedankt voor de mooie foto\'s.',
+    rating: 5,
+  },
+  {
+    title: 'Direct geholpen',
+    body: 'Wij waren meteen geholpen, super vriendelijke mensen. Je kan terecht met je vragen. Geen stress ervaren, alles verliep vlotjes.',
+    authorName: 'Angelika B.',
+    rating: 5,
+  },
+  {
+    title: 'Portfolio maken',
+    body: 'Ik vond het een toffe ervaring en heel leuk om de portfolio te maken.',
+    authorName: 'Noor L.',
+    rating: 5,
+  },
+  {
+    title: 'Ervaring in de sector',
+    body: 'Omdat ik al een aantal jaren in de modellenindustrie zit, heb ik de kans gekregen om met verschillende mensen te werken. Mijn ervaring heeft mijn verwachtingen ruimschoots overtroffen: fotoshoot, catwalk, filmen, tv-promotie en optreden in film.',
+    rating: 5,
+  },
+  {
+    title: 'Superleuke opleiding',
+    body: 'Eerst stond ik hier met een bang hartje, want deze opleiding was volledig uit mijn comfortzone. Maar ik ben eraan begonnen met een positieve ingesteldheid. Ik heb echt een leuke opleiding genoten. Onze mentor heeft alles supergoed uitgelegd. Op het einde had ik al direct zin om te gaan defileren. Ik raad het iedereen aan.',
+    authorName: 'Kurt H.',
+    rating: 5,
+  },
+  {
+    title: 'Tips en aanrader',
+    body: 'Super leuke fotoshoot. Goede tips en leerrijk — een echte aanrader!',
+    authorName: 'Talina D.',
+    rating: 5,
+  },
+  {
+    title: 'Fijne fotograaf en visagiste',
+    body: 'Heel goede fotograaf en visagiste.',
+    authorName: 'Amber K.',
+    rating: 5,
+  },
+  {
+    title: 'Begeleiding en ervaring',
+    body: 'Een super begeleiding en een fijne ervaring.',
+    authorName: 'Karolien',
+    rating: 5,
+  },
+  {
+    title: 'Try-out modeshow',
+    body: 'Leuke ervaring. Goede begeleiding. Vriendelijke mensen. Mooie zaal, prachtige try-out!',
+    rating: 5,
+  },
+  {
+    title: 'Modeshow en shoot',
+    body: 'Heel toffe shoot, mooie foto\'s. Super leuk om mee te doen met de modeshow.',
+    rating: 5,
+  },
+  {
+    title: 'Gratis testshoot',
+    body: 'Een leuke ervaring met een gratis test-shoot, vriendelijk team, training en portfolio. Voor mij een aanrader.',
+    rating: 5,
+  },
+  {
+    title: 'Leuke opleiding',
+    body: 'Heel leuke opleiding. Je voelde je onmiddellijk op het gemak en iedereen kreeg de kans om alle verschillende passen in te oefenen. Heel tof en leerrijk!',
+    authorName: 'Christopher M.',
+    rating: 5,
+  },
+  {
+    title: 'Portfolio en visagiste',
+    body: 'Portfolio-foto\'s zijn super mooi. Vriendelijke fotograaf die je tips geeft. Make-up wordt ook heel mooi gedaan. Iedereen is heel vriendelijk. Zeker een aanrader.',
+    authorName: 'Linny',
+    rating: 5,
+  },
+  {
+    title: 'Fijne sfeer',
+    body: 'Hele fijne ervaringen en een leuke sfeer.',
+    authorName: 'Boterdaellm',
+    rating: 5,
+  },
+  {
+    title: 'Vriendelijk team',
+    body: 'De fotograaf en visagiste waren vriendelijke mensen. Ook tijdens de opleiding was het een vriendelijke dame met kennis van het vak.',
+    rating: 5,
+  },
+  {
+    title: 'Mooie shoot',
+    body: 'Heel erg mooie foto\'s van de shoot, met een geweldige visagiste en fotograaf. Heel leuke ervaring. Bedankt!',
+    authorName: 'Marielle',
+    rating: 5,
+  },
+  {
+    title: 'Modeshow Leuven',
+    body: 'Voor een modeshow enthousiaste modellen. Moeten ervaring hebben. Klant: Class-Models — via het portaal voelde alles professioneel en duidelijk.',
+    rating: 5,
+  },
+  {
+    title: 'Ik voelde me als een echt model',
+    body: 'De opleiding verliep heel aangenaam en respectvol. Er werd echt geholpen en alles werd goed uitgelegd. Een fijne groep en een fijne ervaring — ik kijk uit naar de try-out modeshow!',
+    authorName: 'Athena Z.',
+    rating: 5,
+  },
+  {
+    title: 'Super leuk team',
+    body: 'Super leuk team, helpt je met al je vragen en zorgen ervoor dat je je op je gemak voelt.',
+    authorName: 'Alina C.',
+    rating: 5,
+  },
+  {
+    title: 'Modeshow deelname',
+    body: 'Ik vond het top om deel te nemen aan de modeshow. Leuke sfeer, leuke mensen leren kennen. Mooie kledingzaken die meededen.',
+    rating: 5,
+  },
+  {
+    title: 'Inspraak bij portfolio',
+    body: 'Het was een leuke ervaring. Ik vond het heel tof om te doen omdat je veel inspraak hebt.',
+    authorName: 'Noor L.',
+    rating: 5,
+  },
+  {
+    title: 'Vlotte sfeer',
+    body: 'Een vlotte sfeer, leuke mensen ontmoet. Geen stress ervaren, alles verliep vlotjes.',
+    authorName: 'Caroline K.',
+    rating: 5,
+  },
+  {
+    title: 'Try-out aanrader',
+    body: 'Leuke ervaring, vooral bij de try-out modeshow — ik raad dit iedereen aan.',
+    rating: 5,
+  },
+  {
+    title: 'Fotograaf Tim',
+    body: 'Bedankt Tim voor je vlotte, professionele en geduldige begeleiding bij de shoot. Ik heb me op geen enkel moment ongemakkelijk gevoeld. Super fotograaf!',
+    rating: 5,
+  },
+  {
+    title: 'Visagiste en Megan',
+    body: 'Bedankt aan de visagiste om het beste van mij in de verf te zetten. Bedankt Megan voor de leuke opleiding — je geeft mensen een boost. Ik heb van de opleiding genoten. Was super!',
+    rating: 5,
+  },
+  {
+    title: 'Professionele fotoshoot',
+    body: 'était pro et très patiente, son make-up naturel est magnifique. Le photographe m\'a laissé libre de choisir mes poses — merci beaucoup.',
+    authorName: 'Iliana M.',
+    rating: 5,
+  },
+  {
+    title: 'Tim stelt je op je gemak',
+    body: 'Leuke ervaring. Tim, de fotograaf, stelt je echt op je gemak en de schminkster is heel lief.',
+    authorName: 'Louise V.',
+    rating: 5,
+  },
+  {
+    title: 'Eerste shoot',
+    body: 'Super toffe ervaring. Eerste keer dat ik een shoot deed. De make-up artieste was heel vriendelijk en de fotograaf gaf leuke tips. Ik voelde mij direct op mijn gemak.',
+    authorName: 'Manon V.',
+    rating: 5,
+  },
+  {
+    title: 'Modeshow top',
+    body: 'De modeshow was top! Alles was in orde, ik heb er echt van genoten. Het was een zeer leerrijke ervaring.',
+    rating: 5,
+  },
+  {
+    title: 'Shoot en try-out',
+    body: 'Fijne ervaring! Ik genoot van zowel de shoot als try-out modeshow. Veel stress voordien, maar op het moment dat de show begon heb ik alleen genoten.',
+    rating: 5,
+  },
+  {
+    title: 'Eerste modeshow',
+    body: 'Voor mij was mijn eerste modeshow een mooie, toffe ervaring. Daphne heeft ons heel goed begeleid en kon mijn stress doen afnemen. Een enorme ervaring rijker — dank je wel Street Models!',
+    authorName: 'Yfke V.',
+    rating: 5,
+  },
+  {
+    title: 'Kyra modeshow',
+    body: 'Mijn dochter Kyra vond het super leuk om mee te doen met de modeshow. Ze zou het zo opnieuw doen.',
+    authorName: 'Kyra L.',
+    rating: 5,
+  },
+  {
+    title: 'Fotoshoot april',
+    body: '28 april fotoshoot gedaan met Tim. Alles verliep heel vlot, goede en duidelijke aanwijzingen. Bedankt Tim!',
+    authorName: 'Ilisa H.',
+    rating: 5,
+  },
+  {
+    title: 'Opleiding 5 mei',
+    body: 'Op 5 mei mijn opleiding gehad. Daphne was heel vriendelijk en geduldig.',
+    authorName: 'Ilisa H.',
+    rating: 5,
+  },
+  {
+    title: 'Shoot met kinderen',
+    body: 'Op 28/04 de fotoshoot gevolgd met Tim als fotograaf. Hij stelt je op je gemak, zeker voor kinderen. Leuke sfeer met super vriendelijke mensen.',
+    rating: 5,
+  },
+  {
+    title: 'Leuke shoot',
+    body: 'Een hele leuke shoot gehad. Echt mooi naturel opgemaakt. Fijne ervaring.',
+    rating: 5,
+  },
+  {
+    title: 'Mooie foto\'s',
+    body: 'Leuke sfeer, fijne ervaring. Zeer mooie foto\'s.',
+    rating: 5,
+  },
+  {
+    title: 'Op mijn gemak',
+    body: 'Tijdens de shoot voelde ik mij op mijn gemak dankzij de make-up artist en fotograaf Tim.',
+    rating: 5,
+  },
+  {
+    title: 'Collecties modeshow',
+    body: 'Dit was zeker leuk om te doen. De collecties waren heel mooi. Dit zal ik zeker nog eens doen!',
+    authorName: 'Tobias V.',
+    rating: 5,
+  },
+  {
+    title: 'Top ervaring',
+    body: 'Altijd TOP — een echt leuke belevenis. Je wordt heel vriendelijk ontvangen. Backstage is iedereen behulpzaam. Absoluut meedoen!',
+    authorName: 'Linny',
+    rating: 5,
+  },
+  {
+    title: 'Professionele mensen',
+    body: 'Leuke ervaring met professionele mensen. Interesse om verder in de modellenwereld te treden.',
+    authorName: 'Catharina C.',
+    rating: 5,
+  },
+  {
+    title: 'Zelfvertrouwen',
+    body: 'Zeer leuke ervaring. Meer zelfvertrouwen en vertrouwen in de mensen rondom haar. Ze wil verder groeien en nog veel mooie momenten beleven.',
+    authorName: 'Fera-ly',
+    rating: 5,
+  },
+  {
+    title: 'Eerste keer modeshow',
+    body: 'Voor mij was het de eerste keer. Met een beetje stress begonnen, maar uiteindelijk viel het super goed mee. Daphne heeft ons zeer goed geholpen. Top ervaring!',
+    rating: 5,
+  },
+  {
+    title: 'Leuke ervaring',
+    body: 'Een leuke ervaring.',
+    rating: 5,
+  },
+  {
+    title: 'Try-out modeshow',
+    body: 'Heel fijne ervaring met een mooie fotoshoot en een try-out modeshow!',
+    rating: 5,
+  },
+  {
+    title: 'Inschrijving en opdrachten',
+    body: 'Alles verliep heel correct: goede informatie, goede opleiding, hele leuke try-outshow. Al enkele opdrachten gehad. Hopelijk snel weer contact.',
+    rating: 5,
+  },
+  {
+    title: 'Opleiding en portfolio',
+    body: 'Leuke ervaring, fijn team en zeer tevreden over opleiding en portfolio!',
+    rating: 5,
+  },
+  {
+    title: 'Heel leuke ervaring',
+    body: 'Het was een heel leuke ervaring. De klanten waren fijne mensen. Ook Daphne wil ik zeker niet vergeten — ze heeft ons heel goed begeleid. Bedankt voor deze mooie kans!',
+    authorName: 'Jill V.',
+    rating: 5,
+  },
+  {
+    title: 'Leuke collecties',
+    body: 'Ik vond het een heel leuk ervaring met toffe collecties.',
+    rating: 5,
+  },
+  {
+    title: 'Fantastische sfeer',
+    body: 'Leuke ervaring, fantastische sfeer.',
+    rating: 5,
+  },
+  {
+    title: 'Opleiding zeker waard',
+    body: 'Leuke opleiding en modeshow! Zeker waard!',
+    authorName: 'Jutta P.',
+    rating: 5,
+  },
+  {
+    title: 'Unieke ervaring',
+    body: 'Unieke ervaring om mee te maken! Ik heb hierdoor ook nieuwe vriendinnen gemaakt!',
+    authorName: 'Dakota D.',
+    rating: 5,
+  },
+  {
+    title: 'Toffe mensen',
+    body: 'Het was een super leuke ervaring! Toffe mensen leren kennen.',
+    authorName: 'Josephine E.',
+    rating: 5,
+  },
+  {
+    title: 'Fotoshoot en opleiding',
+    body: 'Leuke fotoshoot, top, en de opleiding die het model gaf was zeker professioneel!',
+    rating: 5,
+  },
+  {
+    title: 'Tim en visagiste',
+    body: 'Heel fijne ervaring — de fotoshoot was top. Tim was super vriendelijk en de visagiste ook. Top!',
+    rating: 5,
+  },
+  {
+    title: 'Geweldige fotograaf',
+    body: 'Ik vond de fotoshoot zeer aangenaam, zeker met Tim — een hele goede fotograaf. Ik heb er echt van genoten!',
+    rating: 5,
+  },
+  {
+    title: 'Mylo geweldig',
+    body: 'Mijn zoon Mylo vond het geweldig om te doen. Een fijne ervaring om hem meer zelfvertrouwen te geven!',
+    rating: 5,
+  },
+  {
+    title: 'Super toffe show',
+    body: 'Super toffe show!',
+    rating: 5,
+  },
+  {
+    title: 'Buiten comfortzone',
+    body: 'Een modeshow lopen was voor mij een compleet nieuwe ervaring, volledig buiten mijn comfortzone. Zeer leuke ervaring waar ik met plezier naar terugkijk.',
+    rating: 5,
+  },
+  {
+    title: 'Opleiding leerrijk',
+    body: 'De opleiding was heel leerrijk. Daphne hielp ons goed en gaf goede uitleg. Ook leerde ze ons veel bij op korte tijd.',
+    authorName: 'Jill V.',
+    rating: 5,
+  },
+  {
+    title: 'Portfolio shoot',
+    body: 'Het was een nieuwe leuke ervaring. De fotograaf hielp goed met kiezen en was vriendelijk. Hele mooie foto\'s. De visagiste liet je ook mee bepalen over je look. De moeite waard!',
+    authorName: 'Jill V.',
+    rating: 5,
+  },
+  {
+    title: 'Annalina opleiding',
+    body: 'Mijn dochter Annalina vond het super leuke opleiding. Bij het ontvangst werd alles uitgelegd. Bij het terugkomen kreeg elk ouder mooie feedback. Zeer tevreden!',
+    authorName: 'Annalina S.',
+    rating: 5,
+  },
+  {
+    title: 'Aanmoediging',
+    body: 'Leuke ervaring en veel aanmoediging tijdens de shoot.',
+    authorName: 'Christopher M.',
+    rating: 5,
+  },
+  {
+    title: 'Portfolio droom',
+    body: 'Ik heb mijn portfolio laten shooten — een geweldige ervaring. De stylist was mega vriendelijk. Het resultaat was prachtig.',
+    rating: 5,
+  },
+  {
+    title: 'Modeshow bezoeker',
+    body: 'Als bezoeker van de modeshow: een zeer mooi en professionele catwalk. Het niveau van velen modellen was zeer hoog. De organisator verdient een pluim.',
+    rating: 5,
+  },
+  {
+    title: 'Selina',
+    body: 'Ik vond het super leuk om te mogen doen. Ik heb veel geleerd!',
+    authorName: 'Selina F.',
+    rating: 5,
+  },
+  {
+    title: 'Djenna opleiding',
+    body: 'Opleiding gevolgd met Daphne. Zeer toffe en vriendelijke madam! Stelt je op je gemak. Geweldige ervaring en veel bijgeleerd!',
+    authorName: 'Djenna A.',
+    rating: 5,
+  },
+  {
+    title: 'Leuke ervaring',
+    body: 'Leuke ervaring en een goede fotograaf!',
+    authorName: 'Diyarsalih',
+    rating: 5,
+  },
+  {
+    title: 'Viviane collecties',
+    body: 'Toffe modellen leren kennen. Prachtige kledij. Ik heb van minuut één tot de laatste seconde ervan genoten.',
+    authorName: 'Viviane C.',
+    rating: 5,
+  },
+  {
+    title: 'Leuke tips',
+    body: 'Leuke ervaring met heel wat tips.',
+    authorName: 'Viviane C.',
+    rating: 5,
+  },
+  {
+    title: 'Photoshoot journée',
+    body: 'Très belle journée de photoshoot. Les professionnels présents m\'ont permis de me sentir à l\'aise et d\'apprendre de nouvelles poses. Merci.',
+    authorName: 'Iliana M.',
+    rating: 5,
+  },
+];
