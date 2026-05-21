@@ -698,6 +698,29 @@ export class MediaService {
     };
   }
 
+  /** Alle asset-id's in één map (bulk-selectie over alle pagina's). Optioneel filter op bestandsnaam. */
+  async listFolderAssetIds(folderId: string, search?: string) {
+    await this.purgeScheduledAssets();
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException('Map niet gevonden.');
+    const q = search?.trim();
+    const where: {
+      folderId: string;
+      hardDeleted: false;
+      originalName?: { contains: string; mode: 'insensitive' };
+    } = { folderId, hardDeleted: false };
+    if (q) {
+      where.originalName = { contains: q, mode: 'insensitive' };
+    }
+    const rows = await this.prisma.mediaAsset.findMany({
+      where,
+      select: { id: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const ids = rows.map((r) => r.id);
+    return { ids, total: ids.length, folderId, folderSlug: folder.slug };
+  }
+
   /** Platte JSON-response na upload (vermijdt Prisma-proxy / serialisatie-surprises in productie). */
   private uploadResponseDto(created: {
     id: string;

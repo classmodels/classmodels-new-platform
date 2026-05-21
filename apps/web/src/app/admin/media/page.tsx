@@ -98,6 +98,8 @@ export default function AdminMediaPage() {
     percent: number;
     etaSeconds: number | null;
   } | null>(null);
+  const [selectAllBusy, setSelectAllBusy] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const [folderZipLoading, setFolderZipLoading] = useState(false);
   const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
@@ -348,12 +350,16 @@ export default function AdminMediaPage() {
     });
   };
 
-  const allFilteredSelected =
+  const allPageSelected =
     filteredAssets.length > 0 && filteredAssets.every((a) => selectedIds.has(a.id));
 
   const selectAllOnPage = () => {
     if (!bulkMode) setBulkMode(true);
-    setSelectedIds(new Set(filteredAssets.map((a) => a.id)));
+    setSelectedIds((prev) => {
+      const n = new Set(prev);
+      for (const a of filteredAssets) n.add(a.id);
+      return n;
+    });
   };
 
   const clearPageSelection = () => {
@@ -362,6 +368,36 @@ export default function AdminMediaPage() {
       for (const a of filteredAssets) n.delete(a.id);
       return n;
     });
+  };
+
+  const selectAllInFolder = async () => {
+    if (!token || !selectedFolderId) return;
+    const q = assetSearch.trim();
+    const countHint = q ? 'overeenkomende bestanden in deze map' : `${totalAssets} bestand(en) in deze map`;
+    if (
+      totalAssets > 200 &&
+      !window.confirm(`Alle ${countHint} aanvinken (alle pagina's)? Dit kan even duren.`)
+    ) {
+      return;
+    }
+    if (!bulkMode) setBulkMode(true);
+    setSelectAllBusy(true);
+    try {
+      const params = new URLSearchParams({ folderId: selectedFolderId });
+      if (q) params.set('q', q);
+      const res = await adminFetch<{ ids: string[]; total: number }>(
+        `/media/library/asset-ids?${params.toString()}`,
+        token,
+      );
+      setSelectedIds(new Set(res.ids));
+      if (res.total === 0) {
+        alert(q ? 'Geen bestanden gevonden met deze zoekterm in de map.' : 'Geen bestanden in deze map.');
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Alles aanvinken mislukt');
+    } finally {
+      setSelectAllBusy(false);
+    }
   };
 
   const hardRemoveAsset = async (id: string) => {
@@ -377,19 +413,37 @@ export default function AdminMediaPage() {
     await load();
   };
 
+  const chunkIds = (ids: string[], size = 400) => {
+    const out: string[][] = [];
+    for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+    return out;
+  };
+
   const moveSelectionToTrash = async () => {
     if (!token) return;
     const ids = [...selectedIds];
     if (!ids.length) return;
     if (!confirm(`${ids.length} bestand(en) naar Verwijderde verplaatsen?`)) return;
-    await adminFetch('/media/assets/move-trash', token, {
-      method: 'POST',
-      body: JSON.stringify({ ids }),
-    });
-    setSelectedIds(new Set());
-    setBulkMode(false);
-    setDetail(null);
-    await load();
+    setBulkBusy(true);
+    try {
+      let moved = 0;
+      for (const batch of chunkIds(ids)) {
+        const r = await adminFetch<{ moved: number }>('/media/assets/move-trash', token, {
+          method: 'POST',
+          body: JSON.stringify({ ids: batch }),
+        });
+        moved += r.moved ?? batch.length;
+      }
+      if (moved < ids.length) {
+        alert(`${moved} van ${ids.length} verplaatst. Vernieuw de lijst als er items ontbreken.`);
+      }
+      setSelectedIds(new Set());
+      setBulkMode(false);
+      setDetail(null);
+      await load({ page: 1 });
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   const moveSelectionToFolder = async () => {
@@ -401,15 +455,24 @@ export default function AdminMediaPage() {
       return;
     }
     if (!confirm(`${ids.length} bestand(en) naar de gekozen map verplaatsen?`)) return;
-    await adminFetch('/media/assets/move-folder', token, {
-      method: 'POST',
-      body: JSON.stringify({ ids, folderId: moveTargetFolderId }),
-    });
-    setSelectedIds(new Set());
-    setBulkMode(false);
-    setMoveTargetFolderId('');
-    setDetail(null);
-    await load();
+    setBulkBusy(true);
+    try {
+      let moved = 0;
+      for (const batch of chunkIds(ids)) {
+        const r = await adminFetch<{ moved: number }>('/media/assets/move-folder', token, {
+          method: 'POST',
+          body: JSON.stringify({ ids: batch, folderId: moveTargetFolderId }),
+        });
+        moved += r.moved ?? batch.length;
+      }
+      setSelectedIds(new Set());
+      setBulkMode(false);
+      setMoveTargetFolderId('');
+      setDetail(null);
+      await load({ page: 1 });
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   const hardRemoveSelection = async () => {
@@ -417,17 +480,22 @@ export default function AdminMediaPage() {
     const ids = [...selectedIds];
     if (!ids.length) return;
     if (!confirm(`${ids.length} bestand(en) permanent wissen?`)) return;
-    for (const id of ids) {
-      try {
-        await adminFetch(`/media/assets/${id}?hard=1`, token, { method: 'DELETE' });
-      } catch {
-        /* volgende */
+    setBulkBusy(true);
+    try {
+      for (const batch of chunkIds(ids, 50)) {
+        await Promise.all(
+          batch.map((id) =>
+            adminFetch(`/media/assets/${id}?hard=1`, token, { method: 'DELETE' }).catch(() => undefined),
+          ),
+        );
       }
+      setSelectedIds(new Set());
+      setBulkMode(false);
+      setDetail(null);
+      await load({ page: 1 });
+    } finally {
+      setBulkBusy(false);
     }
-    setSelectedIds(new Set());
-    setBulkMode(false);
-    setDetail(null);
-    await load();
   };
 
   const emptyTrashFolder = async () => {
@@ -875,7 +943,7 @@ export default function AdminMediaPage() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <input
                 type="search"
-                placeholder="Zoek op deze pagina…"
+                placeholder="Zoek in map (ook bij alles aanvinken)…"
                 value={assetSearch}
                 onChange={(e) => setAssetSearch(e.target.value)}
                 className="max-w-xs flex-1 rounded border border-line bg-panel px-2 py-1 text-xs text-ink placeholder:text-muted"
@@ -903,14 +971,32 @@ export default function AdminMediaPage() {
               >
                 Bulk selecteren
               </button>
+              {bulkMode && totalAssets > 0 ? (
+                <button
+                  type="button"
+                  disabled={selectAllBusy || bulkBusy}
+                  onClick={() => void selectAllInFolder()}
+                  className="rounded border border-burgundy bg-burgundy/10 px-2 py-1 text-[10px] font-semibold text-burgundy hover:bg-burgundy/20 disabled:opacity-50"
+                >
+                  {selectAllBusy ?
+                    'Laden…'
+                  : assetSearch.trim() ?
+                    'Alles aanvinken (zoekfilter)'
+                  : `Alles aanvinken (${totalAssets})`}
+                </button>
+              ) : null}
               {bulkMode && filteredAssets.length > 0 ? (
                 <button
                   type="button"
-                  onClick={() => (allFilteredSelected ? clearPageSelection() : selectAllOnPage())}
-                  className="rounded border border-line bg-white px-2 py-1 text-[10px] font-medium text-ink hover:bg-panel"
+                  disabled={selectAllBusy || bulkBusy}
+                  onClick={() => (allPageSelected ? clearPageSelection() : selectAllOnPage())}
+                  className="rounded border border-line bg-white px-2 py-1 text-[10px] font-medium text-ink hover:bg-panel disabled:opacity-50"
                 >
-                  {allFilteredSelected ? 'Geen op pagina' : 'Alles aanvinken'}
+                  {allPageSelected ? 'Geen op pagina' : 'Deze pagina'}
                 </button>
+              ) : null}
+              {bulkMode && selectedIds.size > 0 ? (
+                <span className="text-[10px] font-medium text-burgundy">{selectedIds.size} geselecteerd</span>
               ) : null}
               {bulkMode && selectedIds.size > 0 ? (
                 <button

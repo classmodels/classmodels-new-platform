@@ -130,6 +130,15 @@ export class MediaController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.read')
+  @Get('library/asset-ids')
+  libraryAssetIds(@Query('folderId') folderId?: string, @Query('q') q?: string) {
+    const fid = folderId?.trim();
+    if (!fid) return { error: 'folderId is verplicht' };
+    return this.media.listFolderAssetIds(fid, q);
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('folders/ensure-defaults')
   ensureFolders() {
