@@ -61,7 +61,7 @@ export function uploadWithProgress(
     xhr.onerror = () =>
       reject(
         new Error(
-          'Netwerkfout tijdens upload. Laat de upload afronden zonder te verversen; bij een grote ZIP kan dit 30–60 minuten duren.',
+          'Netwerkonderbreking tijdens upload. Controleer je verbinding, laat dit tabblad open en probeer opnieuw (niet verversen halverwege).',
         ),
       );
     xhr.ontimeout = () =>

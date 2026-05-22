@@ -15,6 +15,7 @@ import { formatEtaSeconds, uploadWithProgress } from '@/lib/upload-with-progress
 import {
   formatZipUploadError,
   uploadZipReliable,
+  zipUploadApiLabel,
   zipUploadModeLabel,
 } from '@/lib/upload-zip-reliable';
 import { CmProgressBar } from '@/components/CmProgressBar';
@@ -273,7 +274,7 @@ export default function AdminMediaPage() {
     if (!ok) return;
     setZipUploading(true);
     setPinnedFolderId(selectedFolderId);
-    setZipMsg('');
+    setZipMsg(`Upload start naar ${zipUploadApiLabel()}…`);
     setUploadProgress({ label: zipFile.name, percent: 0, etaSeconds: null, processing: false });
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem(
@@ -880,8 +881,8 @@ export default function AdminMediaPage() {
                   indeterminate={uploadProgress.processing}
                 />
                 <p className="text-[10px] text-amber-900">
-                  Ververs de pagina niet tijdens upload of verwerking — anders moet u opnieuw beginnen.
-                  {zipFile ? ` ${zipUploadModeLabel(zipFile)}.` : ''} Bij 4+ GB kan dit 30–90 minuten duren.
+                  Ververs de pagina niet en laat dit tabblad open.
+                  {zipFile ? ` ${zipUploadModeLabel(zipFile)}` : ''}
                 </p>
               </div>
             ) : null}

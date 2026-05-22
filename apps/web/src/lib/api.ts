@@ -48,23 +48,24 @@ export function parseApiErrorBody(text: string): string {
   return text;
 }
 
-/** Voor zeer grote ZIP’s: rechtstreeks naar API-host (api.*), niet via www-proxy. */
+/** Voor zeer grote ZIP’s: altijd rechtstreeks naar API-host (api.*), nooit via www of stukjes. */
 export function getLargeUploadApiBase(): string {
   const direct = process.env.NEXT_PUBLIC_LARGE_UPLOAD_API_URL?.replace(/\/$/, '');
   if (direct) return direct;
 
   const pub = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
-  if (
-    pub &&
-    typeof window !== 'undefined' &&
-    /^https?:\/\//i.test(pub) &&
-    !/localhost|127\.0\.0\.1/i.test(pub)
-  ) {
+  if (pub && /^https?:\/\//i.test(pub) && !/localhost|127\.0\.0\.1/i.test(pub)) {
     return pub;
   }
 
-  if (typeof window !== 'undefined' && shouldUseSameOriginApiProxy(window.location.hostname)) {
-    return window.location.origin.replace(/\/$/, '');
+  if (typeof window !== 'undefined') {
+    const h = window.location.hostname.toLowerCase();
+    if (h === 'class-models.be' || h.endsWith('.class-models.be')) {
+      return 'https://api.class-models.be';
+    }
+    if (shouldUseSameOriginApiProxy(h)) {
+      return window.location.origin.replace(/\/$/, '');
+    }
   }
 
   const api = getApiBase();

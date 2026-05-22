@@ -1,9 +1,5 @@
 import { getLargeUploadApiBase, parseApiErrorBody } from '@/lib/api';
 import { type UploadProgressUpdate, uploadWithProgress } from '@/lib/upload-with-progress';
-import { uploadZipChunked } from '@/lib/upload-zip-chunked';
-
-/** Boven deze grootte: upload in delen (op server één ZIP); kleiner = één POST. */
-export const ZIP_SINGLE_UPLOAD_MAX_BYTES = 80 * 1024 * 1024;
 
 export type ZipUploadOptions = {
   file: File;
@@ -13,23 +9,17 @@ export type ZipUploadOptions = {
   onUploadBytesComplete?: () => void;
 };
 
-/** Grote ZIP’s betrouwbaar uploaden (api-host + chunked of enkelvoudig). */
+/**
+ * Grote ZIP altijd in één HTTP-request naar api.class-models.be (geen stukjes).
+ * Chunked upload faalde op Combell (fragment 1/311 incompleet); enkele upload bereikte wel 80%+.
+ */
 export async function uploadZipReliable(opts: ZipUploadOptions): Promise<string> {
   const apiBase = getLargeUploadApiBase();
   const { file, folderId, token, onProgress, onUploadBytesComplete } = opts;
 
-  if (file.size >= ZIP_SINGLE_UPLOAD_MAX_BYTES) {
-    return uploadZipChunked(file, {
-      apiBase,
-      folderId,
-      token,
-      onProgress,
-      onUploadBytesComplete,
-    });
-  }
-
   const fd = new FormData();
   fd.append('file', file);
+
   return uploadWithProgress(
     `${apiBase}/media/upload-zip?folderId=${encodeURIComponent(folderId)}`,
     {
@@ -42,12 +32,16 @@ export async function uploadZipReliable(opts: ZipUploadOptions): Promise<string>
   );
 }
 
+export function zipUploadApiLabel(): string {
+  return getLargeUploadApiBase();
+}
+
 export function zipUploadModeLabel(file: File): string {
-  if (file.size >= ZIP_SINGLE_UPLOAD_MAX_BYTES) {
-    const parts = Math.ceil(file.size / (16 * 1024 * 1024));
-    return `Upload in ${parts} delen (±16 MB) naar api-server — wordt één ZIP-bestand in de map`;
-  }
-  return `Upload in één bestand naar api-server`;
+  const gb = (file.size / (1024 * 1024 * 1024)).toFixed(2);
+  return (
+    `Eén bestand (${gb} GB) rechtstreeks naar ${zipUploadApiLabel()} — ` +
+    `kan 30–90 minuten duren. Laat dit tabblad open en ververs niet.`
+  );
 }
 
 export function formatZipUploadError(err: unknown): string {
