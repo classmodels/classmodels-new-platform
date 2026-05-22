@@ -41,8 +41,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     icon: 'layout',
     items: [
       { href: '/admin/portalen', label: 'Portalen' },
-      { href: '/admin/content', label: 'Content (CMS-sleutels)', permission: 'content.strings.write' },
-      { href: '/admin/content/portfolio', label: 'Portfolio-teksten', permission: 'content.strings.write' },
+      { href: '/admin/content', label: 'Teksten', permission: 'content.strings.write' },
       { href: '/admin/menus', label: "Menu's", permission: 'admin.menus.read' },
     ],
   },

@@ -736,11 +736,8 @@ function ModelPortalPageInner() {
   } else if (tab === 'profiel') {
     if (!token) {
       main =
-        guestPreview && !user ? (
-          <p className="text-sm leading-relaxed text-muted">
-            In de voorbeeldmodus zonder account is je modellenfiche niet beschikbaar. Log in om gegevens en foto’s te
-            beheren.
-          </p>
+        !user ? (
+          <p className="text-sm text-muted">Log in om uw modellenfiche te bekijken.</p>
         ) : (
           <p className="text-sm text-muted">Laden…</p>
         );
@@ -976,13 +973,6 @@ function ModelPortalPageInner() {
       userFirstName={firstName}
       premiumButton={premiumButton}
     >
-      {guestPreview && !user ? (
-        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
-          <strong>Voorbeeld zonder account.</strong> Je ziet de opbouw van het modellenportaal. Onder tab{' '}
-          <strong>Modellen</strong> laadt het rooster via de publieke catalogus (API). Voor opdrachten, je fiche en
-          uploads heb je een echte login nodig.
-        </div>
-      ) : null}
       {main}
       <div className="mt-8 border-t border-zinc-100 pt-4">
         <Link href="/portal/model?tab=home" className="text-sm text-burgundy hover:underline">

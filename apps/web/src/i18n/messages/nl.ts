@@ -119,6 +119,7 @@ export const messagesNl = {
     sectionPortal: 'Portal & content',
     portalen: 'Portalen',
     content: 'Content (CMS-sleutels)',
+    siteTexts: 'Teksten',
     portfolioTexts: 'Portfolio-teksten',
     menus: "Menu's",
     sectionJobs: 'Opdrachten',

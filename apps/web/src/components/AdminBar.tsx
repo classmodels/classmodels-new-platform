@@ -51,23 +51,13 @@ export function AdminBar() {
     <div className="fixed inset-x-0 top-0 z-[100] flex h-10 items-center gap-4 border-b border-white/10 bg-ink px-4 text-[13px] text-white shadow-sm">
       <span className="font-medium text-white/90">Admin</span>
       {can('content.strings.write') ? (
-        <>
-          <button
-            type="button"
-            className="rounded px-2 py-0.5 hover:bg-white/10"
-            onClick={toggleInlineEdit}
-            title="Klik op tekst op de pagina om die aan te passen"
-          >
-            {editMode ? 'Tekst bewerken (aan)' : 'Tekst bewerken'}
-          </button>
-          <Link
-            href="/admin/content/portfolio"
-            className="rounded px-2 py-0.5 text-white/90 hover:bg-white/10"
-            title="Portfolio afspraak — alle teksten in één formulier"
-          >
-            Portfolio-teksten
-          </Link>
-        </>
+        <button
+          type="button"
+          className="rounded px-2 py-0.5 hover:bg-white/10"
+          onClick={toggleInlineEdit}
+        >
+          {editMode ? 'Tekst bewerken (aan)' : 'Tekst bewerken'}
+        </button>
       ) : null}
       {hasBackofficeAccess ? (
         <div className="flex items-center gap-1 text-white/80">
