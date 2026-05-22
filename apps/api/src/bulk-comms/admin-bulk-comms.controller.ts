@@ -107,4 +107,22 @@ export class AdminBulkCommsController {
   retryFailed(@Param('id') id: string) {
     return this.comms.retryFailedCampaign(id);
   }
+
+  @Get('unsubscribes')
+  @Permissions('admin.push.send')
+  unsubscribes() {
+    return this.comms.listUnsubscribes();
+  }
+
+  @Delete('unsubscribes/:id')
+  @Permissions('admin.push.send')
+  removeUnsubscribe(@Param('id') id: string) {
+    return this.comms.removeUnsubscribe(id);
+  }
+
+  @Post('lists/:id/dedupe')
+  @Permissions('admin.push.lists')
+  dedupeList(@Param('id') id: string) {
+    return this.comms.dedupeContactList(id);
+  }
 }

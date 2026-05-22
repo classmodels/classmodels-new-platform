@@ -149,6 +149,7 @@ export const messagesFr = {
     commsSend: 'Envoyer e-mail & SMS',
     commsLists: 'Listes de contacts',
     commsHistory: 'Historique d\'envoi',
+    commsUnsubscribes: 'Désinscriptions',
     pushMessages: 'Messages push',
     pushLists: 'Listes push',
     sectionTech: 'Admin & technique',

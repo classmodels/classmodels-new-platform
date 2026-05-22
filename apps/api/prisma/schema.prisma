@@ -100,6 +100,7 @@ model User {
   bulkMessageCampaignsSent  BulkMessageCampaign[] @relation("BulkCampaignSentBy")
   bulkContactListEntries    BulkContactListEntry[]
   bulkMessageDeliveries     BulkMessageDelivery[]
+  bulkMailUnsubscribes      BulkMailUnsubscribe[]
   tryoutModeshowRegistrations TryoutModeshowRegistration[]
   /// Portfolio-levering door fotograaf (map `portfolio-fotograaf`), gekoppeld aan dit model.
   portfolioDeliveryAssets MediaAsset[] @relation("PortfolioDeliveryForModel")
@@ -745,6 +746,20 @@ model BulkMessageDelivery {
   @@index([campaignId])
   @@index([email])
   @@index([openedAt])
+}
+
+/// Uitschrijvingen voor bulk e-mail (modellen/ontvangers).
+model BulkMailUnsubscribe {
+  id          String   @id @default(uuid())
+  email       String   @unique @db.VarChar(191)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  displayName String?  @db.VarChar(191)
+  source      String   @default("link")
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model PasswordResetToken {

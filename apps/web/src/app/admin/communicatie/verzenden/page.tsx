@@ -17,6 +17,7 @@ type RecipientRow = {
   phone?: string;
   source: string;
   eligible: boolean;
+  skipReason?: 'unsubscribed' | 'duplicate';
 };
 
 type PreviewRes = {
@@ -25,6 +26,7 @@ type PreviewRes = {
   total: number;
   eligible: number;
   included: number;
+  unsubscribed?: number;
 };
 
 type AdhocRow = { email: string; phone: string; displayName: string };
@@ -105,7 +107,9 @@ export default function CommunicatieVerzendenPage() {
         }),
       });
       setRecipients(p.recipients);
-      setOk(`${p.included} van ${p.eligible} ontvangers geselecteerd (${p.total} totaal).`);
+      const extra =
+        p.unsubscribed && p.unsubscribed > 0 ? ` · ${p.unsubscribed} uitgeschreven (niet verstuurd)` : '';
+      setOk(`${p.included} van ${p.eligible} ontvangers geselecteerd (${p.total} totaal)${extra}.`);
     } catch (e: unknown) {
       setRecipients([]);
       setErr(e instanceof Error ? e.message : 'Ontvangers laden mislukt');
@@ -365,7 +369,16 @@ export default function CommunicatieVerzendenPage() {
               </thead>
               <tbody>
                 {recipients.map((r) => (
-                  <tr key={r.key} className={!r.eligible ? 'opacity-40' : ''}>
+                  <tr
+                    key={r.key}
+                    className={
+                      !r.eligible
+                        ? r.skipReason === 'unsubscribed'
+                          ? 'bg-amber-50/80 opacity-90'
+                          : 'opacity-40'
+                        : ''
+                    }
+                  >
                     <td className="p-2">
                       <input
                         type="checkbox"
@@ -374,7 +387,12 @@ export default function CommunicatieVerzendenPage() {
                         onChange={(e) => toggleRecipient(r.key, e.target.checked)}
                       />
                     </td>
-                    <td className="p-2">{r.displayName}</td>
+                    <td className="p-2">
+                      {r.displayName}
+                      {r.skipReason === 'unsubscribed' ? (
+                        <span className="ml-1 text-[10px] text-amber-800">(uitgeschreven)</span>
+                      ) : null}
+                    </td>
                     <td className="p-2 text-muted">{channel === 'email' ? r.email || '—' : r.phone || '—'}</td>
                     <td className="p-2 text-muted">{r.source}</td>
                   </tr>

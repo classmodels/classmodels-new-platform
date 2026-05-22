@@ -20,13 +20,27 @@ const FOOTER = `
   </tr>
 </table>`;
 
-export function wrapBulkMailHtml(innerHtml: string, displayName?: string | null): string {
+export function webPublicBaseUrl(): string {
+  return (process.env.WEB_PUBLIC_URL || process.env.WEB_APP_URL || 'https://www.class-models.be').replace(
+    /\/$/,
+    '',
+  );
+}
+
+export function wrapBulkMailHtml(
+  innerHtml: string,
+  displayName?: string | null,
+  unsubscribeUrl?: string | null,
+): string {
   const name = displayName?.trim();
   const greeting = name
     ? `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;">Beste ${escHtml(name)},</p>`
     : `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;">Beste,</p>`;
   const body = (innerHtml || '').trim() || '<p></p>';
-  return coerceOutgoingEmailHtml(`${greeting}<div style="margin-top:8px">${body}</div>${FOOTER}`);
+  const unsub = unsubscribeUrl?.trim()
+    ? `<p style="margin:20px 0 0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:12px;line-height:1.5;color:#71717a;"><a href="${escHtml(unsubscribeUrl.trim())}" style="color:#71717a;text-decoration:underline;">Uitschrijven van deze e-mails</a></p>`
+    : '';
+  return coerceOutgoingEmailHtml(`${greeting}<div style="margin-top:8px">${body}</div>${unsub}${FOOTER}`);
 }
 
 export function appendTrackingPixel(html: string, trackingUrl: string): string {

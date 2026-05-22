@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
-import { appendTrackingPixel, trackingBaseUrl, wrapBulkMailHtml } from './bulk-mail-layout';
+import { appendTrackingPixel, trackingBaseUrl, webPublicBaseUrl, wrapBulkMailHtml } from './bulk-mail-layout';
 import type {
   AddBulkListEntryDto,
   BulkCommsPreviewDto,
@@ -22,6 +22,8 @@ export type BulkRecipientRow = {
   displayName: string;
   source: 'role' | 'list' | 'adhoc';
   eligible: boolean;
+  /** Niet verstuurd: uitgeschreven of dubbel e-mailadres (alleen tonen bij uitschrijving). */
+  skipReason?: 'unsubscribed' | 'duplicate';
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
@@ -162,15 +164,29 @@ export class BulkCommsService {
     await this.ensureList(listId);
     const parsed = parseImportLines(dto.text);
     if (!parsed.length) throw new BadRequestException('Geen geldige regels gevonden.');
+    const seenEmail = new Set<string>();
+    const seenPhone = new Set<string>();
+    const unique = parsed.filter((p) => {
+      const email = normalizeBulkEmail(p.email);
+      const phone = p.phone?.replace(/\s/g, '') || null;
+      if (email) {
+        if (seenEmail.has(email)) return false;
+        seenEmail.add(email);
+      } else if (phone) {
+        if (seenPhone.has(phone)) return false;
+        seenPhone.add(phone);
+      }
+      return !!(email || phone);
+    });
     const created = await this.prisma.bulkContactListEntry.createMany({
-      data: parsed.map((p) => ({
+      data: unique.map((p) => ({
         listId,
-        email: p.email,
+        email: normalizeBulkEmail(p.email) || p.email,
         phone: p.phone,
         displayName: p.displayName,
       })),
     });
-    return { imported: created.count };
+    return { imported: created.count, skippedDuplicates: parsed.length - unique.length };
   }
 
   /** Ontvangers voor verzenden (server-side selectie; geen grote recipients-array nodig). */
@@ -201,12 +217,14 @@ export class BulkCommsService {
     }));
     const eligible = withSelection.filter((r) => r.eligible);
     const included = withSelection.filter((r) => r.include && r.eligible);
+    const unsubscribed = withSelection.filter((r) => r.skipReason === 'unsubscribed').length;
     return {
       channel: dto.channel,
       recipients: withSelection,
       total: withSelection.length,
       eligible: eligible.length,
       included: included.length,
+      unsubscribed,
     };
   }
 
@@ -299,9 +317,7 @@ export class BulkCommsService {
             status: 'pending',
           },
         });
-        let html = wrapBulkMailHtml(htmlRaw, r.displayName);
-        const trackUrl = `${baseUrl}/bulk-mail/track/${token}.gif`;
-        html = appendTrackingPixel(html, trackUrl);
+        const html = this.buildBulkEmailHtml(htmlRaw, r.displayName, token);
         const mail = await this.notifications.sendHtmlMailDetailed(to, subject, html);
         await this.prisma.bulkMessageDelivery.update({
           where: { id: delivery.id },
@@ -399,7 +415,6 @@ export class BulkCommsService {
     const htmlRaw = c.bodyHtml?.trim();
     if (!subject || !htmlRaw) throw new BadRequestException('Campagne mist onderwerp of inhoud.');
 
-    const baseUrl = trackingBaseUrl();
     const emailDelay = BulkCommsService.emailDelayMs();
     const poolResetEvery = BulkCommsService.smtpPoolResetEvery();
     const batchSize = BulkCommsService.emailBatchSize();
@@ -419,10 +434,8 @@ export class BulkCommsService {
         this.notifications.resetSmtpPool();
       }
       const displayName = d.displayName?.trim() || 'Model';
-      let html = wrapBulkMailHtml(htmlRaw, displayName);
       const token = d.trackingToken || randomUUID();
-      const trackUrl = `${baseUrl}/bulk-mail/track/${token}.gif`;
-      html = appendTrackingPixel(html, trackUrl);
+      const html = this.buildBulkEmailHtml(htmlRaw, displayName, token);
       const mail = await this.notifications.sendHtmlMailDetailed(to, subject, html);
       if (mail.ok) {
         sinceBatchPause += 1;
@@ -608,8 +621,133 @@ export class BulkCommsService {
       });
     }
 
-    return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, 'nl'));
+    return this.finalizeRecipients([...map.values()], dto.channel);
   }
+
+  private buildBulkEmailHtml(htmlRaw: string, displayName: string | null | undefined, token: string): string {
+    const baseUrl = trackingBaseUrl();
+    const unsubUrl = `${webPublicBaseUrl()}/uitschrijven?t=${encodeURIComponent(token)}`;
+    let html = wrapBulkMailHtml(htmlRaw, displayName, unsubUrl);
+    return appendTrackingPixel(html, `${baseUrl}/bulk-mail/track/${token}.gif`);
+  }
+
+  private async loadUnsubscribedEmails(): Promise<Set<string>> {
+    const rows = await this.prisma.bulkMailUnsubscribe.findMany({ select: { email: true } });
+    return new Set(rows.map((r) => normalizeBulkEmail(r.email)).filter((x): x is string => !!x));
+  }
+
+  private async finalizeRecipients(rows: BulkRecipientRow[], channel: string): Promise<BulkRecipientRow[]> {
+    if (channel !== 'email') {
+      return rows.sort((a, b) => a.displayName.localeCompare(b.displayName, 'nl'));
+    }
+    const unsub = await this.loadUnsubscribedEmails();
+    const seen = new Set<string>();
+    const out: BulkRecipientRow[] = [];
+    for (const r of rows) {
+      const norm = normalizeBulkEmail(r.email);
+      if (norm && unsub.has(norm)) {
+        out.push({ ...r, eligible: false, include: false, skipReason: 'unsubscribed' });
+        continue;
+      }
+      if (norm && seen.has(norm)) continue;
+      if (norm) seen.add(norm);
+      out.push(r);
+    }
+    return out.sort((a, b) => a.displayName.localeCompare(b.displayName, 'nl'));
+  }
+
+  async listUnsubscribes(limit = 500) {
+    return this.prisma.bulkMailUnsubscribe.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(Math.max(limit, 1), 2000),
+      include: {
+        user: { select: { id: true, email: true, firstName: true, lastName: true } },
+      },
+    });
+  }
+
+  async removeUnsubscribe(id: string) {
+    const row = await this.prisma.bulkMailUnsubscribe.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Uitschrijving niet gevonden');
+    await this.prisma.bulkMailUnsubscribe.delete({ where: { id } });
+    return { ok: true, email: row.email };
+  }
+
+  async dedupeContactList(listId: string) {
+    await this.ensureList(listId);
+    const entries = await this.prisma.bulkContactListEntry.findMany({
+      where: { listId },
+      orderBy: { createdAt: 'asc' },
+    });
+    const seenEmail = new Set<string>();
+    const seenPhone = new Set<string>();
+    const toDelete: string[] = [];
+    for (const e of entries) {
+      const email = normalizeBulkEmail(e.email);
+      const phone = e.phone?.replace(/\s/g, '') || null;
+      if (email) {
+        if (seenEmail.has(email)) toDelete.push(e.id);
+        else seenEmail.add(email);
+      } else if (phone) {
+        if (seenPhone.has(phone)) toDelete.push(e.id);
+        else seenPhone.add(phone);
+      }
+    }
+    if (toDelete.length) {
+      await this.prisma.bulkContactListEntry.deleteMany({ where: { id: { in: toDelete } } });
+    }
+    return { removed: toDelete.length, kept: entries.length - toDelete.length };
+  }
+
+  async unsubscribeInfo(token: string) {
+    const delivery = await this.prisma.bulkMessageDelivery.findUnique({
+      where: { trackingToken: token.trim() },
+      select: { email: true, displayName: true },
+    });
+    if (!delivery?.email?.trim()) throw new NotFoundException('Link ongeldig of verlopen.');
+    const email = normalizeBulkEmail(delivery.email);
+    if (!email) throw new NotFoundException('Geen e-mail gekoppeld aan deze link.');
+    const already = await this.prisma.bulkMailUnsubscribe.findUnique({ where: { email } });
+    return {
+      emailMasked: maskEmail(email),
+      displayName: delivery.displayName?.trim() || null,
+      alreadyUnsubscribed: !!already,
+    };
+  }
+
+  async unsubscribeByToken(token: string) {
+    const delivery = await this.prisma.bulkMessageDelivery.findUnique({
+      where: { trackingToken: token.trim() },
+      select: { email: true, userId: true, displayName: true },
+    });
+    if (!delivery?.email?.trim()) throw new NotFoundException('Link ongeldig of verlopen.');
+    const email = normalizeBulkEmail(delivery.email);
+    if (!email) throw new BadRequestException('Geen geldig e-mailadres.');
+    await this.prisma.bulkMailUnsubscribe.upsert({
+      where: { email },
+      create: {
+        email,
+        userId: delivery.userId,
+        displayName: delivery.displayName?.trim() || null,
+        source: 'link',
+      },
+      update: {},
+    });
+    return { ok: true, emailMasked: maskEmail(email) };
+  }
+}
+
+function normalizeBulkEmail(raw: string | null | undefined): string | null {
+  const e = raw?.trim().toLowerCase();
+  if (!e || !EMAIL_RE.test(e)) return null;
+  return e;
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return '***@***';
+  const vis = local.length <= 2 ? '*' : `${local.slice(0, 2)}***`;
+  return `${vis}@${domain}`;
 }
 
 function displayNameFromUser(u: {

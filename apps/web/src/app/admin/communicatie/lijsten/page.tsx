@@ -92,14 +92,22 @@ export default function CommunicatieLijstenPage() {
     if (!token || !selected || !importText.trim()) return;
     setMsg(null);
     try {
-      const res = await adminFetch<{ imported: number }>(`/admin/comms/lists/${selected}/import`, token, {
-        method: 'POST',
-        body: JSON.stringify({ text: importText }),
-      });
+      const res = await adminFetch<{ imported: number; skippedDuplicates?: number }>(
+        `/admin/comms/lists/${selected}/import`,
+        token,
+        {
+          method: 'POST',
+          body: JSON.stringify({ text: importText }),
+        },
+      );
       setImportText('');
       await loadEntries(selected);
       await loadLists();
-      setMsg(`${res.imported} contact(en) geïmporteerd.`);
+      const dup =
+        res.skippedDuplicates && res.skippedDuplicates > 0
+          ? ` (${res.skippedDuplicates} dubbele overgeslagen)`
+          : '';
+      setMsg(`${res.imported} contact(en) geïmporteerd${dup}.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Importeren mislukt');
     }
@@ -140,6 +148,24 @@ export default function CommunicatieLijstenPage() {
       await loadLists();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Verwijderen mislukt');
+    }
+  };
+
+  const dedupeList = async () => {
+    if (!token || !selected) return;
+    if (!window.confirm('Dubbele e-mailadressen en gsm-nummers in deze lijst verwijderen?')) return;
+    setMsg(null);
+    try {
+      const res = await adminFetch<{ removed: number; kept: number }>(
+        `/admin/comms/lists/${selected}/dedupe`,
+        token,
+        { method: 'POST', body: '{}' },
+      );
+      await loadEntries(selected);
+      await loadLists();
+      setMsg(`${res.removed} dubbele verwijderd, ${res.kept} contacten over.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Opschonen mislukt');
     }
   };
 
@@ -251,6 +277,16 @@ export default function CommunicatieLijstenPage() {
                 className="rounded border border-line px-3 py-1.5 text-xs font-medium"
               >
                 Importeren
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void dedupeList()}
+                className="rounded border border-line bg-white px-3 py-1.5 text-xs font-medium hover:bg-panel"
+              >
+                Dubbele e-mails verwijderen
               </button>
             </div>
 

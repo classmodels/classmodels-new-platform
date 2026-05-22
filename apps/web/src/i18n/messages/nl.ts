@@ -149,6 +149,7 @@ export const messagesNl = {
     commsSend: 'Mail & SMS verzenden',
     commsLists: 'Contactlijsten',
     commsHistory: 'Verzendgeschiedenis',
+    commsUnsubscribes: 'Uitschrijvingen',
     pushMessages: 'Pushberichten',
     pushLists: 'Push-lijsten',
     sectionTech: 'Beheer & techniek',

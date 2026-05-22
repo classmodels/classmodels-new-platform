@@ -1,4 +1,4 @@
-import { Controller, Get, Headers, Param, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { BulkCommsService } from './bulk-comms.service';
 
@@ -27,5 +27,15 @@ export class BulkCommsPublicController {
     res.setHeader('Content-Type', 'image/gif');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.send(PIXEL);
+  }
+
+  @Get('unsubscribe/info')
+  unsubscribeInfo(@Query('t') token: string) {
+    return this.comms.unsubscribeInfo(token || '');
+  }
+
+  @Post('unsubscribe')
+  unsubscribe(@Body() body: { token?: string }) {
+    return this.comms.unsubscribeByToken(body?.token || '');
   }
 }

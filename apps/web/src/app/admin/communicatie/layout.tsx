@@ -8,6 +8,7 @@ const TABS = [
   { href: '/admin/communicatie/verzenden', label: 'Verzenden', permission: 'admin.push.send' },
   { href: '/admin/communicatie/lijsten', label: 'Contactlijsten', permission: 'admin.push.lists' },
   { href: '/admin/communicatie/geschiedenis', label: 'Geschiedenis', permission: 'admin.push.send' },
+  { href: '/admin/communicatie/uitschrijvingen', label: 'Uitschrijvingen', permission: 'admin.push.send' },
 ] as const;
 
 export default function CommunicatieLayout({ children }: { children: React.ReactNode }) {
