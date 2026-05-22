@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -96,16 +96,37 @@ export class AdminBulkCommsController {
     return this.comms.listCampaigns();
   }
 
+  @Get('campaigns/:id/status')
+  @Permissions('admin.push.send')
+  campaignStatus(@Param('id') id: string) {
+    return this.comms.getCampaignStatus(id);
+  }
+
   @Get('campaigns/:id')
   @Permissions('admin.push.send')
-  campaign(@Param('id') id: string) {
-    return this.comms.getCampaign(id);
+  campaign(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('take') take?: string,
+  ) {
+    const p = page ? parseInt(page, 10) : 1;
+    const t = take ? parseInt(take, 10) : 80;
+    return this.comms.getCampaign(id, Number.isFinite(p) ? p : 1, Number.isFinite(t) ? t : 80);
+  }
+
+  @Post('campaigns/:id/process-batch')
+  @Permissions('admin.push.send')
+  processBatch(
+    @Param('id') id: string,
+    @Body() body: { retryFailed?: boolean },
+  ) {
+    return this.comms.processCampaignBatch(id, { retryFailed: !!body?.retryFailed });
   }
 
   @Post('campaigns/:id/retry-failed')
   @Permissions('admin.push.send')
   retryFailed(@Param('id') id: string) {
-    return this.comms.retryFailedCampaign(id);
+    return this.comms.processCampaignBatch(id, { retryFailed: true });
   }
 
   @Get('unsubscribes')

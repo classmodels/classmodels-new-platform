@@ -51,6 +51,12 @@ export default function CommunicatieVerzendenPage() {
   const [err, setErr] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [lastCampaignId, setLastCampaignId] = useState<string | null>(null);
+  const [sendProgress, setSendProgress] = useState<{
+    processed: number;
+    planned: number;
+    sent: number;
+    failed: number;
+  } | null>(null);
 
   const loadMeta = useCallback(async () => {
     if (!token) return;
@@ -141,57 +147,72 @@ export default function CommunicatieVerzendenPage() {
     if (!window.confirm(`Nu versturen naar ${included} ontvanger(s) (${channel})?`)) return;
     setErr(null);
     setOk(null);
+    setSendProgress(null);
     setBusy(true);
-    try {
-      const base = buildSendPayload();
-      const body =
-        channel === 'email'
-          ? { ...base, subject, htmlBody }
-          : { ...base, smsBody };
-      const res = await adminFetch<{
-        campaignId: string;
-        sent: number;
-        failed: number;
-        skipped: number;
-        total?: number;
-        background?: boolean;
-        message?: string;
-      }>('/admin/comms/send', token, { method: 'POST', body: JSON.stringify(body) });
-      setLastCampaignId(res.campaignId ?? null);
+    const base = buildSendPayload();
+    const body =
+      channel === 'email' ? { ...base, subject, htmlBody } : { ...base, smsBody };
 
-      if (res.background && res.campaignId) {
-        setOk(res.message ?? `Verzending gestart (${res.total ?? included} ontvangers)…`);
-        const campaignId = res.campaignId;
-        const poll = async () => {
+    try {
+      const res = await adminFetch<{ campaignId: string }>('/admin/comms/send', token, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      const campaignId = res.campaignId;
+      setLastCampaignId(campaignId);
+      setSendProgress({ processed: 0, planned: 0, sent: 0, failed: 0 });
+
+      type Progress = {
+        processed: number;
+        planned: number;
+        sentCount: number;
+        failedCount: number;
+        done: boolean;
+      };
+
+      const runBatch = async (): Promise<Progress> =>
+        adminFetch<Progress>(`/admin/comms/campaigns/${campaignId}/process-batch`, token, {
+          method: 'POST',
+          body: '{}',
+        });
+
+      const fetchStatus = async (): Promise<Progress> =>
+        adminFetch<Progress>(`/admin/comms/campaigns/${campaignId}/status`, token);
+
+      let safety = 0;
+      while (safety < 2000) {
+        safety += 1;
+        let p: Progress | null = null;
+        try {
+          p = await runBatch();
+        } catch {
           try {
-            const c = await adminFetch<{
-              sentCount: number;
-              failedCount: number;
-              skippedCount: number;
-              stats: { sent: number; failed: number; total: number; planned?: number };
-            }>(`/admin/comms/campaigns/${campaignId}`, token);
-            const planned = c.stats?.planned ?? res.total ?? included;
-            const done = (c.sentCount ?? 0) + (c.failedCount ?? 0) + (c.skippedCount ?? 0);
-            if (done < planned) {
-              setOk(
-                `Bezig met verzenden: ${done} / ${planned} (verzonden: ${c.sentCount}, mislukt: ${c.failedCount})…`,
-              );
-              window.setTimeout(() => void poll(), 4000);
-            } else {
-              setOk(
-                `Klaar: ${c.sentCount} verzonden, ${c.failedCount} mislukt, ${res.skipped ?? 0} overgeslagen.`,
-              );
-            }
+            p = await fetchStatus();
           } catch {
-            setOk('Verzending loopt op de server. Bekijk Communicatie → Geschiedenis.');
+            setOk(
+              'Verbinding onderbroken — verzending kan op de server doorlopen. Vernieuw Communicatie → Geschiedenis over een minuut.',
+            );
+            break;
           }
-        };
-        window.setTimeout(() => void poll(), 3000);
-      } else {
-        setOk(`Verzonden: ${res.sent}, mislukt: ${res.failed}, overgeslagen: ${res.skipped}.`);
+        }
+        if (!p) break;
+        setSendProgress({
+          processed: p.processed,
+          planned: p.planned,
+          sent: p.sentCount,
+          failed: p.failedCount,
+        });
+        if (p.done || (p.planned > 0 && p.processed >= p.planned)) {
+          setOk(
+            `Klaar: ${p.sentCount} verzonden, ${p.failedCount} mislukt (${p.processed} van ${p.planned} verwerkt).`,
+          );
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 400));
       }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Versturen mislukt');
+      setSendProgress(null);
     } finally {
       setBusy(false);
     }
@@ -430,6 +451,28 @@ export default function CommunicatieVerzendenPage() {
           </label>
         )}
       </div>
+
+      {sendProgress && sendProgress.planned > 0 ? (
+        <div className="rounded-md border border-line bg-white p-4 shadow-sm space-y-2">
+          <p className="text-xs font-medium text-ink">Voortgang verzending</p>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-zinc-100">
+            <div
+              className="h-full rounded-full bg-burgundy transition-all duration-300"
+              style={{
+                width: `${Math.min(100, Math.round((sendProgress.processed / sendProgress.planned) * 100))}%`,
+              }}
+            />
+          </div>
+          <p className="text-xs text-muted">
+            {sendProgress.processed} / {sendProgress.planned} verwerkt · {sendProgress.sent} verzonden ·{' '}
+            {sendProgress.failed} mislukt
+          </p>
+        </div>
+      ) : busy && sendProgress ? (
+        <div className="rounded-md border border-line bg-white p-4 text-xs text-muted">
+          Ontvangers tellen… even geduld.
+        </div>
+      ) : null}
 
       {err ? <p className="text-sm text-red-700">{err}</p> : null}
       {ok ? (

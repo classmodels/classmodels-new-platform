@@ -716,6 +716,8 @@ model BulkMessageCampaign {
   failedCount  Int      @default(0)
   skippedCount Int      @default(0)
   targetCount  Int      @default(0)
+  status       String   @default("completed")
+  excludedKeys Json?
   deliveries   BulkMessageDelivery[]
   createdAt    DateTime @default(now())
 

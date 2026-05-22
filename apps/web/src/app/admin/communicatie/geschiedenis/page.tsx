@@ -22,13 +22,16 @@ type CampaignRow = {
 export default function CommunicatieGeschiedenisPage() {
   const { token, can } = useAuth();
   const [rows, setRows] = useState<CampaignRow[]>([]);
+  const [err, setErr] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.push.send')) return;
+    setErr(null);
     try {
       setRows(await adminFetch<CampaignRow[]>('/admin/comms/campaigns', token));
-    } catch {
+    } catch (e) {
       setRows([]);
+      setErr(e instanceof Error ? e.message : 'Geschiedenis laden mislukt');
     }
   }, [token, can]);
 
@@ -41,6 +44,8 @@ export default function CommunicatieGeschiedenisPage() {
   }
 
   return (
+    <div className="space-y-3">
+      {err ? <p className="text-sm text-red-700">{err}</p> : null}
     <div className="rounded border border-line bg-white overflow-hidden">
       <table className="w-full text-xs">
         <thead className="bg-zinc-50">
@@ -73,7 +78,8 @@ export default function CommunicatieGeschiedenisPage() {
           ))}
         </tbody>
       </table>
-      {!rows.length ? <p className="p-4 text-sm text-muted">Nog geen verzendingen.</p> : null}
+      {!rows.length && !err ? <p className="p-4 text-sm text-muted">Nog geen verzendingen.</p> : null}
+    </div>
     </div>
   );
 }

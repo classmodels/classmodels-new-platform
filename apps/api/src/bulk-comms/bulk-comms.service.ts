@@ -57,6 +57,62 @@ export class BulkCommsService {
     return Number.isFinite(n) && n > 0 ? n : 25;
   }
 
+  private static processBatchSize(): number {
+    const n = parseInt(process.env.BULK_EMAIL_PROCESS_BATCH_SIZE || '20', 10);
+    return Number.isFinite(n) && n > 0 ? Math.min(n, 50) : 20;
+  }
+
+  private dtoFromCampaign(c: {
+    channel: string;
+    subject: string | null;
+    bodyHtml: string | null;
+    bodySms: string | null;
+    listId: string | null;
+    roleSlugs: unknown;
+    excludedKeys: unknown;
+  }): BulkCommsSendDto {
+    const slugs = Array.isArray(c.roleSlugs) ? (c.roleSlugs as string[]) : undefined;
+    const excluded = Array.isArray(c.excludedKeys) ? (c.excludedKeys as string[]) : undefined;
+    return {
+      channel: c.channel as 'email' | 'sms',
+      subject: c.subject ?? undefined,
+      htmlBody: c.bodyHtml ?? undefined,
+      smsBody: c.bodySms ?? undefined,
+      contactListId: c.listId ?? undefined,
+      roleSlugs: slugs?.length ? slugs : undefined,
+      excludedKeys: excluded?.length ? excluded : undefined,
+    };
+  }
+
+  private async campaignProgress(campaignId: string, extra: Record<string, unknown> = {}) {
+    const c = await this.prisma.bulkMessageCampaign.findUnique({
+      where: { id: campaignId },
+      select: {
+        status: true,
+        sentCount: true,
+        failedCount: true,
+        skippedCount: true,
+        targetCount: true,
+      },
+    });
+    if (!c) throw new NotFoundException('Campagne niet gevonden');
+    const processed = c.sentCount + c.failedCount + c.skippedCount;
+    const planned = c.targetCount > 0 ? c.targetCount : processed;
+    const remaining = Math.max(0, planned - processed);
+    return {
+      campaignId,
+      status: c.status,
+      sentCount: c.sentCount,
+      failedCount: c.failedCount,
+      skippedCount: c.skippedCount,
+      planned,
+      processed,
+      remaining,
+      done: c.status === 'completed' || (planned > 0 && remaining === 0),
+      ...extra,
+    };
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: AgendaNotificationService,
@@ -228,9 +284,17 @@ export class BulkCommsService {
     };
   }
 
+  /** Start campagne (geen mail) — frontend roept daarna herhaaldelijk process-batch aan. */
   async send(dto: BulkCommsSendDto, adminUserId: string) {
-    const toSend = await this.recipientsToSend(dto);
-    if (!toSend.length) throw new BadRequestException('Geen ontvangers geselecteerd.');
+    if (dto.channel === 'email' && (!dto.subject?.trim() || !dto.htmlBody?.trim())) {
+      throw new BadRequestException('Onderwerp en inhoud zijn verplicht.');
+    }
+    if (dto.channel === 'sms' && !dto.smsBody?.trim()) {
+      throw new BadRequestException('SMS-tekst is verplicht.');
+    }
+    if (!dto.roleSlugs?.length && !dto.contactListId?.trim() && !(dto.adhoc?.length)) {
+      throw new BadRequestException('Kies rollen, een lijst of handmatige ontvangers.');
+    }
 
     const campaign = await this.prisma.bulkMessageCampaign.create({
       data: {
@@ -240,30 +304,163 @@ export class BulkCommsService {
         bodySms: dto.channel === 'sms' ? dto.smsBody?.trim() : null,
         listId: dto.contactListId || null,
         roleSlugs: dto.roleSlugs?.length ? dto.roleSlugs : undefined,
+        excludedKeys: dto.excludedKeys?.length ? dto.excludedKeys : undefined,
         sentById: adminUserId,
-        targetCount: toSend.length,
+        targetCount: 0,
+        status: 'queued',
       },
     });
 
-    const bgMin = BulkCommsService.backgroundMinRecipients();
-    if (toSend.length >= bgMin) {
-      void this.runCampaignDispatch(campaign.id, dto, toSend).catch((e) => {
-        this.log.error(
-          `Bulk campagne ${campaign.id} afgebroken: ${e instanceof Error ? e.message : String(e)}`,
-        );
-      });
-      return {
-        campaignId: campaign.id,
-        background: true as const,
-        sent: 0,
-        failed: 0,
-        skipped: 0,
-        total: toSend.length,
-        message: `Verzending gestart op de server (${toSend.length} ontvangers). Voortgang: Communicatie → Geschiedenis.`,
-      };
+    return {
+      campaignId: campaign.id,
+      background: true as const,
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      total: 0,
+      message: 'Verzending gestart. Even geduld…',
+    };
+  }
+
+  getCampaignStatus(campaignId: string) {
+    return this.campaignProgress(campaignId);
+  }
+
+  async processCampaignBatch(campaignId: string, opts?: { retryFailed?: boolean }) {
+    const c = await this.prisma.bulkMessageCampaign.findUnique({ where: { id: campaignId } });
+    if (!c) throw new NotFoundException('Campagne niet gevonden');
+    const dto = this.dtoFromCampaign(c);
+    const batchSize = BulkCommsService.processBatchSize();
+
+    if (opts?.retryFailed) {
+      return this.processFailedBatch(campaignId, dto, batchSize);
     }
 
-    return this.runCampaignDispatch(campaign.id, dto, toSend);
+    if (c.status === 'completed') {
+      return this.campaignProgress(campaignId, { done: true });
+    }
+
+    let all = await this.recipientsToSend(dto);
+    if (!all.length) {
+      await this.prisma.bulkMessageCampaign.update({
+        where: { id: campaignId },
+        data: { status: 'completed', targetCount: 0 },
+      });
+      throw new BadRequestException('Geen ontvangers geselecteerd.');
+    }
+
+    if (c.targetCount === 0) {
+      await this.prisma.bulkMessageCampaign.update({
+        where: { id: campaignId },
+        data: { targetCount: all.length, status: 'running' },
+      });
+    } else {
+      await this.prisma.bulkMessageCampaign.update({
+        where: { id: campaignId },
+        data: { status: 'running' },
+      });
+    }
+
+    const existing = await this.prisma.bulkMessageDelivery.findMany({
+      where: { campaignId },
+      select: { email: true, phone: true },
+    });
+    const doneKeys = new Set(
+      existing
+        .map((d) => normalizeBulkEmail(d.email) || d.phone?.replace(/\s/g, '') || '')
+        .filter(Boolean),
+    );
+
+    const pending = all.filter((r) => {
+      const k =
+        dto.channel === 'email'
+          ? normalizeBulkEmail(r.email)
+          : r.phone?.replace(/\s/g, '') || '';
+      return k && !doneKeys.has(k);
+    });
+
+    if (!pending.length) {
+      await this.prisma.bulkMessageCampaign.update({
+        where: { id: campaignId },
+        data: { status: 'completed' },
+      });
+      return this.campaignProgress(campaignId, { done: true });
+    }
+
+    const batch = pending.slice(0, batchSize);
+    await this.runCampaignDispatch(campaignId, dto, batch);
+
+    const progress = await this.campaignProgress(campaignId, {
+      batchProcessed: batch.length,
+    });
+    if (progress.done) {
+      await this.prisma.bulkMessageCampaign.update({
+        where: { id: campaignId },
+        data: { status: 'completed' },
+      });
+    }
+    return progress;
+  }
+
+  private async processFailedBatch(campaignId: string, dto: BulkCommsSendDto, batchSize: number) {
+    const failed = await this.prisma.bulkMessageDelivery.findMany({
+      where: { campaignId, status: 'failed' },
+      take: batchSize,
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!failed.length) {
+      return this.campaignProgress(campaignId, { done: true, retried: 0 });
+    }
+
+    await this.prisma.bulkMessageCampaign.update({
+      where: { id: campaignId },
+      data: { status: 'running' },
+    });
+
+    const emailDelay = BulkCommsService.emailDelayMs();
+    const subject = dto.subject?.trim()!;
+    const htmlRaw = dto.htmlBody?.trim()!;
+    const baseUrl = trackingBaseUrl();
+
+    for (const d of failed) {
+      const to = d.email?.trim();
+      if (!to) continue;
+      const token = d.trackingToken || randomUUID();
+      const displayName = d.displayName?.trim() || 'Model';
+      const html = this.buildBulkEmailHtml(htmlRaw, displayName, token);
+      const mail = await this.notifications.sendHtmlMailDetailed(to, subject, html);
+      if (mail.ok) {
+        await this.prisma.bulkMessageDelivery.update({
+          where: { id: d.id },
+          data: { status: 'sent', sentAt: new Date(), errorMessage: null },
+        });
+      } else {
+        await this.prisma.bulkMessageDelivery.update({
+          where: { id: d.id },
+          data: { errorMessage: mail.error?.slice(0, 500) || 'SMTP mislukt' },
+        });
+      }
+      if (emailDelay > 0) await new Promise((res) => setTimeout(res, emailDelay));
+    }
+
+    const [sentTotal, failedLeft] = await Promise.all([
+      this.prisma.bulkMessageDelivery.count({ where: { campaignId, status: 'sent' } }),
+      this.prisma.bulkMessageDelivery.count({ where: { campaignId, status: 'failed' } }),
+    ]);
+    await this.prisma.bulkMessageCampaign.update({
+      where: { id: campaignId },
+      data: {
+        sentCount: sentTotal,
+        failedCount: failedLeft,
+        status: failedLeft === 0 ? 'completed' : 'running',
+      },
+    });
+
+    return this.campaignProgress(campaignId, {
+      retried: failed.length,
+      retryFailedRemaining: failedLeft,
+      done: failedLeft === 0,
+    });
   }
 
   private async runCampaignDispatch(
@@ -391,6 +588,7 @@ export class BulkCommsService {
         failedCount: true,
         skippedCount: true,
         targetCount: true,
+        status: true,
         createdAt: true,
         list: { select: { id: true, name: true } },
         sentBy: { select: { id: true, email: true, firstName: true, lastName: true } },
@@ -399,107 +597,61 @@ export class BulkCommsService {
     });
   }
 
-  /** Opnieuw versturen naar mislukte ontvangers van een e-mailcampagne. */
+  /** Opnieuw proberen in batches (zelfde patroon als verzenden). */
   async retryFailedCampaign(campaignId: string) {
-    const c = await this.prisma.bulkMessageCampaign.findUnique({
-      where: { id: campaignId },
-      include: {
-        deliveries: {
-          where: { status: 'failed' },
-        },
-      },
-    });
+    const c = await this.prisma.bulkMessageCampaign.findUnique({ where: { id: campaignId } });
     if (!c) throw new NotFoundException('Campagne niet gevonden');
-    if (c.channel !== 'email') throw new BadRequestException('Alleen e-mailcampagnes kunnen opnieuw worden geprobeerd.');
-    const subject = c.subject?.trim();
-    const htmlRaw = c.bodyHtml?.trim();
-    if (!subject || !htmlRaw) throw new BadRequestException('Campagne mist onderwerp of inhoud.');
-
-    const emailDelay = BulkCommsService.emailDelayMs();
-    const poolResetEvery = BulkCommsService.smtpPoolResetEvery();
-    const batchSize = BulkCommsService.emailBatchSize();
-    const batchPause = BulkCommsService.emailBatchPauseMs();
-    let sinceBatchPause = 0;
-
-    for (let i = 0; i < c.deliveries.length; i++) {
-      const d = c.deliveries[i]!;
-      const to = d.email?.trim();
-      if (!to) continue;
-      if (batchSize > 0 && sinceBatchPause >= batchSize && batchPause > 0) {
-        this.notifications.resetSmtpPool();
-        await new Promise((res) => setTimeout(res, batchPause));
-        sinceBatchPause = 0;
-      }
-      if (poolResetEvery > 0 && i > 0 && i % poolResetEvery === 0) {
-        this.notifications.resetSmtpPool();
-      }
-      const displayName = d.displayName?.trim() || 'Model';
-      const token = d.trackingToken || randomUUID();
-      const html = this.buildBulkEmailHtml(htmlRaw, displayName, token);
-      const mail = await this.notifications.sendHtmlMailDetailed(to, subject, html);
-      if (mail.ok) {
-        sinceBatchPause += 1;
-        await this.prisma.bulkMessageDelivery.update({
-          where: { id: d.id },
-          data: { status: 'sent', sentAt: new Date(), errorMessage: null },
-        });
-      } else {
-        await this.prisma.bulkMessageDelivery.update({
-          where: { id: d.id },
-          data: { errorMessage: mail.error?.slice(0, 500) || 'SMTP-verzending mislukt' },
-        });
-      }
-      if (emailDelay > 0) await new Promise((res) => setTimeout(res, emailDelay));
-    }
-
-    const [sentTotal, failedLeft] = await Promise.all([
-      this.prisma.bulkMessageDelivery.count({ where: { campaignId, status: 'sent' } }),
-      this.prisma.bulkMessageDelivery.count({ where: { campaignId, status: 'failed' } }),
-    ]);
-    await this.prisma.bulkMessageCampaign.update({
-      where: { id: campaignId },
-      data: { sentCount: sentTotal, failedCount: failedLeft },
-    });
-    this.notifications.resetSmtpPool();
-
-    return {
-      retried: c.deliveries.length,
-      nowSent: sentTotal,
-      stillFailed: failedLeft,
-      message:
-        failedLeft === 0
-          ? 'Alle mislukte mails zijn alsnog verzonden.'
-          : `${failedLeft} ontvanger(s) nog steeds mislukt — controleer SMTP-limiet of wacht en probeer opnieuw.`,
-    };
+    if (c.channel !== 'email') throw new BadRequestException('Alleen e-mailcampagnes.');
+    return this.processFailedBatch(campaignId, this.dtoFromCampaign(c), BulkCommsService.processBatchSize());
   }
 
-  async getCampaign(id: string) {
+  async getCampaign(id: string, deliveriesPage = 1, deliveriesTake = 80) {
+    const page = Math.max(1, deliveriesPage);
+    const take = Math.min(Math.max(deliveriesTake, 1), 200);
+    const skip = (page - 1) * take;
+
     const c = await this.prisma.bulkMessageCampaign.findUnique({
       where: { id },
       include: {
         list: { select: { id: true, name: true } },
         sentBy: { select: { id: true, email: true, firstName: true, lastName: true } },
-        deliveries: {
-          orderBy: [{ openedAt: 'desc' }, { sentAt: 'desc' }],
-          include: {
-            user: {
-              select: { id: true, email: true, firstName: true, lastName: true },
-            },
-          },
-        },
       },
     });
     if (!c) throw new NotFoundException('Campagne niet gevonden');
-    const opened = c.deliveries.filter((d) => d.openedAt).length;
-    const sent = c.deliveries.filter((d) => d.status === 'sent').length;
-    const planned = c.targetCount > 0 ? c.targetCount : c.deliveries.length;
+
+    const [deliveries, deliveryTotal, opened] = await Promise.all([
+      this.prisma.bulkMessageDelivery.findMany({
+        where: { campaignId: id },
+        orderBy: [{ openedAt: 'desc' }, { sentAt: 'desc' }],
+        skip,
+        take,
+        include: {
+          user: {
+            select: { id: true, email: true, firstName: true, lastName: true },
+          },
+        },
+      }),
+      this.prisma.bulkMessageDelivery.count({ where: { campaignId: id } }),
+      this.prisma.bulkMessageDelivery.count({
+        where: { campaignId: id, openedAt: { not: null } },
+      }),
+    ]);
+
+    const planned = c.targetCount > 0 ? c.targetCount : deliveryTotal;
+    const progress = await this.campaignProgress(id);
+
     return {
       ...c,
+      deliveries,
+      deliveriesPage: page,
+      deliveriesTake: take,
+      deliveriesTotal: deliveryTotal,
       stats: {
-        sent,
+        sent: c.sentCount,
         opened,
-        total: c.deliveries.length,
+        total: deliveryTotal,
         planned,
+        done: progress.done,
       },
     };
   }
