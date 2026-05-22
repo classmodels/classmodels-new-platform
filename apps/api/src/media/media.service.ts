@@ -25,9 +25,12 @@ import archiver from 'archiver';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import {
+  combellDataSiteUploadsCandidates,
   countMediaFilesShallow,
   mediaDirFreeBytes,
   resolveMediaRoot,
+  resolveWritableMediaRoot,
+  tryWritableMediaDir,
 } from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -231,7 +234,7 @@ export class MediaService {
   }
 
   root() {
-    return resolveMediaRoot();
+    return resolveWritableMediaRoot();
   }
 
   /** Alleen schijf (geen nieuw DB-record): herstel mediabestanden op productie met zelfde bestandsnaam als in DB. */
@@ -1537,6 +1540,89 @@ export class MediaService {
     };
   }
 
+  /**
+   * ZIP staat al op de hosting-schijf (File Manager / SFTP → www/cm-media/uploads/inbox/).
+   * Geen browser-upload — omzeilt volle /app/shared-container.
+   */
+  async importZipFromHostingInbox(fileName: string, folderId: string, userId: string) {
+    const safe = basename(fileName?.trim() || '');
+    if (!safe || !/\.zip$/i.test(safe)) {
+      throw new BadRequestException('Geef een .zip-bestandsnaam op (bv. modeshow.zip).');
+    }
+
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException('Map niet gevonden.');
+    if (folder.slug === 'verwijderde') {
+      throw new BadRequestException('ZIP kan niet naar de prullenbak.');
+    }
+
+    let inboxFile: string | null = null;
+    let root: string | null = null;
+    for (const base of combellDataSiteUploadsCandidates()) {
+      const candidate = join(base, 'inbox', safe);
+      try {
+        if (existsSync(candidate) && statSync(candidate).isFile()) {
+          if (tryWritableMediaDir(base)) {
+            inboxFile = candidate;
+            root = base;
+            break;
+          }
+        }
+      } catch {
+        /**/
+      }
+    }
+
+    if (!inboxFile || !root) {
+      const hint = combellDataSiteUploadsCandidates()
+        .map((b) => `${b}/inbox/${safe}`)
+        .join(' of ');
+      throw new BadRequestException(
+        `ZIP niet gevonden of map niet schrijfbaar vanuit Node. Zet het bestand via Combell File Manager in: www/cm-media/uploads/inbox/${safe} (serverpad: ${hint}).`,
+      );
+    }
+
+    this.ensureMediaRootWritable(root);
+    const id = randomUUID();
+    const storageKey = `${id}.zip`;
+    const dest = join(root, storageKey);
+    try {
+      renameSync(inboxFile, dest);
+    } catch (e) {
+      const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
+      if (code === 'ENOSPC') {
+        throw new BadRequestException(`Schijf vol bij verplaatsen naar ${root}.`);
+      }
+      throw new BadRequestException(
+        `Kon ZIP niet registreren vanuit inbox. Controleer rechten op ${root}.`,
+      );
+    }
+
+    const sizeBytes = statSync(dest).size;
+    const created = await this.prisma.mediaAsset.create({
+      data: {
+        originalName: safe,
+        storageKey,
+        mimeType: 'application/zip',
+        sizeBytes,
+        uploadedById: userId,
+        folderId: folder.id,
+      },
+    });
+    this.invalidateDiskBasenameIndex();
+
+    return {
+      ok: true,
+      folderSlug: folder.slug,
+      mediaRoot: root,
+      zipName: safe,
+      assetId: created.id,
+      storageKey: created.storageKey,
+      sizeBytes,
+      fromInbox: true,
+    };
+  }
+
   /** Grote ZIP in stukken (±32 MB) — voorkomt proxy-timeout bij 4+ GB enkelvoudige POST. */
   async initZipChunkedUpload(folderId: string, fileName: string, totalSize: number, userId: string) {
     const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
@@ -2070,9 +2156,22 @@ export class MediaService {
     const sharedDir = join(this.monorepoRoot(), 'shared', 'uploads');
 
     const freeBytes = mediaDirFreeBytes(root);
+    const hostingCandidates = combellDataSiteUploadsCandidates().map((dir) => {
+      let exists = false;
+      let writable = false;
+      try {
+        exists = existsSync(dir) && statSync(dir).isDirectory();
+        writable = exists ? tryWritableMediaDir(dir) : false;
+      } catch {
+        /**/
+      }
+      return { dir, exists, writable };
+    });
 
     return {
       mediaRoot: root,
+      writableMediaRoot: resolveWritableMediaRoot(),
+      hostingCandidates,
       mediaRootFreeBytes: freeBytes,
       mediaRootFreeGb: freeBytes != null ? Math.round((freeBytes / (1024 * 1024 * 1024)) * 10) / 10 : null,
       mediaRootExists: existsSync(root),

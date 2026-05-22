@@ -20,7 +20,7 @@ import { diskStorage, memoryStorage } from 'multer';
 import { mkdirSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { basename, extname, join } from 'path';
-import { resolveMediaRoot } from '../config/resolve-media-root';
+import { resolveWritableMediaRoot } from '../config/resolve-media-root';
 import { mediaZipUploadMaxBytes } from './media-zip-import';
 import type { Response } from 'express';
 import {
@@ -54,7 +54,7 @@ const PUBLIC_FILE_MIME: Record<string, string> = {
 };
 
 function zipUploadTmpDir(): string {
-  const dir = join(resolveMediaRoot(), '.zip-upload-tmp');
+  const dir = join(resolveWritableMediaRoot(), '.zip-upload-tmp');
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -288,6 +288,22 @@ export class MediaController {
   @Get('admin/storage-info')
   storageInfo() {
     return this.media.getStorageDiagnostics();
+  }
+
+  /** ZIP al geüpload via Combell File Manager → www/cm-media/uploads/inbox/ */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('admin/import-inbox-zip')
+  importInboxZip(
+    @Req() req: { user: JwtPayload },
+    @Query('folderId') folderId?: string,
+    @Query('fileName') fileName?: string,
+  ) {
+    const fid = folderId?.trim();
+    if (!fid) return { error: 'folderId is verplicht' };
+    const name = fileName?.trim();
+    if (!name) return { error: 'fileName is verplicht (bv. modeshow.zip)' };
+    return this.media.importZipFromHostingInbox(name, fid, req.user.sub);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

@@ -52,7 +52,7 @@ function isContainerAppHome(home: string | undefined): boolean {
 }
 
 /** Combell data-site pad (deelt de 100 GB webhosting-quota, niet de kleine /app/shared-container). */
-function combellDataSiteUploadsCandidates(): string[] {
+export function combellDataSiteUploadsCandidates(): string[] {
   const out: string[] = [];
   const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
   if (explicit) out.push(explicit);
@@ -298,6 +298,14 @@ function localAppMediaCandidates(): string[] {
     out.push(join(cwd, 'apps/api/uploads'));
   }
   return [...new Set(out)];
+}
+
+/** Waar uploads naartoe mogen: data-site (100 GB) als Node die map kan schrijven. */
+export function resolveWritableMediaRoot(): string {
+  for (const dir of combellContainerMediaDirs()) {
+    if (tryWritableMediaDir(dir)) return dir.replace(/\\/g, '/').replace(/\/+$/, '') || dir;
+  }
+  return resolveMediaRoot();
 }
 
 export function resolveMediaRoot(): string {

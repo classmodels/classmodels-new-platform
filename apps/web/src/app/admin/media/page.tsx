@@ -114,6 +114,14 @@ export default function AdminMediaPage() {
   const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
 
   const [totalAllBytes, setTotalAllBytes] = useState(0);
+  const [storageInfo, setStorageInfo] = useState<{
+    mediaRoot: string;
+    writableMediaRoot?: string;
+    mediaRootFreeGb?: number | null;
+    hostingCandidates?: { dir: string; exists: boolean; writable: boolean }[];
+  } | null>(null);
+  const [inboxZipName, setInboxZipName] = useState('');
+  const [inboxBusy, setInboxBusy] = useState(false);
   /** Tijdens upload: map vastzetten zodat de UI niet springt. */
   const [pinnedFolderId, setPinnedFolderId] = useState<string | null>(null);
   const loadSeqRef = useRef(0);
@@ -254,6 +262,45 @@ export default function AdminMediaPage() {
       await load({ folderId: created.id, page: 1 });
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Map aanmaken mislukt.');
+    }
+  };
+
+  const loadStorageInfo = useCallback(async () => {
+    if (!token) return;
+    try {
+      const d = await adminFetch<{
+        mediaRoot: string;
+        writableMediaRoot?: string;
+        mediaRootFreeGb?: number | null;
+        hostingCandidates?: { dir: string; exists: boolean; writable: boolean }[];
+      }>('/media/admin/storage-info', token);
+      setStorageInfo(d);
+    } catch {
+      setStorageInfo(null);
+    }
+  }, [token]);
+
+  const importInboxZip = async () => {
+    if (!token || !selectedFolderId || isTrashFolder || !inboxZipName.trim()) return;
+    const name = inboxZipName.trim();
+    setInboxBusy(true);
+    setZipMsg('');
+    try {
+      const q = new URLSearchParams({ folderId: selectedFolderId, fileName: name });
+      const r = await adminFetch<{ zipName?: string; mediaRoot?: string; sizeBytes?: number }>(
+        `/media/admin/import-inbox-zip?${q}`,
+        token,
+        { method: 'POST' },
+      );
+      setZipMsg(
+        `ZIP uit inbox geregistreerd: ${r.zipName ?? name}${r.sizeBytes ? ` (${formatBytes(r.sizeBytes)})` : ''} — opslag: ${r.mediaRoot ?? '?'}`,
+      );
+      setInboxZipName('');
+      await load({ page: 1 });
+    } catch (e) {
+      setZipMsg(e instanceof Error ? e.message : 'Inbox-import mislukt');
+    } finally {
+      setInboxBusy(false);
     }
   };
 
@@ -678,7 +725,13 @@ export default function AdminMediaPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setStoragePanelOpen((o) => !o)}
+            onClick={() => {
+              setStoragePanelOpen((o) => {
+                const next = !o;
+                if (next) void loadStorageInfo();
+                return next;
+              });
+            }}
             className="rounded border border-line bg-white px-2.5 py-1 text-xs hover:bg-panel"
           >
             {storagePanelOpen ? 'Verberg totaal' : 'Totaal omvang'}
@@ -694,19 +747,42 @@ export default function AdminMediaPage() {
       </div>
 
       {storagePanelOpen ? (
-        <div className="rounded-md border border-line bg-white px-3 py-2.5 text-xs text-ink shadow-sm">
+        <div className="rounded-md border border-line bg-white px-3 py-2.5 text-xs text-ink shadow-sm space-y-2">
           <p>
             <span className="font-semibold">Totaal geregistreerd (alle mappen):</span>{' '}
             <span className="font-mono tabular-nums">{formatBytes(totalAllBytes)}</span>
           </p>
-          <p className="mt-1 text-[11px] leading-snug text-muted">
-            Dit is de som van de bestandsgroottes in de database per media-item (primaire opslag). Afgeleide
-            miniaturen of WebP-kopieën op schijf tellen daar niet dubbel bij mee.
+          {storageInfo ? (
+            <div className="rounded border border-amber-200 bg-amber-50/80 px-2 py-1.5 text-[11px]">
+              <p>
+                <span className="font-semibold">Server opslag (MEDIA_ROOT):</span>{' '}
+                <code className="text-[10px]">{storageInfo.writableMediaRoot ?? storageInfo.mediaRoot}</code>
+              </p>
+              {storageInfo.mediaRootFreeGb != null ? (
+                <p className="mt-0.5">Vrij op die map: ca. {storageInfo.mediaRootFreeGb} GB</p>
+              ) : null}
+              {storageInfo.hostingCandidates?.length ? (
+                <ul className="mt-1 list-inside list-disc text-[10px] text-muted">
+                  {storageInfo.hostingCandidates.map((c) => (
+                    <li key={c.dir}>
+                      {c.writable ? '✓' : '✗'} {c.dir}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
+          <p className="text-[11px] leading-snug text-muted">
+            Combell toont ~100 GB voor het hele pakket. Als ZIP-upload “schijf vol” zegt, gebruik de{' '}
+            <strong>inbox-methode</strong> hieronder.
           </p>
           <button
             type="button"
-            onClick={() => void load()}
-            className="mt-2 rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-medium text-burgundy hover:bg-panel"
+            onClick={() => {
+              void load();
+              void loadStorageInfo();
+            }}
+            className="rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-medium text-burgundy hover:bg-panel"
           >
             Vernieuwen
           </button>
@@ -899,6 +975,31 @@ export default function AdminMediaPage() {
                 />
               </div>
             ) : null}
+            <div className="mt-2 rounded border border-dashed border-amber-300 bg-amber-50/60 px-2 py-2 text-[10px] text-ink">
+              <p className="font-semibold text-amber-950">Alternatief: ZIP via Combell File Manager (werkt bij “schijf vol”)</p>
+              <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted">
+                <li>Combell → File Manager → map <code>www/cm-media/uploads/inbox/</code> (maak <code>inbox</code> aan als die ontbreekt)</li>
+                <li>Upload je .zip daarheen (bv. modeshow.zip) — gebruikt je 100 GB hosting</li>
+                <li>Vul hier de bestandsnaam in en klik Registreren</li>
+              </ol>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  className="min-w-[140px] rounded border border-line bg-white px-2 py-1 font-mono text-[11px]"
+                  placeholder="modeshow.zip"
+                  value={inboxZipName}
+                  onChange={(e) => setInboxZipName(e.target.value)}
+                  disabled={!selectedFolderId || isTrashFolder || inboxBusy}
+                />
+                <button
+                  type="button"
+                  disabled={!inboxZipName.trim() || !selectedFolderId || isTrashFolder || inboxBusy}
+                  onClick={() => void importInboxZip()}
+                  className="rounded border border-burgundy bg-burgundy/10 px-2 py-1 text-[11px] font-medium text-burgundy hover:bg-panel disabled:opacity-50"
+                >
+                  {inboxBusy ? 'Bezig…' : 'ZIP uit inbox registreren'}
+                </button>
+              </div>
+            </div>
             {zipMsg ? (
               <p className="mt-1 whitespace-pre-wrap break-all text-[10px] text-ink">{zipMsg}</p>
             ) : null}
