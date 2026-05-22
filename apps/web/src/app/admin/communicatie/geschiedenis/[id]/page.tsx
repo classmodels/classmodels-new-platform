@@ -38,9 +38,11 @@ type CampaignDetail = {
 
 export default function CommunicatieGeschiedenisDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { token } = useAuth();
+  const { token, can } = useAuth();
   const [data, setData] = useState<CampaignDetail | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [retryMsg, setRetryMsg] = useState<string | null>(null);
+  const [retryBusy, setRetryBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!token || !id) return;
@@ -54,6 +56,28 @@ export default function CommunicatieGeschiedenisDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const failedCount = data?.deliveries.filter((d) => d.status === 'failed').length ?? 0;
+
+  const retryFailed = async () => {
+    if (!token || !id || !can('admin.push.send')) return;
+    if (!window.confirm(`Opnieuw proberen voor ${failedCount} mislukte ontvanger(s)?`)) return;
+    setRetryBusy(true);
+    setRetryMsg(null);
+    setErr(null);
+    try {
+      const r = await adminFetch<{ message?: string }>(`/admin/comms/campaigns/${id}/retry-failed`, token, {
+        method: 'POST',
+        body: '{}',
+      });
+      setRetryMsg(r.message ?? 'Opnieuw geprobeerd.');
+      await load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Opnieuw proberen mislukt');
+    } finally {
+      setRetryBusy(false);
+    }
+  };
 
   if (err) return <p className="text-sm text-red-700">{err}</p>;
   if (!data) return <p className="text-sm text-muted">Laden…</p>;
@@ -73,6 +97,17 @@ export default function CommunicatieGeschiedenisDetailPage() {
           Verzonden: {data.stats.sent} · Geopend: {data.stats.opened} · Verwerkt: {data.stats.total}
           {data.stats.planned ? ` · Gepland: ${data.stats.planned}` : ''}
         </p>
+        {data.channel === 'email' && failedCount > 0 && can('admin.push.send') ? (
+          <button
+            type="button"
+            disabled={retryBusy}
+            onClick={() => void retryFailed()}
+            className="mt-2 rounded bg-burgundy px-3 py-1.5 text-xs font-semibold text-white hover:bg-burgundyDeep disabled:opacity-50"
+          >
+            {retryBusy ? 'Bezig…' : `Mislukte opnieuw proberen (${failedCount})`}
+          </button>
+        ) : null}
+        {retryMsg ? <p className="mt-2 text-xs text-emerald-800">{retryMsg}</p> : null}
         {data.channel === 'email' && data.bodyHtml ? (
           <details className="mt-2">
             <summary className="cursor-pointer text-burgundy underline">Toon verzonden e-mailinhoud</summary>
@@ -96,6 +131,7 @@ export default function CommunicatieGeschiedenisDetailPage() {
               <th className="p-2 text-left">Verzonden</th>
               <th className="p-2 text-left">Geopend</th>
               <th className="p-2 text-left">Opens</th>
+              <th className="p-2 text-left">Fout</th>
             </tr>
           </thead>
           <tbody>
@@ -120,6 +156,9 @@ export default function CommunicatieGeschiedenisDetailPage() {
                       : ''}
                   </td>
                   <td className="p-2">{data.channel === 'email' ? d.openCount : '—'}</td>
+                  <td className="p-2 max-w-[180px] truncate text-red-700" title={d.errorMessage || ''}>
+                    {d.status === 'failed' ? d.errorMessage || '—' : '—'}
+                  </td>
                 </tr>
               );
             })}

@@ -110,7 +110,30 @@ export class AgendaNotificationService {
 
   /** Zelfde SMTP (`SMTP_HOST`, …). Retourneert false als niet geconfigureerd of geen adres. */
   async sendHtmlMail(to: string, subject: string, html: string): Promise<boolean> {
-    return this.trySendSmtp(to, subject, html);
+    const r = await this.sendHtmlMailDetailed(to, subject, html);
+    return r.ok;
+  }
+
+  /** Met fouttekst (bulk-mail, logging). */
+  async sendHtmlMailDetailed(
+    to: string,
+    subject: string,
+    html: string,
+  ): Promise<{ ok: boolean; error?: string }> {
+    return this.trySendSmtpDetailed(to, subject, html);
+  }
+
+  /** Sluit SMTP-pool (na rate limit of na batch bulk-mail). */
+  resetSmtpPool(): void {
+    const t = this.smtpCache?.transporter;
+    this.smtpCache = null;
+    if (t) {
+      try {
+        t.close();
+      } catch {
+        /* negeer */
+      }
+    }
   }
 
   async sendHtmlMailWithAttachments(
@@ -282,13 +305,19 @@ export class AgendaNotificationService {
       return { transporter: this.smtpCache.transporter, from: this.smtpCache.from };
     }
     try {
+      const rateDelta = parseInt(process.env.SMTP_RATE_DELTA_MS || '1000', 10);
+      const rateLimit = parseInt(process.env.SMTP_RATE_LIMIT || '3', 10);
       const transporter = nodemailer.createTransport({
         host: cfg.host,
         port: cfg.port,
         secure: cfg.secure,
         auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
         pool: true,
-        maxConnections: 3,
+        maxConnections: 2,
+        /** Nodemailer-default is 100 — daarna faalt vaak alles; lager + pool-reset in bulk. */
+        maxMessages: parseInt(process.env.SMTP_POOL_MAX_MESSAGES || '25', 10) || 25,
+        rateDelta: Number.isFinite(rateDelta) && rateDelta > 0 ? rateDelta : 1000,
+        rateLimit: Number.isFinite(rateLimit) && rateLimit > 0 ? rateLimit : 3,
       });
       this.smtpCache = { key, transporter, from: cfg.from };
       return { transporter, from: cfg.from };
@@ -298,46 +327,98 @@ export class AgendaNotificationService {
     }
   }
 
+  private smtpErrorMessage(e: unknown): string {
+    if (e instanceof Error) return e.message.slice(0, 500);
+    return String(e).slice(0, 500);
+  }
+
+  private isSmtpRateOrQuotaError(msg: string): boolean {
+    const m = msg.toLowerCase();
+    return (
+      m.includes('rate') ||
+      m.includes('limit') ||
+      m.includes('quota') ||
+      m.includes('too many') ||
+      m.includes('throttl') ||
+      m.includes('421') ||
+      m.includes('450') ||
+      m.includes('452') ||
+      m.includes('454') ||
+      m.includes('exceeded')
+    );
+  }
+
   private async trySendSmtp(
     to: string | null,
     subject: string,
     html: string,
     attachments?: { filename: string; content: Buffer }[],
   ): Promise<boolean> {
+    const r = await this.trySendSmtpDetailed(to, subject, html, attachments);
+    return r.ok;
+  }
+
+  private async trySendSmtpDetailed(
+    to: string | null,
+    subject: string,
+    html: string,
+    attachments?: { filename: string; content: Buffer }[],
+  ): Promise<{ ok: boolean; error?: string }> {
     const addr = to?.trim();
-    if (!addr) return false;
+    if (!addr) return { ok: false, error: 'Geen e-mailadres' };
 
-    const smtp = await this.getSmtpTransport();
-    if (!smtp) return false;
+    const maxAttempts = parseInt(process.env.SMTP_SEND_MAX_ATTEMPTS || '5', 10) || 5;
+    let lastErr = 'SMTP niet geconfigureerd';
 
-    try {
-      await smtp.transporter.sendMail({
-        from: smtp.from,
-        to: addr,
-        subject,
-        html,
-        ...(attachments?.length
-          ? {
-              attachments: attachments.map((a) => ({
-                filename: a.filename,
-                content: a.content,
-                contentType: 'application/pdf',
-              })),
-            }
-          : {}),
-      });
-    } catch (e) {
-      this.log.warn(
-        `SMTP sendMail mislukt → ${addr}: ${e instanceof Error ? e.message : String(e)}`,
-      );
-      return false;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        const waitMs = this.isSmtpRateOrQuotaError(lastErr)
+          ? Math.min(
+              120_000,
+              parseInt(process.env.SMTP_RATE_LIMIT_RETRY_MS || '8000', 10) * Math.pow(2, attempt - 1),
+            )
+          : 1500 * attempt;
+        await new Promise((r) => setTimeout(r, waitMs));
+        this.resetSmtpPool();
+      }
+
+      const smtp = await this.getSmtpTransport();
+      if (!smtp) return { ok: false, error: lastErr };
+
+      try {
+        await smtp.transporter.sendMail({
+          from: smtp.from,
+          to: addr,
+          subject,
+          html,
+          ...(attachments?.length
+            ? {
+                attachments: attachments.map((a) => ({
+                  filename: a.filename,
+                  content: a.content,
+                  contentType: 'application/pdf',
+                })),
+              }
+            : {}),
+        });
+        if (attempt > 0) {
+          this.log.log(`SMTP retry ${attempt + 1} geslaagd → ${addr}`);
+        } else {
+          this.log.log(
+            attachments?.length
+              ? `E-mail met ${attachments.length} bijlage(n) verstuurd naar ${addr}`
+              : `E-mail verstuurd naar ${addr}`,
+          );
+        }
+        return { ok: true };
+      } catch (e) {
+        lastErr = this.smtpErrorMessage(e);
+        this.log.warn(`SMTP poging ${attempt + 1}/${maxAttempts} → ${addr}: ${lastErr}`);
+        if (!this.isSmtpRateOrQuotaError(lastErr) && attempt >= 1) break;
+      }
     }
-    this.log.log(
-      attachments?.length
-        ? `E-mail met ${attachments.length} bijlage(n) verstuurd naar ${addr}`
-        : `E-mail verstuurd naar ${addr}`,
-    );
-    return true;
+
+    return { ok: false, error: lastErr };
   }
 
   private buildEmailHtml(p: AgendaConfirmationPayload): string {

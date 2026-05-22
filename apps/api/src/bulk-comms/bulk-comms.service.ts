@@ -36,8 +36,23 @@ export class BulkCommsService {
   }
 
   private static emailDelayMs(): number {
-    const n = parseInt(process.env.BULK_EMAIL_DELAY_MS || '80', 10);
-    return Number.isFinite(n) && n >= 0 ? n : 80;
+    const n = parseInt(process.env.BULK_EMAIL_DELAY_MS || '400', 10);
+    return Number.isFinite(n) && n >= 0 ? n : 400;
+  }
+
+  private static emailBatchSize(): number {
+    const n = parseInt(process.env.BULK_EMAIL_BATCH_SIZE || '90', 10);
+    return Number.isFinite(n) && n > 0 ? n : 90;
+  }
+
+  private static emailBatchPauseMs(): number {
+    const n = parseInt(process.env.BULK_EMAIL_BATCH_PAUSE_MS || '120000', 10);
+    return Number.isFinite(n) && n >= 0 ? n : 120_000;
+  }
+
+  private static smtpPoolResetEvery(): number {
+    const n = parseInt(process.env.BULK_EMAIL_SMTP_RESET_EVERY || '25', 10);
+    return Number.isFinite(n) && n > 0 ? n : 25;
   }
 
   constructor(
@@ -248,13 +263,30 @@ export class BulkCommsService {
       const htmlRaw = dto.htmlBody?.trim();
       if (!subject || !htmlRaw) throw new BadRequestException('Onderwerp en inhoud zijn verplicht.');
       const baseUrl = trackingBaseUrl();
+      const batchSize = BulkCommsService.emailBatchSize();
+      const batchPause = BulkCommsService.emailBatchPauseMs();
+      const poolResetEvery = BulkCommsService.smtpPoolResetEvery();
+      let sinceBatchPause = 0;
 
-      for (const r of toSend) {
+      for (let i = 0; i < toSend.length; i++) {
+        const r = toSend[i]!;
         const to = r.email?.trim();
         if (!to) {
           skipped += 1;
           continue;
         }
+        if (batchSize > 0 && sinceBatchPause >= batchSize && batchPause > 0) {
+          this.log.log(
+            `Bulk campagne ${campaignId}: pauze ${batchPause}ms na ${sinceBatchPause} mails (hosting rate limit)`,
+          );
+          this.notifications.resetSmtpPool();
+          await new Promise((res) => setTimeout(res, batchPause));
+          sinceBatchPause = 0;
+        }
+        if (poolResetEvery > 0 && i > 0 && i % poolResetEvery === 0) {
+          this.notifications.resetSmtpPool();
+        }
+
         const token = randomUUID();
         const delivery = await this.prisma.bulkMessageDelivery.create({
           data: {
@@ -270,15 +302,17 @@ export class BulkCommsService {
         let html = wrapBulkMailHtml(htmlRaw, r.displayName);
         const trackUrl = `${baseUrl}/bulk-mail/track/${token}.gif`;
         html = appendTrackingPixel(html, trackUrl);
-        const ok = await this.notifications.sendHtmlMail(to, subject, html);
+        const mail = await this.notifications.sendHtmlMailDetailed(to, subject, html);
         await this.prisma.bulkMessageDelivery.update({
           where: { id: delivery.id },
-          data: ok
+          data: mail.ok
             ? { status: 'sent', sentAt: new Date() }
-            : { status: 'failed', errorMessage: 'SMTP-verzending mislukt' },
+            : { status: 'failed', errorMessage: mail.error?.slice(0, 500) || 'SMTP-verzending mislukt' },
         });
-        if (ok) sent += 1;
-        else failed += 1;
+        if (mail.ok) {
+          sent += 1;
+          sinceBatchPause += 1;
+        } else failed += 1;
         if (emailDelay > 0) await new Promise((res) => setTimeout(res, emailDelay));
         if ((sent + failed + skipped) % 25 === 0) {
           await this.prisma.bulkMessageCampaign.update({
@@ -287,6 +321,7 @@ export class BulkCommsService {
           });
         }
       }
+      this.notifications.resetSmtpPool();
     } else {
       const text = dto.smsBody?.trim();
       if (!text) throw new BadRequestException('SMS-tekst is verplicht.');
@@ -346,6 +381,83 @@ export class BulkCommsService {
         _count: { select: { deliveries: true } },
       },
     });
+  }
+
+  /** Opnieuw versturen naar mislukte ontvangers van een e-mailcampagne. */
+  async retryFailedCampaign(campaignId: string) {
+    const c = await this.prisma.bulkMessageCampaign.findUnique({
+      where: { id: campaignId },
+      include: {
+        deliveries: {
+          where: { status: 'failed' },
+        },
+      },
+    });
+    if (!c) throw new NotFoundException('Campagne niet gevonden');
+    if (c.channel !== 'email') throw new BadRequestException('Alleen e-mailcampagnes kunnen opnieuw worden geprobeerd.');
+    const subject = c.subject?.trim();
+    const htmlRaw = c.bodyHtml?.trim();
+    if (!subject || !htmlRaw) throw new BadRequestException('Campagne mist onderwerp of inhoud.');
+
+    const baseUrl = trackingBaseUrl();
+    const emailDelay = BulkCommsService.emailDelayMs();
+    const poolResetEvery = BulkCommsService.smtpPoolResetEvery();
+    const batchSize = BulkCommsService.emailBatchSize();
+    const batchPause = BulkCommsService.emailBatchPauseMs();
+    let sinceBatchPause = 0;
+
+    for (let i = 0; i < c.deliveries.length; i++) {
+      const d = c.deliveries[i]!;
+      const to = d.email?.trim();
+      if (!to) continue;
+      if (batchSize > 0 && sinceBatchPause >= batchSize && batchPause > 0) {
+        this.notifications.resetSmtpPool();
+        await new Promise((res) => setTimeout(res, batchPause));
+        sinceBatchPause = 0;
+      }
+      if (poolResetEvery > 0 && i > 0 && i % poolResetEvery === 0) {
+        this.notifications.resetSmtpPool();
+      }
+      const displayName = d.displayName?.trim() || 'Model';
+      let html = wrapBulkMailHtml(htmlRaw, displayName);
+      const token = d.trackingToken || randomUUID();
+      const trackUrl = `${baseUrl}/bulk-mail/track/${token}.gif`;
+      html = appendTrackingPixel(html, trackUrl);
+      const mail = await this.notifications.sendHtmlMailDetailed(to, subject, html);
+      if (mail.ok) {
+        sinceBatchPause += 1;
+        await this.prisma.bulkMessageDelivery.update({
+          where: { id: d.id },
+          data: { status: 'sent', sentAt: new Date(), errorMessage: null },
+        });
+      } else {
+        await this.prisma.bulkMessageDelivery.update({
+          where: { id: d.id },
+          data: { errorMessage: mail.error?.slice(0, 500) || 'SMTP-verzending mislukt' },
+        });
+      }
+      if (emailDelay > 0) await new Promise((res) => setTimeout(res, emailDelay));
+    }
+
+    const [sentTotal, failedLeft] = await Promise.all([
+      this.prisma.bulkMessageDelivery.count({ where: { campaignId, status: 'sent' } }),
+      this.prisma.bulkMessageDelivery.count({ where: { campaignId, status: 'failed' } }),
+    ]);
+    await this.prisma.bulkMessageCampaign.update({
+      where: { id: campaignId },
+      data: { sentCount: sentTotal, failedCount: failedLeft },
+    });
+    this.notifications.resetSmtpPool();
+
+    return {
+      retried: c.deliveries.length,
+      nowSent: sentTotal,
+      stillFailed: failedLeft,
+      message:
+        failedLeft === 0
+          ? 'Alle mislukte mails zijn alsnog verzonden.'
+          : `${failedLeft} ontvanger(s) nog steeds mislukt — controleer SMTP-limiet of wacht en probeer opnieuw.`,
+    };
   }
 
   async getCampaign(id: string) {

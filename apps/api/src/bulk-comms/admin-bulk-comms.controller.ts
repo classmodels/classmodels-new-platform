@@ -101,4 +101,10 @@ export class AdminBulkCommsController {
   campaign(@Param('id') id: string) {
     return this.comms.getCampaign(id);
   }
+
+  @Post('campaigns/:id/retry-failed')
+  @Permissions('admin.push.send')
+  retryFailed(@Param('id') id: string) {
+    return this.comms.retryFailedCampaign(id);
+  }
 }
