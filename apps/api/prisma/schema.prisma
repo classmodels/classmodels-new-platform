@@ -714,6 +714,7 @@ model BulkMessageCampaign {
   sentCount    Int      @default(0)
   failedCount  Int      @default(0)
   skippedCount Int      @default(0)
+  targetCount  Int      @default(0)
   deliveries   BulkMessageDelivery[]
   createdAt    DateTime @default(now())
 

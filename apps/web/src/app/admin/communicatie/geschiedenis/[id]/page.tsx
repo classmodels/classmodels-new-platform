@@ -24,12 +24,15 @@ type CampaignDetail = {
   id: string;
   channel: string;
   subject: string | null;
+  bodyHtml: string | null;
+  bodySms: string | null;
   sentCount: number;
+  targetCount?: number;
   failedCount: number;
   skippedCount: number;
   createdAt: string;
   list: { name: string } | null;
-  stats: { sent: number; opened: number; total: number };
+  stats: { sent: number; opened: number; total: number; planned?: number };
   deliveries: DeliveryRow[];
 };
 
@@ -67,8 +70,21 @@ export default function CommunicatieGeschiedenisDetailPage() {
         {data.subject ? <p>Onderwerp: {data.subject}</p> : null}
         {data.list ? <p>Lijst: {data.list.name}</p> : null}
         <p>
-          Verzonden: {data.stats.sent} · Geopend: {data.stats.opened} · Totaal: {data.stats.total}
+          Verzonden: {data.stats.sent} · Geopend: {data.stats.opened} · Verwerkt: {data.stats.total}
+          {data.stats.planned ? ` · Gepland: ${data.stats.planned}` : ''}
         </p>
+        {data.channel === 'email' && data.bodyHtml ? (
+          <details className="mt-2">
+            <summary className="cursor-pointer text-burgundy underline">Toon verzonden e-mailinhoud</summary>
+            <div
+              className="mt-2 max-h-64 overflow-y-auto rounded border border-line bg-zinc-50 p-3 text-xs prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: data.bodyHtml }}
+            />
+          </details>
+        ) : null}
+        {data.channel === 'sms' && data.bodySms ? (
+          <p className="mt-2 whitespace-pre-wrap rounded border border-line bg-zinc-50 p-3 text-xs">{data.bodySms}</p>
+        ) : null}
       </div>
       <div className="rounded border border-line bg-white overflow-x-auto">
         <table className="w-full text-xs min-w-[640px]">

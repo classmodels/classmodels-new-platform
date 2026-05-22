@@ -74,6 +74,9 @@ export default function AdminContentPage() {
   );
   const [keyFilter, setKeyFilter] = useState('');
   const [knownSeeding, setKnownSeeding] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
 
   const load = useCallback(async () => {
     const data = await apiFetch<Str[]>('/content/strings');
@@ -121,6 +124,28 @@ export default function AdminContentPage() {
     },
     [token],
   );
+
+  const startEdit = (row: Str) => {
+    setEditingKey(row.key);
+    setEditValue(row.value);
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+    setEditValue('');
+  };
+
+  const saveEdit = async () => {
+    if (!token || !editingKey) return;
+    setEditBusy(true);
+    try {
+      await upsertKey(editingKey, editValue);
+      await load();
+      cancelEdit();
+    } finally {
+      setEditBusy(false);
+    }
+  };
 
   const knownKeys = useMemo(() => buildKnownContentKeys(), []);
   const missingKeys = useMemo(
@@ -745,18 +770,59 @@ export default function AdminContentPage() {
 
       <ul className="divide-y divide-line rounded-md border border-line bg-white text-xs shadow-sm">
         {filteredRows.map((r) => (
-          <li key={r.key} className="flex items-start justify-between gap-2 px-3 py-2">
-            <div>
+          <li key={r.key} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
               <code className="text-burgundy">{r.key}</code>
-              <p className="mt-1 text-muted line-clamp-2">{r.value}</p>
+              {editingKey === r.key ? (
+                <textarea
+                  className="mt-2 min-h-[88px] w-full rounded border border-line px-2 py-1.5 text-sm text-ink"
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  disabled={editBusy}
+                />
+              ) : (
+                <p className="mt-1 whitespace-pre-wrap text-muted">{r.value || '—'}</p>
+              )}
             </div>
-            <button
-              type="button"
-              className="shrink-0 text-danger hover:underline"
-              onClick={() => remove(r.key)}
-            >
-              Verwijder
-            </button>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {editingKey === r.key ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={editBusy}
+                    className="rounded bg-burgundy px-2 py-1 text-white hover:bg-burgundyDeep disabled:opacity-50"
+                    onClick={() => void saveEdit()}
+                  >
+                    {editBusy ? 'Opslaan…' : 'Opslaan'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={editBusy}
+                    className="rounded border border-line px-2 py-1 hover:bg-panel disabled:opacity-50"
+                    onClick={cancelEdit}
+                  >
+                    Annuleren
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="text-burgundy hover:underline"
+                    onClick={() => startEdit(r)}
+                  >
+                    Aanpassen
+                  </button>
+                  <button
+                    type="button"
+                    className="text-danger hover:underline"
+                    onClick={() => remove(r.key)}
+                  >
+                    Verwijder
+                  </button>
+                </>
+              )}
+            </div>
           </li>
         ))}
       </ul>

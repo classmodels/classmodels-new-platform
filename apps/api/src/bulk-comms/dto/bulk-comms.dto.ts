@@ -78,6 +78,12 @@ export class BulkCommsPreviewDto {
   @IsUUID()
   contactListId?: string;
 
+  /** Bij verzenden: alleen uitgevinkte ontvangers (kleinere payload dan volledige lijst). */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  excludedKeys?: string[];
+
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })

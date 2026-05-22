@@ -31,8 +31,8 @@ export class BulkCommsService {
   private readonly log = new Logger(BulkCommsService.name);
 
   private static backgroundMinRecipients(): number {
-    const n = parseInt(process.env.BULK_COMMS_BACKGROUND_MIN || '10', 10);
-    return Number.isFinite(n) && n > 0 ? n : 10;
+    const n = parseInt(process.env.BULK_COMMS_BACKGROUND_MIN || '1', 10);
+    return Number.isFinite(n) && n > 0 ? n : 1;
   }
 
   private static emailDelayMs(): number {
@@ -158,16 +158,23 @@ export class BulkCommsService {
     return { imported: created.count };
   }
 
-  /** Ontvangers voor verzenden (hergebruikt selectie uit preview-request). */
+  /** Ontvangers voor verzenden (server-side selectie; geen grote recipients-array nodig). */
   private async recipientsToSend(dto: BulkCommsSendDto): Promise<BulkRecipientRow[]> {
     const rows = await this.resolveRecipients(dto);
-    const selection = new Map((dto.recipients ?? []).map((r) => [r.key, r.include]));
-    return rows
-      .map((r) => ({
-        ...r,
-        include: selection.has(r.key) ? selection.get(r.key)! : r.include,
-      }))
-      .filter((r) => r.include && r.eligible);
+    if (dto.excludedKeys?.length) {
+      const excluded = new Set(dto.excludedKeys);
+      return rows.filter((r) => r.eligible && !excluded.has(r.key));
+    }
+    if (dto.recipients?.length) {
+      const selection = new Map(dto.recipients.map((r) => [r.key, r.include]));
+      return rows
+        .map((r) => ({
+          ...r,
+          include: selection.has(r.key) ? selection.get(r.key)! : r.include,
+        }))
+        .filter((r) => r.include && r.eligible);
+    }
+    return rows.filter((r) => r.eligible);
   }
 
   async preview(dto: BulkCommsPreviewDto) {
@@ -201,6 +208,7 @@ export class BulkCommsService {
         listId: dto.contactListId || null,
         roleSlugs: dto.roleSlugs?.length ? dto.roleSlugs : undefined,
         sentById: adminUserId,
+        targetCount: toSend.length,
       },
     });
 
@@ -272,6 +280,12 @@ export class BulkCommsService {
         if (ok) sent += 1;
         else failed += 1;
         if (emailDelay > 0) await new Promise((res) => setTimeout(res, emailDelay));
+        if ((sent + failed + skipped) % 25 === 0) {
+          await this.prisma.bulkMessageCampaign.update({
+            where: { id: campaignId },
+            data: { sentCount: sent, failedCount: failed, skippedCount: skipped },
+          });
+        }
       }
     } else {
       const text = dto.smsBody?.trim();
@@ -314,10 +328,10 @@ export class BulkCommsService {
     return { campaignId, sent, failed, skipped, total: toSend.length, background: false as const };
   }
 
-  listCampaigns(limit = 50) {
+  listCampaigns(limit = 200) {
     return this.prisma.bulkMessageCampaign.findMany({
       orderBy: { createdAt: 'desc' },
-      take: limit,
+      take: Math.min(Math.max(limit, 1), 500),
       select: {
         id: true,
         channel: true,
@@ -325,6 +339,7 @@ export class BulkCommsService {
         sentCount: true,
         failedCount: true,
         skippedCount: true,
+        targetCount: true,
         createdAt: true,
         list: { select: { id: true, name: true } },
         sentBy: { select: { id: true, email: true, firstName: true, lastName: true } },
@@ -352,7 +367,16 @@ export class BulkCommsService {
     if (!c) throw new NotFoundException('Campagne niet gevonden');
     const opened = c.deliveries.filter((d) => d.openedAt).length;
     const sent = c.deliveries.filter((d) => d.status === 'sent').length;
-    return { ...c, stats: { sent, opened, total: c.deliveries.length } };
+    const planned = c.targetCount > 0 ? c.targetCount : c.deliveries.length;
+    return {
+      ...c,
+      stats: {
+        sent,
+        opened,
+        total: c.deliveries.length,
+        planned,
+      },
+    };
   }
 
   async recordEmailOpen(token: string, meta: Record<string, unknown>) {

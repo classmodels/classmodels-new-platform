@@ -12,6 +12,7 @@ type CampaignRow = {
   sentCount: number;
   failedCount: number;
   skippedCount: number;
+  targetCount?: number;
   createdAt: string;
   list: { id: string; name: string } | null;
   sentBy: { firstName: string | null; lastName: string | null; email: string } | null;
@@ -60,6 +61,7 @@ export default function CommunicatieGeschiedenisPage() {
               <td className="p-2 max-w-[200px] truncate">{c.subject || '—'}</td>
               <td className="p-2">
                 {c.sentCount} ok · {c.failedCount} mis · {c.skippedCount} overgeslagen
+                {c.targetCount ? ` · ${c.targetCount} gepland` : ''}
               </td>
               <td className="p-2 text-muted">{c.list?.name || '—'}</td>
               <td className="p-2">

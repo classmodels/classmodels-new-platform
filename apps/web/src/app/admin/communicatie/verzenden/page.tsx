@@ -78,13 +78,16 @@ export default function CommunicatieVerzendenPage() {
     [adhoc],
   );
 
-  const buildPayload = () => ({
-    channel,
-    roleSlugs: roleSlugs.length ? roleSlugs : undefined,
-    contactListId: contactListId.trim() || undefined,
-    adhoc: adhocPayload.length ? adhocPayload : undefined,
-    recipients: recipients.map((r) => ({ key: r.key, include: r.include })),
-  });
+  const buildSendPayload = () => {
+    const excludedKeys = recipients.filter((r) => r.eligible && !r.include).map((r) => r.key);
+    return {
+      channel,
+      roleSlugs: roleSlugs.length ? roleSlugs : undefined,
+      contactListId: contactListId.trim() || undefined,
+      adhoc: adhocPayload.length ? adhocPayload : undefined,
+      ...(excludedKeys.length ? { excludedKeys } : {}),
+    };
+  };
 
   const loadRecipients = async () => {
     if (!token) return;
@@ -136,7 +139,7 @@ export default function CommunicatieVerzendenPage() {
     setOk(null);
     setBusy(true);
     try {
-      const base = buildPayload();
+      const base = buildSendPayload();
       const body =
         channel === 'email'
           ? { ...base, subject, htmlBody }
@@ -160,12 +163,15 @@ export default function CommunicatieVerzendenPage() {
             const c = await adminFetch<{
               sentCount: number;
               failedCount: number;
-              stats: { sent: number; failed: number; total: number };
+              skippedCount: number;
+              stats: { sent: number; failed: number; total: number; planned?: number };
             }>(`/admin/comms/campaigns/${campaignId}`, token);
-            const done = (c.stats?.sent ?? 0) + (c.stats?.failed ?? 0);
-            const total = c.stats?.total ?? res.total ?? included;
-            if (done < total) {
-              setOk(`Bezig met verzenden: ${done} / ${total} (verzonden: ${c.sentCount}, mislukt: ${c.failedCount})…`);
+            const planned = c.stats?.planned ?? res.total ?? included;
+            const done = (c.sentCount ?? 0) + (c.failedCount ?? 0) + (c.skippedCount ?? 0);
+            if (done < planned) {
+              setOk(
+                `Bezig met verzenden: ${done} / ${planned} (verzonden: ${c.sentCount}, mislukt: ${c.failedCount})…`,
+              );
               window.setTimeout(() => void poll(), 4000);
             } else {
               setOk(
@@ -192,7 +198,11 @@ export default function CommunicatieVerzendenPage() {
   return (
     <form onSubmit={onSend} className="space-y-5">
       <p className="text-sm text-muted">
-        De aanhef <em>Beste [naam]</em> en de Class Models-footer worden automatisch toegevoegd bij e-mail (niet
+        Verzonden campagnes bekijkt u onder{' '}
+        <Link href="/admin/communicatie/geschiedenis" className="text-burgundy underline">
+          Communicatie → Geschiedenis
+        </Link>
+        . De aanhef <em>Beste [naam]</em> en de Class Models-footer worden automatisch toegevoegd bij e-mail (niet
         zichtbaar in de editor). SMTP en SMS-instellingen:{' '}
         <Link href="/admin/mail-instellingen" className="text-burgundy underline">
           E-mail

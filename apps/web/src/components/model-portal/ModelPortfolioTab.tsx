@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
+import { CmText } from '@/components/CmText';
 
 const PORTFOLIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
 
@@ -190,11 +191,17 @@ export function ModelPortfolioTab({
         <div className="text-sm text-zinc-500">Laden…</div>
       ) : panel === 'info' ? (
         <div className="space-y-2 border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Info portfolio</p>
-          <p>
-            Kies een beschikbaar moment voor uw portfolio-afspraak. Uw gegevens worden automatisch gekoppeld aan uw
-            inschrijving.
-          </p>
+          <CmText
+            as="p"
+            contentKey="portal.model.portfolio.info.title"
+            className="text-[11px] font-bold uppercase tracking-wide text-burgundy"
+            fallback="Info portfolio"
+          />
+          <CmText
+            as="p"
+            contentKey="portal.model.portfolio.info.body"
+            fallback="Kies een beschikbaar moment voor uw portfolio-afspraak. Uw gegevens worden automatisch gekoppeld aan uw inschrijving."
+          />
         </div>
       ) : panel === 'book' ? (
         <div className="border border-zinc-300 bg-white px-3 py-3">
@@ -211,9 +218,12 @@ export function ModelPortfolioTab({
             }}
             onClose={() => setPanel('summary')}
           />
-          <p className="mt-2 text-[11px] leading-snug text-zinc-600">
-            Klik op een moment om je meteen in te schrijven. Er zijn geen extra velden nodig.
-          </p>
+          <CmText
+            as="p"
+            contentKey="portal.model.portfolio.booking.hint"
+            className="mt-2 text-[11px] leading-snug text-zinc-600"
+            fallback="Klik op een moment om je meteen in te schrijven. Er zijn geen extra velden nodig."
+          />
         </div>
       ) : booking ? (
         <div className="border border-zinc-300 bg-white px-4 py-3">
@@ -238,17 +248,34 @@ export function ModelPortfolioTab({
             </div>
           </dl>
           <div className="mt-3 border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[12px] leading-snug text-zinc-800">
-            <p className="text-[11px] font-bold uppercase text-zinc-700">Voorzien voor portfolio</p>
-            <p className="mt-1.5">
-              Breng enkele basisoutfits mee en kom op tijd. Tijdens de portfolio-afspraak maken we foto’s die gebruikt
-              worden voor jouw profiel en voorstellen naar klanten.
-            </p>
+            <CmText
+              as="p"
+              contentKey="portal.model.portfolio.booked.prep.title"
+              className="text-[11px] font-bold uppercase text-zinc-700"
+              fallback="Voorzien voor portfolio"
+            />
+            <CmText
+              as="p"
+              contentKey="portal.model.portfolio.booked.prep.body"
+              className="mt-1.5"
+              fallback="Breng enkele basisoutfits mee en kom op tijd. Tijdens de portfolio-afspraak maken we foto’s die gebruikt worden voor jouw profiel en voorstellen naar klanten."
+            />
           </div>
         </div>
       ) : (
         <div className="border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
-          <p className="font-semibold text-zinc-900">U hebt nog geen afspraak ingeboekt.</p>
-          <p className="mt-2 text-zinc-700">Klik rechtsboven op &quot;Afspraak maken&quot; om een moment te kiezen.</p>
+          <CmText
+            as="p"
+            contentKey="portal.model.portfolio.summary.empty.title"
+            className="font-semibold text-zinc-900"
+            fallback="U hebt nog geen afspraak ingeboekt."
+          />
+          <CmText
+            as="p"
+            contentKey="portal.model.portfolio.summary.empty.body"
+            className="mt-2 text-zinc-700"
+            fallback='Klik rechtsboven op "Afspraak maken" om een moment te kiezen.'
+          />
         </div>
       )}
     </div>
