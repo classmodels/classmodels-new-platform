@@ -6,6 +6,7 @@ import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
 import { isCancelledAgendaStatus, prepareFieldsJsonForSave, validateBookingDetailForSave } from '@/lib/agenda-booking-detail';
+import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 
 type Cal = {
   id: string;
@@ -494,11 +495,13 @@ export default function AdminAgendaBoekingenPage() {
                         className="text-left font-medium text-burgundy underline-offset-2 hover:underline"
                         onClick={() => void openDetail(b.id)}
                       >
-                        {df.format(new Date(b.startAt))}
+                        {slotD
+                          ? formatSlotDateTimeNl(slotD, b.slot.startTime)
+                          : df.format(new Date(b.startAt))}
                       </button>
                       {slotD ? (
                         <div className="text-[10px] text-muted">
-                          Slot {slotD} {b.slot.startTime?.slice(0, 5)}–{b.slot.endTime?.slice(0, 5)}
+                          {b.slot.startTime?.slice(0, 5)}–{b.slot.endTime?.slice(0, 5)}
                         </div>
                       ) : null}
                     </td>

@@ -235,4 +235,11 @@ export class AdminAgendaController {
   calendarMonth(@Query() q: AdminCalendarMonthQueryDto) {
     return this.agenda.adminCalendarMonth(q);
   }
+
+  /** Corrigeer startAt/endAt van alle boekingen naar Europe/Brussels (zelfde als bij API-start). */
+  @Post('reconcile-booking-times')
+  @Permissions('admin.agenda.write')
+  reconcileBookingTimes() {
+    return this.agenda.reconcileAllBookingBrusselsTimes();
+  }
 }

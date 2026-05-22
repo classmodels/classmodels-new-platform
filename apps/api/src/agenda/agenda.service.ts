@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,6 +39,11 @@ import {
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
 } from './guest-intake-calendars';
+import {
+  combineBrusselsLocalToUtc,
+  slotDateToYmd,
+  ymdEuropeBrussels,
+} from './agenda-brussels-time';
 
 const activeBookingFilter = {
   status: { notIn: ['cancelled', 'cancelled_cm', 'geannuleerd'] },
@@ -86,14 +92,6 @@ function parseYmd(ymd: string): Date {
   const d = new Date(`${ymd}T12:00:00.000Z`);
   if (Number.isNaN(d.getTime())) throw new BadRequestException('Ongeldige datum');
   return d;
-}
-
-function combineUtc(slotDate: Date, timeStr: string): Date {
-  const ymd = slotDate.toISOString().slice(0, 10);
-  const full = normTime(timeStr);
-  const [hh, mm, ss] = full.split(':').map((x) => parseInt(x, 10));
-  const [y, mo, da] = ymd.split('-').map((x) => parseInt(x, 10));
-  return new Date(Date.UTC(y, mo - 1, da, hh, mm ?? 0, ss ?? 0));
 }
 
 /** Standaardvelden voor nieuwe agenda’s (zelfde basis als seed GENERIC_FIELDS). */
@@ -173,15 +171,6 @@ function effectiveSlotCapacity(slotCapacity: number, calendarCapacity: number): 
   return Math.max(slotCapacity, calendarCapacity);
 }
 
-function ymdEuropeBrussels(d: Date): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Brussels',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(d);
-}
-
 function previousCalendarDayYmd(ymd: string): string {
   const [y, m, da] = ymd.split('-').map((x) => parseInt(x, 10));
   const utc = new Date(Date.UTC(y, m - 1, da));
@@ -213,7 +202,7 @@ function parseOptionalSlotStartsLines(raw: string | null | undefined): number[] 
 }
 
 @Injectable()
-export class AgendaService {
+export class AgendaService implements OnModuleInit {
   private readonly log = new Logger(AgendaService.name);
 
   constructor(
@@ -221,6 +210,42 @@ export class AgendaService {
     private notifications: AgendaNotificationService,
     private modelHistory: ModelPortalHistoryService,
   ) {}
+
+  async onModuleInit() {
+    if (String(process.env.AGENDA_RECONCILE_TIMES_ON_BOOT || '1').trim() === '0') return;
+    try {
+      const r = await this.reconcileAllBookingBrusselsTimes();
+      if (r.updated > 0) {
+        this.log.log(
+          `Agenda: ${r.updated}/${r.scanned} boeking(en) — startAt/endAt gecorrigeerd naar ${'Europe/Brussels'}`,
+        );
+      }
+    } catch (e) {
+      this.log.warn(
+        `Agenda tijd-correctie bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  /** Zet startAt/endAt overal gelijk met slot (Belgische kloktijd). Idempotent. */
+  async reconcileAllBookingBrusselsTimes(): Promise<{ scanned: number; updated: number }> {
+    const rows = await this.prisma.agendaBooking.findMany({ include: { slot: true } });
+    let updated = 0;
+    for (const b of rows) {
+      if (!b.slot) continue;
+      const startNorm = normTime(b.slot.startTime);
+      const endNorm = normTime(b.slot.endTime);
+      const startAt = combineBrusselsLocalToUtc(b.slot.slotDate, startNorm);
+      const endAt = combineBrusselsLocalToUtc(b.slot.slotDate, endNorm);
+      if (startAt.getTime() === b.startAt.getTime() && endAt.getTime() === b.endAt.getTime()) continue;
+      await this.prisma.agendaBooking.update({
+        where: { id: b.id },
+        data: { startAt, endAt },
+      });
+      updated += 1;
+    }
+    return { scanned: rows.length, updated };
+  }
 
   previewBookingConfirmationHtml(): string {
     return this.notifications.previewBookingConfirmationHtml();
@@ -392,7 +417,7 @@ export class AgendaService {
       } catch {
         continue;
       }
-      const startAt = combineUtc(s.slotDate, startNorm);
+      const startAt = combineBrusselsLocalToUtc(s.slotDate, startNorm);
       if (startAt < now) continue;
 
       const booked = bookedBySlotId.get(s.id) ?? 0;
@@ -779,8 +804,8 @@ export class AgendaService {
 
     const startNorm = normTime(slot.startTime);
     const endNorm = normTime(slot.endTime);
-    const startAt = combineUtc(slot.slotDate, startNorm);
-    const endAt = combineUtc(slot.slotDate, endNorm);
+    const startAt = combineBrusselsLocalToUtc(slot.slotDate, startNorm);
+    const endAt = combineBrusselsLocalToUtc(slot.slotDate, endNorm);
     const cancelToken = randomUUID();
 
     const booking = await this.prisma.$transaction(async (tx) => {
@@ -1397,8 +1422,8 @@ export class AgendaService {
 
     const startNorm = normTime(slot.startTime);
     const endNorm = normTime(slot.endTime);
-    const startAt = combineUtc(slot.slotDate, startNorm);
-    const endAt = combineUtc(slot.slotDate, endNorm);
+    const startAt = combineBrusselsLocalToUtc(slot.slotDate, startNorm);
+    const endAt = combineBrusselsLocalToUtc(slot.slotDate, endNorm);
     const cancelToken = randomUUID();
     const name = dto.name?.trim() || 'Handmatig (admin)';
 
@@ -1607,11 +1632,11 @@ export class AgendaService {
     const bookings = await this.prisma.agendaBooking.findMany({
       where: {
         calendarId: cal.id,
-        startAt: { gte: startRange, lte: endRange },
+        slot: { slotDate: { gte: startRange, lte: endRange } },
         ...activeBookingFilter,
       },
       orderBy: { startAt: 'asc' },
-      include: { slot: { select: { startTime: true, endTime: true } } },
+      include: { slot: { select: { slotDate: true, startTime: true, endTime: true } } },
     });
 
     const slots = await this.prisma.agendaSlot.findMany({
@@ -1638,7 +1663,7 @@ export class AgendaService {
     > = {};
 
     for (const b of bookings) {
-      const key = b.startAt.toISOString().slice(0, 10);
+      const key = slotDateToYmd(b.slot.slotDate);
       if (!days[key]) days[key] = { bookings: [], openSlots: [] };
       days[key].bookings.push({
         id: b.id,
@@ -1694,7 +1719,7 @@ export class AgendaService {
       statusList.length > 0 ? { status: { in: statusList } } : activeBookingFilter;
 
     const where: Prisma.AgendaBookingWhereInput = {
-      startAt: { gte: fromStart, lte: toEnd },
+      slot: { slotDate: { gte: fromStart, lte: toEnd } },
       ...statusFilter,
     };
     if (rawIds.length) {
@@ -1806,8 +1831,8 @@ export class AgendaService {
       const endNorm = normTime(slot.endTime);
       data.slot = { connect: { id: slot.id } };
       data.calendar = { connect: { id: cal.id } };
-      data.startAt = combineUtc(slot.slotDate, startNorm);
-      data.endAt = combineUtc(slot.slotDate, endNorm);
+      data.startAt = combineBrusselsLocalToUtc(slot.slotDate, startNorm);
+      data.endAt = combineBrusselsLocalToUtc(slot.slotDate, endNorm);
     }
 
     const nextStatus = dto.status !== undefined ? dto.status : b.status;

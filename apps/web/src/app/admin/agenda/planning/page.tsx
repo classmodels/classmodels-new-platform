@@ -11,6 +11,12 @@ import {
   prepareFieldsJsonForSave,
   validateBookingDetailForSave,
 } from '@/lib/agenda-booking-detail';
+import {
+  compareBookingsBySlot,
+  formatSlotTimeRange,
+  slotDateKey,
+  timeStringToMinutes,
+} from '@/lib/agenda-brussels';
 
 type Cal = { id: string; slug: string; title: string; color: string; durationMinutes: number; planningTextOnColor?: string | null };
 
@@ -138,11 +144,9 @@ function bookingLabel(status: string): string {
 }
 
 function blockStyleForBooking(b: BookingRow, dayYmd: string): { top: number; height: number } | null {
-  if (new Date(b.startAt).toISOString().slice(0, 10) !== dayYmd) return null;
-  const s = new Date(b.startAt);
-  const e = new Date(b.endAt);
-  const startMin = (s.getHours() - GRID_START_H) * 60 + s.getMinutes();
-  const endMin = (e.getHours() - GRID_START_H) * 60 + e.getMinutes();
+  if (slotDateKey(b.slot.slotDate) !== dayYmd) return null;
+  const startMin = timeStringToMinutes(b.slot.startTime) - GRID_START_H * 60;
+  const endMin = timeStringToMinutes(b.slot.endTime) - GRID_START_H * 60;
   const totalMin = (GRID_END_H - GRID_START_H) * 60;
   if (endMin <= 0 || startMin >= totalMin) return null;
   const top = Math.max(0, startMin / totalMin);
@@ -324,17 +328,15 @@ export default function AdminAgendaPlanningPage() {
     () => new Intl.DateTimeFormat('nl-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
     [],
   );
-  const dfTime = useMemo(() => new Intl.DateTimeFormat('nl-BE', { hour: '2-digit', minute: '2-digit' }), []);
-
   const byDay = useMemo(() => {
     const m = new Map<string, BookingRow[]>();
     for (const b of displayRows) {
-      const key = new Date(b.startAt).toISOString().slice(0, 10);
+      const key = slotDateKey(b.slot.slotDate);
       const prev = m.get(key) ?? [];
       prev.push(b);
       m.set(key, prev);
     }
-    for (const [, list] of m) list.sort((a, b) => a.startAt.localeCompare(b.startAt));
+    for (const [, list] of m) list.sort(compareBookingsBySlot);
     return m;
   }, [displayRows]);
 
@@ -952,7 +954,7 @@ export default function AdminAgendaPlanningPage() {
                                           style={grey ? undefined : { backgroundColor: b.calendar.color, opacity: struck ? 0.55 : 1 }}
                                         >
                                           <div className="font-semibold">
-                                            {dfTime.format(new Date(b.startAt))} – {dfTime.format(new Date(b.endAt))}
+                                            {formatSlotTimeRange(b.slot.startTime, b.slot.endTime)}
                                           </div>
                                           <div className="truncate">{b.calendar.title}</div>
                                           <div className="truncate italic opacity-95">{nm}</div>

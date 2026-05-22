@@ -11,6 +11,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node -r tsconfig-paths/register prisma/seed.ts",
     "agenda:reset": "ts-node -r tsconfig-paths/register prisma/reset-agenda.ts",
+    "agenda:fix-times": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/fix-agenda-brussels-times.ts",
     "migrate:wp": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/migrate-wordpress.ts",
     "import:wp-models": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-wp-models-json.ts",
     "import:wp-model-photos": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\"}' ts-node scripts/import-wp-model-photos.ts",
