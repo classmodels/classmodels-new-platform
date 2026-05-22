@@ -7,6 +7,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { urlencoded } from 'express';
 import { AppModule } from './app.module';
 import { logResolvedMediaRoot, resolveMediaRoot } from './config/resolve-media-root';
+import { HttpAllExceptionsFilter } from './http-all-exceptions.filter';
 
 async function bootstrap() {
   const mediaRoot = resolveMediaRoot();
@@ -30,6 +31,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.useGlobalFilters(new HttpAllExceptionsFilter());
   app.useStaticAssets(resolveMediaRoot(), { prefix: '/uploads/' });
   app.use(urlencoded({ extended: true, limit: '2mb' }));
   app.useGlobalPipes(

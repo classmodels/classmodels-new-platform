@@ -1,29 +1,37 @@
 # Grote ZIP-upload (mediatheek)
 
-## Methode: altijd één bestand
+## Methode
 
-De ZIP (tot 6 GB) gaat in **één HTTP POST** naar:
+| Grootte | Methode |
+|---------|---------|
+| **≤ 48 MB** | Eén HTTP POST naar `/media/upload-zip` |
+| **> 48 MB** (tot 6 GB) | **Chunked upload** — delen van ±8 MB (`/media/upload-zip/init`, `/chunk`, `/finish`) |
 
-`https://api.class-models.be/media/upload-zip`
+Combell weigert vaak **één POST van 4+ GB** (proxy body-limiet) → dan krijg je “Internal server error”. Chunked upload omzeilt dat.
 
-**Geen upload in stukjes** — op Combell kwamen fragmenten niet volledig aan (fout “deel 1/311”).
-
-## Vereisten Combell
+## Build / env (Combell)
 
 1. **Web build:** `NEXT_PUBLIC_API_URL=https://api.class-models.be`
-2. **Node:** `COMBELL_UPLOAD_TIMEOUT_MS=21600000`, `API_UPLOAD_TIMEOUT_MS=21600000`
-3. **Schijf:** `MEDIA_ROOT=/app/shared/uploads` (persistent)
-4. **Vraag aan Combell support** (als upload rond 80–95% stopt):
-   - Maximale **request body** op `api.class-models.be` (min. 6 GB)
-   - **Proxy/load balancer timeout** (min. 2–6 uur voor uploads)
+2. **Optioneel (aanbevolen voor chunked):** `NEXT_PUBLIC_LARGE_UPLOAD_API_URL=https://api.class-models.be`
+3. **Node:** `COMBELL_UPLOAD_TIMEOUT_MS=21600000`, `API_UPLOAD_TIMEOUT_MS=21600000`
+4. **Schijf:** `MEDIA_ROOT=/app/shared/uploads` — voldoende vrije ruimte (ZIP + tijdelijke assembly ≈ 2× bestandsgrootte tijdens upload)
+5. **Optioneel:** `ZIP_UPLOAD_CHUNK_BYTES=8388608` (8 MB, default)
 
 ## Gebruik
 
 1. Map kiezen (bv. film modeshow)
-2. ZIP kiezen → ZIP uploaden
-3. Tabblad **open laten**, **niet verversen** tot “Klaar”
-4. 4–5 GB: vaak **30–90 minuten**
+2. ZIP kiezen → **ZIP uploaden**
+3. Voortgangsbalk volgen; tabblad **open laten**
+4. 4–5 GB: vaak **30–90 minuten** (veel kleine requests)
 
-## Fout “Temporary failure” of HTML
+## Fouten
 
-Dat is een **hosting-timeout**, geen applicatiefout. Wacht tot andere zware taken klaar zijn en probeer opnieuw.
+| Melding | Oorzaak |
+|---------|---------|
+| Internal server error / serverfout | Meestal één te grote POST of schijf vol — na deploy: automatisch chunked |
+| Deel X/Y incompleet | Netwerk/proxy — opnieuw proberen |
+| Schijf vol | Ruimte op MEDIA_ROOT vrijmaken |
+
+## Combell support
+
+Vraag om voldoende **schijfruimte** en **proxy-timeout** (uren) op `www` en `api.class-models.be`.

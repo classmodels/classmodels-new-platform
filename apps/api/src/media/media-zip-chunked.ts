@@ -1,25 +1,32 @@
 import {
   closeSync,
-  createReadStream,
-  createWriteStream,
   existsSync,
   ftruncateSync,
   mkdirSync,
   openSync,
   readFileSync,
+  readSync,
   statSync,
   unlinkSync,
   writeFileSync,
   writeSync,
 } from 'fs';
-import { pipeline } from 'stream/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { resolveMediaRoot } from '../config/resolve-media-root';
 import { mediaZipUploadMaxBytes } from './media-zip-import';
 
-/** 16 MB per request — past onder vrijwel alle proxy-limieten; op server = één ZIP-bestand. */
-export const ZIP_UPLOAD_CHUNK_BYTES = 16 * 1024 * 1024;
+function chunkBytesFromEnv(): number {
+  const raw = process.env.ZIP_UPLOAD_CHUNK_BYTES?.trim();
+  if (raw) {
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 4 * 1024 * 1024 && n <= 32 * 1024 * 1024) return n;
+  }
+  /** 8 MB — past onder vrijwel alle proxy body-limieten. */
+  return 8 * 1024 * 1024;
+}
+
+export const ZIP_UPLOAD_CHUNK_BYTES = chunkBytesFromEnv();
 
 export type ZipChunkSessionMeta = {
   uploadId: string;
@@ -80,6 +87,14 @@ export function createZipChunkSession(
   const fd = openSync(assembly, 'w');
   try {
     ftruncateSync(fd, totalSize);
+  } catch {
+    closeSync(fd);
+    try {
+      unlinkSync(assembly);
+    } catch {
+      /**/
+    }
+    throw new Error('disk_full_or_quota');
   } finally {
     closeSync(fd);
   }
@@ -98,21 +113,36 @@ export function createZipChunkSession(
   return { uploadId, chunkSize: ZIP_UPLOAD_CHUNK_BYTES, totalChunks };
 }
 
-async function copyChunkToAssembly(
+/** Schrijf chunk naar vaste offset in assembly.zip (betrouwbaarder dan stream r+). */
+function copyChunkToAssembly(
   assembly: string,
   offset: number,
   chunkPath: string,
   maxBytes: number,
-): Promise<number> {
+): number {
   const st = statSync(chunkPath);
   const toCopy = Math.min(st.size, maxBytes);
   if (toCopy <= 0) throw new Error('chunk_empty');
 
-  await pipeline(
-    createReadStream(chunkPath, { start: 0, end: toCopy - 1 }),
-    createWriteStream(assembly, { flags: 'r+', start: offset }),
-  );
-  return toCopy;
+  const fdAsm = openSync(assembly, 'r+');
+  const fdChunk = openSync(chunkPath, 'r');
+  const bufSize = 1024 * 1024;
+  let written = 0;
+  try {
+    while (written < toCopy) {
+      const n = Math.min(bufSize, toCopy - written);
+      const buf = Buffer.allocUnsafe(n);
+      const r = readSync(fdChunk, buf, 0, n, written);
+      if (r <= 0) break;
+      writeSync(fdAsm, buf, 0, r, offset + written);
+      written += r;
+    }
+  } finally {
+    closeSync(fdAsm);
+    closeSync(fdChunk);
+  }
+  if (written !== toCopy) throw new Error('chunk_incomplete');
+  return written;
 }
 
 export async function writeZipChunk(
@@ -154,18 +184,7 @@ export async function writeZipChunk(
   if (nbytes <= 0) throw new Error('chunk_empty');
 
   const assembly = assemblyPath(uploadId);
-  try {
-    await copyChunkToAssembly(assembly, offset, chunkDiskPath, nbytes);
-  } catch {
-    const buf = readFileSync(chunkDiskPath);
-    const len = Math.min(buf.length, expectedLen);
-    const fd = openSync(assembly, 'r+');
-    try {
-      writeSync(fd, buf, 0, len, offset);
-    } finally {
-      closeSync(fd);
-    }
-  }
+  copyChunkToAssembly(assembly, offset, chunkDiskPath, nbytes);
 
   try {
     unlinkSync(chunkDiskPath);

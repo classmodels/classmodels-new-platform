@@ -1,7 +1,8 @@
 import { parseApiErrorBody } from '@/lib/api';
 import { type UploadProgressUpdate, uploadWithProgress } from '@/lib/upload-with-progress';
 
-const CHUNK_REQUEST_TIMEOUT_MS = 600_000;
+/** Per deel (8 MB): traag netwerk kan minuten duren. */
+const CHUNK_REQUEST_TIMEOUT_MS = 900_000;
 const MAX_CHUNK_RETRIES = 4;
 
 function sleep(ms: number) {

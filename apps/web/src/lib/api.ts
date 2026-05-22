@@ -44,8 +44,23 @@ export function parseApiErrorBody(text: string): string {
   } catch {
     /* geen JSON */
   }
+  if (/^internal server error$/i.test(trimmed)) {
+    return 'Internal server error';
+  }
   if (trimmed.length > 280) return `${trimmed.slice(0, 280)}…`;
   return text;
+}
+
+/**
+ * ZIP-upload (chunked): bij voorkeur rechtstreeks naar api.* als gezet in build-env,
+ * anders same-origin `/__cm_api` (geen CORS).
+ */
+export function getZipUploadApiBase(): string {
+  const direct = process.env.NEXT_PUBLIC_LARGE_UPLOAD_API_URL?.replace(/\/$/, '');
+  if (direct && /^https?:\/\//i.test(direct) && !/localhost|127\.0\.0\.1/i.test(direct)) {
+    return direct;
+  }
+  return getLargeUploadApiBase();
 }
 
 /** Grote ZIP via same-origin `/__cm_api` (geen CORS, Combell-proxy ondersteunt lange uploads). */

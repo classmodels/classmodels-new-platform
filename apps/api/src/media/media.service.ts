@@ -1496,7 +1496,13 @@ export class MediaService {
     const dest = join(root, storageKey);
     try {
       renameSync(zipPath, dest);
-    } catch {
+    } catch (e) {
+      const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
+      if (code === 'ENOSPC') {
+        throw new BadRequestException(
+          'Schijf vol op de server — ZIP kon niet worden opgeslagen. Vrij ruimte op MEDIA_ROOT.',
+        );
+      }
       throw new BadRequestException('ZIP kon niet naar MEDIA_ROOT worden verplaatst.');
     }
 
@@ -1538,6 +1544,11 @@ export class MediaService {
       if (msg === 'not_a_zip') throw new BadRequestException('Alleen .zip-bestanden.');
       if (msg === 'size_out_of_range') {
         throw new BadRequestException('ZIP is te groot of ongeldig (max. volgens serverlimiet).');
+      }
+      if (msg === 'disk_full_or_quota') {
+        throw new BadRequestException(
+          'Onvoldoende schijfruimte op de server voor deze ZIP. Vrij ruimte op MEDIA_ROOT of vraag Combell om meer opslag.',
+        );
       }
       throw new BadRequestException('ZIP-upload kon niet starten.');
     }

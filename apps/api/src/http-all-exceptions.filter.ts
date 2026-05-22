@@ -1,0 +1,52 @@
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+
+@Catch()
+export class HttpAllExceptionsFilter implements ExceptionFilter {
+  private readonly log = new Logger(HttpAllExceptionsFilter.name);
+
+  catch(exception: unknown, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const res = ctx.getResponse<{ status: (n: number) => { json: (b: unknown) => void } }>();
+    const req = ctx.getRequest<{ url?: string; method?: string }>();
+
+    if (exception instanceof HttpException) {
+      const status = exception.getStatus();
+      const body = exception.getResponse();
+      return res.status(status).json(typeof body === 'object' && body !== null ? body : { message: body });
+    }
+
+    const err = exception as { code?: string; message?: string };
+    const code = err?.code;
+    const rawMsg = exception instanceof Error ? exception.message : String(exception ?? '');
+
+    if (code === 'LIMIT_FILE_SIZE') {
+      return res.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
+        message: 'Bestand te groot voor de serverlimiet (MEDIA_ZIP_UPLOAD_MAX_BYTES).',
+      });
+    }
+    if (code === 'ENOSPC' || /no space left/i.test(rawMsg)) {
+      return res.status(HttpStatus.BAD_REQUEST).json({
+        message: 'Schijf vol op de server — upload mislukt. Vrij ruimte op MEDIA_ROOT.',
+      });
+    }
+
+    this.log.error(
+      `${req.method ?? '?'} ${req.url ?? '?'}: ${rawMsg}`,
+      exception instanceof Error ? exception.stack : undefined,
+    );
+
+    const isZipPath = String(req.url ?? '').includes('/media/upload-zip');
+    return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      message: isZipPath
+        ? 'ZIP-upload mislukt op de server. Probeer opnieuw; grote ZIP’s worden in delen geüpload. Controleer schijfruimte en serverlogs.'
+        : 'Er ging iets mis op de server. Probeer later opnieuw.',
+    });
+  }
+}
