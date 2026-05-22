@@ -33,7 +33,9 @@ export class HttpAllExceptionsFilter implements ExceptionFilter {
     }
     if (code === 'ENOSPC' || /no space left/i.test(rawMsg)) {
       return res.status(HttpStatus.BAD_REQUEST).json({
-        message: 'Schijf vol op de server — upload mislukt. Vrij ruimte op MEDIA_ROOT.',
+        message:
+          'Schijf vol op MEDIA_ROOT. Node schrijft mogelijk naar /app/shared (vol) terwijl je hosting nog ruimte heeft. ' +
+          'Zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads en herstart.',
       });
     }
 

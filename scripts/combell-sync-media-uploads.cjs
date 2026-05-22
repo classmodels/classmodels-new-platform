@@ -52,8 +52,32 @@ function isContainerHome(home) {
   return h === '/app' || h.endsWith('/app');
 }
 
+function combellDataSiteUploadsCandidates() {
+  const out = [];
+  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
+  if (explicit) out.push(explicit);
+  const siteUser = process.env.CM_COMBELL_SITE_USER?.trim() || 'class-modelsbe';
+  out.push(path.join('/data/sites/web', siteUser, 'www/cm-media/uploads'));
+  out.push('/data/sites/web/class-modelsbe/www/cm-media/uploads');
+  return [...new Set(out)];
+}
+
+function tryWritableDir(dir) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return false;
+    const probe = path.join(dir, `.cm-write-probe-${process.pid}`);
+    fs.writeFileSync(probe, '1');
+    fs.unlinkSync(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function hostingMediaSources(root) {
   const out = [];
+  for (const d of combellDataSiteUploadsCandidates()) out.push(d);
   const fromEnv = process.env.MEDIA_SYNC_SOURCE?.trim();
   if (fromEnv) out.push(fromEnv);
   const home = process.env.HOME?.trim();
@@ -94,11 +118,17 @@ function resolvePersistentMediaDest(root) {
   const raw = process.env.MEDIA_ROOT?.trim();
   if (raw && path.isAbsolute(raw)) {
     const abs = path.resolve(raw);
+    if (raw.includes('/data/sites/web/') && tryWritableDir(abs)) {
+      return abs;
+    }
     const home = process.env.HOME?.trim();
     if (isContainerHome(home) && (raw.includes('/home/') || raw.includes('www/cm-media'))) {
       console.error(
-        `[combell] MEDIA_ROOT=${raw} is niet zichtbaar in de Node-container — gebruik /app/shared/uploads (Combell persistent).`,
+        `[combell] MEDIA_ROOT=${raw} is niet zichtbaar in de Node-container — gebruik data-site of /app/shared/uploads.`,
       );
+      for (const candidate of combellDataSiteUploadsCandidates()) {
+        if (tryWritableDir(candidate)) return path.resolve(candidate);
+      }
       return combellContainerMediaDest(root);
     }
     try {
@@ -109,6 +139,13 @@ function resolvePersistentMediaDest(root) {
     return abs;
   }
   if (isContainerHome(process.env.HOME?.trim())) {
+    for (const candidate of combellDataSiteUploadsCandidates()) {
+      if (tryWritableDir(candidate)) {
+        console.error(`[combell] Node-container: MEDIA_ROOT → ${path.resolve(candidate)} (data-site, 100 GB quota)`);
+        return path.resolve(candidate);
+      }
+    }
+    console.error('[combell] Node-container: data-site niet schrijfbaar — fallback /app/shared/uploads');
     return combellContainerMediaDest(root);
   }
   for (const candidate of hostingMediaSources(root)) {

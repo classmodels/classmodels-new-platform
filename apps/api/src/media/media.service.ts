@@ -24,7 +24,11 @@ import type { Response } from 'express';
 import archiver from 'archiver';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
-import { countMediaFilesShallow, resolveMediaRoot } from '../config/resolve-media-root';
+import {
+  countMediaFilesShallow,
+  mediaDirFreeBytes,
+  resolveMediaRoot,
+} from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   assemblyPath,
@@ -1500,7 +1504,8 @@ export class MediaService {
       const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
       if (code === 'ENOSPC') {
         throw new BadRequestException(
-          'Schijf vol op de server — ZIP kon niet worden opgeslagen. Vrij ruimte op MEDIA_ROOT.',
+          `Schijf vol op MEDIA_ROOT (${root}). De Node-container gebruikt mogelijk /app/shared (klein) i.p.v. je 100 GB hosting. ` +
+            'Zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads in Combell env en herstart de app.',
         );
       }
       throw new BadRequestException('ZIP kon niet naar MEDIA_ROOT worden verplaatst.');
@@ -2064,8 +2069,12 @@ export class MediaService {
     const bundleDir = join(this.monorepoRoot(), 'apps', 'api', '.deploy-media-bundle', 'uploads');
     const sharedDir = join(this.monorepoRoot(), 'shared', 'uploads');
 
+    const freeBytes = mediaDirFreeBytes(root);
+
     return {
       mediaRoot: root,
+      mediaRootFreeBytes: freeBytes,
+      mediaRootFreeGb: freeBytes != null ? Math.round((freeBytes / (1024 * 1024 * 1024)) * 10) / 10 : null,
       mediaRootExists: existsSync(root),
       diskRegisterableFiles: diskFiles,
       diskImageFiles: diskImages,

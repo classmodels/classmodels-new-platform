@@ -16,7 +16,9 @@ WEB_PUBLIC_URL=https://www.class-models.be
 LEGACY_IMPORT_PASSWORD=classmodels2026!
 WEB_APP_URL=https://www.class-models.be
 NODE_ENV=production
-# dual-proxy zet MEDIA_ROOT automatisch naar $HOME/www/cm-media/uploads (absoluut).
+# Mediatheek op 100 GB hosting-quota (niet alleen kleine /app/shared-container):
+# CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads
+# dual-proxy kiest dit automatisch als de map schrijfbaar is vanuit Node.
 # Zonder dual-proxy: zet zelf absoluut pad. Gebruik geen relatief "uploads" in apps/api/.env
 # (overschrijft de proxy en schrijft in de release-map → alles weg na deploy).
 # MEDIA_ROOT=/home/JOUWUSER/www/cm-media/uploads

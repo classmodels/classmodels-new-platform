@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync } from 'fs';
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import type { Dirent } from 'fs';
 import { homedir } from 'os';
 import { isAbsolute, join, resolve } from 'path';
@@ -51,9 +51,51 @@ function isContainerAppHome(home: string | undefined): boolean {
   return h === '/app' || h.endsWith('/app');
 }
 
-/** Persistent uploads in Combell Node-container (support: ./shared → /app/shared). */
+/** Combell data-site pad (deelt de 100 GB webhosting-quota, niet de kleine /app/shared-container). */
+function combellDataSiteUploadsCandidates(): string[] {
+  const out: string[] = [];
+  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
+  if (explicit) out.push(explicit);
+  const siteUser = process.env.CM_COMBELL_SITE_USER?.trim() || 'class-modelsbe';
+  out.push(`/data/sites/web/${siteUser}/www/cm-media/uploads`);
+  out.push('/data/sites/web/class-modelsbe/www/cm-media/uploads');
+  return [...new Set(out.map((p) => p.replace(/\\/g, '/').replace(/\/+/g, '/')))];
+}
+
+function isCombellDataSiteMediaPath(p: string): boolean {
+  const n = p.replace(/\\/g, '/');
+  return n.includes('/data/sites/web/') && n.includes('cm-media');
+}
+
+/** Test of map bestaat en schrijfbaar is (korte write-test). */
+export function tryWritableMediaDir(dir: string): boolean {
+  try {
+    mkdirSync(dir, { recursive: true });
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) return false;
+    accessSync(dir, constants.W_OK);
+    const probe = join(dir, `.cm-write-probe-${process.pid}`);
+    writeFileSync(probe, '1');
+    unlinkSync(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Vrije bytes op het filesystem van `dir` (null als onbekend). */
+export function mediaDirFreeBytes(dir: string): number | null {
+  try {
+    const { statfsSync } = require('node:fs') as typeof import('fs');
+    const s = statfsSync(dir);
+    return Number(s.bfree) * Number(s.bsize);
+  } catch {
+    return null;
+  }
+}
+
+/** Persistent uploads: eerst data-site (100 GB), anders container /app/shared. */
 function combellContainerMediaDirs(): string[] {
-  return ['/app/shared/uploads', '/app/shared'];
+  return [...combellDataSiteUploadsCandidates(), '/app/shared/uploads', '/app/shared'];
 }
 
 /** Combell-fout: absolute pad `/www/cm-media/uploads` (zonder home) bestaat niet of is leeg. */
@@ -87,6 +129,10 @@ function tryFixRootlessWwwCmMediaPath(configured: string): string | null {
  * Absolute MEDIA_ROOT normaliseren: veelvoorkomende Combell-fouten en lege map vóór sync-bron.
  */
 function normalizeAbsoluteMediaRoot(configured: string): string {
+  if (isCombellDataSiteMediaPath(configured) && tryWritableMediaDir(configured)) {
+    return configured.replace(/\\/g, '/').replace(/\/+$/, '') || configured;
+  }
+
   if (isContainerAppHome(hostingHome()) && (configured.includes('/home/') || configured.includes('www/cm-media'))) {
     const containerDir = combellContainerMediaDirs().find((d) => {
       try {
@@ -239,6 +285,7 @@ function preferredHostingMediaDirs(): string[] {
   const home = hostingHome();
   if (home && !isContainerAppHome(home)) out.push(join(home, 'www/cm-media/uploads'));
   out.push('/home/ID460044/www/cm-media/uploads');
+  for (const d of combellDataSiteUploadsCandidates()) out.push(d);
   return [...new Set(out.map((p) => p.replace(/\\/g, '/')))];
 }
 
@@ -261,15 +308,11 @@ export function resolveMediaRoot(): string {
 
   if (isContainerAppHome(hostingHome())) {
     for (const dir of combellContainerMediaDirs()) {
-      try {
-        if (existsSync(dir) && statSync(dir).isDirectory()) {
-          if (process.env.NODE_ENV === 'production') {
-            console.error(`[media] Combell-container: gebruik ${dir}`);
-          }
-          return dir;
+      if (tryWritableMediaDir(dir)) {
+        if (process.env.NODE_ENV === 'production') {
+          console.error(`[media] Combell: MEDIA_ROOT → ${dir}`);
         }
-      } catch {
-        /**/
+        return dir;
       }
     }
     return '/app/shared/uploads';
