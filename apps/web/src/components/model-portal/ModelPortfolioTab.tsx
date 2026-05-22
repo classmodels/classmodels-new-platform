@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
@@ -166,8 +167,20 @@ export function ModelPortfolioTab({
   const showDelivery =
     can('portal.model.media.read') && deliveryCount !== null && deliveryCount > 0;
 
+  const canEditContent = can('content.strings.write');
+
   return (
     <div className="space-y-3">
+      {canEditContent ? (
+        <div className="border border-amber-300/80 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-950">
+          <strong>Teksten aanpassen?</strong> Ga in de backsite naar{' '}
+          <Link href="/admin/content/portfolio" className="font-semibold text-burgundy underline">
+            Portfolio-teksten
+          </Link>
+          , vul de velden in en klik <em>Alles opslaan</em>. Of zet bovenaan <em>Tekst bewerken</em> aan en klik hier
+          op de tekst.
+        </div>
+      ) : null}
       {showDelivery ? (
         <div className="border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-[13px] leading-snug text-zinc-900">
           <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Portfolio van je shoot</p>

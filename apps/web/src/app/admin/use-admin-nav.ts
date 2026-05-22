@@ -21,6 +21,7 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
         items: [
           { href: '/admin/portalen', label: t('admin.portalen') },
           { href: '/admin/content', label: t('admin.content'), permission: 'content.strings.write' },
+          { href: '/admin/content/portfolio', label: t('admin.portfolioTexts'), permission: 'content.strings.write' },
           { href: '/admin/menus', label: t('admin.menus'), permission: 'admin.menus.read' },
         ],
       },
