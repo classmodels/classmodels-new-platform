@@ -13,6 +13,26 @@ const fs = require('fs');
 const path = require('path');
 
 /** Telt bestanden recursief (cap tegen enorme bomen). */
+function isNoSpaceError(err) {
+  return err && (err.code === 'ENOSPC' || err.code === 'EDQUOT' || /no space left/i.test(String(err.message)));
+}
+
+/** Kopieer zonder de build te laten crashen als /app/shared vol is. */
+function safeCpSync(src, dest, label) {
+  try {
+    fs.cpSync(src, dest, { recursive: true, force: true });
+    return true;
+  } catch (err) {
+    if (isNoSpaceError(err)) {
+      console.error(
+        `[combell] ${label}: schijf vol (${dest}) — overgeslagen. Zet CM_COMBELL_DATA_UPLOADS op de data-site map.`,
+      );
+      return false;
+    }
+    throw err;
+  }
+}
+
 function countMediaFiles(dir) {
   let n = 0;
   const max = 20000;
@@ -244,9 +264,22 @@ function migrateDeployMediaBundleToDest(root, dest) {
     );
     return { ok: true, srcCount, destCount, dest: destAbs, skipped: true };
   }
+  if (isContainerHome(process.env.HOME?.trim()) && destAbs.startsWith('/app/shared')) {
+    const dataSite = combellDataSiteUploadsCandidates().find((d) => tryWritableDir(d));
+    if (dataSite) {
+      console.error(`[combell] media bundle: container — data-site ${dataSite} i.p.v. volle ${destAbs}`);
+      return migrateDeployMediaBundleToDest(root, dataSite);
+    }
+    console.error(
+      `[combell] media bundle: overslaan (doel ${destAbs} vaak vol in container; sync bij Node-start met CM_COMBELL_DATA_UPLOADS)`,
+    );
+    return { ok: true, srcCount, destCount, dest: destAbs, skipped: true, reason: 'container-shared-full' };
+  }
   console.error(`[combell] media bundle: ${src} (${srcCount}) → ${destAbs} (was ${destCount})`);
   fs.mkdirSync(destAbs, { recursive: true });
-  fs.cpSync(src, destAbs, { recursive: true, force: true });
+  if (!safeCpSync(src, destAbs, 'media bundle')) {
+    return { ok: true, srcCount, destCount, dest: destAbs, skipped: true, reason: 'enospc' };
+  }
   const after = countMediaFiles(destAbs);
   console.error(`[combell] media bundle OK (${after} mediabestanden in MEDIA_ROOT)`);
   return { ok: true, srcCount, destCount: after, dest: destAbs, copied: true };
@@ -284,7 +317,7 @@ function migrateReleaseUploadsIfNewer(root, dest) {
   if (eCount > 0 && pCount === 0) {
     console.error(`[combell] media: migreren ${eCount} bestanden uit release-map → ${destAbs}`);
     fs.mkdirSync(destAbs, { recursive: true });
-    fs.cpSync(ephemeral, destAbs, { recursive: true, force: true });
+    safeCpSync(ephemeral, destAbs, 'release uploads');
   }
 }
 
@@ -315,7 +348,7 @@ function syncHostingMediaToApp(root, destArg) {
   }
   console.error(`[combell] media sync: ${src} (${srcCount}) → ${dest}`);
   fs.mkdirSync(dest, { recursive: true });
-  fs.cpSync(src, dest, { recursive: true, force: true });
+  if (!safeCpSync(src, dest, 'media sync')) return false;
   console.error(`[combell] media sync OK (${countMediaFiles(dest)} mediabestanden in doel)`);
   return true;
 }
@@ -333,13 +366,25 @@ module.exports = {
 
 if (require.main === module) {
   const root = path.resolve(__dirname, '..');
-  bootstrapMediaStorage(root);
-  const dest = resolvePersistentMediaDest(root);
-  const ok = syncHostingMediaToApp(root, dest);
-  if (!ok) {
-    console.error(
-      '[combell] media sync overgeslagen (www niet bereikbaar tijdens build — ok; sync bij Node-start)',
-    );
+  const buildOnlyStage = String(process.env.COMBELL_BUILD_ONLY_STAGE || '').trim() === '1';
+  try {
+    if (buildOnlyStage) {
+      console.error('[combell] pipeline build: alleen media-bundle stagen (geen kopie naar /app/shared)');
+      stageRepoSharedMediaBundle(root);
+    } else {
+      bootstrapMediaStorage(root);
+      const dest = resolvePersistentMediaDest(root);
+      syncHostingMediaToApp(root, dest);
+    }
+  } catch (err) {
+    if (isNoSpaceError(err)) {
+      console.error('[combell] media stap overgeslagen: schijf vol — build gaat door; sync bij Node-start.');
+    } else {
+      throw err;
+    }
+  }
+  if (!buildOnlyStage) {
+    console.error('[combell] media sync overgeslagen indien geen bron (ok tijdens build; sync bij Node-start)');
   }
   process.exit(0);
 }

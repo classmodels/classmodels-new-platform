@@ -41,7 +41,9 @@ const syncMedia = path.join(root, 'scripts', 'combell-sync-media-uploads.cjs');
 console.error('[combell-pipeline] root =', root);
 
 if (fs.existsSync(fetchMedia)) {
-  run('0/6 — shared/uploads ophalen (buiten Docker-context)', process.execPath, [fetchMedia]);
+  run('0/6 — shared/uploads ophalen (buiten Docker-context)', process.execPath, [fetchMedia], {
+    env: { ...process.env, COMBELL_MEDIA_FETCH_OPTIONAL: '1' },
+  });
 }
 
 if (fs.existsSync(ensureNext)) {
@@ -55,7 +57,9 @@ run('3/6 — @cm/api (Nest + Prisma generate)', 'npm', ['run', 'build', '-w', '@
 run('4/6 — @cm/web (Next)', 'npm', ['run', 'build', '-w', '@cm/web']);
 
 if (fs.existsSync(syncMedia)) {
-  run('5/6 — media bundle + sync', process.execPath, [syncMedia]);
+  run('5/6 — media bundle stagen (geen kopie naar volle /app/shared)', process.execPath, [syncMedia], {
+    env: { ...process.env, COMBELL_BUILD_ONLY_STAGE: '1' },
+  });
 }
 
 console.error('[combell-pipeline] klaar. Herstart de Node-app in Combell indien nodig.');
