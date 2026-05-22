@@ -600,7 +600,7 @@ export default function AdminMediaPage() {
     setSettingsMsg('');
     const raw = deleteDaysAfterDl.trim();
     const parsed = parseInt(raw, 10);
-    const deleteDaysAfterModelDownload = raw === '' || !Number.isFinite(parsed) || parsed <= 0 ? 0 : Math.min(parsed, 365);
+    const deleteDaysAfterModelDownload = raw === '' || !Number.isFinite(parsed) || parsed <= 0 ? 0 : Math.min(parsed, 3650);
     await adminFetch(`/media/folders/${activeFolder.id}/settings`, token, {
       method: 'PATCH',
       body: JSON.stringify({
@@ -984,13 +984,17 @@ export default function AdminMediaPage() {
                     <input
                       type="number"
                       min={0}
-                      max={365}
-                      placeholder="uit"
-                      className="w-20 rounded border border-line bg-white px-1.5 py-1 text-ink"
+                      max={3650}
+                      placeholder="uit = blijft staan"
+                      title="Leeg of 0 = ZIP blijft beschikbaar. Bijv. 365 = een jaar na eerste model-download."
+                      className="w-24 rounded border border-line bg-white px-1.5 py-1 text-ink"
                       value={deleteDaysAfterDl}
                       onChange={(e) => setDeleteDaysAfterDl(e.target.value)}
                     />
                   </label>
+                  <span className="max-w-xs text-[9px] text-muted">
+                    Leeg = niet automatisch wissen. Zet bv. 365 voor modeshow-ZIP (lang downloadbaar).
+                  </span>
                   <label className="flex items-center gap-1.5 text-ink">
                     <input
                       type="checkbox"

@@ -21,7 +21,7 @@ NODE_ENV=production
 # (overschrijft de proxy en schrijft in de release-map → alles weg na deploy).
 # MEDIA_ROOT=/home/JOUWUSER/www/cm-media/uploads
 # MEDIA_SYNC_SOURCE=/pad/naar/oude-uploads-bron
-# Grote ZIP in mediatheek (admin): max 6 GB; >48 MB = chunked upload (±8 MB per request)
+# Grote ZIP in mediatheek (admin): max 6 GB; één POST (geen chunked upload)
 # MEDIA_ZIP_UPLOAD_MAX_BYTES=6442450944
 # NEXT_PUBLIC_LARGE_UPLOAD_API_URL=https://api.class-models.be
 # COMBELL_UPLOAD_TIMEOUT_MS=21600000

@@ -73,7 +73,7 @@ export function parseMediaFolderSettings(raw: unknown): MediaFolderSettings {
   const d = o.deleteDaysAfterModelDownload;
   let deleteDaysAfterModelDownload: number | undefined;
   if (typeof d === 'number' && Number.isFinite(d) && d > 0) {
-    deleteDaysAfterModelDownload = Math.min(Math.floor(d), 365);
+    deleteDaysAfterModelDownload = Math.min(Math.floor(d), 3650);
   }
   const w = o.storeUploadsAsWebpOnly;
   const storeUploadsAsWebpOnly = typeof w === 'boolean' ? w : undefined;
@@ -94,7 +94,7 @@ function mergeMediaFolderSettings(
   const next: MediaFolderSettings = { ...cur };
   if (patch.deleteDaysAfterModelDownload !== undefined) {
     if (patch.deleteDaysAfterModelDownload <= 0) delete next.deleteDaysAfterModelDownload;
-    else next.deleteDaysAfterModelDownload = Math.min(patch.deleteDaysAfterModelDownload, 365);
+    else next.deleteDaysAfterModelDownload = Math.min(patch.deleteDaysAfterModelDownload, 3650);
   }
   if (patch.storeUploadsAsWebpOnly !== undefined) {
     next.storeUploadsAsWebpOnly = patch.storeUploadsAsWebpOnly;
