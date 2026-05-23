@@ -29,15 +29,19 @@ Website-backend (Websites & SSL → Beheer website):
   api.class-models.be → Node → classmodels-web  (zelfde app)
 
 Pipeline (Combell → Node.js-app → tab Build / Pipeline):
-  Build command (één regel):
-    npm run combell:build
-  Start command (runtime):
-    npm run serve
+  AANBEVOLEN — géén Docker/CaaS-containerbuild, alleen scripts:
+    Build command:  npm run combell:build
+    Start command:  npm run serve
+
+  FOUT in build-log? Zie je een ENORME lijst node-* pakketten en
+  "RUN apt -y update && apt -y upgrade && apt install npm yarn"?
+  → Combell gebruikt dan hun STANDAARD CaasDockerfile (±998 bytes), NIET onze repo.
+  → Zet in het paneel expliciet build via bovenstaand npm-script, of koppel Git-repo
+    zodat CaasDockerfile-nodeapp uit de repo wordt gebruikt (onze: alleen git +
+    ca-certificates, daarna npm ci + combell:build — geen apt upgrade).
 
   Docker-build faalt soms met "rpc error ... EOF" tijdens apt upgrade in Combell's
-  standaard CaasDockerfile (niet onze repo). Oplossing: opnieuw deployen, of in het paneel
-  de Node-pipeline gebruiken (build + serve scripts in package.json) i.p.v. zware apt-stap.
-  Gebruik onze CaasDockerfile-nodeapp uit de repo (alleen git + ca-certificates, geen apt upgrade).
+  standaard template. Gebruik npm run combell:build i.p.v. zware apt-stap.
 
   Daarna: app herstarten (of wacht op automatische restart). Geen aparte SSH-stappen voor
   shared/API-build: het script bouwt @cm/shared → @cm/api → @cm/web in de juiste volgorde.

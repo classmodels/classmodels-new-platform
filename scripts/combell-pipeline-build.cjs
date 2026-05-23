@@ -53,11 +53,12 @@ if (fs.existsSync(ensureNext)) {
 }
 
 run('2/6 — @cm/shared (verplicht vóór API)', 'npm', ['run', 'build', '-w', '@cm/shared']);
-run('3/6 — @cm/api (Nest + Prisma generate)', 'npm', ['run', 'build', '-w', '@cm/api']);
-run('4/6 — @cm/web (Next)', 'npm', ['run', 'build', '-w', '@cm/web']);
+run('3/6 — Prisma client genereren', 'npm', ['run', 'db:generate']);
+run('4/6 — @cm/api (Nest)', 'npm', ['run', 'build', '-w', '@cm/api']);
+run('5/6 — @cm/web (Next)', 'npm', ['run', 'build', '-w', '@cm/web']);
 
 if (fs.existsSync(syncMedia)) {
-  run('5/6 — media bundle stagen (geen kopie naar volle /app/shared)', process.execPath, [syncMedia], {
+  run('6/6 — media bundle stagen (geen kopie naar volle /app/shared)', process.execPath, [syncMedia], {
     env: { ...process.env, COMBELL_BUILD_ONLY_STAGE: '1' },
   });
 }

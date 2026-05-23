@@ -10,12 +10,13 @@ RUN apt-get update -qq \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY packages ./packages
 COPY apps ./apps
 COPY scripts ./scripts
 COPY shared/README.md ./shared/README.md
 
+RUN npm ci
 RUN npm run combell:build
 
 ENV NODE_ENV=production
