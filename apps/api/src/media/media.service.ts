@@ -238,6 +238,42 @@ export class MediaService {
     return resolveWritableMediaRoot();
   }
 
+  /** Alle bekende mappen waar mediabestanden kunnen staan (Combell: vaak data-site én /app/shared). */
+  private mediaLookupRoots(): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const add = (raw: string) => {
+      const dir = resolve(raw.replace(/\/+$/, '') || raw);
+      if (seen.has(dir)) return;
+      try {
+        if (existsSync(dir) && statSync(dir).isDirectory()) {
+          seen.add(dir);
+          out.push(dir);
+        }
+      } catch {
+        /**/
+      }
+    };
+    add(this.root());
+    for (const d of combellDataSiteUploadsCandidates()) add(d);
+    add('/app/shared/uploads');
+    add('/app/shared');
+    const home = process.env.HOME?.trim();
+    if (home) add(join(home, 'www', 'cm-media', 'uploads'));
+    add(join(this.monorepoRoot(), 'apps', 'api', 'uploads'));
+    add(join(this.monorepoRoot(), 'shared', 'uploads'));
+    const sync = process.env.MEDIA_SYNC_SOURCE?.trim();
+    if (sync) add(sync);
+    return out;
+  }
+
+  private safeUnlinkAllRoots(key: string | null | undefined) {
+    if (!key) return;
+    for (const root of this.mediaLookupRoots()) {
+      this.safeUnlink(root, key);
+    }
+  }
+
   /** Alleen schijf (geen nieuw DB-record): herstel mediabestanden op productie met zelfde bestandsnaam als in DB. */
   async putDiskFile(file: Express.Multer.File, filename: string) {
     const safe = basename(filename);
@@ -496,29 +532,53 @@ export class MediaService {
    * Map met WebP-only: full `.webp` + `_thumb.webp` op schijf (geen losse JPG/PNG).
    * Verwerkt in batches (admin-knop).
    */
-  /** Zoekt een bronbestand op schijf (ook via disk-index en losse JPG naast WebP in DB). */
-  private resolveImagePathOnDisk(
-    root: string,
-    keys: string[],
-    baseId: string,
-  ): string | null {
-    const tryKey = (key: string): string | null => {
-      const direct = join(root, key);
-      if (existsSync(direct)) return direct;
-      const rel = this.lookupDiskRelativePath(basename(key));
-      if (rel) {
-        const viaIndex = join(root, rel);
-        if (existsSync(viaIndex)) return viaIndex;
+  private findFileInRoot(root: string, key: string): string | null {
+    const direct = join(root, key);
+    if (existsSync(direct)) return direct;
+    if (!key.includes('/') && !key.includes('..')) {
+      let ents: Dirent[];
+      try {
+        ents = readdirSync(root, { withFileTypes: true });
+      } catch {
+        return null;
       }
-      return null;
-    };
-    for (const k of keys) {
-      const hit = tryKey(k);
-      if (hit) return hit;
+      for (const e of ents) {
+        if (e.isFile() && e.name === key) return join(root, e.name);
+      }
+      const walk = (dir: string, depth: number): string | null => {
+        if (depth > 8) return null;
+        let inner: Dirent[];
+        try {
+          inner = readdirSync(dir, { withFileTypes: true });
+        } catch {
+          return null;
+        }
+        for (const ent of inner) {
+          const p = join(dir, ent.name);
+          if (ent.isFile() && ent.name === key) return p;
+          if (ent.isDirectory()) {
+            const hit = walk(p, depth + 1);
+            if (hit) return hit;
+          }
+        }
+        return null;
+      };
+      return walk(root, 0);
     }
-    for (const ext of ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', '.gif', '.GIF']) {
-      const hit = tryKey(`${baseId}${ext}`);
-      if (hit) return hit;
+    return null;
+  }
+
+  /** Zoekt bronbestand in alle bekende media-mappen (hosting vs container). */
+  private resolveImagePathOnDisk(keys: string[], baseId: string): string | null {
+    const tryKeys = [...keys];
+    for (const ext of ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', '.gif', '.GIF', '.webp', '.WEBP']) {
+      tryKeys.push(`${baseId}${ext}`);
+    }
+    for (const root of this.mediaLookupRoots()) {
+      for (const k of tryKeys) {
+        const hit = this.findFileInRoot(root, k);
+        if (hit) return hit;
+      }
     }
     return null;
   }
@@ -526,7 +586,14 @@ export class MediaService {
   async reconcileFolderWebpOnly(
     folderId: string,
     limit = 200,
-  ): Promise<{ processed: number; scanned: number; skipped: number; mediaRoot: string }> {
+  ): Promise<{
+    processed: number;
+    scanned: number;
+    skipped: number;
+    jpgsRemoved: number;
+    mediaRoot: string;
+    lookupRoots: string[];
+  }> {
     const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
     if (!folder) throw new NotFoundException();
     if (folder.slug === 'testshoot') {
@@ -535,7 +602,8 @@ export class MediaService {
       );
     }
 
-    const root = this.root();
+    const writableRoot = this.root();
+    const lookupRoots = this.mediaLookupRoots();
     const assets = await this.prisma.mediaAsset.findMany({
       where: { folderId: folder.id, hardDeleted: false, mimeType: { startsWith: 'image/' } },
       orderBy: { createdAt: 'desc' },
@@ -544,13 +612,13 @@ export class MediaService {
 
     let processed = 0;
     let skipped = 0;
+    let jpgsRemoved = 0;
     for (const a of assets) {
       const baseId = this.assetBaseId(a.storageKey);
       const newStorageKey = `${baseId}.webp`;
       const newThumbKey = `${baseId}_thumb.webp`;
 
       const srcPath = this.resolveImagePathOnDisk(
-        root,
         [a.storageKey, a.webpKey, a.thumbKey].filter(Boolean) as string[],
         baseId,
       );
@@ -561,14 +629,14 @@ export class MediaService {
       }
 
       try {
-        const fullPath = join(root, newStorageKey);
+        const fullPath = join(writableRoot, newStorageKey);
         if (!existsSync(fullPath)) {
           await sharp(srcPath)
             .rotate()
             .webp({ quality: WEBP_FULL_QUALITY, effort: WEBP_EFFORT })
             .toFile(fullPath);
         }
-        const thumbPath = join(root, newThumbKey);
+        const thumbPath = join(writableRoot, newThumbKey);
         if (!existsSync(thumbPath)) {
           await sharp(fullPath)
             .rotate()
@@ -585,7 +653,13 @@ export class MediaService {
         for (const ext of ['.jpg', '.jpeg', '.png', '.gif', '.JPG', '.JPEG', '.PNG']) {
           orphans.add(`${baseId}${ext}`);
         }
-        for (const k of orphans) this.safeUnlink(root, k);
+        for (const k of orphans) {
+          for (const root of lookupRoots) {
+            const before = existsSync(join(root, k));
+            this.safeUnlink(root, k);
+            if (before && /\.jpe?g$/i.test(k)) jpgsRemoved++;
+          }
+        }
 
         await this.prisma.mediaAsset.update({
           where: { id: a.id },
@@ -604,7 +678,14 @@ export class MediaService {
     }
 
     this.invalidateDiskBasenameIndex();
-    return { processed, scanned: assets.length, skipped, mediaRoot: root };
+    return {
+      processed,
+      scanned: assets.length,
+      skipped,
+      jpgsRemoved,
+      mediaRoot: writableRoot,
+      lookupRoots,
+    };
   }
 
   /** @deprecated gebruik reconcileFolderWebpOnly */

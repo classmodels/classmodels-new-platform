@@ -693,20 +693,21 @@ export default function AdminMediaPage() {
         processed: number;
         scanned: number;
         skipped?: number;
+        jpgsRemoved?: number;
         mediaRoot?: string;
+        lookupRoots?: string[];
       }>(`/media/folders/${activeFolder.id}/convert-webp-only?limit=200`, token, {
         method: 'POST',
         loadingLabel: 'JPG’s opruimen…',
       });
       await load();
-      if (res.processed === 0 && (res.skipped ?? 0) > 0) {
-        setSettingsMsg(
-          `Geen enkele foto gevonden op de server (${res.skipped} overgeslagen). Controleer CM_COMBELL_DATA_UPLOADS / opslag-paneel. Pad: ${res.mediaRoot ?? '?'}`,
-        );
-      } else {
-        setSettingsMsg(
-          `Klaar: ${res.processed} foto’s opgeschoond (${res.scanned} bekeken${res.skipped ? `, ${res.skipped} overgeslagen` : ''}). Klik opnieuw op de groene knop tot alles verwerkt is.`,
-        );
+      const summary =
+        res.processed === 0 && (res.skipped ?? 0) > 0
+          ? `Geen foto’s gevonden op de server (${res.skipped} overgeslagen). Node zoekt in: ${(res.lookupRoots ?? [res.mediaRoot]).join(' | ')}. Zet CM_COMBELL_DATA_UPLOADS op je cm-media/uploads map en herstart.`
+          : `Klaar: ${res.processed} foto’s, ${res.jpgsRemoved ?? 0} JPG’s verwijderd (${res.scanned} bekeken). Klik opnieuw tot alles weg is (±6× bij 1078).`;
+      setSettingsMsg(summary);
+      if (res.processed === 0 || (res.jpgsRemoved ?? 0) === 0) {
+        alert(summary);
       }
     } catch (e) {
       setSettingsMsg(e instanceof Error ? e.message : 'Opschoning mislukt — zie netwerk-tab (F12) of herlaad en probeer opnieuw.');
