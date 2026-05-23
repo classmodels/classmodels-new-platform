@@ -1,24 +1,25 @@
 #!/bin/bash
-# Verwijder losse JPG/PNG als dezelfde foto al als .webp op schijf staat (modellen-opslag).
-# Gebruik op Combell SSH (pas UPLOADS aan indien nodig):
-#   bash scripts/cleanup-model-jpg-orphans.sh
+# Verwijder losse JPG/PNG als dezelfde foto al als .webp op schijf staat.
 set -euo pipefail
-UPLOADS="${1:-$HOME/www/cm-media/uploads}"
-if [ ! -d "$UPLOADS" ]; then
-  UPLOADS="/data/sites/web/class-modelsbe/www/cm-media/uploads"
-fi
-if [ ! -d "$UPLOADS" ]; then
-  echo "Map niet gevonden: $UPLOADS"
-  exit 1
-fi
-echo "Zoeken in: $UPLOADS"
+SITE="${CM_SITE_ROOT:-/data/sites/web/class-modelsbe}"
+
+DIRS=(
+  "$SITE/data"
+  "$SITE/data/uploads"
+  "$SITE/www/cm-media/uploads"
+  "/app/shared/uploads"
+)
+
 removed=0
-while IFS= read -r -d '' jpg; do
-  base="${jpg%.*}"
-  webp="${base}.webp"
-  if [ -f "$webp" ]; then
-    rm -f "$jpg"
-    removed=$((removed + 1))
-  fi
-done < <(find "$UPLOADS" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) -print0)
+for UPLOADS in "${DIRS[@]}"; do
+  [ -d "$UPLOADS" ] || continue
+  echo "Map: $UPLOADS"
+  while IFS= read -r -d '' jpg; do
+    webp="${jpg%.*}.webp"
+    if [ -f "$webp" ]; then
+      rm -f "$jpg"
+      removed=$((removed + 1))
+    fi
+  done < <(find "$UPLOADS" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) -print0)
+done
 echo "Verwijderd: $removed losse JPG/PNG (waar WebP al bestond)."

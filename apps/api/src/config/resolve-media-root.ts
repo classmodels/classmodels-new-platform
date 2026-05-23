@@ -62,6 +62,107 @@ export function combellDataSiteUploadsCandidates(): string[] {
   return [...new Set(out.map((p) => p.replace(/\\/g, '/').replace(/\/+/g, '/')))];
 }
 
+/**
+ * Alle plekken waar mediabestanden op Combell kunnen staan.
+ * File Manager toont vaak map `data/` (niet `www/cm-media/uploads`).
+ * Node-container gebruikt vaak `/app/shared/uploads` (niet zichtbaar in File Manager).
+ */
+export function combellHostingDiscoveryPaths(): string[] {
+  const out: string[] = [];
+  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
+  if (explicit) out.push(explicit);
+  const siteUser = process.env.CM_COMBELL_SITE_USER?.trim() || 'class-modelsbe';
+  const base = `/data/sites/web/${siteUser}`;
+  out.push(
+    `${base}/data`,
+    `${base}/data/uploads`,
+    `${base}/www/cm-media/uploads`,
+    `${base}/shared/uploads`,
+    '/data/sites/web/class-modelsbe/data',
+    '/data/sites/web/class-modelsbe/data/uploads',
+    '/data/sites/web/class-modelsbe/www/cm-media/uploads',
+    '/app/shared/uploads',
+    '/app/shared',
+  );
+  const home = hostingHome();
+  if (home && !isContainerAppHome(home)) {
+    out.push(join(home, 'data'), join(home, 'www', 'cm-media', 'uploads'));
+  }
+  const sync = process.env.MEDIA_SYNC_SOURCE?.trim();
+  if (sync) out.push(sync);
+  return [...new Set(out.map((p) => p.replace(/\\/g, '/').replace(/\/+/g, '/')))];
+}
+
+/** Bestaande mappen uit discovery-lijst. */
+export function existingHostingDiscoveryPaths(): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of combellHostingDiscoveryPaths()) {
+    const dir = raw.replace(/\/+$/, '') || raw;
+    if (seen.has(dir)) continue;
+    try {
+      if (existsSync(dir) && statSync(dir).isDirectory()) {
+        seen.add(dir);
+        out.push(dir);
+      }
+    } catch {
+      /**/
+    }
+  }
+  return out;
+}
+
+function countFilesWithExt(dir: string, extRe: RegExp, maxDepth = 3): number {
+  let n = 0;
+  const walk = (d: string, depth: number) => {
+    if (n > 20000 || depth > maxDepth) return;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(d, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const ent of entries) {
+      if (n > 20000) return;
+      const p = join(d, ent.name);
+      if (ent.isFile() && extRe.test(ent.name)) n += 1;
+      else if (ent.isDirectory()) walk(p, depth + 1);
+    }
+  };
+  try {
+    walk(dir, 0);
+  } catch {
+    return 0;
+  }
+  return n;
+}
+
+export function inventoryHostingMediaPaths(maxDepth = 3): Array<{
+  dir: string;
+  exists: boolean;
+  writable: boolean;
+  imageFiles: number;
+  jpgFiles: number;
+}> {
+  return combellHostingDiscoveryPaths().map((dir) => {
+    let exists = false;
+    let writable = false;
+    let imageFiles = 0;
+    let jpgFiles = 0;
+    try {
+      exists = existsSync(dir) && statSync(dir).isDirectory();
+      if (exists) {
+        writable = tryWritableMediaDir(dir);
+        imageFiles = countMediaFilesShallow(dir, maxDepth);
+        jpgFiles = countFilesWithExt(dir, /\.(jpe?g)$/i, maxDepth);
+      }
+    } catch {
+      /**/
+    }
+    return { dir, exists, writable, imageFiles, jpgFiles };
+  });
+}
+
 function isCombellDataSiteMediaPath(p: string): boolean {
   const n = p.replace(/\\/g, '/');
   return n.includes('/data/sites/web/') && n.includes('cm-media');
@@ -93,9 +194,9 @@ export function mediaDirFreeBytes(dir: string): number | null {
   }
 }
 
-/** Persistent uploads: eerst data-site (100 GB), anders container /app/shared. */
+/** Persistent uploads: alle bekende hosting-paden + container /app/shared. */
 function combellContainerMediaDirs(): string[] {
-  return [...combellDataSiteUploadsCandidates(), '/app/shared/uploads', '/app/shared'];
+  return combellHostingDiscoveryPaths();
 }
 
 /** Combell-fout: absolute pad `/www/cm-media/uploads` (zonder home) bestaat niet of is leeg. */

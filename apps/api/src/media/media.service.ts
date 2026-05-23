@@ -26,7 +26,9 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import {
   combellDataSiteUploadsCandidates,
+  combellHostingDiscoveryPaths,
   countMediaFilesShallow,
+  inventoryHostingMediaPaths,
   mediaDirFreeBytes,
   resolveMediaRoot,
   resolveWritableMediaRoot,
@@ -238,7 +240,7 @@ export class MediaService {
     return resolveWritableMediaRoot();
   }
 
-  /** Alle bekende mappen waar mediabestanden kunnen staan (Combell: vaak data-site én /app/shared). */
+  /** Alle bekende mappen waar mediabestanden kunnen staan (incl. File Manager `data/`). */
   private mediaLookupRoots(): string[] {
     const seen = new Set<string>();
     const out: string[] = [];
@@ -255,15 +257,9 @@ export class MediaService {
       }
     };
     add(this.root());
-    for (const d of combellDataSiteUploadsCandidates()) add(d);
-    add('/app/shared/uploads');
-    add('/app/shared');
-    const home = process.env.HOME?.trim();
-    if (home) add(join(home, 'www', 'cm-media', 'uploads'));
+    for (const d of combellHostingDiscoveryPaths()) add(d);
     add(join(this.monorepoRoot(), 'apps', 'api', 'uploads'));
     add(join(this.monorepoRoot(), 'shared', 'uploads'));
-    const sync = process.env.MEDIA_SYNC_SOURCE?.trim();
-    if (sync) add(sync);
     return out;
   }
 
@@ -2391,22 +2387,20 @@ export class MediaService {
     const sharedDir = join(this.monorepoRoot(), 'shared', 'uploads');
 
     const freeBytes = mediaDirFreeBytes(root);
-    const hostingCandidates = combellDataSiteUploadsCandidates().map((dir) => {
-      let exists = false;
-      let writable = false;
-      try {
-        exists = existsSync(dir) && statSync(dir).isDirectory();
-        writable = exists ? tryWritableMediaDir(dir) : false;
-      } catch {
-        /**/
-      }
-      return { dir, exists, writable };
-    });
+    const pathInventory = inventoryHostingMediaPaths(4);
+    const hostingCandidates = pathInventory.filter((p) => p.exists);
+    const richest = [...hostingCandidates].sort((a, b) => b.imageFiles - a.imageFiles)[0];
+    const richestWritable = [...hostingCandidates]
+      .filter((p) => p.writable)
+      .sort((a, b) => b.imageFiles - a.imageFiles)[0];
 
     return {
       mediaRoot: root,
       writableMediaRoot: resolveWritableMediaRoot(),
       hostingCandidates,
+      pathInventory,
+      recommendedEnvUploadsPath:
+        richestWritable && richestWritable.imageFiles > 0 ? richestWritable.dir : richest?.dir ?? null,
       mediaRootFreeBytes: freeBytes,
       mediaRootFreeGb: freeBytes != null ? Math.round((freeBytes / (1024 * 1024 * 1024)) * 10) / 10 : null,
       mediaRootExists: existsSync(root),

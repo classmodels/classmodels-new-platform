@@ -120,6 +120,14 @@ export default function AdminMediaPage() {
     writableMediaRoot?: string;
     mediaRootFreeGb?: number | null;
     hostingCandidates?: { dir: string; exists: boolean; writable: boolean }[];
+    pathInventory?: {
+      dir: string;
+      exists: boolean;
+      writable: boolean;
+      imageFiles: number;
+      jpgFiles: number;
+    }[];
+    recommendedEnvUploadsPath?: string | null;
   } | null>(null);
   const [inboxZipName, setInboxZipName] = useState('');
   const [inboxBusy, setInboxBusy] = useState(false);
@@ -274,6 +282,14 @@ export default function AdminMediaPage() {
         writableMediaRoot?: string;
         mediaRootFreeGb?: number | null;
         hostingCandidates?: { dir: string; exists: boolean; writable: boolean }[];
+        pathInventory?: {
+          dir: string;
+          exists: boolean;
+          writable: boolean;
+          imageFiles: number;
+          jpgFiles: number;
+        }[];
+        recommendedEnvUploadsPath?: string | null;
       }>('/media/admin/storage-info', token);
       setStorageInfo(d);
     } catch {
@@ -718,7 +734,7 @@ export default function AdminMediaPage() {
       const summary =
         totalJpgs > 0
           ? `Klaar: ${totalJpgs} JPG/PNG verwijderd in ${rounds} stappen. Controleer File Manager.`
-          : `Geen JPG’s gevonden om te verwijderen. Zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads in Combell en herstart Node — of gebruik het SSH-commando uit de documentatie.`;
+          : `Geen JPG’s gevonden om te verwijderen. Open “Totaal omvang” → kijk welke servermap jpg’s telt. Zet CM_COMBELL_DATA_UPLOADS op die map (vaak …/data of …/data/uploads, niet lege cm-media).`;
       setSettingsMsg(summary);
       alert(summary);
     } catch (e) {
@@ -805,14 +821,36 @@ export default function AdminMediaPage() {
               {storageInfo.mediaRootFreeGb != null ? (
                 <p className="mt-0.5">Vrij op die map: ca. {storageInfo.mediaRootFreeGb} GB</p>
               ) : null}
-              {storageInfo.hostingCandidates?.length ? (
-                <ul className="mt-1 list-inside list-disc text-[10px] text-muted">
-                  {storageInfo.hostingCandidates.map((c) => (
-                    <li key={c.dir}>
-                      {c.writable ? '✓' : '✗'} {c.dir}
-                    </li>
-                  ))}
-                </ul>
+              {storageInfo.recommendedEnvUploadsPath ? (
+                <p className="mt-1 text-[10px]">
+                  Aanbevolen env:{' '}
+                  <code className="break-all">CM_COMBELL_DATA_UPLOADS={storageInfo.recommendedEnvUploadsPath}</code>
+                </p>
+              ) : null}
+              {storageInfo.pathInventory?.filter((p) => p.exists).length ? (
+                <table className="mt-1 w-full text-[9px] text-muted">
+                  <thead>
+                    <tr className="text-left">
+                      <th className="pr-2">Map (server)</th>
+                      <th>jpg</th>
+                      <th>beelden</th>
+                      <th>schrijf</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storageInfo.pathInventory
+                      .filter((p) => p.exists)
+                      .sort((a, b) => b.jpgFiles - a.jpgFiles)
+                      .map((p) => (
+                        <tr key={p.dir}>
+                          <td className="break-all pr-2 font-mono">{p.dir}</td>
+                          <td>{p.jpgFiles}</td>
+                          <td>{p.imageFiles}</td>
+                          <td>{p.writable ? 'ja' : 'nee'}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               ) : null}
             </div>
           ) : null}
