@@ -190,11 +190,11 @@ async function seedAgenda(p: PrismaClient) {
       data: {
         calendarId: c.id,
         fieldKey: 'foto',
-        label: 'Foto',
+        label: 'Voeg foto bij',
         type: 'file',
         required: false,
         width: '2',
-        placeholder: 'Upload een foto',
+        placeholder: '',
         titlePosition: 'above',
         sortOrder: 200,
         active: true,

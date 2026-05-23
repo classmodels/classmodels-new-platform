@@ -203,10 +203,7 @@ export function GuestBookingPanel({
   const showMinorGuard =
     strictGuestForm && isMinorFromIsoDateString((form.geboortedatum ?? '').trim());
 
-  const displayFields = useMemo(
-    () => (!authToken ? fields.filter((f) => f.type !== 'file') : fields),
-    [authToken, fields],
-  );
+  const displayFields = useMemo(() => fields, [fields]);
 
   const showDatePager = sortedDates.length > DAYS_PER_PAGE;
 

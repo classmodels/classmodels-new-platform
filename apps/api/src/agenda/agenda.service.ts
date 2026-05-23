@@ -153,6 +153,17 @@ const DEFAULT_AGENDA_FIELD_SEED: Array<{
     sortOrder: 40,
     options: null,
   },
+  {
+    fieldKey: 'foto',
+    label: 'Voeg foto bij',
+    type: 'file',
+    required: false,
+    width: '2',
+    placeholder: '',
+    titlePosition: 'above',
+    sortOrder: 200,
+    options: null,
+  },
 ];
 
 function webPublicBase(): string {
@@ -297,6 +308,13 @@ export class AgendaService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    try {
+      await this.ensureOptionalPhotoFieldsOnAllCalendars();
+    } catch (e) {
+      this.log.warn(
+        `Agenda foto-veld bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
     if (String(process.env.AGENDA_RECONCILE_TIMES_ON_BOOT || '1').trim() === '0') return;
     try {
       const r = await this.reconcileAllBookingBrusselsTimes();
@@ -309,6 +327,44 @@ export class AgendaService implements OnModuleInit {
       this.log.warn(
         `Agenda tijd-correctie bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
       );
+    }
+  }
+
+  /** Optioneel foto-veld op elke agenda (ook bestaande), label «Voeg foto bij». */
+  private async ensureOptionalPhotoFieldsOnAllCalendars(): Promise<void> {
+    const calendars = await this.prisma.agendaCalendar.findMany({ select: { id: true } });
+    for (const cal of calendars) {
+      const existing = await this.prisma.agendaField.findFirst({
+        where: { calendarId: cal.id, fieldKey: 'foto' },
+      });
+      if (!existing) {
+        await this.prisma.agendaField.create({
+          data: {
+            calendarId: cal.id,
+            fieldKey: 'foto',
+            label: 'Voeg foto bij',
+            type: 'file',
+            required: false,
+            width: '2',
+            placeholder: '',
+            titlePosition: 'above',
+            sortOrder: 200,
+            active: true,
+          },
+        });
+        continue;
+      }
+      if (existing.label !== 'Voeg foto bij' || existing.required || !existing.active || existing.type !== 'file') {
+        await this.prisma.agendaField.update({
+          where: { id: existing.id },
+          data: {
+            label: 'Voeg foto bij',
+            type: 'file',
+            required: false,
+            active: true,
+          },
+        });
+      }
     }
   }
 
