@@ -682,12 +682,15 @@ export default function AdminMediaPage() {
     }
     if (
       !confirm(
-        `Tot 200 model-foto’s per keer: JPG/PNG verwijderen, WebP + thumb behouden. Bij 1078 foto’s moet je dit ±6 keer doen. Doorgaan?`,
+        activeFolder.slug === 'models'
+          ? 'Alle losse JPG/PNG van modellen verwijderen (WebP + thumb blijven)? Dit kan 1–3 minuten duren.'
+          : 'JPG/PNG verwijderen waar WebP al bestaat? Doorgaan?',
       )
     )
       return;
+    const batch = activeFolder.slug === 'models' ? 2500 : 200;
     setWebpConvertBusy(true);
-    setSettingsMsg('Bezig: JPG’s opruimen… (kan 1–2 minuten duren)');
+    setSettingsMsg('Bezig: schijf scannen en JPG’s verwijderen… (1–3 min, niet sluiten)');
     try {
       const res = await adminFetch<{
         processed: number;
@@ -696,19 +699,18 @@ export default function AdminMediaPage() {
         jpgsRemoved?: number;
         mediaRoot?: string;
         lookupRoots?: string[];
-      }>(`/media/folders/${activeFolder.id}/convert-webp-only?limit=200`, token, {
+      }>(`/media/folders/${activeFolder.id}/convert-webp-only?limit=${batch}`, token, {
         method: 'POST',
         loadingLabel: 'JPG’s opruimen…',
       });
       await load();
+      const jpgs = res.jpgsRemoved ?? 0;
       const summary =
-        res.processed === 0 && (res.skipped ?? 0) > 0
-          ? `Geen foto’s gevonden op de server (${res.skipped} overgeslagen). Node zoekt in: ${(res.lookupRoots ?? [res.mediaRoot]).join(' | ')}. Zet CM_COMBELL_DATA_UPLOADS op je cm-media/uploads map en herstart.`
-          : `Klaar: ${res.processed} foto’s, ${res.jpgsRemoved ?? 0} JPG’s verwijderd (${res.scanned} bekeken). Klik opnieuw tot alles weg is (±6× bij 1078).`;
+        jpgs === 0
+          ? `Geen JPG’s kunnen wissen (Node ziet ze niet). Zet in Combell: CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads en herstart. Of gebruik SSH-script cleanup-model-jpg-orphans.sh. Pad: ${res.mediaRoot ?? '?'}`
+          : `Klaar: ${jpgs} JPG/PNG verwijderd, ${res.processed} records bijgewerkt. Controleer File Manager; herhaal 1× als er nog JPG’s staan.`;
       setSettingsMsg(summary);
-      if (res.processed === 0 || (res.jpgsRemoved ?? 0) === 0) {
-        alert(summary);
-      }
+      alert(summary);
     } catch (e) {
       setSettingsMsg(e instanceof Error ? e.message : 'Opschoning mislukt — zie netwerk-tab (F12) of herlaad en probeer opnieuw.');
     } finally {

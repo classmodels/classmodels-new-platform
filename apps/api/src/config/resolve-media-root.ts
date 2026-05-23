@@ -302,8 +302,28 @@ function localAppMediaCandidates(): string[] {
 
 /** Waar uploads naartoe mogen: data-site (100 GB) als Node die map kan schrijven. */
 export function resolveWritableMediaRoot(): string {
+  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
+  if (explicit && tryWritableMediaDir(explicit)) {
+    return explicit.replace(/\\/g, '/').replace(/\/+$/, '') || explicit;
+  }
+  if (explicit) {
+    console.error(
+      `[media] CM_COMBELL_DATA_UPLOADS is gezet maar niet schrijfbaar: ${explicit} — Combell moet deze map aan de Node-container koppelen.`,
+    );
+  }
+
+  let bestDir: string | undefined;
+  let bestCount = -1;
   for (const dir of combellContainerMediaDirs()) {
-    if (tryWritableMediaDir(dir)) return dir.replace(/\\/g, '/').replace(/\/+$/, '') || dir;
+    if (!tryWritableMediaDir(dir)) continue;
+    const n = countMediaFilesShallow(dir, 2);
+    if (n > bestCount) {
+      bestCount = n;
+      bestDir = dir;
+    }
+  }
+  if (bestDir) {
+    return bestDir.replace(/\\/g, '/').replace(/\/+$/, '') || bestDir;
   }
   return resolveMediaRoot();
 }

@@ -274,6 +274,74 @@ export class MediaService {
     }
   }
 
+  /** Verwijdert bestand overal waar het voorkomt (ook in submappen), niet alleen in maproot. */
+  private unlinkBasenameEverywhere(filename: string): boolean {
+    if (!filename || filename.includes('..') || filename.includes('/')) return false;
+    let removed = false;
+    for (const root of this.mediaLookupRoots()) {
+      const p = this.findFileInRoot(root, filename);
+      if (!p) continue;
+      try {
+        unlinkSync(p);
+        removed = true;
+      } catch {
+        /**/
+      }
+    }
+    return removed;
+  }
+
+  private purgeLegacyFormatsForBaseId(baseId: string, extraNames: string[] = []): number {
+    let n = 0;
+    const names = new Set<string>(extraNames);
+    for (const ext of ['.jpg', '.jpeg', '.png', '.gif', '.JPG', '.JPEG', '.PNG']) {
+      names.add(`${baseId}${ext}`);
+    }
+    for (const name of names) {
+      if (this.unlinkBasenameEverywhere(name)) n += 1;
+    }
+    return n;
+  }
+
+  /**
+   * Schijfscan: elke JPG/PNG waar dezelfde basename.webp in dezelfde map staat → JPG weg.
+   * Werkt ook als DB al op WebP staat (hosting vs /app/shared).
+   */
+  private scanDiskAndPurgeOrphanJpgs(maxRemove = 2500): number {
+    let removed = 0;
+    const exts = /\.(jpe?g|png)$/i;
+    for (const root of this.mediaLookupRoots()) {
+      const stack: string[] = [root];
+      while (stack.length > 0 && removed < maxRemove) {
+        const dir = stack.pop()!;
+        let ents: Dirent[];
+        try {
+          ents = readdirSync(dir, { withFileTypes: true });
+        } catch {
+          continue;
+        }
+        for (const ent of ents) {
+          if (removed >= maxRemove) break;
+          const p = join(dir, ent.name);
+          if (ent.isDirectory()) {
+            stack.push(p);
+            continue;
+          }
+          if (!ent.isFile() || !exts.test(ent.name)) continue;
+          const webp = join(dir, `${ent.name.replace(/\.[^.]+$/, '')}.webp`);
+          if (!existsSync(webp)) continue;
+          try {
+            unlinkSync(p);
+            removed += 1;
+          } catch {
+            /**/
+          }
+        }
+      }
+    }
+    return removed;
+  }
+
   /** Alleen schijf (geen nieuw DB-record): herstel mediabestanden op productie met zelfde bestandsnaam als in DB. */
   async putDiskFile(file: Express.Multer.File, filename: string) {
     const safe = basename(filename);
@@ -610,20 +678,30 @@ export class MediaService {
       take: limit,
     });
 
+    let jpgsRemoved = this.scanDiskAndPurgeOrphanJpgs(Math.min(limit * 15, 2500));
+
     let processed = 0;
     let skipped = 0;
-    let jpgsRemoved = 0;
     for (const a of assets) {
       const baseId = this.assetBaseId(a.storageKey);
       const newStorageKey = `${baseId}.webp`;
       const newThumbKey = `${baseId}_thumb.webp`;
+
+      const extraOrphans: string[] = [];
+      if (a.storageKey !== newStorageKey) extraOrphans.push(a.storageKey);
+      if (a.webpKey && a.webpKey !== newStorageKey && a.webpKey !== newThumbKey) extraOrphans.push(a.webpKey);
+      jpgsRemoved += this.purgeLegacyFormatsForBaseId(baseId, extraOrphans);
 
       const srcPath = this.resolveImagePathOnDisk(
         [a.storageKey, a.webpKey, a.thumbKey].filter(Boolean) as string[],
         baseId,
       );
 
-      if (!srcPath) {
+      const webpSomewhere =
+        this.resolveImagePathOnDisk([newStorageKey], baseId) ??
+        (existsSync(join(writableRoot, newStorageKey)) ? join(writableRoot, newStorageKey) : null);
+
+      if (!srcPath && !webpSomewhere) {
         skipped++;
         continue;
       }
@@ -631,7 +709,12 @@ export class MediaService {
       try {
         const fullPath = join(writableRoot, newStorageKey);
         if (!existsSync(fullPath)) {
-          await sharp(srcPath)
+          const from = srcPath ?? webpSomewhere;
+          if (!from) {
+            skipped++;
+            continue;
+          }
+          await sharp(from)
             .rotate()
             .webp({ quality: WEBP_FULL_QUALITY, effort: WEBP_EFFORT })
             .toFile(fullPath);
@@ -646,19 +729,9 @@ export class MediaService {
         }
 
         const stat = statSync(fullPath);
-        const orphans = new Set<string>();
-        if (a.storageKey !== newStorageKey) orphans.add(a.storageKey);
-        if (a.webpKey && a.webpKey !== newStorageKey && a.webpKey !== newThumbKey) orphans.add(a.webpKey);
-        if (a.thumbKey && a.thumbKey !== newThumbKey) orphans.add(a.thumbKey);
-        for (const ext of ['.jpg', '.jpeg', '.png', '.gif', '.JPG', '.JPEG', '.PNG']) {
-          orphans.add(`${baseId}${ext}`);
-        }
-        for (const k of orphans) {
-          for (const root of lookupRoots) {
-            const before = existsSync(join(root, k));
-            this.safeUnlink(root, k);
-            if (before && /\.jpe?g$/i.test(k)) jpgsRemoved++;
-          }
+        if (a.thumbKey && a.thumbKey !== newThumbKey) this.unlinkBasenameEverywhere(a.thumbKey);
+        if (a.webpKey && a.webpKey !== newStorageKey && a.webpKey !== newThumbKey) {
+          this.unlinkBasenameEverywhere(a.webpKey);
         }
 
         await this.prisma.mediaAsset.update({
