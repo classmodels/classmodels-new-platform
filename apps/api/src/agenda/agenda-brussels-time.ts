@@ -61,3 +61,17 @@ export function ymdEuropeBrussels(d: Date): string {
     day: '2-digit',
   }).format(d);
 }
+
+/** Ondergrenzen voor DB @db.Date-range queries (MySQL leest DATE als UTC-middernacht). */
+export function parseYmdDayStart(ymd: string): Date {
+  return new Date(`${ymd}T00:00:00.000Z`);
+}
+
+export function parseYmdDayEnd(ymd: string): Date {
+  return new Date(`${ymd}T23:59:59.999Z`);
+}
+
+export function slotDateDayRange(slotDate: Date): { gte: Date; lte: Date } {
+  const ymd = slotDateToYmd(slotDate);
+  return { gte: parseYmdDayStart(ymd), lte: parseYmdDayEnd(ymd) };
+}
