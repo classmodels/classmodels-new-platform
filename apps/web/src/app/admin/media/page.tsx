@@ -682,37 +682,53 @@ export default function AdminMediaPage() {
     }
     if (
       !confirm(
-        activeFolder.slug === 'models'
-          ? 'Alle losse JPG/PNG van modellen verwijderen (WebP + thumb blijven)? Dit kan 1–3 minuten duren.'
-          : 'JPG/PNG verwijderen waar WebP al bestaat? Doorgaan?',
+        'Losse JPG/PNG verwijderen (WebP + thumb blijven)? De site doet dit in kleine stappen zodat Combell niet time-out geeft.',
       )
     )
       return;
-    const batch = activeFolder.slug === 'models' ? 2500 : 200;
     setWebpConvertBusy(true);
-    setSettingsMsg('Bezig: schijf scannen en JPG’s verwijderen… (1–3 min, niet sluiten)');
+    let totalJpgs = 0;
+    let skip = 0;
+    const batch = 80;
+    let rounds = 0;
     try {
-      const res = await adminFetch<{
-        processed: number;
-        scanned: number;
-        skipped?: number;
-        jpgsRemoved?: number;
-        mediaRoot?: string;
-        lookupRoots?: string[];
-      }>(`/media/folders/${activeFolder.id}/convert-webp-only?limit=${batch}`, token, {
-        method: 'POST',
-        loadingLabel: 'JPG’s opruimen…',
-      });
+      while (rounds < 30) {
+        rounds += 1;
+        setSettingsMsg(
+          `Bezig… stap ${rounds} (${totalJpgs} JPG’s verwijderd tot nu toe). Niet sluiten.`,
+        );
+        const res = await adminFetch<{
+          jpgsRemoved: number;
+          scanned: number;
+          skip: number;
+          hasMore: boolean;
+          totalInFolder: number;
+          mediaRoot: string;
+          lookupRoots: string[];
+        }>(
+          `/media/folders/${activeFolder.id}/purge-orphan-jpgs?limit=${batch}&skip=${skip}`,
+          token,
+          { method: 'POST', loadingLabel: `JPG’s opruimen (${rounds})…` },
+        );
+        totalJpgs += res.jpgsRemoved ?? 0;
+        skip = res.skip;
+        if (!res.hasMore) break;
+      }
       await load();
-      const jpgs = res.jpgsRemoved ?? 0;
       const summary =
-        jpgs === 0
-          ? `Geen JPG’s kunnen wissen (Node ziet ze niet). Zet in Combell: CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads en herstart. Of gebruik SSH-script cleanup-model-jpg-orphans.sh. Pad: ${res.mediaRoot ?? '?'}`
-          : `Klaar: ${jpgs} JPG/PNG verwijderd, ${res.processed} records bijgewerkt. Controleer File Manager; herhaal 1× als er nog JPG’s staan.`;
+        totalJpgs > 0
+          ? `Klaar: ${totalJpgs} JPG/PNG verwijderd in ${rounds} stappen. Controleer File Manager.`
+          : `Geen JPG’s gevonden om te verwijderen. Zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads in Combell en herstart Node — of gebruik het SSH-commando uit de documentatie.`;
       setSettingsMsg(summary);
       alert(summary);
     } catch (e) {
-      setSettingsMsg(e instanceof Error ? e.message : 'Opschoning mislukt — zie netwerk-tab (F12) of herlaad en probeer opnieuw.');
+      const partial =
+        totalJpgs > 0
+          ? ` (${totalJpgs} JPG’s waren al verwijderd vóór de timeout.)`
+          : '';
+      setSettingsMsg(
+        (e instanceof Error ? e.message : 'Opschoning mislukt') + partial,
+      );
     } finally {
       setWebpConvertBusy(false);
     }
@@ -1168,7 +1184,7 @@ export default function AdminMediaPage() {
                       onClick={() => void convertFolderWebpOnly()}
                       className="rounded border border-lime-700 bg-lime-50 px-2 py-1 text-[10px] font-medium text-lime-900 hover:bg-lime-100 disabled:opacity-50"
                     >
-                      {webpConvertBusy ? 'Bezig…' : 'Modellen → JPG weg (200 per keer)'}
+                      {webpConvertBusy ? 'Bezig…' : 'Modellen → JPG weg'}
                     </button>
                   ) : null}
                 </div>

@@ -403,6 +403,24 @@ export class MediaController {
     return this.media.reconcileFolderWebpOnly(folderId, Number.isFinite(n) ? n : 200);
   }
 
+  /** Snel: alleen losse JPG/PNG wissen (WebP + thumb blijven). Kleine batches i.v.m. Combell-timeout. */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('folders/:folderId/purge-orphan-jpgs')
+  purgeOrphanJpgs(
+    @Param('folderId', ParseUUIDPipe) folderId: string,
+    @Query('limit') limit?: string,
+    @Query('skip') skip?: string,
+  ) {
+    const n = limit ? parseInt(limit, 10) : 80;
+    const s = skip ? parseInt(skip, 10) : 0;
+    return this.media.purgeOrphanJpgsFast(
+      folderId,
+      Number.isFinite(n) ? Math.min(n, 120) : 80,
+      Number.isFinite(s) ? Math.max(0, s) : 0,
+    );
+  }
+
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.read')
   @Get('folders/:folderId/download.zip')

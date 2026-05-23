@@ -303,43 +303,86 @@ export class MediaService {
     return n;
   }
 
-  /**
-   * Schijfscan: elke JPG/PNG waar dezelfde basename.webp in dezelfde map staat → JPG weg.
-   * Werkt ook als DB al op WebP staat (hosting vs /app/shared).
-   */
-  private scanDiskAndPurgeOrphanJpgs(maxRemove = 2500): number {
+  /** Snel: alleen bestanden in de hoofdmap van elke media-root (geen diepe scan → geen proxy-timeout). */
+  private purgeOrphanJpgsTopLevel(maxPerRoot = 500): number {
     let removed = 0;
     const exts = /\.(jpe?g|png)$/i;
     for (const root of this.mediaLookupRoots()) {
-      const stack: string[] = [root];
-      while (stack.length > 0 && removed < maxRemove) {
-        const dir = stack.pop()!;
-        let ents: Dirent[];
+      let names: string[];
+      try {
+        names = readdirSync(root);
+      } catch {
+        continue;
+      }
+      for (const name of names) {
+        if (removed >= maxPerRoot) break;
+        if (!exts.test(name)) continue;
+        const webp = join(root, `${name.replace(/\.[^.]+$/, '')}.webp`);
+        if (!existsSync(webp)) continue;
         try {
-          ents = readdirSync(dir, { withFileTypes: true });
+          unlinkSync(join(root, name));
+          removed += 1;
         } catch {
-          continue;
-        }
-        for (const ent of ents) {
-          if (removed >= maxRemove) break;
-          const p = join(dir, ent.name);
-          if (ent.isDirectory()) {
-            stack.push(p);
-            continue;
-          }
-          if (!ent.isFile() || !exts.test(ent.name)) continue;
-          const webp = join(dir, `${ent.name.replace(/\.[^.]+$/, '')}.webp`);
-          if (!existsSync(webp)) continue;
-          try {
-            unlinkSync(p);
-            removed += 1;
-          } catch {
-            /**/
-          }
+          /**/
         }
       }
     }
     return removed;
+  }
+
+  /**
+   * Snelle JPG-opruiming (geen Sharp, geen diepe schijfscan) — past binnen Combell-proxy-timeout.
+   */
+  async purgeOrphanJpgsFast(
+    folderId: string,
+    limit = 80,
+    skip = 0,
+  ): Promise<{
+    jpgsRemoved: number;
+    scanned: number;
+    skip: number;
+    hasMore: boolean;
+    totalInFolder: number;
+    mediaRoot: string;
+    lookupRoots: string[];
+  }> {
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException();
+    if (folder.slug === 'testshoot') {
+      throw new BadRequestException('Testshoot: geen JPG-opruiming (ZIP gebruikt primair bestand).');
+    }
+
+    const totalInFolder = await this.prisma.mediaAsset.count({
+      where: { folderId: folder.id, hardDeleted: false, mimeType: { startsWith: 'image/' } },
+    });
+
+    let jpgsRemoved = skip === 0 ? this.purgeOrphanJpgsTopLevel(800) : 0;
+
+    const assets = await this.prisma.mediaAsset.findMany({
+      where: { folderId: folder.id, hardDeleted: false, mimeType: { startsWith: 'image/' } },
+      orderBy: { id: 'asc' },
+      skip,
+      take: limit,
+    });
+
+    for (const a of assets) {
+      const baseId = this.assetBaseId(a.storageKey);
+      const extra: string[] = [];
+      if (a.storageKey !== `${baseId}.webp`) extra.push(a.storageKey);
+      if (a.webpKey) extra.push(a.webpKey);
+      jpgsRemoved += this.purgeLegacyFormatsForBaseId(baseId, extra);
+    }
+
+    const nextSkip = skip + assets.length;
+    return {
+      jpgsRemoved,
+      scanned: assets.length,
+      skip: nextSkip,
+      hasMore: nextSkip < totalInFolder,
+      totalInFolder,
+      mediaRoot: this.root(),
+      lookupRoots: this.mediaLookupRoots(),
+    };
   }
 
   /** Alleen schijf (geen nieuw DB-record): herstel mediabestanden op productie met zelfde bestandsnaam als in DB. */
@@ -678,9 +721,8 @@ export class MediaService {
       take: limit,
     });
 
-    let jpgsRemoved = this.scanDiskAndPurgeOrphanJpgs(Math.min(limit * 15, 2500));
-
     let processed = 0;
+    let jpgsRemoved = 0;
     let skipped = 0;
     for (const a of assets) {
       const baseId = this.assetBaseId(a.storageKey);
