@@ -60,8 +60,8 @@ const STATUS_OPTS = [
   { v: 'no_show', label: 'Niet ingeschreven' },
 ] as const;
 
-const GRID_START_H = 8;
-const GRID_END_H = 20;
+const GRID_START_H = 7;
+const GRID_END_H = 22;
 const PX_PER_HOUR = 48;
 
 function startOfWeekMonday(d: Date): Date {

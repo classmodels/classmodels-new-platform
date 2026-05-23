@@ -9,12 +9,10 @@ import {
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
 } from '@/lib/agenda-guest-intake';
+import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
 
 function ymdLocal(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return ymdEuropeBrussels(d);
 }
 
 type FieldDto = {
@@ -84,6 +82,7 @@ export function GuestBookingPanel({
   const [calTitle, setCalTitle] = useState('');
   const [fields, setFields] = useState<FieldDto[]>([]);
   const [slots, setSlots] = useState<SlotDto[]>([]);
+  const [openDates, setOpenDates] = useState<string[]>([]);
   const [showEndTimeOnPublic, setShowEndTimeOnPublic] = useState(true);
   const [slotId, setSlotId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -115,21 +114,34 @@ export function GuestBookingPanel({
       };
       const sJson = (await sRes.json()) as {
         slots: SlotDto[];
+        openDates?: string[];
         calendar?: { showEndTimeOnPublic?: boolean };
       };
       setCalTitle(fJson.calendar?.title ?? '');
       setFields(fJson.fields ?? []);
       setSlots(sJson.slots ?? []);
+      setOpenDates(sJson.openDates ?? []);
       const endVis = sJson.calendar?.showEndTimeOnPublic ?? fJson.calendar?.showEndTimeOnPublic;
       setShowEndTimeOnPublic(endVis !== false);
       setSlotId(null);
       setForm({});
       setCancelUrl(null);
       setStep('slots');
-      setDayPage(0);
+      const dateSet = new Set<string>();
+      for (const s of sJson.slots ?? []) dateSet.add(s.slotDate);
+      for (const d of sJson.openDates ?? []) dateSet.add(d);
+      const sorted = [...dateSet].sort();
+      const todayYmd = ymdEuropeBrussels(new Date());
+      const todayIdx = sorted.indexOf(todayYmd);
+      if (todayIdx >= 0 && sorted.length > DAYS_PER_PAGE) {
+        setDayPage(Math.floor(todayIdx / DAYS_PER_PAGE));
+      } else {
+        setDayPage(0);
+      }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Laden mislukt');
       setSlots([]);
+      setOpenDates([]);
     } finally {
       setLoading(false);
     }
@@ -149,8 +161,9 @@ export function GuestBookingPanel({
   const sortedDates = useMemo(() => {
     const s = new Set<string>();
     for (const x of slots) s.add(x.slotDate);
+    for (const d of openDates) s.add(d);
     return [...s].sort();
-  }, [slots]);
+  }, [slots, openDates]);
 
   const totalPages = Math.max(1, Math.ceil(sortedDates.length / DAYS_PER_PAGE));
 
@@ -512,7 +525,7 @@ export function GuestBookingPanel({
     );
   }
 
-  if (!slots.length) {
+  if (!slots.length && !openDates.length) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-zinc-600">Er zijn nog geen vrije momenten voor deze dienst.</p>
@@ -563,6 +576,9 @@ export function GuestBookingPanel({
                       }).format(new Date(`${ymd}T12:00:00`))}
                     </p>
                     <div className="mt-2 flex max-h-[min(460px,50vh)] flex-col gap-1.5 overflow-y-auto pr-0.5">
+                      {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
+                        <p className="px-1 py-2 text-[11px] text-muted">Geen vrije momenten (meer) op deze dag.</p>
+                      ) : null}
                       {(slotsByYmd.get(ymd) ?? []).map((s) => {
                         const sel = slotId === s.id;
                         return (
@@ -656,6 +672,9 @@ export function GuestBookingPanel({
                   {colHeader(ymd)}
                 </div>
                 <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5">
+                  {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
+                    <p className="px-1 py-2 text-[10px] text-zinc-500">Geen vrije momenten (meer).</p>
+                  ) : null}
                   {(slotsByYmd.get(ymd) ?? []).map((s) => {
                     const sel = slotId === s.id;
                     return (

@@ -2,6 +2,15 @@
 
 export const AGENDA_TIMEZONE = 'Europe/Brussels';
 
+export function ymdEuropeBrussels(d: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: AGENDA_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
 export function slotDateKey(slotDate: string): string {
   return slotDate.slice(0, 10);
 }

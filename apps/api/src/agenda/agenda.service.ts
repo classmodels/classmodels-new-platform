@@ -201,6 +201,91 @@ function parseOptionalSlotStartsLines(raw: string | null | undefined): number[] 
   return [...new Set(mins)].sort((a, b) => a - b);
 }
 
+type CalSlotSchedule = {
+  durationMinutes: number;
+  slotStepMinutes?: number | null;
+  optionalSlotStarts?: string | null;
+  capacity: number;
+  defaultDayStartTime: string;
+  defaultDayEndTime: string;
+  breakStart: string | null;
+  breakEnd: string | null;
+};
+
+function buildSlotRowsForCalendar(cal: CalSlotSchedule): { startTime: string; endTime: string }[] {
+  const startM = timeToMinutes(cal.defaultDayStartTime ?? '08:00:00');
+  const endM = timeToMinutes(cal.defaultDayEndTime ?? '18:00:00');
+  const dur = cal.durationMinutes;
+  const step = cal.slotStepMinutes ?? dur;
+  const explicitStarts = parseOptionalSlotStartsLines(cal.optionalSlotStarts ?? undefined);
+  let breakA: number | null = null;
+  let breakB: number | null = null;
+  if (cal.breakStart && cal.breakEnd) {
+    breakA = timeToMinutes(cal.breakStart);
+    breakB = timeToMinutes(cal.breakEnd);
+    if (breakB <= breakA) {
+      breakA = null;
+      breakB = null;
+    }
+  }
+
+  const rows: { startTime: string; endTime: string }[] = [];
+
+  const slotFitsPause = (cur: number): boolean => {
+    if (cur + dur > endM) return false;
+    if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) return false;
+    return true;
+  };
+
+  const pushRow = (cur: number) => {
+    const endMin = cur + dur;
+    const sh = Math.floor(cur / 60);
+    const sm = cur % 60;
+    const eh = Math.floor(endMin / 60);
+    const em = endMin % 60;
+    rows.push({
+      startTime: `${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`,
+      endTime: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`,
+    });
+  };
+
+  if (explicitStarts?.length) {
+    for (const cur of explicitStarts) {
+      if (slotFitsPause(cur)) pushRow(cur);
+    }
+  } else {
+    let cur = startM;
+    while (cur + dur <= endM) {
+      if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) {
+        cur = breakB;
+        continue;
+      }
+      pushRow(cur);
+      cur += step;
+    }
+  }
+
+  return rows;
+}
+
+function slotScheduleSignature(rows: { startTime: string; endTime: string }[]): string {
+  return rows
+    .map((r) => `${normTime(r.startTime)}-${normTime(r.endTime)}`)
+    .sort()
+    .join('|');
+}
+
+function eachYmdInRange(from: Date, to: Date, fn: (ymd: string) => void): void {
+  let ymd = slotDateToYmd(from);
+  const endYmd = slotDateToYmd(to);
+  while (ymd <= endYmd) {
+    fn(ymd);
+    const next = parseYmd(ymd);
+    next.setUTCDate(next.getUTCDate() + 1);
+    ymd = slotDateToYmd(next);
+  }
+}
+
 @Injectable()
 export class AgendaService implements OnModuleInit {
   private readonly log = new Logger(AgendaService.name);
@@ -258,24 +343,18 @@ export class AgendaService implements OnModuleInit {
     openRows: { openDate: Date; repeatYearly: boolean }[],
   ): Set<string> {
     const set = new Set<string>();
-    const cursor = new Date(from);
-    const end = new Date(to);
-    while (cursor.getTime() <= end.getTime()) {
-      const ymd = cursor.toISOString().slice(0, 10);
+    eachYmdInRange(from, to, (ymd) => {
+      const [, cm, cd] = ymd.split('-');
       for (const o of openRows) {
+        const openYmd = slotDateToYmd(o.openDate);
         if (o.repeatYearly) {
-          if (
-            cursor.getUTCMonth() === o.openDate.getUTCMonth() &&
-            cursor.getUTCDate() === o.openDate.getUTCDate()
-          ) {
-            set.add(ymd);
-          }
-        } else if (o.openDate.toISOString().slice(0, 10) === ymd) {
+          const [, om, od] = openYmd.split('-');
+          if (cm === om && cd === od) set.add(ymd);
+        } else if (openYmd === ymd) {
           set.add(ymd);
         }
       }
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
+    });
     return set;
   }
 
@@ -284,7 +363,7 @@ export class AgendaService implements OnModuleInit {
       where: { calendarId, closedDate: { gte: from, lte: to } },
       select: { closedDate: true },
     });
-    return new Set(closedRows.map((r) => r.closedDate.toISOString().slice(0, 10)));
+    return new Set(closedRows.map((r) => slotDateToYmd(r.closedDate)));
   }
 
   private async openDayYmdSetForCalendarIfRestricted(
@@ -329,17 +408,14 @@ export class AgendaService implements OnModuleInit {
         if (cal.slug === 'opleiding') {
           await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
         } else {
-          const n = await this.prisma.agendaSlot.count({
-            where: { calendarId: cal.id, slotDate: dateOnly },
-          });
-          if (n === 0) await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
+          await this.reconcileCalendarDaySlots(cal.id, dateOnly, cal);
         }
       }
     } else if (!restrictOpen && mask !== 0) {
-      let cursor = new Date(from);
-      const end = new Date(to);
+      let cursor = parseYmd(slotDateToYmd(from));
+      const end = parseYmd(slotDateToYmd(to));
       while (cursor.getTime() <= end.getTime()) {
-        const ymd = cursor.toISOString().slice(0, 10);
+        const ymd = slotDateToYmd(cursor);
         const dow = cursor.getUTCDay();
         const bit = 1 << dow;
         if ((mask & bit) !== 0 && !closedSet.has(ymd)) {
@@ -347,12 +423,7 @@ export class AgendaService implements OnModuleInit {
           if (cal.slug === 'opleiding') {
             await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
           } else {
-            const n = await this.prisma.agendaSlot.count({
-              where: { calendarId: cal.id, slotDate: dateOnly },
-            });
-            if (n === 0) {
-              await this.ensureSlotsForCalendarDate(cal.id, dateOnly, cal);
-            }
+            await this.reconcileCalendarDaySlots(cal.id, dateOnly, cal);
           }
         }
         cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -361,7 +432,7 @@ export class AgendaService implements OnModuleInit {
   }
 
   private dedupeKeyForSlot(slotDate: Date, startTime: string): string {
-    return `${slotDate.toISOString().slice(0, 10)}|${normTime(startTime)}`;
+    return `${slotDateToYmd(slotDate)}|${normTime(startTime)}`;
   }
 
   /** Zelfde filters als publieke slotlijst: sluitingen, open dagen, capaciteit, dedupe op dag+startuur. */
@@ -407,7 +478,7 @@ export class AgendaService implements OnModuleInit {
     const withCap: Array<Row & { booked: number; remaining: number; capacity: number }> = [];
 
     for (const s of rows) {
-      const ymd = s.slotDate.toISOString().slice(0, 10);
+      const ymd = slotDateToYmd(s.slotDate);
       if (closedSet.has(ymd)) continue;
       if (openYmdSet && !openYmdSet.has(ymd)) continue;
 
@@ -473,7 +544,7 @@ export class AgendaService implements OnModuleInit {
     now: Date,
   ): Promise<number> {
     if (!cal.active || !cal.publicBooking) return 0;
-    const todayYmd = now.toISOString().slice(0, 10);
+    const todayYmd = ymdEuropeBrussels(now);
     const from = parseYmd(todayYmd);
     const to = new Date(from.getTime() + 45 * 24 * 60 * 60 * 1000);
     const closedSet = await this.closedDayYmdSet(cal.id, from, to);
@@ -484,81 +555,52 @@ export class AgendaService implements OnModuleInit {
   }
 
   /** Maakt ontbrekende sloten voor één dag (open-dag workflow + lazy generatie). */
-  async ensureSlotsForCalendarDate(
+  async ensureSlotsForCalendarDate(calendarId: string, slotDate: Date, cal: CalSlotSchedule) {
+    await this.reconcileCalendarDaySlots(calendarId, slotDate, cal);
+  }
+
+  /**
+   * Zorgt dat sloten overeenkomen met agenda-uren. Vernieuwt als er geen actieve boeking is
+   * (bv. na wijziging standaarduren of opnieuw markeren als open dag).
+   */
+  private async reconcileCalendarDaySlots(
     calendarId: string,
     slotDate: Date,
-    cal: {
-      durationMinutes: number;
-      slotStepMinutes?: number | null;
-      optionalSlotStarts?: string | null;
-      capacity: number;
-      defaultDayStartTime: string;
-      defaultDayEndTime: string;
-      breakStart: string | null;
-      breakEnd: string | null;
-    },
+    cal: CalSlotSchedule,
   ) {
-    const dateOnly = new Date(`${slotDate.toISOString().slice(0, 10)}T12:00:00.000Z`);
-    const existing = await this.prisma.agendaSlot.count({
+    const dateOnly = new Date(`${slotDateToYmd(slotDate)}T12:00:00.000Z`);
+    const expected = buildSlotRowsForCalendar(cal);
+    const existing = await this.prisma.agendaSlot.findMany({
       where: { calendarId, slotDate: dateOnly },
+      select: { id: true, startTime: true, endTime: true },
     });
-    if (existing > 0) return;
 
-    const startM = timeToMinutes(cal.defaultDayStartTime ?? '08:00:00');
-    const endM = timeToMinutes(cal.defaultDayEndTime ?? '18:00:00');
-    const dur = cal.durationMinutes;
-    const step = cal.slotStepMinutes ?? dur;
-    const explicitStarts = parseOptionalSlotStartsLines(cal.optionalSlotStarts ?? undefined);
-    let breakA: number | null = null;
-    let breakB: number | null = null;
-    if (cal.breakStart && cal.breakEnd) {
-      breakA = timeToMinutes(cal.breakStart);
-      breakB = timeToMinutes(cal.breakEnd);
-      if (breakB <= breakA) {
-        breakA = null;
-        breakB = null;
+    if (expected.length === 0) {
+      if (existing.length === 0) return;
+      for (const s of existing) {
+        const bc = await this.prisma.agendaBooking.count({
+          where: { slotId: s.id, ...activeBookingFilter },
+        });
+        if (bc > 0) return;
       }
+      await this.prisma.agendaSlot.deleteMany({ where: { calendarId, slotDate: dateOnly } });
+      return;
     }
 
-    const rows: { startTime: string; endTime: string }[] = [];
+    const expectedSig = slotScheduleSignature(expected);
+    const existingSig = slotScheduleSignature(existing);
+    if (existing.length > 0 && expectedSig === existingSig) return;
 
-    const slotFitsPause = (cur: number): boolean => {
-      if (cur + dur > endM) return false;
-      if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) return false;
-      return true;
-    };
-
-    const pushRow = (cur: number) => {
-      const endMin = cur + dur;
-      const sh = Math.floor(cur / 60);
-      const sm = cur % 60;
-      const eh = Math.floor(endMin / 60);
-      const em = endMin % 60;
-      rows.push({
-        startTime: `${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}:00`,
-        endTime: `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}:00`,
+    for (const s of existing) {
+      const bc = await this.prisma.agendaBooking.count({
+        where: { slotId: s.id, ...activeBookingFilter },
       });
-    };
-
-    if (explicitStarts?.length) {
-      for (const cur of explicitStarts) {
-        if (slotFitsPause(cur)) pushRow(cur);
-      }
-    } else {
-      let cur = startM;
-      while (cur + dur <= endM) {
-        if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) {
-          cur = breakB;
-          continue;
-        }
-        pushRow(cur);
-        cur += step;
-      }
+      if (bc > 0) return;
     }
 
-    if (rows.length === 0) return;
+    await this.prisma.agendaSlot.deleteMany({ where: { calendarId, slotDate: dateOnly } });
     await this.prisma.agendaSlot.createMany({
-      data: rows.map((r) => ({
+      data: expected.map((r) => ({
         calendarId,
         slotDate: dateOnly,
         startTime: r.startTime,
@@ -567,6 +609,22 @@ export class AgendaService implements OnModuleInit {
         status: 'open',
       })),
     });
+  }
+
+  /** Vernieuwt sloten voor alle open dagen (vanaf vandaag) na wijziging agenda-uren. */
+  private async reconcileOpenDaySlotsAfterScheduleChange(calendarId: string, cal: CalSlotSchedule) {
+    const todayYmd = ymdEuropeBrussels(new Date());
+    const openRows = await this.prisma.agendaOpenDay.findMany({
+      where: { calendarId },
+      select: { openDate: true, repeatYearly: true },
+    });
+    const from = parseYmd(todayYmd);
+    const to = new Date(from.getTime() + 400 * 24 * 60 * 60 * 1000);
+    const ymdSet = this.openDayYmdSetInRange(from, to, openRows);
+    for (const ymd of [...ymdSet].sort()) {
+      if (ymd < todayYmd) continue;
+      await this.reconcileCalendarDaySlots(calendarId, parseYmd(ymd), cal);
+    }
   }
 
   /** Vervangt verkeerde opleidingssloten (bijv. oude 1-uurs blokken) door één 14:00–17:00 slot zolang er geen boeking is. */
@@ -656,7 +714,7 @@ export class AgendaService implements OnModuleInit {
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
 
     const today = new Date();
-    const from = fromStr ? parseYmd(fromStr) : new Date(`${today.toISOString().slice(0, 10)}T12:00:00.000Z`);
+    const from = fromStr ? parseYmd(fromStr) : parseYmd(ymdEuropeBrussels(today));
     let to = toStr
       ? parseYmd(toStr)
       : new Date(from.getTime() + 45 * 24 * 60 * 60 * 1000);
@@ -670,6 +728,11 @@ export class AgendaService implements OnModuleInit {
     const now = new Date();
     const deduped = await this.collectGuestVisibleBookableSlotsDeduped(cal, from, to, now, closedSet, openYmdSet);
 
+    const openDates =
+      openYmdSet && cal.restrictToOpenDays
+        ? [...openYmdSet].filter((ymd) => !closedSet.has(ymd)).sort()
+        : undefined;
+
     return {
       calendar: {
         id: cal.id,
@@ -680,6 +743,7 @@ export class AgendaService implements OnModuleInit {
         capacityDefault: cal.capacity,
         showEndTimeOnPublic: cal.showEndTimeOnPublic,
       },
+      openDates,
       slots: deduped.map((s) => ({
         id: s.id,
         slotDate: s.slotDate.toISOString().slice(0, 10),
@@ -711,7 +775,7 @@ export class AgendaService implements OnModuleInit {
         where: { calendarId: cal.id },
         select: { openDate: true, repeatYearly: true },
       });
-      const ymd = slot.slotDate.toISOString().slice(0, 10);
+      const ymd = slotDateToYmd(slot.slotDate);
       const day = parseYmd(ymd);
       const allowed = this.openDayYmdSetInRange(day, day, openRows);
       if (!allowed.has(ymd)) {
@@ -1323,6 +1387,19 @@ export class AgendaService implements OnModuleInit {
 
     const updated = await this.prisma.agendaCalendar.update({ where: { id }, data });
 
+    const scheduleChanged =
+      dto.defaultDayStartTime !== undefined ||
+      dto.defaultDayEndTime !== undefined ||
+      dto.breakStart !== undefined ||
+      dto.breakEnd !== undefined ||
+      dto.slotStepMinutes !== undefined ||
+      dto.optionalSlotStarts !== undefined ||
+      dto.durationMinutes !== undefined;
+
+    if (scheduleChanged && updated.restrictToOpenDays) {
+      await this.reconcileOpenDaySlotsAfterScheduleChange(updated.id, updated);
+    }
+
     if (dto.slug !== undefined && dto.slug !== cal.slug) {
       await this.syncNotificationTemplateSlugsAfterCalendarRename(cal.slug, dto.slug);
     }
@@ -1699,8 +1776,8 @@ export class AgendaService implements OnModuleInit {
   }
 
   async adminBookingsRange(q: AdminBookingsRangeQueryDto) {
-    const fromStart = new Date(`${q.from}T00:00:00.000Z`);
-    const toEnd = new Date(`${q.to}T23:59:59.999Z`);
+    const fromStart = parseYmd(q.from);
+    const toEnd = parseYmd(q.to);
     if (toEnd < fromStart) throw new BadRequestException('Datum tot moet na vanaf liggen');
 
     const rawIds = q.calendarIds
@@ -2037,7 +2114,7 @@ export class AgendaService implements OnModuleInit {
       },
       update: { repeatYearly: dto.repeatYearly ?? false },
     });
-    await this.ensureSlotsForCalendarDate(cal.id, openDate, cal);
+    await this.reconcileCalendarDaySlots(cal.id, openDate, cal);
     return row;
   }
 
