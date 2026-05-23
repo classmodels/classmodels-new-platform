@@ -707,11 +707,12 @@ export default function AdminMediaPage() {
     let skip = 0;
     const batch = 80;
     let rounds = 0;
+    let zeroRounds = 0;
     try {
       while (rounds < 30) {
         rounds += 1;
         setSettingsMsg(
-          `Bezig… stap ${rounds} (${totalJpgs} JPG’s verwijderd tot nu toe). Niet sluiten.`,
+          `Bezig… stap ${rounds} (${totalJpgs} JPG’s verwijderd). ${zeroRounds >= 2 ? 'Stoppen — gebruik SSH (zie onder).' : 'Niet sluiten.'}`,
         );
         const res = await adminFetch<{
           jpgsRemoved: number;
@@ -726,15 +727,17 @@ export default function AdminMediaPage() {
           token,
           { method: 'POST', loadingLabel: `JPG’s opruimen (${rounds})…` },
         );
-        totalJpgs += res.jpgsRemoved ?? 0;
+        const batchJpgs = res.jpgsRemoved ?? 0;
+        totalJpgs += batchJpgs;
         skip = res.skip;
-        if (!res.hasMore) break;
+        zeroRounds = batchJpgs === 0 ? zeroRounds + 1 : 0;
+        if (!res.hasMore || zeroRounds >= 3) break;
       }
       await load();
       const summary =
         totalJpgs > 0
           ? `Klaar: ${totalJpgs} JPG/PNG verwijderd in ${rounds} stappen. Controleer File Manager.`
-          : `Geen JPG’s gevonden om te verwijderen. Open “Totaal omvang” → kijk welke servermap jpg’s telt. Zet CM_COMBELL_DATA_UPLOADS op die map (vaak …/data of …/data/uploads, niet lege cm-media).`;
+          : `De knop vindt vrijwel geen JPG’s (Node ziet je File Manager-map “data” niet). Gebruik SSH — zie scripts/cleanup-model-jpg-orphans.sh of “Totaal omvang” voor het juiste pad.`;
       setSettingsMsg(summary);
       alert(summary);
     } catch (e) {

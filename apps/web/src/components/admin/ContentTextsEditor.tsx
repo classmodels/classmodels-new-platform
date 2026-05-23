@@ -102,7 +102,34 @@ export function ContentTextsEditor() {
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+    <div className="space-y-4">
+      <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-ink">
+        <p className="font-semibold">Dit scherm = alleen tekst</p>
+        <p className="mt-1 text-muted">
+          Hier pas je <strong>woorden</strong> aan (titels, knoppen, korte paragrafen). Geen foto&apos;s of video&apos;s.
+        </p>
+        <ul className="mt-2 list-inside list-decimal space-y-1 text-[13px]">
+          <li>
+            <strong>Foto / video op een pagina:</strong>{' '}
+            <Link href="/admin/content/paginas" className="font-medium text-burgundy underline">
+              Pagina&apos;s (foto &amp; video)
+            </Link>{' '}
+            → upload in Mediatheek → kies Media bij een blok.
+          </li>
+          <li>
+            <strong>Op de live site:</strong> balk bovenaan → <strong>Tekst bewerken</strong> → klik op tekst → wijzig → klik
+            nogmaals om op te slaan.
+          </li>
+          <li>
+            <strong>Link in menu:</strong>{' '}
+            <Link href="/admin/menus" className="text-burgundy underline">
+              Menu&apos;s
+            </Link>{' '}
+            → koppel aan <code className="text-[11px]">/content/jouw-slug</code>.
+          </li>
+        </ul>
+      </div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
       <nav className="shrink-0 lg:w-56">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Onderdeel</p>
         <ul className="space-y-0.5 rounded-lg border border-line bg-white p-1 text-sm shadow-sm">
@@ -145,10 +172,13 @@ export function ContentTextsEditor() {
           ) : null}
         </ul>
         <p className="mt-3 text-[11px] text-muted leading-snug">
+          <Link href="/admin/content/paginas" className="text-burgundy underline">
+            Pagina&apos;s met foto/video
+          </Link>
+          {' · '}
           <Link href="/admin/content/technisch" className="text-burgundy underline">
-            Technisch beheer
-          </Link>{' '}
-          (containers, losse sleutels).
+            Technisch (sleutels)
+          </Link>
         </p>
       </nav>
 
@@ -205,6 +235,7 @@ export function ContentTextsEditor() {
           </button>
         </div>
         {msg ? <p className="text-sm text-emerald-800">{msg}</p> : null}
+      </div>
       </div>
     </div>
   );

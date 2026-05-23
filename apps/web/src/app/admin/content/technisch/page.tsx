@@ -405,14 +405,37 @@ export default function AdminContentTechnischPage() {
 
   return (
     <div className="space-y-6">
-      <p className="text-sm">
-        <a href="/admin/content" className="font-medium text-burgundy underline">
-          ← Terug naar Teksten
-        </a>
-        . Containers en technische sleutels (geavanceerd).
-      </p>
-      <h1 className="text-xl font-semibold text-ink">Technisch contentbeheer</h1>
-      <form onSubmit={add} className="flex flex-wrap items-end gap-2 text-sm">
+      <div className="rounded-lg border border-line bg-white p-4 shadow-sm">
+        <h1 className="text-xl font-semibold text-ink">Pagina&apos;s met foto en video</h1>
+        <ol className="mt-3 list-inside list-decimal space-y-2 text-sm text-ink">
+          <li>
+            <strong>Mediatheek</strong> (linkermenu): upload je foto of video.
+          </li>
+          <li>
+            Hieronder: vul een <strong>slug</strong> in (bv. <code className="text-xs">promo-zomer</code>) en bouw kolommen
+            met knoppen <strong>+ Tekst</strong>, <strong>+ Afbeelding</strong>, <strong>+ Video</strong>.
+          </li>
+          <li>
+            Bij afbeelding/video: klik <strong>Media</strong> en kies het bestand uit de mediatheek.
+          </li>
+          <li>
+            Klik <strong>Container opslaan</strong>. Je pagina staat op{' '}
+            <code className="text-xs">/content/jouw-slug</code> (gastenportaal).
+          </li>
+          <li>
+            Zet een menu-link: <a href="/admin/menus" className="text-burgundy underline">Menu&apos;s</a> → nieuw item →
+            link <code className="text-xs">/content/jouw-slug</code>.
+          </li>
+        </ol>
+        <p className="mt-3 text-xs text-muted">
+          Alleen tekst wijzigen (geen layout)? Ga naar tab <a href="/admin/content" className="text-burgundy underline">Teksten</a>{' '}
+          of gebruik op de site <strong>Tekst bewerken</strong> in de admin-balk.
+        </p>
+      </div>
+      <details className="rounded-md border border-line bg-panel/30 p-3 text-sm">
+        <summary className="cursor-pointer font-medium text-ink">Technisch: losse sleutels (gevorderd)</summary>
+        <p className="mt-2 text-xs text-muted">Alleen nodig voor developers. Onderstaand formulier voor handmatige sleutels.</p>
+      <form onSubmit={add} className="mt-3 flex flex-wrap items-end gap-2 text-sm">
         <input
           className="rounded border border-line px-2 py-1"
           placeholder="nieuwe sleutel"
@@ -435,11 +458,11 @@ export default function AdminContentTechnischPage() {
         Bewerken op de site: admin → &quot;Tekst aanpassen&quot; (inline). Hier beheer je nieuwe sleutels en
         verwijder je oude.
       </p>
-      <form onSubmit={createContainer} className="space-y-3 rounded-md border border-line bg-white p-4 text-sm shadow-sm">
-        <p className="font-medium text-ink">Container builder (drag & drop)</p>
+      </details>
+      <form onSubmit={createContainer} className="space-y-3 rounded-md border border-burgundy/30 bg-white p-4 text-sm shadow-sm">
+        <p className="font-medium text-ink">Nieuwe pagina bouwen</p>
         <p className="text-xs text-muted">
-          Sleep blokken tussen kolommen; sleep kolommen via het handvat. Koppel een menu-item aan{' '}
-          <code>/content/jouw-slug</code>. Media: knop &quot;Media&quot; (rechten admin.media.read/write).
+          Sleep blokken tussen kolommen. Bij foto/video: knop Media → kies uit mediatheek.
         </p>
         <div className="grid gap-2 md:grid-cols-3">
           <input
