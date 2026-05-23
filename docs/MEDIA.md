@@ -72,7 +72,8 @@ curl -X POST http://localhost:4000/media/upload \
 ## Mapinstellingen (JSON op `MediaFolder.settings`)
 
 - **`deleteDaysAfterModelDownload`**: dagen na eerste download-bevestiging door het model (`POST /portal/model/media/download-ack`); daarna worden assets bij de volgende mediatheek-/portaal-load opgeruimd.
-- **`storeUploadsAsWebpOnly`**: nieuwe uploads in die map alleen als `.webp` opslaan (geen apart origineel). **Uitzondering:** map `testshoot` slaat altijd een primair bestand op (nodig voor zip in volle kwaliteit).
+- **`storeUploadsAsWebpOnly`**: nieuwe uploads in die map als `.webp` + kleine `_thumb.webp` (2 bestanden, geen JPG). Standaard aan op `models`, `portfolio-fotograaf`, `portfolio-divers`, `casting`. **Uitzondering:** map `testshoot` (ZIP in volle kwaliteit).
+- **`POST /media/folders/:folderId/convert-webp-only`**: bestaande JPG/PNG in die map omzetten en losse originelen van schijf verwijderen (batch, herhaalbaar).
 
 `PATCH /media/folders/:folderId/settings` met bovenstaande velden (admin JWT).
 

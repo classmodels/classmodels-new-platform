@@ -52,7 +52,8 @@ import {
 
 /**
  * Hosting: zo licht mogelijk (opslag + bandbreedte), nog aanvaardbaar voor web.
- * Het **originele uploadbestand** blijft op schijf; WebP + thumb zijn service-kopieën.
+ * Standaard: origineel (JPG/PNG) + WebP + thumb (3 bestanden).
+ * Met `storeUploadsAsWebpOnly` op de map: alleen WebP + kleine thumb (2 bestanden).
  */
 const WEBP_FULL_QUALITY = 78;
 const WEBP_THUMB_QUALITY = 72;
@@ -468,9 +469,9 @@ export class MediaService {
       });
     }
 
-    const modelsFolder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'models' } });
-    if (modelsFolder) {
-      await this.updateFolderSettings(modelsFolder.id, { storeUploadsAsWebpOnly: true });
+    for (const slug of ['models', 'portfolio-fotograaf', 'portfolio-divers', 'casting']) {
+      const f = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+      if (f) await this.updateFolderSettings(f.id, { storeUploadsAsWebpOnly: true });
     }
 
     return this.prisma.mediaFolder.findMany({ orderBy: { slug: 'asc' } });
@@ -492,13 +493,47 @@ export class MediaService {
   }
 
   /**
-   * Map Modellen: alleen WebP + thumb op schijf (geen losse JPG/PNG).
-   * Verwerkt in batches (startup, catalogus, admin-knop).
+   * Map met WebP-only: full `.webp` + `_thumb.webp` op schijf (geen losse JPG/PNG).
+   * Verwerkt in batches (admin-knop).
    */
-  async reconcileModelsFolderWebpOnly(limit = 40): Promise<{ processed: number; scanned: number }> {
-    await this.ensureDefaultFolders();
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'models' } });
-    if (!folder) return { processed: 0, scanned: 0 };
+  /** Zoekt een bronbestand op schijf (ook via disk-index en losse JPG naast WebP in DB). */
+  private resolveImagePathOnDisk(
+    root: string,
+    keys: string[],
+    baseId: string,
+  ): string | null {
+    const tryKey = (key: string): string | null => {
+      const direct = join(root, key);
+      if (existsSync(direct)) return direct;
+      const rel = this.lookupDiskRelativePath(basename(key));
+      if (rel) {
+        const viaIndex = join(root, rel);
+        if (existsSync(viaIndex)) return viaIndex;
+      }
+      return null;
+    };
+    for (const k of keys) {
+      const hit = tryKey(k);
+      if (hit) return hit;
+    }
+    for (const ext of ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', '.gif', '.GIF']) {
+      const hit = tryKey(`${baseId}${ext}`);
+      if (hit) return hit;
+    }
+    return null;
+  }
+
+  async reconcileFolderWebpOnly(
+    folderId: string,
+    limit = 200,
+  ): Promise<{ processed: number; scanned: number; skipped: number; mediaRoot: string }> {
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException();
+    if (folder.slug === 'testshoot') {
+      throw new BadRequestException(
+        'Testshoot gebruikt het primaire bestand voor bezoeker-ZIP — geen WebP-only opschoning.',
+      );
+    }
 
     const root = this.root();
     const assets = await this.prisma.mediaAsset.findMany({
@@ -508,17 +543,22 @@ export class MediaService {
     });
 
     let processed = 0;
+    let skipped = 0;
     for (const a of assets) {
       const baseId = this.assetBaseId(a.storageKey);
       const newStorageKey = `${baseId}.webp`;
       const newThumbKey = `${baseId}_thumb.webp`;
 
-      const srcPath = [a.storageKey, a.webpKey, a.thumbKey]
-        .filter(Boolean)
-        .map((k) => join(root, k!))
-        .find((p) => existsSync(p));
+      const srcPath = this.resolveImagePathOnDisk(
+        root,
+        [a.storageKey, a.webpKey, a.thumbKey].filter(Boolean) as string[],
+        baseId,
+      );
 
-      if (!srcPath) continue;
+      if (!srcPath) {
+        skipped++;
+        continue;
+      }
 
       try {
         const fullPath = join(root, newStorageKey);
@@ -559,21 +599,20 @@ export class MediaService {
         });
         processed++;
       } catch {
-        /* volgende */
+        skipped++;
       }
     }
 
     this.invalidateDiskBasenameIndex();
-    return { processed, scanned: assets.length };
+    return { processed, scanned: assets.length, skipped, mediaRoot: root };
   }
 
-  async reconcileFolderWebpOnly(folderId: string, limit = 200) {
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
-    if (!folder) throw new NotFoundException();
-    if (folder.slug !== 'models') {
-      throw new BadRequestException('WebP-only opschoning is alleen voor map Modellen (slug models).');
-    }
-    return this.reconcileModelsFolderWebpOnly(limit);
+  /** @deprecated gebruik reconcileFolderWebpOnly */
+  async reconcileModelsFolderWebpOnly(limit = 40) {
+    await this.ensureDefaultFolders();
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'models' } });
+    if (!folder) return { processed: 0, scanned: 0 };
+    return this.reconcileFolderWebpOnly(folder.id, limit);
   }
 
   /** Nieuwe lege map (slug uniek, afgeleid van label). */

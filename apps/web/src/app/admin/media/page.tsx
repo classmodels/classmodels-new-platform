@@ -111,6 +111,7 @@ export default function AdminMediaPage() {
   const [deleteProgress, setDeleteProgress] = useState<{ done: number; total: number } | null>(null);
 
   const [folderZipLoading, setFolderZipLoading] = useState(false);
+  const [webpConvertBusy, setWebpConvertBusy] = useState(false);
   const [copiedKind, setCopiedKind] = useState<'view' | 'download' | 'folderZip' | null>(null);
 
   const [totalAllBytes, setTotalAllBytes] = useState(0);
@@ -673,21 +674,45 @@ export default function AdminMediaPage() {
     setSettingsMsg(`WebP opnieuw gegenereerd: ${res.processed} / ${res.scanned}.`);
   };
 
-  const convertModelsWebpOnly = async () => {
-    if (!token || !activeFolder || activeFolder.slug !== 'models') return;
+  const convertFolderWebpOnly = async () => {
+    if (!token || !activeFolder || activeFolder.slug === 'verwijderde') return;
+    if (activeFolder.slug === 'testshoot') {
+      setSettingsMsg('Testshoot: ZIP gebruikt het primaire bestand — geen WebP-only.');
+      return;
+    }
     if (
       !confirm(
-        'Alle afbeeldingen in Modellen omzetten naar alleen WebP + thumbnail (max. 200 per batch)? Grote JPG/PNG worden van de server verwijderd.',
+        `Tot 200 model-foto’s per keer: JPG/PNG verwijderen, WebP + thumb behouden. Bij 1078 foto’s moet je dit ±6 keer doen. Doorgaan?`,
       )
     )
       return;
-    const res = await adminFetch<{ processed: number; scanned: number }>(
-      `/media/folders/${activeFolder.id}/convert-webp-only?limit=200`,
-      token,
-      { method: 'POST', loadingLabel: 'Modellenmap omzetten naar WebP…' },
-    );
-    await load();
-    setSettingsMsg(`Modellen WebP-only: ${res.processed} / ${res.scanned} verwerkt. Herhaal indien nodig.`);
+    setWebpConvertBusy(true);
+    setSettingsMsg('Bezig: JPG’s opruimen… (kan 1–2 minuten duren)');
+    try {
+      const res = await adminFetch<{
+        processed: number;
+        scanned: number;
+        skipped?: number;
+        mediaRoot?: string;
+      }>(`/media/folders/${activeFolder.id}/convert-webp-only?limit=200`, token, {
+        method: 'POST',
+        loadingLabel: 'JPG’s opruimen…',
+      });
+      await load();
+      if (res.processed === 0 && (res.skipped ?? 0) > 0) {
+        setSettingsMsg(
+          `Geen enkele foto gevonden op de server (${res.skipped} overgeslagen). Controleer CM_COMBELL_DATA_UPLOADS / opslag-paneel. Pad: ${res.mediaRoot ?? '?'}`,
+        );
+      } else {
+        setSettingsMsg(
+          `Klaar: ${res.processed} foto’s opgeschoond (${res.scanned} bekeken${res.skipped ? `, ${res.skipped} overgeslagen` : ''}). Klik opnieuw op de groene knop tot alles verwerkt is.`,
+        );
+      }
+    } catch (e) {
+      setSettingsMsg(e instanceof Error ? e.message : 'Opschoning mislukt — zie netwerk-tab (F12) of herlaad en probeer opnieuw.');
+    } finally {
+      setWebpConvertBusy(false);
+    }
   };
 
   const convertPrimaryToJpegFolder = async () => {
@@ -1133,21 +1158,27 @@ export default function AdminMediaPage() {
                   >
                     Primair → JPEG (compact)
                   </button>
-                  {activeFolder.slug === 'models' ? (
+                  {activeFolder.slug !== 'testshoot' ? (
                     <button
                       type="button"
-                      onClick={() => void convertModelsWebpOnly()}
-                      className="rounded border border-lime-700 bg-lime-50 px-2 py-1 text-[10px] font-medium text-lime-900 hover:bg-lime-100"
+                      disabled={webpConvertBusy}
+                      onClick={() => void convertFolderWebpOnly()}
+                      className="rounded border border-lime-700 bg-lime-50 px-2 py-1 text-[10px] font-medium text-lime-900 hover:bg-lime-100 disabled:opacity-50"
                     >
-                      Modellen → alleen WebP
+                      {webpConvertBusy ? 'Bezig…' : 'Modellen → JPG weg (200 per keer)'}
                     </button>
                   ) : null}
                 </div>
+                {settingsMsg ? (
+                  <p className="mt-2 rounded border border-burgundy/40 bg-burgundy/5 px-2 py-1.5 text-[11px] font-medium text-burgundy">
+                    {settingsMsg}
+                  </p>
+                ) : null}
                 <p className="mt-1 text-[9px] text-muted">
                   Zet dagen bv. op 2: na bevestigde download in het modelportaal worden portfoliofoto&apos;s daarna
                   automatisch verwijderd (server ruimt bij volgende mediatheek-load op).{' '}
-                  <strong>Primair → JPEG</strong> maakt het bronbestand kleiner op schijf (WebP op de site blijft
-                  afgeleid).
+                  Met WebP-only staan er <strong>twee</strong> bestanden per foto (weergave + thumb), niet drie.
+                  Zonder die optie: JPG + WebP + thumb. <strong>Primair → JPEG</strong> verkleint alleen het bronbestand.
                 </p>
               </div>
             ) : null}

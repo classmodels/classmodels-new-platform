@@ -59,35 +59,25 @@ async function saveImageFromBuffer(params: {
   const root = mediaRoot();
   mkdirSync(root, { recursive: true });
   const id = randomUUID();
-  let ext = 'jpg';
-  if (params.mimeType.includes('png')) ext = 'png';
-  else if (params.mimeType.includes('webp')) ext = 'webp';
-  else if (params.mimeType.includes('jpeg') || params.mimeType.includes('jpg')) ext = 'jpg';
-  const storageKey = `${id}.${ext}`;
+  const storageKey = `${id}.webp`;
   const full = join(root, storageKey);
-  await fs.promises.writeFile(full, params.buffer);
-
-  let width: number | undefined;
-  let height: number | undefined;
-  let webpKey: string | undefined;
-  let thumbKey: string | undefined;
-
-  if (params.mimeType.startsWith('image/')) {
-    const orientedMeta = await sharp(full).rotate().metadata();
-    width = orientedMeta.width;
-    height = orientedMeta.height;
-    webpKey = `${id}.webp`;
-    await sharp(full).rotate().webp({ quality: 82, effort: 4 }).toFile(join(root, webpKey));
-    thumbKey = `${id}_thumb.webp`;
-    await sharp(full)
-      .rotate()
-      .resize(360, 360, { fit: 'inside' })
-      .webp({ quality: 78, effort: 4 })
-      .toFile(join(root, thumbKey));
-  }
+  await sharp(params.buffer)
+    .rotate()
+    .webp({ quality: 78, effort: 4 })
+    .toFile(full);
+  const meta = await sharp(full).metadata();
+  const width = meta.width ?? undefined;
+  const height = meta.height ?? undefined;
+  const thumbKey = `${id}_thumb.webp`;
+  await sharp(full)
+    .rotate()
+    .resize(360, 360, { fit: 'inside' })
+    .webp({ quality: 72, effort: 4 })
+    .toFile(join(root, thumbKey));
+  const sizeBytes = (await fs.promises.stat(full)).size;
 
   const parts = params.fileLabel.trim() || 'model';
-  const displayOriginal = `class-models-${slugLabel(parts) || randomUUID().slice(0, 8)}-wp-import.${ext}`.slice(
+  const displayOriginal = `class-models-${slugLabel(parts) || randomUUID().slice(0, 8)}-wp-import.webp`.slice(
     0,
     190,
   );
@@ -96,11 +86,11 @@ async function saveImageFromBuffer(params: {
     data: {
       originalName: displayOriginal,
       storageKey,
-      mimeType: params.mimeType,
-      sizeBytes: params.buffer.length,
+      mimeType: 'image/webp',
+      sizeBytes,
       width,
       height,
-      webpKey,
+      webpKey: null,
       thumbKey,
       uploadedById: params.userId,
       folderId: params.folderId,
