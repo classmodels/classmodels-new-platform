@@ -83,13 +83,41 @@ function previousCalendarDayYmd(ymd: string): string {
   return utc.toISOString().slice(0, 10);
 }
 
-/** Komst bevestigen: dag vóór afspraak, of op afspraakdag tot startuur (Europe/Brussels). */
-export function canConfirmAttendanceNow(slotDate: Date, startTime: string, now = new Date()): boolean {
-  const slotYmd = slotDateToYmd(slotDate);
+/**
+ * Komst bevestigen (Europe/Brussels):
+ * - hele dag vóór de afspraak;
+ * - op afspraakdag tot het einde van het tijdslot (einduur, niet startuur).
+ *
+ * `bookingEndAt` (uit `AgendaBooking.endAt`) is betrouwbaarder dan slotDate+endTime alleen.
+ */
+export function canConfirmAttendanceNow(
+  slotDate: Date,
+  endTime: string,
+  now = new Date(),
+  bookingEndAt?: Date | null,
+): boolean {
+  const slotYmd = ymdEuropeBrussels(slotDate);
   const today = ymdEuropeBrussels(now);
   const dayBefore = previousCalendarDayYmd(slotYmd);
   if (today === dayBefore) return true;
   if (today !== slotYmd) return false;
-  const startUtc = combineBrusselsLocalToUtc(slotDate, startTime);
-  return now.getTime() < startUtc.getTime();
+  const anchor = parseYmdDayStart(slotYmd);
+  const endInstant = bookingEndAt ?? combineBrusselsLocalToUtc(anchor, endTime);
+  return now.getTime() < endInstant.getTime();
+}
+
+export function confirmAttendanceBlockedMessage(
+  slotDate: Date,
+  startTime: string,
+  endTime: string,
+  now = new Date(),
+): string {
+  const slotYmd = ymdEuropeBrussels(slotDate);
+  const today = ymdEuropeBrussels(now);
+  const dayBefore = previousCalendarDayYmd(slotYmd);
+  const startLabel = startTime.trim().slice(0, 5);
+  const endLabel = endTime.trim().slice(0, 5);
+  return (
+    `Komst bevestigen kan alleen op ${dayBefore} (dag vóór uw afspraak) of op ${slotYmd} tot het einde van uw tijdslot (${startLabel}–${endLabel}, Belgische tijd). Vandaag is ${today}.`
+  );
 }

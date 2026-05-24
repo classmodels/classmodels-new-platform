@@ -104,6 +104,11 @@ export class AgendaPublicController {
     return this.agenda.cancelByToken(dto);
   }
 
+  @Get('confirm-preview')
+  confirmPreview(@Query('token') token: string) {
+    return this.agenda.getConfirmAttendancePreview(token);
+  }
+
   @Post('confirm-attendance')
   confirmAttendance(@Body() dto: ConfirmAttendanceDto) {
     return this.agenda.confirmAttendanceByToken(dto.token);

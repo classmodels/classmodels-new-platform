@@ -603,7 +603,7 @@ export class MediaService {
       ['tijdelijke-uploads', 'Tijdelijke uploads'],
       ['portfolio-fotograaf', 'Portfolio (fotograaf → model)'],
       ['portfolio-divers', 'Portfolio (divers / geen model)'],
-      ['agenda-afspraken', 'Agenda — afspraakfoto’s'],
+      ['agenda-afspraken', 'Agenda afspraakfotos'],
     ];
     for (const [slug, label] of extraFolders) {
       await this.prisma.mediaFolder.upsert({

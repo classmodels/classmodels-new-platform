@@ -45,6 +45,7 @@ import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agend
 import { MediaService } from '../media/media.service';
 import {
   canConfirmAttendanceNow,
+  confirmAttendanceBlockedMessage,
   combineBrusselsLocalToUtc,
   parseYmdDayEnd,
   parseYmdDayStart,
@@ -1226,8 +1227,58 @@ export class AgendaService implements OnModuleInit {
     };
   }
 
+  /** Publiek: mag deze boeking nu bevestigd worden? (zelfde token als annuleren) */
+  async getConfirmAttendancePreview(raw: string) {
+    const token = raw?.trim();
+    if (!token) throw new BadRequestException('Token ontbreekt');
+
+    const booking = await this.prisma.agendaBooking.findUnique({
+      where: { cancelToken: token },
+      include: { calendar: { select: { title: true } }, slot: true },
+    });
+    if (!booking) throw new NotFoundException('Afspraak niet gevonden of link ongeldig.');
+
+    if (['cancelled', 'cancelled_cm', 'geannuleerd'].includes(booking.status)) {
+      return {
+        ok: false,
+        cancelled: true,
+        title: booking.calendar.title,
+        canConfirm: false,
+        message: 'Deze afspraak is geannuleerd.',
+      };
+    }
+
+    const now = new Date();
+    const canConfirm = canConfirmAttendanceNow(
+      booking.slot.slotDate,
+      booking.slot.endTime,
+      now,
+      booking.endAt,
+    );
+
+    return {
+      ok: true,
+      cancelled: false,
+      title: booking.calendar.title,
+      alreadyAcknowledged: booking.status === 'acknowledged',
+      canConfirm,
+      appointmentYmd: ymdEuropeBrussels(booking.slot.slotDate),
+      todayYmd: ymdEuropeBrussels(now),
+      timeLabel: `${booking.slot.startTime.slice(0, 5)} – ${booking.slot.endTime.slice(0, 5)}`,
+      message:
+        canConfirm ?
+          null
+        : confirmAttendanceBlockedMessage(
+            booking.slot.slotDate,
+            booking.slot.startTime,
+            booking.slot.endTime,
+            now,
+          ),
+    };
+  }
+
   /**
-   * Gast bevestigt komst — op de kalenderdag vóór de afspraak, of op de afspraakdag tot startuur (Europe/Brussels).
+   * Gast bevestigt komst — dag vóór afspraak, of op afspraakdag tot einde tijdslot (Europe/Brussels).
    * Zelfde token als annuleren.
    */
   async confirmAttendanceByToken(raw: string) {
@@ -1244,11 +1295,20 @@ export class AgendaService implements OnModuleInit {
       throw new BadRequestException('Deze afspraak is geannuleerd.');
     }
 
-    if (!canConfirmAttendanceNow(booking.slot.slotDate, booking.slot.startTime)) {
-      const slotYmd = slotDateToYmd(booking.slot.slotDate);
-      const today = ymdEuropeBrussels(new Date());
+    if (
+      !canConfirmAttendanceNow(
+        booking.slot.slotDate,
+        booking.slot.endTime,
+        new Date(),
+        booking.endAt,
+      )
+    ) {
       throw new BadRequestException(
-        `Komst bevestigen kan alleen op de dag vóór uw afspraak (${slotYmd}) of op de afspraakdag tot het tijdstip van de afspraak. Vandaag is ${today}.`,
+        confirmAttendanceBlockedMessage(
+          booking.slot.slotDate,
+          booking.slot.startTime,
+          booking.slot.endTime,
+        ),
       );
     }
 
