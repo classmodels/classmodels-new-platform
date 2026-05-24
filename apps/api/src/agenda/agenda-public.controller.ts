@@ -1,6 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { unlinkSync } from 'node:fs';
-import { extname, join } from 'node:path';
 import {
   BadRequestException,
   Body,
@@ -17,18 +14,13 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { mkdirSync } from 'node:fs';
 import type { Response } from 'express';
-import sharp from 'sharp';
 import { AgendaService } from './agenda.service';
+import { agendaBookFormUploadOptions } from './agenda-book-form-upload';
 import { AgendaSlotsQueryDto, BookAgendaDto, CancelAgendaDto, ConfirmAttendanceDto } from './dto/agenda.dto';
-import { resolveMediaRoot } from '../config/resolve-media-root';
 import {
   agendaMimeFromFilename,
-  agendaUploadExtFromMimetype,
   agendaUploadFilename,
-  agendaUploadRelativeUrl,
   resolveAgendaUploadAbsolutePath,
 } from './agenda-upload-path';
 
@@ -40,32 +32,6 @@ function isUuid(s: string): boolean {
 @Controller('agenda')
 export class AgendaPublicController {
   constructor(private agenda: AgendaService) {}
-
-  private async normalizeUploadedImage(file: Express.Multer.File): Promise<Express.Multer.File> {
-    const ext = extname(file.filename).toLowerCase();
-    if (ext !== '.heic' && ext !== '.heif') return file;
-    const out = file.path.replace(/\.(heic|heif)$/i, '.jpg');
-    try {
-      await sharp(file.path).jpeg({ quality: 88 }).toFile(out);
-      try {
-        unlinkSync(file.path);
-      } catch {
-        /**/
-      }
-    } catch {
-      return file;
-    }
-    try {
-      return {
-        ...file,
-        filename: file.filename.replace(/\.(heic|heif)$/i, '.jpg'),
-        originalname: file.originalname.replace(/\.(heic|heif)$/i, '.jpg'),
-        path: out,
-      };
-    } catch {
-      return file;
-    }
-  }
 
   @Get('calendars')
   calendars() {
@@ -88,7 +54,7 @@ export class AgendaPublicController {
     return this.agenda.getSlots(slug, q.from, q.to);
   }
 
-  /** Publiek: agenda-foto (UUID-bestandsnaam) — betrouwbaarder dan static middleware achter proxy. */
+  /** Legacy: oude boekingen met `/uploads/agenda/{uuid}.jpg`. Nieuwe uploads via `/media/public/`. */
   @Get('uploads/:filename')
   serveUpload(@Param('filename') filename: string, @Res() res: Response) {
     const safe = agendaUploadFilename(filename);
@@ -115,27 +81,7 @@ export class AgendaPublicController {
       transform: false,
     }),
   )
-  @UseInterceptors(
-    AnyFilesInterceptor({
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          try {
-            const dir = join(resolveMediaRoot(), 'agenda');
-            mkdirSync(dir, { recursive: true });
-            cb(null, dir);
-          } catch (e) {
-            const err = e instanceof Error ? e : new Error(String(e));
-            cb(err, '');
-          }
-        },
-        filename: (_req, file, cb) => {
-          const ext = extname(file.originalname) || agendaUploadExtFromMimetype(file.mimetype);
-          cb(null, `${randomUUID()}${ext}`);
-        },
-      }),
-      limits: { fileSize: 8 * 1024 * 1024 },
-    }),
-  )
+  @UseInterceptors(AnyFilesInterceptor(agendaBookFormUploadOptions))
   async bookForm(@Body() body: Record<string, string>, @UploadedFiles() files: Express.Multer.File[]) {
     const slotId = body.slotId;
     if (!slotId || !isUuid(slotId)) throw new BadRequestException('Ongeldige slotId');
@@ -149,11 +95,7 @@ export class AgendaPublicController {
         throw new BadRequestException('Ongeldige velden (JSON)');
       }
     }
-    const uploaded: Record<string, string> = {};
-    for (const raw of files ?? []) {
-      const f = await this.normalizeUploadedImage(raw);
-      uploaded[f.fieldname] = agendaUploadRelativeUrl(f.filename);
-    }
+    const uploaded = await this.agenda.persistBookingUploads(files ?? [], null);
     return this.agenda.book({ slotId, fields }, null, uploaded);
   }
 

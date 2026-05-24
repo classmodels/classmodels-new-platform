@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { MediaModule } from '../media/media.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ModelPortalHistoryModule } from '../portal/model-portal-history.module';
 import { AdminAgendaController } from './admin-agenda.controller';
@@ -10,7 +11,7 @@ import { AgendaService } from './agenda.service';
 import { BulkMessagingService } from './bulk-messaging.service';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ModelPortalHistoryModule],
+  imports: [PrismaModule, AuthModule, MediaModule, ModelPortalHistoryModule],
   controllers: [AgendaPublicController, AdminAgendaController, AdminBulkMessagingController],
   providers: [AgendaService, AgendaNotificationService, BulkMessagingService],
   exports: [AgendaService, AgendaNotificationService],

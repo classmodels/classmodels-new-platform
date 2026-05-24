@@ -40,7 +40,9 @@ import {
   isMinorFromIsoDateString,
   validateGuestMinorParentFields,
 } from './guest-intake-calendars';
+import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
 import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
+import { MediaService } from '../media/media.service';
 import {
   canConfirmAttendanceNow,
   combineBrusselsLocalToUtc,
@@ -303,14 +305,23 @@ function eachYmdInRange(from: Date, to: Date, fn: (ymd: string) => void): void {
 @Injectable()
 export class AgendaService implements OnModuleInit {
   private readonly log = new Logger(AgendaService.name);
+  private agendaBookingsFolderId: string | null = null;
 
   constructor(
     private prisma: PrismaService,
     private notifications: AgendaNotificationService,
     private modelHistory: ModelPortalHistoryService,
+    private media: MediaService,
   ) {}
 
   async onModuleInit() {
+    try {
+      await this.ensureAgendaBookingsMediaFolder();
+    } catch (e) {
+      this.log.warn(
+        `Agenda mediamap bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
     try {
       await this.ensureOptionalPhotoFieldsOnAllCalendars();
     } catch (e) {
@@ -2226,7 +2237,31 @@ export class AgendaService implements OnModuleInit {
     return { ok: true };
   }
 
-  /** Admin: stream boekingsfoto van schijf (zoekt in MEDIA_ROOT + fallback-paden). */
+  private async ensureAgendaBookingsMediaFolder() {
+    await this.media.ensureDefaultFolders();
+    const f = await this.prisma.mediaFolder.findUnique({
+      where: { slug: 'agenda-afspraken' },
+      select: { id: true },
+    });
+    this.agendaBookingsFolderId = f?.id ?? null;
+  }
+
+  /** Zelfde pipeline als modelfoto's: MediaService → MEDIA_ROOT + fieldsJson storageKey. */
+  async persistBookingUploads(
+    files: Express.Multer.File[],
+    userId: string | null,
+  ): Promise<Record<string, string>> {
+    if (!this.agendaBookingsFolderId) await this.ensureAgendaBookingsMediaFolder();
+    const out: Record<string, string> = {};
+    for (const f of files ?? []) {
+      const saved = await this.media.saveFile(f, userId, this.agendaBookingsFolderId);
+      const key = saved.webpKey ?? saved.storageKey;
+      if (key) out[f.fieldname] = key;
+    }
+    return out;
+  }
+
+  /** Admin: stream boekingsfoto (mediatheek + legacy agenda-map). */
   async adminResolveBookingPhotoPath(bookingId: string): Promise<{ absolutePath: string; mime: string }> {
     const b = await this.prisma.agendaBooking.findUnique({
       where: { id: bookingId },
@@ -2236,7 +2271,9 @@ export class AgendaService implements OnModuleInit {
     const fj = b.fieldsJson as Record<string, unknown>;
     const foto = typeof fj.foto === 'string' ? fj.foto.trim() : '';
     if (!foto) throw new NotFoundException('Geen foto bij deze afspraak.');
-    const fp = resolveAgendaUploadAbsolutePath(foto);
+    const key = agendaBookingPhotoStorageKey(foto);
+    let fp = key ? this.media.resolveAbsolutePathForPublicFilename(key) : null;
+    if (!fp) fp = resolveAgendaUploadAbsolutePath(foto);
     if (!fp) {
       throw new NotFoundException(
         'Foto-bestand niet gevonden op de server. Mogelijk opgeslagen vóór de laatste fix — laat de klant opnieuw uploaden.',

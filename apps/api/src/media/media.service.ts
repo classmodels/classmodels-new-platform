@@ -603,6 +603,7 @@ export class MediaService {
       ['tijdelijke-uploads', 'Tijdelijke uploads'],
       ['portfolio-fotograaf', 'Portfolio (fotograaf → model)'],
       ['portfolio-divers', 'Portfolio (divers / geen model)'],
+      ['agenda-afspraken', 'Agenda — afspraakfoto’s'],
     ];
     for (const [slug, label] of extraFolders) {
       await this.prisma.mediaFolder.upsert({
@@ -1008,7 +1009,7 @@ export class MediaService {
 
   async saveFile(
     file: Express.Multer.File,
-    userId: string,
+    userId?: string | null,
     folderId?: string | null,
     opts?: SaveFileOptions,
   ) {
@@ -1139,7 +1140,7 @@ export class MediaService {
           height,
           webpKey,
           thumbKey,
-          uploadedById: userId,
+          uploadedById: userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : undefined,
           folderId: folderId && folderId.length > 0 ? folderId : undefined,
           linkedModelUserId: linked,
         },
