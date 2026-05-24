@@ -1013,6 +1013,9 @@ export class MediaService {
     folderId?: string | null,
     opts?: SaveFileOptions,
   ) {
+    const { normalizeUploadImageFile } = await import('./normalize-upload-image');
+    file = await normalizeUploadImageFile(file);
+
     await this.purgeScheduledAssets();
     const root = this.root();
     this.ensureMediaRootWritable(root);
@@ -1092,27 +1095,34 @@ export class MediaService {
         }
 
         if (file.mimetype.startsWith('image/')) {
-          const orientedMeta = await sharp(full).rotate().metadata();
-          width = orientedMeta.width;
-          height = orientedMeta.height;
-          const webpQ = WEBP_FULL_QUALITY;
-          webpKey = `${id}.webp`;
-          await sharp(full)
-            .rotate()
-            .webp({
-              quality: webpQ,
-              effort: WEBP_EFFORT,
-            })
-            .toFile(join(root, webpKey));
-          thumbKey = `${id}_thumb.webp`;
-          await sharp(full)
-            .rotate()
-            .resize(360, 360, { fit: 'inside' })
-            .webp({
-              quality: WEBP_THUMB_QUALITY,
-              effort: WEBP_EFFORT,
-            })
-            .toFile(join(root, thumbKey));
+          try {
+            const orientedMeta = await sharp(full).rotate().metadata();
+            width = orientedMeta.width;
+            height = orientedMeta.height;
+            const webpQ = WEBP_FULL_QUALITY;
+            webpKey = `${id}.webp`;
+            await sharp(full)
+              .rotate()
+              .webp({
+                quality: webpQ,
+                effort: WEBP_EFFORT,
+              })
+              .toFile(join(root, webpKey));
+            thumbKey = `${id}_thumb.webp`;
+            await sharp(full)
+              .rotate()
+              .resize(360, 360, { fit: 'inside' })
+              .webp({
+                quality: WEBP_THUMB_QUALITY,
+                effort: WEBP_EFFORT,
+              })
+              .toFile(join(root, thumbKey));
+          } catch (webpErr) {
+            console.warn(
+              '[media] webp/thumb overgeslagen — origineel blijft bruikbaar:',
+              webpErr instanceof Error ? webpErr.message : webpErr,
+            );
+          }
         }
       }
 

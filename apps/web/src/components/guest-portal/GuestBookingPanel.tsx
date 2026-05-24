@@ -423,7 +423,7 @@ export function GuestBookingPanel({
         {f.type === 'file' ? (
           <input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             className={`${common} py-2 text-xs file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1`}
             required={req}
             onChange={(ev) => setFileField(f.fieldKey, ev.target.files?.[0])}
