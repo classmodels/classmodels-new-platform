@@ -75,3 +75,21 @@ export function slotDateDayRange(slotDate: Date): { gte: Date; lte: Date } {
   const ymd = slotDateToYmd(slotDate);
   return { gte: parseYmdDayStart(ymd), lte: parseYmdDayEnd(ymd) };
 }
+
+function previousCalendarDayYmd(ymd: string): string {
+  const [y, m, da] = ymd.split('-').map((x) => parseInt(x, 10));
+  const utc = new Date(Date.UTC(y, m - 1, da));
+  utc.setUTCDate(utc.getUTCDate() - 1);
+  return utc.toISOString().slice(0, 10);
+}
+
+/** Komst bevestigen: dag vóór afspraak, of op afspraakdag tot startuur (Europe/Brussels). */
+export function canConfirmAttendanceNow(slotDate: Date, startTime: string, now = new Date()): boolean {
+  const slotYmd = slotDateToYmd(slotDate);
+  const today = ymdEuropeBrussels(now);
+  const dayBefore = previousCalendarDayYmd(slotYmd);
+  if (today === dayBefore) return true;
+  if (today !== slotYmd) return false;
+  const startUtc = combineBrusselsLocalToUtc(slotDate, startTime);
+  return now.getTime() < startUtc.getTime();
+}

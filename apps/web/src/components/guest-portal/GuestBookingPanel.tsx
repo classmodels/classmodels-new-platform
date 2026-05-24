@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getApiBase } from '@/lib/api';
 import {
   GUEST_MINOR_PARENT_FIELD_KEYS,
+  GUEST_MINOR_WITH_OPTIONS,
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
@@ -304,6 +305,10 @@ export function GuestBookingPanel({
         }
       }
       if (isMinorFromIsoDateString((form.geboortedatum ?? '').trim())) {
+        if (!(form[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? '').trim()) {
+          setErr('Kies met wie u komt (vader, moeder of allebei ouders).');
+          return;
+        }
         if (!(form[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? '').trim()) {
           setErr('Vul de naam van ouder of begeleider in.');
           return;
@@ -453,13 +458,30 @@ export function GuestBookingPanel({
         <p className="font-semibold text-zinc-900">Minderjarig</p>
         <p className="mt-1 text-xs leading-relaxed text-zinc-700">
           U bent minderjarig. U bent verplicht iemand van uw ouders (of wettelijke begeleider) mee te brengen naar de
-          afspraak. Vul hieronder de gegevens van de ouder of begeleider in.
+          afspraak. Geef hieronder aan met wie u komt en de contactgegevens van die ouder.
         </p>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-xs font-medium text-zinc-700">
+              Ik kom met <span className="text-burgundy">*</span>
+            </label>
+            <select
+              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+              value={form[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? ''}
+              onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.with, ev.target.value)}
+              required
+            >
+              <option value="">— kies —</option>
+              {GUEST_MINOR_WITH_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-700">
-              Naam ouder of begeleider (moeder/vader){' '}
-              <span className="text-burgundy">*</span>
+              Naam ouder of begeleider <span className="text-burgundy">*</span>
             </label>
             <input
               type="text"

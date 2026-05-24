@@ -29,9 +29,16 @@ export function isGuestBookingOptionalFieldKey(fieldKey: string, fieldType?: str
 }
 
 export const GUEST_MINOR_PARENT_FIELD_KEYS = {
+  with: 'ouder_met',
   name: 'ouder_naam',
   phone: 'ouder_gsm',
 } as const;
+
+export const GUEST_MINOR_WITH_OPTIONS = [
+  { value: 'vader', label: 'Mijn vader' },
+  { value: 'moeder', label: 'Mijn moeder' },
+  { value: 'allebei_ouders', label: 'Allebei ouders' },
+] as const;
 
 /** Leeftijd op “vandaag” (lokale datum browser). */
 export function ageFromIsoDateString(ymd: string): number | null {

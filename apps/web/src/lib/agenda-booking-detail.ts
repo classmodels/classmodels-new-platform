@@ -43,6 +43,10 @@ export const RESERVED_FIELDS_JSON_KEYS = new Set([
   'gsm',
   'adres',
   'address',
+  'straat',
+  'nr',
+  'postcode',
+  'gemeente',
   'geboortedatum',
   'birthdate',
   'annulatie_reden',
@@ -111,7 +115,10 @@ export function validateBookingDetailForSave(
   if (!em || !em.includes('@')) return 'E-mail is verplicht en moet een geldig adres bevatten.';
   if (!t(input.phone)) return 'GSM is verplicht.';
   const fj = input.fieldsJson;
-  if (!fjString(fj, 'adres')) return 'Adres is verplicht.';
+  if (!fjString(fj, 'straat')) return 'Straat is verplicht.';
+  if (!fjString(fj, 'nr')) return 'Nr is verplicht.';
+  if (!fjString(fj, 'postcode')) return 'Postcode is verplicht.';
+  if (!fjString(fj, 'gemeente')) return 'Gemeente is verplicht.';
   const geb = fjString(fj, 'geboortedatum');
   if (!geb) return 'Geboortedatum is verplicht.';
   const age = ageFromIsoBirthYmd(geb);
@@ -121,7 +128,9 @@ export function validateBookingDetailForSave(
   }
   if (age < 18) {
     const met = fjString(fj, 'ouder_met').toLowerCase();
-    if (met !== 'vader' && met !== 'moeder') return 'Kies of u met vader of met moeder komt (minderjarig).';
+    if (met !== 'vader' && met !== 'moeder' && met !== 'allebei_ouders') {
+      return 'Kies met wie u komt: vader, moeder of allebei ouders (minderjarig).';
+    }
     if (!fjString(fj, 'ouder_naam')) return 'Naam van de ouder is verplicht (minderjarig).';
     if (!fjString(fj, 'ouder_gsm')) return 'GSM van de ouder is verplicht (minderjarig).';
   }

@@ -74,7 +74,8 @@ function BevestigInner() {
     <div className="mx-auto max-w-md px-4 py-16">
       <h1 className="text-lg font-semibold text-zinc-900">Komst bevestigen</h1>
       <p className="mt-2 text-sm text-zinc-600">
-        Dit kan alleen op de dag <strong>vóór</strong> uw afspraag (Belgische tijd). Zo weten wij dat u komt.
+        Dit kan op de dag <strong>vóór</strong> uw afspraak of op de <strong>dag zelf</strong> tot het tijdstip van uw
+        afspraak (Belgische tijd).
       </p>
       {done === 'err' && msg ? (
         <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{msg}</p>

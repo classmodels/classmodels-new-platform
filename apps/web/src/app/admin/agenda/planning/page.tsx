@@ -1187,6 +1187,7 @@ export default function AdminAgendaPlanningPage() {
                   setSchedEnd={setSchedEnd}
                   calendars={calendars.map((c) => ({ id: c.id, title: c.title }))}
                   statusOpts={STATUS_OPTS}
+                  adminToken={token}
                 />
                 <div className="mt-6 flex flex-wrap justify-between gap-2 border-t border-line pt-4">
                   <button

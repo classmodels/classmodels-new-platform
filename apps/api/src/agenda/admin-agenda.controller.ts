@@ -122,6 +122,21 @@ export class AdminAgendaController {
     return this.agenda.adminDeleteBooking(id);
   }
 
+  @Get('bookings/:id/notifications')
+  @Permissions('admin.agenda.read')
+  listBookingNotifications(@Param('id', ParseUUIDPipe) id: string) {
+    return this.agenda.adminListBookingNotifications(id);
+  }
+
+  @Delete('bookings/:id/notifications/:logId')
+  @Permissions('admin.agenda.write')
+  deleteBookingNotification(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('logId', ParseUUIDPipe) logId: string,
+  ) {
+    return this.agenda.adminDeleteBookingNotification(id, logId);
+  }
+
   @Get('notification-templates')
   @Permissions('admin.agenda.read')
   listNotificationTemplates() {

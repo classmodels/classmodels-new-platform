@@ -30,9 +30,17 @@ export function isAgendaBookingEnrolled(status: string): boolean {
 }
 
 export const GUEST_MINOR_PARENT_FIELD_KEYS = {
+  with: 'ouder_met',
   name: 'ouder_naam',
   phone: 'ouder_gsm',
 } as const;
+
+export const GUEST_MINOR_WITH_OPTIONS = ['vader', 'moeder', 'allebei_ouders'] as const;
+
+export function isValidGuestMinorWithChoice(raw: string | null | undefined): boolean {
+  const v = raw?.trim().toLowerCase();
+  return (GUEST_MINOR_WITH_OPTIONS as readonly string[]).includes(v ?? '');
+}
 
 export function isGuestIntakeCalendarSlug(slug: string): boolean {
   return GUEST_INTAKE_CALENDAR_SLUGS.has(slug);

@@ -22,7 +22,8 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { AgendaService } from '../agenda/agenda.service';
-import { resolveMediaRoot } from '../config/resolve-media-root';
+import { agendaUploadRelativeUrl } from '../agenda/agenda-upload-path';
+import { resolveWritableMediaRoot } from '../config/resolve-media-root';
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -47,7 +48,7 @@ export class PortalModelAgendaController {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
           try {
-            const dir = join(resolveMediaRoot(), 'agenda');
+            const dir = join(resolveWritableMediaRoot(), 'agenda');
             mkdirSync(dir, { recursive: true });
             cb(null, dir);
           } catch (e) {
@@ -77,10 +78,9 @@ export class PortalModelAgendaController {
         throw new BadRequestException('Ongeldige velden (JSON)');
       }
     }
-    const base = (process.env.API_PUBLIC_URL ?? 'http://127.0.0.1:4000').replace(/\/$/, '');
     const uploaded: Record<string, string> = {};
     for (const f of files ?? []) {
-      uploaded[f.fieldname] = `${base}/uploads/agenda/${f.filename}`;
+      uploaded[f.fieldname] = agendaUploadRelativeUrl(f.filename);
     }
     return this.agenda.book({ slotId, fields }, req.user.sub, uploaded);
   }

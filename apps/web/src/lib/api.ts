@@ -132,6 +132,25 @@ export function getMediaPublicBaseUrl(): string {
   return stripTrailingSlash(api || 'http://localhost:4000');
 }
 
+/** Volledige URL voor agenda-upload (`/uploads/agenda/...` in fieldsJson). */
+export function agendaUploadUrl(stored: string | null | undefined): string {
+  const v = stored?.trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) {
+    try {
+      const u = new URL(v);
+      if (u.pathname.startsWith('/uploads/')) {
+        return `${getMediaPublicBaseUrl()}${u.pathname}`;
+      }
+    } catch {
+      /**/
+    }
+    return v;
+  }
+  const path = v.startsWith('/') ? v : `/uploads/agenda/${v.replace(/^uploads\/agenda\//, '')}`;
+  return `${getMediaPublicBaseUrl()}${path}`;
+}
+
 /** Volledige URL voor één publiek mediabestand (storageKey / thumbKey / webpKey). */
 export function publicMediaUrl(key: string | null | undefined): string {
   const k = key?.trim();

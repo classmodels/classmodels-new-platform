@@ -7,6 +7,8 @@ import {
   isReservedFieldsJsonKey,
   opmerkingenDisplayValue,
 } from '@/lib/agenda-booking-detail';
+import { agendaUploadUrl } from '@/lib/api';
+import { BookingNotificationLogSection } from '@/components/admin-agenda/BookingNotificationLogSection';
 
 export type BookingDetailEditorModel = {
   id: string;
@@ -40,6 +42,7 @@ type Props<T extends BookingDetailEditorModel> = {
   setSchedEnd: (v: string) => void;
   calendars: CalChoice[];
   statusOpts: readonly StatusOpt[];
+  adminToken?: string | null;
 };
 
 function setFj<T extends BookingDetailEditorModel>(
@@ -68,8 +71,10 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
   setSchedEnd,
   calendars,
   statusOpts,
+  adminToken,
 }: Props<T>) {
   const fj = detail.fieldsJson;
+  const fotoUrl = typeof fj.foto === 'string' ? agendaUploadUrl(fj.foto) : '';
   const geb = fjString(fj, 'geboortedatum');
   const age = geb ? ageFromIsoBirthYmd(geb) : null;
   const minor = age != null && age < 18;
@@ -142,8 +147,8 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
       <h4 className="mt-6 text-sm font-semibold text-slate-600">Afspraakgegevens</h4>
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          {typeof fj.foto === 'string' && fj.foto.length > 0 ? (
-            <img src={fj.foto} alt="Upload" className="max-h-80 w-full rounded-lg border border-line object-contain" />
+          {fotoUrl ? (
+            <img src={fotoUrl} alt="Upload" className="max-h-80 w-full rounded-lg border border-line object-contain" />
           ) : (
             <div className="flex h-48 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-xs text-muted">
               Geen foto
@@ -200,14 +205,23 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
             </div>
           </label>
 
-          <label className="text-xs text-muted">
-            Adres <span className="text-red-600">*</span>
-            <input
-              className="mt-0.5 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
-              value={fjString(fj, 'adres')}
-              onChange={(e) => setFj(detail, onDetailChange, { adres: e.target.value })}
-            />
-          </label>
+          {(
+            [
+              ['straat', 'Straat'],
+              ['nr', 'Nr'],
+              ['postcode', 'Postcode'],
+              ['gemeente', 'Gemeente'],
+            ] as const
+          ).map(([key, lab]) => (
+            <label key={key} className="text-xs text-muted">
+              {lab} <span className="text-red-600">*</span>
+              <input
+                className="mt-0.5 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm"
+                value={fjString(fj, key)}
+                onChange={(e) => setFj(detail, onDetailChange, { [key]: e.target.value })}
+              />
+            </label>
+          ))}
 
           {isCancelledAgendaStatus(detail.status) ? (
             <label className="text-xs text-muted">
@@ -244,6 +258,7 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
                   <option value="">— kies —</option>
                   <option value="vader">Mijn vader</option>
                   <option value="moeder">Mijn moeder</option>
+                  <option value="allebei_ouders">Allebei ouders</option>
                 </select>
               </label>
               <label className="block text-xs font-medium text-amber-950">
@@ -282,6 +297,8 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
           ))}
         </div>
       </div>
+
+      <BookingNotificationLogSection bookingId={detail.id} token={adminToken ?? null} />
     </>
   );
 }

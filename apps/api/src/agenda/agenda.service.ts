@@ -38,8 +38,10 @@ import {
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
+  isValidGuestMinorWithChoice,
 } from './guest-intake-calendars';
 import {
+  canConfirmAttendanceNow,
   combineBrusselsLocalToUtc,
   parseYmdDayEnd,
   parseYmdDayStart,
@@ -897,8 +899,14 @@ export class AgendaService implements OnModuleInit {
     if (webGuest) {
       const dob = (fieldsJson.geboortedatum ?? '').trim();
       if (dob && isMinorFromIsoDateString(dob)) {
+        const pw = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? '').trim();
         const pn = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? '').trim();
         const pp = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? '').trim();
+        if (!isValidGuestMinorWithChoice(pw)) {
+          throw new BadRequestException(
+            'U bent minderjarig: kies met wie u komt (vader, moeder of allebei ouders).',
+          );
+        }
         if (!pn) {
           throw new BadRequestException(
             'U bent minderjarig: vul de naam van ouder of begeleider in (verplicht).',
@@ -1005,6 +1013,7 @@ export class AgendaService implements OnModuleInit {
 
       void this.notifications
         .dispatchBookingLifecycle('booking_created', {
+          bookingId: booking.id,
           toEmail: email || null,
           phone: phone || null,
           displayName: name || firstname || 'klant',
@@ -1098,6 +1107,7 @@ export class AgendaService implements OnModuleInit {
       ? `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(tok)}`
       : `${webPublicBase()}/portal/guest`;
     void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
+      bookingId: booking.id,
       toEmail: booking.email,
       phone: booking.phone,
       bookingStatus: 'cancelled',
@@ -1186,6 +1196,7 @@ export class AgendaService implements OnModuleInit {
     const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(token)}`;
     const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(token)}`;
     void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
+      bookingId: booking.id,
       toEmail: booking.email,
       phone: booking.phone,
       bookingStatus: 'cancelled',
@@ -1220,7 +1231,7 @@ export class AgendaService implements OnModuleInit {
   }
 
   /**
-   * Gast bevestigt komst — enkel toegestaan op de kalenderdag vóór de afspraak (Europe/Brussels).
+   * Gast bevestigt komst — op de kalenderdag vóór de afspraak, of op de afspraakdag tot startuur (Europe/Brussels).
    * Zelfde token als annuleren.
    */
   async confirmAttendanceByToken(raw: string) {
@@ -1237,12 +1248,11 @@ export class AgendaService implements OnModuleInit {
       throw new BadRequestException('Deze afspraak is geannuleerd.');
     }
 
-    const slotYmd = booking.slot.slotDate.toISOString().slice(0, 10);
-    const today = ymdEuropeBrussels(new Date());
-    const mustBe = previousCalendarDayYmd(slotYmd);
-    if (today !== mustBe) {
+    if (!canConfirmAttendanceNow(booking.slot.slotDate, booking.slot.startTime)) {
+      const slotYmd = slotDateToYmd(booking.slot.slotDate);
+      const today = ymdEuropeBrussels(new Date());
       throw new BadRequestException(
-        `Komst bevestigen kan alleen op de dag vóór uw afspraak (op ${mustBe}). Vandaag is ${today}.`,
+        `Komst bevestigen kan alleen op de dag vóór uw afspraak (${slotYmd}) of op de afspraakdag tot het tijdstip van de afspraak. Vandaag is ${today}.`,
       );
     }
 
@@ -1265,6 +1275,7 @@ export class AgendaService implements OnModuleInit {
     const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(token)}`;
     const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(token)}`;
     void this.notifications.dispatchBookingLifecycle('booking_confirmed', {
+      bookingId: booking.id,
       toEmail: booking.email,
       phone: booking.phone,
       bookingStatus: 'acknowledged',
@@ -1602,6 +1613,7 @@ export class AgendaService implements OnModuleInit {
         const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
         void this.notifications
           .dispatchBookingLifecycle('booking_created', {
+            bookingId: booking.id,
             toEmail: email || null,
             phone: phone || null,
             bookingStatus: booking.status,
@@ -2194,6 +2206,38 @@ export class AgendaService implements OnModuleInit {
       }
       await tx.agendaOpenDay.delete({ where: { id } });
     });
+    return { ok: true };
+  }
+
+  async adminListBookingNotifications(bookingId: string) {
+    const b = await this.prisma.agendaBooking.findUnique({ where: { id: bookingId }, select: { id: true } });
+    if (!b) throw new NotFoundException('Boeking niet gevonden');
+    const rows = await this.prisma.agendaBookingNotificationLog.findMany({
+      where: { bookingId },
+      orderBy: [{ sentAt: 'desc' }, { createdAt: 'desc' }],
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      channel: r.channel,
+      trigger: r.trigger,
+      templateId: r.templateId,
+      templateName: r.templateName,
+      subject: r.subject,
+      recipient: r.recipient,
+      bodyPreview: r.bodyPreview,
+      sent: r.sent,
+      sentAt: r.sentAt?.toISOString() ?? null,
+      errorMessage: r.errorMessage,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }
+
+  async adminDeleteBookingNotification(bookingId: string, logId: string) {
+    const row = await this.prisma.agendaBookingNotificationLog.findFirst({
+      where: { id: logId, bookingId },
+    });
+    if (!row) throw new NotFoundException('Melding niet gevonden');
+    await this.prisma.agendaBookingNotificationLog.delete({ where: { id: logId } });
     return { ok: true };
   }
 }

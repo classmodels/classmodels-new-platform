@@ -18,7 +18,8 @@ import { diskStorage } from 'multer';
 import { mkdirSync } from 'node:fs';
 import { AgendaService } from './agenda.service';
 import { AgendaSlotsQueryDto, BookAgendaDto, CancelAgendaDto, ConfirmAttendanceDto } from './dto/agenda.dto';
-import { resolveMediaRoot } from '../config/resolve-media-root';
+import { resolveWritableMediaRoot } from '../config/resolve-media-root';
+import { agendaUploadRelativeUrl } from './agenda-upload-path';
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -70,7 +71,7 @@ export class AgendaPublicController {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
           try {
-            const dir = join(resolveMediaRoot(), 'agenda');
+            const dir = join(resolveWritableMediaRoot(), 'agenda');
             mkdirSync(dir, { recursive: true });
             cb(null, dir);
           } catch (e) {
@@ -97,10 +98,9 @@ export class AgendaPublicController {
         throw new BadRequestException('Ongeldige velden (JSON)');
       }
     }
-    const base = (process.env.API_PUBLIC_URL ?? 'http://127.0.0.1:4000').replace(/\/$/, '');
     const uploaded: Record<string, string> = {};
     for (const f of files ?? []) {
-      uploaded[f.fieldname] = `${base}/uploads/agenda/${f.filename}`;
+      uploaded[f.fieldname] = agendaUploadRelativeUrl(f.filename);
     }
     return this.agenda.book({ slotId, fields }, null, uploaded);
   }

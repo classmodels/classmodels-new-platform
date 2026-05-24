@@ -623,9 +623,32 @@ model AgendaBooking {
   cancelToken String?          @unique
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+  notificationLogs AgendaBookingNotificationLog[]
 
   @@index([calendarId, startAt])
   @@index([slotId])
+}
+
+/// Verzonden (of mislukte) mails/SMS per boeking — zichtbaar in admin details.
+model AgendaBookingNotificationLog {
+  id           String        @id @default(uuid())
+  bookingId    String
+  booking      AgendaBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  /// `email` | `sms`
+  channel      String
+  /// `booking_created` | `booking_cancelled` | `booking_confirmed` | `reminder` | `followup`
+  trigger      String
+  templateId   String?
+  templateName String?
+  subject      String?
+  recipient    String?
+  bodyPreview  String?       @db.Text
+  sent         Boolean       @default(false)
+  sentAt       DateTime?
+  errorMessage String?       @db.Text
+  createdAt    DateTime      @default(now())
+
+  @@index([bookingId, sentAt])
 }
 
 /// Eén rij: BulkSMS-credentials voor agenda-SMS (backoffice).

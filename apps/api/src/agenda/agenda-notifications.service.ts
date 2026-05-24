@@ -32,6 +32,7 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   calendarSlug: string;
   /** Huidige reserveringsstatus (o.a. voor opvolg-/herinneringssjablonen). */
   bookingStatus?: string;
+  bookingId?: string;
 };
 
 /** Opvolging/herinnering: filter op ingeschreven ja/nee (status `confirmed` = ingeschreven). */
@@ -179,8 +180,20 @@ export class AgendaNotificationService {
           applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
           `Melding: ${ctx.calendarTitle}`;
         const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(t.body, vars));
-        const ok = await this.trySendSmtp(to, subject, html);
-        if (ok) emailSent = true;
+        const result = await this.sendHtmlMailDetailed(to, subject, html);
+        if (result.ok) emailSent = true;
+        await this.recordBookingNotificationLog({
+          bookingId: ctx.bookingId,
+          channel: 'email',
+          trigger,
+          templateId: t.id,
+          templateName: t.name,
+          subject,
+          recipient: to,
+          bodyPreview: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+          sent: result.ok,
+          errorMessage: result.ok ? undefined : result.error,
+        });
       }
       if (!emailSent && trigger === 'booking_created' && ctx.toEmail?.trim()) {
         if (!emailTemplates.length) {
@@ -206,6 +219,17 @@ export class AgendaNotificationService {
         const text = applyAgendaMailPlaceholders(t.body, buildAgendaMailPlaceholderVars(ctx, 'plain'));
         const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
         if (ok) smsSent = true;
+        await this.recordBookingNotificationLog({
+          bookingId: ctx.bookingId,
+          channel: 'sms',
+          trigger,
+          templateId: t.id,
+          templateName: t.name,
+          recipient: msisdn,
+          bodyPreview: text,
+          sent: ok,
+          errorMessage: ok ? undefined : 'SMS niet verstuurd (BulkSMS of credentials).',
+        });
       }
       if (!smsSent && trigger === 'booking_created') {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
@@ -330,6 +354,42 @@ export class AgendaNotificationService {
   private smtpErrorMessage(e: unknown): string {
     if (e instanceof Error) return e.message.slice(0, 500);
     return String(e).slice(0, 500);
+  }
+
+  private async recordBookingNotificationLog(input: {
+    bookingId?: string;
+    channel: 'email' | 'sms';
+    trigger: AgendaLifecycleTrigger;
+    templateId: string;
+    templateName: string;
+    subject?: string;
+    recipient?: string;
+    bodyPreview?: string;
+    sent: boolean;
+    errorMessage?: string;
+  }): Promise<void> {
+    if (!input.bookingId) return;
+    try {
+      await this.prisma.agendaBookingNotificationLog.create({
+        data: {
+          bookingId: input.bookingId,
+          channel: input.channel,
+          trigger: input.trigger,
+          templateId: input.templateId,
+          templateName: input.templateName,
+          subject: input.subject ?? null,
+          recipient: input.recipient ?? null,
+          bodyPreview: input.bodyPreview?.slice(0, 4000) ?? null,
+          sent: input.sent,
+          sentAt: input.sent ? new Date() : null,
+          errorMessage: input.errorMessage ?? null,
+        },
+      });
+    } catch (e) {
+      this.log.warn(
+        `Notification log opslaan mislukt (${input.bookingId}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
   }
 
   private isSmtpRateOrQuotaError(msg: string): boolean {
