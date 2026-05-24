@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
+import { unlinkSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import {
   BadRequestException,
@@ -11,7 +11,6 @@ import {
   Post,
   Query,
   Res,
-  StreamableFile,
   UploadedFiles,
   UseInterceptors,
   UsePipes,
@@ -21,10 +20,13 @@ import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { mkdirSync } from 'node:fs';
 import type { Response } from 'express';
+import sharp from 'sharp';
 import { AgendaService } from './agenda.service';
 import { AgendaSlotsQueryDto, BookAgendaDto, CancelAgendaDto, ConfirmAttendanceDto } from './dto/agenda.dto';
 import { resolveMediaRoot } from '../config/resolve-media-root';
 import {
+  agendaMimeFromFilename,
+  agendaUploadExtFromMimetype,
   agendaUploadFilename,
   agendaUploadRelativeUrl,
   resolveAgendaUploadAbsolutePath,
@@ -38,6 +40,32 @@ function isUuid(s: string): boolean {
 @Controller('agenda')
 export class AgendaPublicController {
   constructor(private agenda: AgendaService) {}
+
+  private async normalizeUploadedImage(file: Express.Multer.File): Promise<Express.Multer.File> {
+    const ext = extname(file.filename).toLowerCase();
+    if (ext !== '.heic' && ext !== '.heif') return file;
+    const out = file.path.replace(/\.(heic|heif)$/i, '.jpg');
+    try {
+      await sharp(file.path).jpeg({ quality: 88 }).toFile(out);
+      try {
+        unlinkSync(file.path);
+      } catch {
+        /**/
+      }
+    } catch {
+      return file;
+    }
+    try {
+      return {
+        ...file,
+        filename: file.filename.replace(/\.(heic|heif)$/i, '.jpg'),
+        originalname: file.originalname.replace(/\.(heic|heif)$/i, '.jpg'),
+        path: out,
+      };
+    } catch {
+      return file;
+    }
+  }
 
   @Get('calendars')
   calendars() {
@@ -62,23 +90,14 @@ export class AgendaPublicController {
 
   /** Publiek: agenda-foto (UUID-bestandsnaam) — betrouwbaarder dan static middleware achter proxy. */
   @Get('uploads/:filename')
-  serveUpload(@Param('filename') filename: string, @Res({ passthrough: true }) res: Response) {
+  serveUpload(@Param('filename') filename: string, @Res() res: Response) {
     const safe = agendaUploadFilename(filename);
     if (!safe) throw new NotFoundException('Bestand niet gevonden');
     const fp = resolveAgendaUploadAbsolutePath(safe);
     if (!fp) throw new NotFoundException('Bestand niet gevonden');
-    const ext = extname(safe).toLowerCase();
-    const mime =
-      ext === '.png'
-        ? 'image/png'
-        : ext === '.gif'
-          ? 'image/gif'
-          : ext === '.webp'
-            ? 'image/webp'
-            : 'image/jpeg';
-    res.setHeader('Content-Type', mime);
+    res.setHeader('Content-Type', agendaMimeFromFilename(safe));
     res.setHeader('Cache-Control', 'private, max-age=86400');
-    return new StreamableFile(createReadStream(fp));
+    res.sendFile(fp);
   }
 
   @Post('book')
@@ -109,13 +128,15 @@ export class AgendaPublicController {
             cb(err, '');
           }
         },
-        filename: (_req, file, cb) =>
-          cb(null, `${randomUUID()}${extname(file.originalname) || ''}`),
+        filename: (_req, file, cb) => {
+          const ext = extname(file.originalname) || agendaUploadExtFromMimetype(file.mimetype);
+          cb(null, `${randomUUID()}${ext}`);
+        },
       }),
       limits: { fileSize: 8 * 1024 * 1024 },
     }),
   )
-  bookForm(@Body() body: Record<string, string>, @UploadedFiles() files: Express.Multer.File[]) {
+  async bookForm(@Body() body: Record<string, string>, @UploadedFiles() files: Express.Multer.File[]) {
     const slotId = body.slotId;
     if (!slotId || !isUuid(slotId)) throw new BadRequestException('Ongeldige slotId');
     let fields: Record<string, string> = {};
@@ -129,7 +150,8 @@ export class AgendaPublicController {
       }
     }
     const uploaded: Record<string, string> = {};
-    for (const f of files ?? []) {
+    for (const raw of files ?? []) {
+      const f = await this.normalizeUploadedImage(raw);
       uploaded[f.fieldname] = agendaUploadRelativeUrl(f.filename);
     }
     return this.agenda.book({ slotId, fields }, null, uploaded);

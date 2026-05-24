@@ -9,8 +9,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -108,6 +110,16 @@ export class AdminAgendaController {
   @Permissions('admin.agenda.read')
   getBooking(@Param('id', ParseUUIDPipe) id: string) {
     return this.agenda.adminGetBooking(id);
+  }
+
+  /** Admin: boekingsfoto streamen (JWT) — zoekt bestand op alle bekende media-paden. */
+  @Get('bookings/:id/photo')
+  @Permissions('admin.agenda.read')
+  async bookingPhoto(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
+    const { absolutePath, mime } = await this.agenda.adminResolveBookingPhotoPath(id);
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.sendFile(absolutePath);
   }
 
   @Patch('bookings/:id')

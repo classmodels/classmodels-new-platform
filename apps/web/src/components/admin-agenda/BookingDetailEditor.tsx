@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import {
   ageFromIsoBirthYmd,
   fjString,
@@ -7,7 +8,7 @@ import {
   isReservedFieldsJsonKey,
   opmerkingenDisplayValue,
 } from '@/lib/agenda-booking-detail';
-import { agendaUploadUrl } from '@/lib/api';
+import { agendaUploadUrl, getApiBase } from '@/lib/api';
 import { BookingNotificationLogSection } from '@/components/admin-agenda/BookingNotificationLogSection';
 import { GUEST_MINOR_PARENT_FIELD_KEYS } from '@/lib/agenda-guest-intake';
 
@@ -75,7 +76,52 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
   adminToken,
 }: Props<T>) {
   const fj = detail.fieldsJson;
-  const fotoUrl = typeof fj.foto === 'string' ? agendaUploadUrl(fj.foto) : '';
+  const fotoStored = typeof fj.foto === 'string' ? fj.foto.trim() : '';
+  const [photoSrc, setPhotoSrc] = useState<string | null>(null);
+  const [photoErr, setPhotoErr] = useState(false);
+
+  useEffect(() => {
+    if (!fotoStored) {
+      setPhotoSrc(null);
+      setPhotoErr(false);
+      return;
+    }
+    if (!adminToken) {
+      setPhotoSrc(agendaUploadUrl(fotoStored));
+      setPhotoErr(false);
+      return;
+    }
+    let revoked: string | null = null;
+    let cancelled = false;
+    setPhotoErr(false);
+    void (async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/admin/agenda/bookings/${detail.id}/photo`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        });
+        if (cancelled) return;
+        if (!res.ok) {
+          setPhotoSrc(agendaUploadUrl(fotoStored));
+          setPhotoErr(!res.ok);
+          return;
+        }
+        const blob = await res.blob();
+        if (cancelled) return;
+        revoked = URL.createObjectURL(blob);
+        setPhotoSrc(revoked);
+      } catch {
+        if (!cancelled) {
+          setPhotoSrc(agendaUploadUrl(fotoStored));
+          setPhotoErr(true);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [detail.id, fotoStored, adminToken]);
+
   const geb = fjString(fj, 'geboortedatum');
   const age = geb ? ageFromIsoBirthYmd(geb) : null;
   const minor = age != null && age < 18;
@@ -150,13 +196,30 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
       <h4 className="mt-6 text-sm font-semibold text-slate-600">Afspraakgegevens</h4>
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
-          {fotoUrl ? (
-            <img src={fotoUrl} alt="Upload" className="max-h-80 w-full rounded-lg border border-line object-contain" />
+          {fotoStored ? (
+            photoSrc ? (
+              <img
+                src={photoSrc}
+                alt="Upload"
+                className="max-h-80 w-full rounded-lg border border-line object-contain"
+                onError={() => setPhotoErr(true)}
+              />
+            ) : (
+              <div className="flex h-48 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-xs text-muted">
+                Foto laden…
+              </div>
+            )
           ) : (
             <div className="flex h-48 shrink-0 items-center justify-center rounded-lg border border-dashed border-line text-xs text-muted">
               Geen foto
             </div>
           )}
+          {photoErr && fotoStored ? (
+            <p className="text-xs text-amber-800">
+              Foto kon niet geladen worden. Bestand ontbreekt op de server of is een oud formaat — laat opnieuw
+              uploaden bij een nieuwe boeking.
+            </p>
+          ) : null}
           <label className="text-xs text-muted">
             Opmerkingen <span className="text-red-600">*</span>
             <textarea

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { unlinkSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import {
   BadRequestException,
@@ -17,12 +18,13 @@ import {
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { mkdirSync } from 'node:fs';
+import sharp from 'sharp';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { AgendaService } from '../agenda/agenda.service';
-import { agendaUploadRelativeUrl } from '../agenda/agenda-upload-path';
+import { agendaUploadExtFromMimetype, agendaUploadRelativeUrl } from '../agenda/agenda-upload-path';
 import { resolveMediaRoot } from '../config/resolve-media-root';
 
 function isUuid(s: string): boolean {
@@ -33,6 +35,28 @@ function isUuid(s: string): boolean {
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PortalModelAgendaController {
   constructor(private agenda: AgendaService) {}
+
+  private async normalizeUploadedImage(file: Express.Multer.File): Promise<Express.Multer.File> {
+    const ext = extname(file.filename).toLowerCase();
+    if (ext !== '.heic' && ext !== '.heif') return file;
+    const out = file.path.replace(/\.(heic|heif)$/i, '.jpg');
+    try {
+      await sharp(file.path).jpeg({ quality: 88 }).toFile(out);
+      try {
+        unlinkSync(file.path);
+      } catch {
+        /**/
+      }
+      return {
+        ...file,
+        filename: file.filename.replace(/\.(heic|heif)$/i, '.jpg'),
+        originalname: file.originalname.replace(/\.(heic|heif)$/i, '.jpg'),
+        path: out,
+      };
+    } catch {
+      return file;
+    }
+  }
 
   @Post('book-form')
   @Permissions('portal.model.agenda.book')
@@ -56,12 +80,15 @@ export class PortalModelAgendaController {
             cb(err, '');
           }
         },
-        filename: (_req, file, cb) => cb(null, `${randomUUID()}${extname(file.originalname) || ''}`),
+        filename: (_req, file, cb) => {
+          const ext = extname(file.originalname) || agendaUploadExtFromMimetype(file.mimetype);
+          cb(null, `${randomUUID()}${ext}`);
+        },
       }),
       limits: { fileSize: 8 * 1024 * 1024 },
     }),
   )
-  bookForm(
+  async bookForm(
     @Req() req: { user: JwtPayload },
     @Body() body: Record<string, string>,
     @UploadedFiles() files: Express.Multer.File[],
@@ -79,7 +106,8 @@ export class PortalModelAgendaController {
       }
     }
     const uploaded: Record<string, string> = {};
-    for (const f of files ?? []) {
+    for (const raw of files ?? []) {
+      const f = await this.normalizeUploadedImage(raw);
       uploaded[f.fieldname] = agendaUploadRelativeUrl(f.filename);
     }
     return this.agenda.book({ slotId, fields }, req.user.sub, uploaded);

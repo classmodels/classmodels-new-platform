@@ -259,6 +259,10 @@ function shouldRouteToNest(req) {
     if (req.method === 'GET' || req.method === 'HEAD') return true;
     if (req.method === 'POST' && pathOnly.startsWith('/media/upload')) return true;
   }
+  /** Agenda-foto's en legacy static uploads (`/uploads/agenda/…`). */
+  if (pathOnly.startsWith('/uploads/')) {
+    if (req.method === 'GET' || req.method === 'HEAD') return true;
+  }
   return hostToNest(effectiveHost(req));
 }
 

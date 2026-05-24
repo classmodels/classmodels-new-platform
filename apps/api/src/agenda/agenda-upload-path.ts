@@ -1,13 +1,12 @@
 import { existsSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, extname, join } from 'node:path';
 import {
   combellHostingDiscoveryPaths,
   resolveMediaRoot,
   resolveWritableMediaRoot,
 } from '../config/resolve-media-root';
 
-const AGENDA_UPLOAD_NAME_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpe?g|png|gif|webp)$/i;
+const AGENDA_UPLOAD_NAME_RE = /^[a-z0-9][a-z0-9._-]{2,190}$/i;
 
 /** Bestandsnaam uit opgeslagen waarde (pad of volledige URL). */
 export function agendaUploadFilename(stored: string | null | undefined): string | null {
@@ -23,7 +22,29 @@ export function agendaUploadFilename(stored: string | null | undefined): string 
   } else {
     name = basename(v.replace(/^\/+/, ''));
   }
-  return AGENDA_UPLOAD_NAME_RE.test(name) ? name : null;
+  const n = name.trim();
+  if (!AGENDA_UPLOAD_NAME_RE.test(n)) return null;
+  if (n.includes('..') || n.includes('/') || n.includes('\\')) return null;
+  return n;
+}
+
+/** Extensie voor opgeslagen bestandsnaam (ook als browser geen extensie meestuurt). */
+export function agendaUploadExtFromMimetype(mime?: string | null): string {
+  const m = (mime ?? '').toLowerCase();
+  if (m.includes('png')) return '.png';
+  if (m.includes('webp')) return '.webp';
+  if (m.includes('gif')) return '.gif';
+  if (m.includes('heic') || m.includes('heif')) return '.heic';
+  return '.jpg';
+}
+
+export function agendaMimeFromFilename(filename: string): string {
+  const ext = extname(filename).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.gif') return 'image/gif';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.heic' || ext === '.heif') return 'image/heic';
+  return 'image/jpeg';
 }
 
 /** Relatief pad in fieldsJson. */

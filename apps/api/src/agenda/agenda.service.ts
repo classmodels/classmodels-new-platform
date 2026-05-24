@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { basename } from 'node:path';
 import {
   BadRequestException,
   ConflictException,
@@ -39,6 +40,7 @@ import {
   isMinorFromIsoDateString,
   validateGuestMinorParentFields,
 } from './guest-intake-calendars';
+import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
 import {
   canConfirmAttendanceNow,
   combineBrusselsLocalToUtc,
@@ -2222,5 +2224,24 @@ export class AgendaService implements OnModuleInit {
     if (!row) throw new NotFoundException('Melding niet gevonden');
     await this.prisma.agendaBookingNotificationLog.delete({ where: { id: logId } });
     return { ok: true };
+  }
+
+  /** Admin: stream boekingsfoto van schijf (zoekt in MEDIA_ROOT + fallback-paden). */
+  async adminResolveBookingPhotoPath(bookingId: string): Promise<{ absolutePath: string; mime: string }> {
+    const b = await this.prisma.agendaBooking.findUnique({
+      where: { id: bookingId },
+      select: { fieldsJson: true },
+    });
+    if (!b) throw new NotFoundException('Boeking niet gevonden');
+    const fj = b.fieldsJson as Record<string, unknown>;
+    const foto = typeof fj.foto === 'string' ? fj.foto.trim() : '';
+    if (!foto) throw new NotFoundException('Geen foto bij deze afspraak.');
+    const fp = resolveAgendaUploadAbsolutePath(foto);
+    if (!fp) {
+      throw new NotFoundException(
+        'Foto-bestand niet gevonden op de server. Mogelijk opgeslagen vóór de laatste fix — laat de klant opnieuw uploaden.',
+      );
+    }
+    return { absolutePath: fp, mime: agendaMimeFromFilename(basename(fp)) };
   }
 }
