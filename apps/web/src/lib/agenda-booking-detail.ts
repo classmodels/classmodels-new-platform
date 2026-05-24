@@ -54,6 +54,10 @@ export const RESERVED_FIELDS_JSON_KEYS = new Set([
   'ouder_met',
   'ouder_naam',
   'ouder_gsm',
+  'ouder_naam_vader',
+  'ouder_gsm_vader',
+  'ouder_naam_moeder',
+  'ouder_gsm_moeder',
 ]);
 
 export function isReservedFieldsJsonKey(key: string): boolean {
@@ -131,8 +135,15 @@ export function validateBookingDetailForSave(
     if (met !== 'vader' && met !== 'moeder' && met !== 'allebei_ouders') {
       return 'Kies met wie u komt: vader, moeder of allebei ouders (minderjarig).';
     }
-    if (!fjString(fj, 'ouder_naam')) return 'Naam van de ouder is verplicht (minderjarig).';
-    if (!fjString(fj, 'ouder_gsm')) return 'GSM van de ouder is verplicht (minderjarig).';
+    if (met === 'allebei_ouders') {
+      if (!fjString(fj, 'ouder_naam_vader')) return 'Naam van de vader is verplicht (minderjarig).';
+      if (!fjString(fj, 'ouder_gsm_vader')) return 'GSM van de vader is verplicht (minderjarig).';
+      if (!fjString(fj, 'ouder_naam_moeder')) return 'Naam van de moeder is verplicht (minderjarig).';
+      if (!fjString(fj, 'ouder_gsm_moeder')) return 'GSM van de moeder is verplicht (minderjarig).';
+    } else {
+      if (!fjString(fj, 'ouder_naam')) return 'Naam van de ouder is verplicht (minderjarig).';
+      if (!fjString(fj, 'ouder_gsm')) return 'GSM van de ouder is verplicht (minderjarig).';
+    }
   }
   return null;
 }

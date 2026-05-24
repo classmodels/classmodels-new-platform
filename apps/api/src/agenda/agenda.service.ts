@@ -34,11 +34,10 @@ import {
   UpdateAgendaCalendarDto,
 } from './dto/agenda.dto';
 import {
-  GUEST_MINOR_PARENT_FIELD_KEYS,
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
-  isValidGuestMinorWithChoice,
+  validateGuestMinorParentFields,
 } from './guest-intake-calendars';
 import {
   canConfirmAttendanceNow,
@@ -899,24 +898,8 @@ export class AgendaService implements OnModuleInit {
     if (webGuest) {
       const dob = (fieldsJson.geboortedatum ?? '').trim();
       if (dob && isMinorFromIsoDateString(dob)) {
-        const pw = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? '').trim();
-        const pn = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? '').trim();
-        const pp = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? '').trim();
-        if (!isValidGuestMinorWithChoice(pw)) {
-          throw new BadRequestException(
-            'U bent minderjarig: kies met wie u komt (vader, moeder of allebei ouders).',
-          );
-        }
-        if (!pn) {
-          throw new BadRequestException(
-            'U bent minderjarig: vul de naam van ouder of begeleider in (verplicht).',
-          );
-        }
-        if (!pp) {
-          throw new BadRequestException(
-            'U bent minderjarig: vul het GSM-nummer van ouder of begeleider in (verplicht).',
-          );
-        }
+        const minorErr = validateGuestMinorParentFields(fieldsJson);
+        if (minorErr) throw new BadRequestException(minorErr);
       }
     }
 

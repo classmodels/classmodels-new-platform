@@ -132,23 +132,25 @@ export function getMediaPublicBaseUrl(): string {
   return stripTrailingSlash(api || 'http://localhost:4000');
 }
 
-/** Volledige URL voor agenda-upload (`/uploads/agenda/...` in fieldsJson). */
+/** Volledige URL voor agenda-upload (`/uploads/agenda/…` of oude absolute URL in fieldsJson). */
 export function agendaUploadUrl(stored: string | null | undefined): string {
   const v = stored?.trim();
   if (!v) return '';
+  let filename = v;
   if (/^https?:\/\//i.test(v)) {
     try {
       const u = new URL(v);
-      if (u.pathname.startsWith('/uploads/')) {
-        return `${getMediaPublicBaseUrl()}${u.pathname}`;
-      }
+      filename = u.pathname.split('/').pop() ?? v;
     } catch {
-      /**/
+      return v;
     }
-    return v;
+  } else {
+    filename = v.replace(/^\/+/, '').replace(/^uploads\/agenda\//, '');
+    const slash = filename.lastIndexOf('/');
+    if (slash >= 0) filename = filename.slice(slash + 1);
   }
-  const path = v.startsWith('/') ? v : `/uploads/agenda/${v.replace(/^uploads\/agenda\//, '')}`;
-  return `${getMediaPublicBaseUrl()}${path}`;
+  if (!filename) return '';
+  return `${getMediaPublicBaseUrl()}/agenda/uploads/${encodeURIComponent(filename)}`;
 }
 
 /** Volledige URL voor één publiek mediabestand (storageKey / thumbKey / webpKey). */

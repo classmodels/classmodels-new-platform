@@ -401,8 +401,16 @@ function localAppMediaCandidates(): string[] {
   return [...new Set(out)];
 }
 
-/** Waar uploads naartoe mogen: data-site (100 GB) als Node die map kan schrijven. */
+/** Waar uploads naartoe mogen: MEDIA_ROOT wint als expliciet gezet en schrijfbaar. */
 export function resolveWritableMediaRoot(): string {
+  const mediaRoot = process.env.MEDIA_ROOT?.trim();
+  if (mediaRoot) {
+    const resolved = resolveMediaRoot();
+    if (tryWritableMediaDir(resolved)) {
+      return resolved.replace(/\\/g, '/').replace(/\/+$/, '') || resolved;
+    }
+  }
+
   const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
   if (explicit && tryWritableMediaDir(explicit)) {
     return explicit.replace(/\\/g, '/').replace(/\/+$/, '') || explicit;

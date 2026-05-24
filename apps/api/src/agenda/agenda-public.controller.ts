@@ -1,13 +1,17 @@
 import { randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { extname, join } from 'node:path';
 import {
   BadRequestException,
   Body,
   Controller,
   Get,
+  NotFoundException,
   Param,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UploadedFiles,
   UseInterceptors,
   UsePipes,
@@ -16,10 +20,15 @@ import {
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { mkdirSync } from 'node:fs';
+import type { Response } from 'express';
 import { AgendaService } from './agenda.service';
 import { AgendaSlotsQueryDto, BookAgendaDto, CancelAgendaDto, ConfirmAttendanceDto } from './dto/agenda.dto';
-import { resolveWritableMediaRoot } from '../config/resolve-media-root';
-import { agendaUploadRelativeUrl } from './agenda-upload-path';
+import { resolveMediaRoot } from '../config/resolve-media-root';
+import {
+  agendaUploadFilename,
+  agendaUploadRelativeUrl,
+  resolveAgendaUploadAbsolutePath,
+} from './agenda-upload-path';
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -51,6 +60,27 @@ export class AgendaPublicController {
     return this.agenda.getSlots(slug, q.from, q.to);
   }
 
+  /** Publiek: agenda-foto (UUID-bestandsnaam) — betrouwbaarder dan static middleware achter proxy. */
+  @Get('uploads/:filename')
+  serveUpload(@Param('filename') filename: string, @Res({ passthrough: true }) res: Response) {
+    const safe = agendaUploadFilename(filename);
+    if (!safe) throw new NotFoundException('Bestand niet gevonden');
+    const fp = resolveAgendaUploadAbsolutePath(safe);
+    if (!fp) throw new NotFoundException('Bestand niet gevonden');
+    const ext = extname(safe).toLowerCase();
+    const mime =
+      ext === '.png'
+        ? 'image/png'
+        : ext === '.gif'
+          ? 'image/gif'
+          : ext === '.webp'
+            ? 'image/webp'
+            : 'image/jpeg';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    return new StreamableFile(createReadStream(fp));
+  }
+
   @Post('book')
   book(@Body() dto: BookAgendaDto) {
     /** Gastenportaal: geen login; userId wordt later gekoppeld indien JWT op deze route wordt toegevoegd. */
@@ -71,7 +101,7 @@ export class AgendaPublicController {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
           try {
-            const dir = join(resolveWritableMediaRoot(), 'agenda');
+            const dir = join(resolveMediaRoot(), 'agenda');
             mkdirSync(dir, { recursive: true });
             cb(null, dir);
           } catch (e) {

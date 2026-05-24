@@ -9,6 +9,7 @@ import {
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
+  validateGuestMinorParentFieldsClient,
 } from '@/lib/agenda-guest-intake';
 import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
 
@@ -305,16 +306,9 @@ export function GuestBookingPanel({
         }
       }
       if (isMinorFromIsoDateString((form.geboortedatum ?? '').trim())) {
-        if (!(form[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? '').trim()) {
-          setErr('Kies met wie u komt (vader, moeder of allebei ouders).');
-          return;
-        }
-        if (!(form[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? '').trim()) {
-          setErr('Vul de naam van ouder of begeleider in.');
-          return;
-        }
-        if (!(form[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? '').trim()) {
-          setErr('Vul het GSM-nummer van ouder of begeleider in.');
+        const minorErr = validateGuestMinorParentFieldsClient(form);
+        if (minorErr) {
+          setErr(minorErr);
           return;
         }
       }
@@ -449,6 +443,9 @@ export function GuestBookingPanel({
     );
   };
 
+  const minorWith = (form[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? '').trim();
+  const minorBothParents = minorWith === 'allebei_ouders';
+
   const minorGuardBlock =
     showMinorGuard ? (
       <div
@@ -458,7 +455,7 @@ export function GuestBookingPanel({
         <p className="font-semibold text-zinc-900">Minderjarig</p>
         <p className="mt-1 text-xs leading-relaxed text-zinc-700">
           U bent minderjarig. U bent verplicht iemand van uw ouders (of wettelijke begeleider) mee te brengen naar de
-          afspraak. Geef hieronder aan met wie u komt en de contactgegevens van die ouder.
+          afspraak. Geef hieronder aan met wie u komt en de contactgegevens van die ouder(s).
         </p>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -479,30 +476,85 @@ export function GuestBookingPanel({
               ))}
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              Naam ouder of begeleider <span className="text-burgundy">*</span>
-            </label>
-            <input
-              type="text"
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
-              value={form[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? ''}
-              onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.name, ev.target.value)}
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-700">
-              GSM ouder of begeleider <span className="text-burgundy">*</span>
-            </label>
-            <input
-              type="tel"
-              className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
-              value={form[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? ''}
-              onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.phone, ev.target.value)}
-              required
-            />
-          </div>
+          {minorBothParents ? (
+            <>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-700">
+                  Naam vader <span className="text-burgundy">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  value={form[GUEST_MINOR_PARENT_FIELD_KEYS.fatherName] ?? ''}
+                  onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.fatherName, ev.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-700">
+                  GSM vader <span className="text-burgundy">*</span>
+                </label>
+                <input
+                  type="tel"
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  value={form[GUEST_MINOR_PARENT_FIELD_KEYS.fatherPhone] ?? ''}
+                  onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.fatherPhone, ev.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-700">
+                  Naam moeder <span className="text-burgundy">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  value={form[GUEST_MINOR_PARENT_FIELD_KEYS.motherName] ?? ''}
+                  onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.motherName, ev.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-700">
+                  GSM moeder <span className="text-burgundy">*</span>
+                </label>
+                <input
+                  type="tel"
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  value={form[GUEST_MINOR_PARENT_FIELD_KEYS.motherPhone] ?? ''}
+                  onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.motherPhone, ev.target.value)}
+                  required
+                />
+              </div>
+            </>
+          ) : minorWith ? (
+            <>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-700">
+                  Naam {minorWith === 'vader' ? 'vader' : 'moeder'} <span className="text-burgundy">*</span>
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  value={form[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? ''}
+                  onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.name, ev.target.value)}
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-zinc-700">
+                  GSM {minorWith === 'vader' ? 'vader' : 'moeder'} <span className="text-burgundy">*</span>
+                </label>
+                <input
+                  type="tel"
+                  className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
+                  value={form[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? ''}
+                  onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.phone, ev.target.value)}
+                  required
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     ) : null;

@@ -32,6 +32,10 @@ export const GUEST_MINOR_PARENT_FIELD_KEYS = {
   with: 'ouder_met',
   name: 'ouder_naam',
   phone: 'ouder_gsm',
+  fatherName: 'ouder_naam_vader',
+  fatherPhone: 'ouder_gsm_vader',
+  motherName: 'ouder_naam_moeder',
+  motherPhone: 'ouder_gsm_moeder',
 } as const;
 
 export const GUEST_MINOR_WITH_OPTIONS = [
@@ -57,4 +61,23 @@ export function isMinorFromIsoDateString(ymd: string): boolean {
   const age = ageFromIsoDateString(ymd);
   if (age == null) return false;
   return age < 18;
+}
+
+/** Client-side validatie oudergegevens (zelfde regels als API). */
+export function validateGuestMinorParentFieldsClient(form: Record<string, string>): string | null {
+  const withWho = (form[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? '').trim().toLowerCase();
+  if (!withWho || !GUEST_MINOR_WITH_OPTIONS.some((o) => o.value === withWho)) {
+    return 'Kies met wie u komt (vader, moeder of allebei ouders).';
+  }
+  const t = (k: string) => (form[k] ?? '').trim();
+  if (withWho === 'allebei_ouders') {
+    if (!t(GUEST_MINOR_PARENT_FIELD_KEYS.fatherName)) return 'Vul de naam van uw vader in.';
+    if (!t(GUEST_MINOR_PARENT_FIELD_KEYS.fatherPhone)) return 'Vul het GSM-nummer van uw vader in.';
+    if (!t(GUEST_MINOR_PARENT_FIELD_KEYS.motherName)) return 'Vul de naam van uw moeder in.';
+    if (!t(GUEST_MINOR_PARENT_FIELD_KEYS.motherPhone)) return 'Vul het GSM-nummer van uw moeder in.';
+    return null;
+  }
+  if (!t(GUEST_MINOR_PARENT_FIELD_KEYS.name)) return 'Vul de naam van ouder of begeleider in.';
+  if (!t(GUEST_MINOR_PARENT_FIELD_KEYS.phone)) return 'Vul het GSM-nummer van ouder of begeleider in.';
+  return null;
 }

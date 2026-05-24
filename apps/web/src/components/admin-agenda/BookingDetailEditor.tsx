@@ -9,6 +9,7 @@ import {
 } from '@/lib/agenda-booking-detail';
 import { agendaUploadUrl } from '@/lib/api';
 import { BookingNotificationLogSection } from '@/components/admin-agenda/BookingNotificationLogSection';
+import { GUEST_MINOR_PARENT_FIELD_KEYS } from '@/lib/agenda-guest-intake';
 
 export type BookingDetailEditorModel = {
   id: string;
@@ -78,6 +79,8 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
   const geb = fjString(fj, 'geboortedatum');
   const age = geb ? ageFromIsoBirthYmd(geb) : null;
   const minor = age != null && age < 18;
+  const minorWith = fjString(fj, 'ouder_met').toLowerCase();
+  const minorBothParents = minorWith === 'allebei_ouders';
   const opm = opmerkingenDisplayValue(fj);
 
   const dynamicEntries = Object.entries(fj).filter(([k]) => {
@@ -261,22 +264,69 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
                   <option value="allebei_ouders">Allebei ouders</option>
                 </select>
               </label>
-              <label className="block text-xs font-medium text-amber-950">
-                Naam ouder <span className="text-red-600">*</span>
-                <input
-                  className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
-                  value={fjString(fj, 'ouder_naam')}
-                  onChange={(e) => setFj(detail, onDetailChange, { ouder_naam: e.target.value })}
-                />
-              </label>
-              <label className="block text-xs font-medium text-amber-950">
-                GSM ouder <span className="text-red-600">*</span>
-                <input
-                  className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
-                  value={fjString(fj, 'ouder_gsm')}
-                  onChange={(e) => setFj(detail, onDetailChange, { ouder_gsm: e.target.value })}
-                />
-              </label>
+              {minorBothParents ? (
+                <>
+                  <label className="block text-xs font-medium text-amber-950">
+                    Naam vader <span className="text-red-600">*</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
+                      value={fjString(fj, GUEST_MINOR_PARENT_FIELD_KEYS.fatherName)}
+                      onChange={(e) =>
+                        setFj(detail, onDetailChange, { [GUEST_MINOR_PARENT_FIELD_KEYS.fatherName]: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-amber-950">
+                    GSM vader <span className="text-red-600">*</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
+                      value={fjString(fj, GUEST_MINOR_PARENT_FIELD_KEYS.fatherPhone)}
+                      onChange={(e) =>
+                        setFj(detail, onDetailChange, { [GUEST_MINOR_PARENT_FIELD_KEYS.fatherPhone]: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-amber-950">
+                    Naam moeder <span className="text-red-600">*</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
+                      value={fjString(fj, GUEST_MINOR_PARENT_FIELD_KEYS.motherName)}
+                      onChange={(e) =>
+                        setFj(detail, onDetailChange, { [GUEST_MINOR_PARENT_FIELD_KEYS.motherName]: e.target.value })
+                      }
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-amber-950">
+                    GSM moeder <span className="text-red-600">*</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
+                      value={fjString(fj, GUEST_MINOR_PARENT_FIELD_KEYS.motherPhone)}
+                      onChange={(e) =>
+                        setFj(detail, onDetailChange, { [GUEST_MINOR_PARENT_FIELD_KEYS.motherPhone]: e.target.value })
+                      }
+                    />
+                  </label>
+                </>
+              ) : minorWith ? (
+                <>
+                  <label className="block text-xs font-medium text-amber-950">
+                    Naam ouder <span className="text-red-600">*</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
+                      value={fjString(fj, 'ouder_naam')}
+                      onChange={(e) => setFj(detail, onDetailChange, { ouder_naam: e.target.value })}
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-amber-950">
+                    GSM ouder <span className="text-red-600">*</span>
+                    <input
+                      className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
+                      value={fjString(fj, 'ouder_gsm')}
+                      onChange={(e) => setFj(detail, onDetailChange, { ouder_gsm: e.target.value })}
+                    />
+                  </label>
+                </>
+              ) : null}
             </div>
           ) : null}
 
