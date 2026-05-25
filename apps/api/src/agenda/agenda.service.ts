@@ -2315,7 +2315,9 @@ export class AgendaService implements OnModuleInit {
     const out: Record<string, string> = {};
     for (const f of files ?? []) {
       const saved = await this.media.saveFile(f, userId, this.agendaBookingsFolderId);
-      const key = saved.webpKey ?? saved.storageKey;
+      const key =
+        (typeof saved.publicKey === 'string' && saved.publicKey) ||
+        saved.storageKey;
       if (key) out[f.fieldname] = key;
     }
     return out;

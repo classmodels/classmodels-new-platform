@@ -223,17 +223,22 @@ export class MediaService {
     return m;
   }
 
+  /** Absoluut pad op schijf (alle bekende Combell-mappen, niet alleen writable root). */
+  private absolutePathForBasename(filename: string): string | null {
+    const safe = basename(filename);
+    if (!safe || safe === '.' || safe.includes('..')) return null;
+    for (const root of this.mediaLookupRoots()) {
+      const direct = join(root, safe);
+      if (existsSync(direct)) return direct;
+      const nested = this.findFileInRoot(root, safe);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
   /** Absoluut pad voor GET /media/public/:bestand (ook in submappen van MEDIA_ROOT). */
   resolveAbsolutePathForPublicFilename(filename: string): string | null {
-    const safe = basename(filename);
-    if (!safe || safe === '.') return null;
-    const root = this.root();
-    const direct = join(root, safe);
-    if (existsSync(direct)) return direct;
-    const rel = this.lookupDiskRelativePath(safe);
-    if (!rel) return null;
-    const nested = join(root, rel);
-    return existsSync(nested) ? nested : null;
+    return this.absolutePathForBasename(filename);
   }
 
   root() {
@@ -403,14 +408,12 @@ export class MediaService {
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string {
-    const root = this.root();
     for (const k of [asset.thumbKey, asset.webpKey, asset.storageKey]) {
       if (!k) continue;
-      if (existsSync(join(root, k))) return k;
-      const rel = this.lookupDiskRelativePath(basename(k));
-      if (rel) return basename(k);
+      const base = basename(k);
+      if (this.absolutePathForBasename(base)) return base;
     }
-    return asset.storageKey;
+    return basename(asset.storageKey) || asset.storageKey;
   }
 
   /**
@@ -467,18 +470,16 @@ export class MediaService {
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string {
-    const root = this.root();
     const image = asset.mimeType?.startsWith('image/');
     const order = image
       ? [asset.webpKey, asset.storageKey, asset.thumbKey]
       : [asset.storageKey, asset.webpKey, asset.thumbKey];
     for (const k of order) {
       if (!k) continue;
-      if (existsSync(join(root, k))) return k;
-      const rel = this.lookupDiskRelativePath(basename(k));
-      if (rel) return basename(k);
+      const base = basename(k);
+      if (this.absolutePathForBasename(base)) return base;
     }
-    return asset.storageKey;
+    return basename(asset.storageKey) || asset.storageKey;
   }
 
   /** Modelportaal: volledige resolutie tot eerste download, als map-policy dat vereist. */
@@ -490,9 +491,8 @@ export class MediaService {
       typeof s.deleteDaysAfterModelDownload === 'number' &&
       s.deleteDaysAfterModelDownload > 0;
     if (policy && !asset.modelDownloadedAt && asset.mimeType.startsWith('image/')) {
-      const root = this.root();
-      if (existsSync(join(root, asset.storageKey))) return asset.storageKey;
-      if (this.lookupDiskRelativePath(basename(asset.storageKey))) return basename(asset.storageKey);
+      const base = basename(asset.storageKey);
+      if (this.absolutePathForBasename(base)) return base;
     }
     return this.resolveDetailFilename(asset);
   }
@@ -1471,7 +1471,7 @@ export class MediaService {
       orderBy: { createdAt: 'asc' },
     });
     const root = this.root();
-    const onDisk = rows.filter((a) => existsSync(join(root, a.storageKey)));
+    const onDisk = rows.filter((a) => this.absolutePathForBasename(a.storageKey));
     if (!onDisk.length) throw new NotFoundException('Geen bestanden op schijf om te downloaden.');
 
     const zipName = `${folder.slug.replace(/[^\w-]+/g, '-') || 'map'}.zip`;
@@ -1493,7 +1493,8 @@ export class MediaService {
       archive.on('end', () => resolve());
       archive.pipe(res);
       for (const a of onDisk) {
-        const full = join(root, a.storageKey);
+        const full = this.absolutePathForBasename(a.storageKey);
+        if (!full) continue;
         let name = a.originalName?.trim() || basename(a.storageKey);
         if (!name || name.includes('..') || name.includes('/')) name = basename(a.storageKey);
         let finalName = name;
@@ -1520,7 +1521,7 @@ export class MediaService {
       orderBy: { createdAt: 'asc' },
     });
     const root = this.root();
-    const onDisk = rows.filter((a) => existsSync(join(root, a.storageKey)));
+    const onDisk = rows.filter((a) => this.absolutePathForBasename(a.storageKey));
     if (!onDisk.length) throw new NotFoundException('Geen portfolio-bestanden om te downloaden.');
 
     const u = await this.prisma.user.findUnique({
@@ -1550,7 +1551,8 @@ export class MediaService {
       archive.on('end', () => resolve());
       archive.pipe(res);
       for (const a of onDisk) {
-        const full = join(root, a.storageKey);
+        const full = this.absolutePathForBasename(a.storageKey);
+        if (!full) continue;
         archive.append(createReadStream(full), { name: a.originalName || basename(a.storageKey) });
         ids.push(a.id);
         filesInZip += 1;
@@ -1800,13 +1802,23 @@ export class MediaService {
 
     let inboxFile: string | null = null;
     let root: string | null = null;
-    for (const base of combellDataSiteUploadsCandidates()) {
-      const candidate = join(base, 'inbox', safe);
+    const inboxBases = [
+      ...combellDataSiteUploadsCandidates(),
+      this.root(),
+      resolveMediaRoot(),
+      ...combellHostingDiscoveryPaths(),
+    ];
+    const seenBases = new Set<string>();
+    for (const base of inboxBases) {
+      const normalized = base.replace(/\\/g, '/').replace(/\/+$/, '') || base;
+      if (seenBases.has(normalized)) continue;
+      seenBases.add(normalized);
+      const candidate = join(normalized, 'inbox', safe);
       try {
         if (existsSync(candidate) && statSync(candidate).isFile()) {
-          if (tryWritableMediaDir(base)) {
+          if (tryWritableMediaDir(normalized)) {
             inboxFile = candidate;
-            root = base;
+            root = normalized;
             break;
           }
         }
@@ -1816,7 +1828,7 @@ export class MediaService {
     }
 
     if (!inboxFile || !root) {
-      const hint = combellDataSiteUploadsCandidates()
+      const hint = [...seenBases]
         .map((b) => `${b}/inbox/${safe}`)
         .join(' of ');
       throw new BadRequestException(
@@ -1953,7 +1965,7 @@ export class MediaService {
       take: 20,
     });
     const root = this.root();
-    const onDisk = rows.filter((r) => existsSync(join(root, r.storageKey)));
+    const onDisk = rows.filter((r) => this.absolutePathForBasename(r.storageKey));
     if (!onDisk.length) return null;
     if (zipName) return onDisk[0]!;
     const modeshow = onDisk.find((r) => /modeshow/i.test(r.originalName));
@@ -1981,7 +1993,7 @@ export class MediaService {
       orderBy: { createdAt: 'desc' },
       select: { id: true, originalName: true, sizeBytes: true, storageKey: true, mimeType: true },
     });
-    if (!filmRow || !existsSync(join(this.root(), filmRow.storageKey))) return null;
+    if (!filmRow || !this.absolutePathForBasename(filmRow.storageKey)) return null;
     return filmRow;
   }
 
@@ -2086,8 +2098,8 @@ export class MediaService {
       where: { id: assetId, hardDeleted: false },
     });
     if (!row) throw new NotFoundException('Bestand niet gevonden.');
-    const full = join(this.root(), row.storageKey);
-    if (!existsSync(full)) throw new NotFoundException('Bestand ontbreekt op schijf.');
+    const full = this.absolutePathForBasename(row.storageKey);
+    if (!full) throw new NotFoundException('Bestand ontbreekt op schijf.');
     const downloadName = await this.resolveDownloadFilename(row.storageKey);
     if (row.mimeType) res.setHeader('Content-Type', row.mimeType);
     res.setHeader(
@@ -2383,9 +2395,7 @@ export class MediaService {
     const missingSamples: { id: string; storageKey: string }[] = [];
     for (const a of sampleRows) {
       const key = this.resolvePublicFilename(a);
-      const onDisk =
-        existsSync(join(root, key)) ||
-        Boolean(this.lookupDiskRelativePath(basename(key)));
+      const onDisk = Boolean(this.absolutePathForBasename(key));
       if (!onDisk) {
         missingPrimary++;
         if (missingSamples.length < 8) {

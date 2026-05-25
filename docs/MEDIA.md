@@ -25,7 +25,10 @@
 
 **Git `shared/uploads`:** mediabestanden horen in de repo onder `shared/uploads/`. Combell voert verplicht `npm run build` uit (geen media-fetch in die stap — te zwaar). Foto’s komen op schijf via **Node-start** (`bootstrapMediaStorage` in `combell-dual-proxy`) of handmatig in admin (*Kopieer bundle → MEDIA_ROOT*). Optioneel: `npm run combell:build` in een eigen Docker-build haalt media wél tijdens build op.
 
-**Combell env:** alleen `MEDIA_ROOT=/app/shared/uploads`. Verwijder `MEDIA_SYNC_SOURCE` (niet dezelfde map als bestemming zetten).
+**Combell env (aanbevolen):**
+- `MEDIA_ROOT=/app/shared/uploads` (of laat leeg — de app kiest dan automatisch de rijkste schrijfbare map)
+- `CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads` als File Manager-bestanden onder `data/uploads` staan (100 GB quota)
+- **Verwijder** `MEDIA_SYNC_SOURCE` als die gelijk is aan `MEDIA_ROOT` (sync doet dan niets)
 
 **Definitieve aanpak (ingebouwd):**
 

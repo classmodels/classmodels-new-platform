@@ -282,7 +282,13 @@ function normalizeAbsoluteMediaRoot(configured: string): string {
     }
   }
 
-  if (syncOk && syncSrc && syncCount > 0 && (!configuredOk || configuredCount === 0)) {
+  if (
+    syncOk &&
+    syncSrc &&
+    syncCount > 0 &&
+    (!configuredOk || configuredCount === 0) &&
+    resolve(syncSrc) !== resolve(configured)
+  ) {
     console.error(
       `[media] MEDIA_ROOT (${configured}) ${!configuredOk ? 'bestaat niet' : 'bevat geen mediabestanden'} — gebruik MEDIA_SYNC_SOURCE=${syncSrc} (${syncCount} mediabestanden).`,
     );
@@ -401,39 +407,70 @@ function localAppMediaCandidates(): string[] {
   return [...new Set(out)];
 }
 
-/** Waar uploads naartoe mogen: MEDIA_ROOT wint als expliciet gezet en schrijfbaar. */
-export function resolveWritableMediaRoot(): string {
-  const mediaRoot = process.env.MEDIA_ROOT?.trim();
-  if (mediaRoot) {
-    const resolved = resolveMediaRoot();
-    if (tryWritableMediaDir(resolved)) {
-      return resolved.replace(/\\/g, '/').replace(/\/+$/, '') || resolved;
-    }
-  }
+/** Telt mediabestanden + video/zip voor keuze van canonieke schrijfmap. */
+function countRegisterableMediaFiles(dir: string): number {
+  return (
+    countMediaFilesShallow(dir, 2) +
+    countFilesWithExt(dir, /\.(mp4|webm|mov|m4v|zip)$/i, 2)
+  );
+}
 
-  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
-  if (explicit && tryWritableMediaDir(explicit)) {
-    return explicit.replace(/\\/g, '/').replace(/\/+$/, '') || explicit;
-  }
-  if (explicit) {
-    console.error(
-      `[media] CM_COMBELL_DATA_UPLOADS is gezet maar niet schrijfbaar: ${explicit} — Combell moet deze map aan de Node-container koppelen.`,
-    );
-  }
-
+function pickRichestWritableMediaDir(candidates: string[]): string | undefined {
   let bestDir: string | undefined;
   let bestCount = -1;
-  for (const dir of combellContainerMediaDirs()) {
+  const seen = new Set<string>();
+  for (const raw of candidates) {
+    const dir = raw.replace(/\\/g, '/').replace(/\/+$/, '') || raw;
+    if (seen.has(dir)) continue;
+    seen.add(dir);
     if (!tryWritableMediaDir(dir)) continue;
-    const n = countMediaFilesShallow(dir, 2);
+    const n = countRegisterableMediaFiles(dir);
     if (n > bestCount) {
       bestCount = n;
       bestDir = dir;
     }
   }
-  if (bestDir) {
-    return bestDir.replace(/\\/g, '/').replace(/\/+$/, '') || bestDir;
+  return bestDir;
+}
+
+/** Waar uploads naartoe mogen: rijkste **schrijfbare** map wint op Combell (data-site vs /app/shared). */
+export function resolveWritableMediaRoot(): string {
+  const candidates: string[] = [];
+  const mediaRootEnv = process.env.MEDIA_ROOT?.trim();
+  if (mediaRootEnv) candidates.push(resolveMediaRoot());
+  const dataExplicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
+  if (dataExplicit) candidates.push(dataExplicit);
+  candidates.push(...combellDataSiteUploadsCandidates());
+  candidates.push(...combellHostingDiscoveryPaths());
+
+  const richest = pickRichestWritableMediaDir(candidates);
+  if (richest) {
+    if (mediaRootEnv) {
+      const configured = resolveMediaRoot().replace(/\\/g, '/').replace(/\/+$/, '') || resolveMediaRoot();
+      const configuredCount = countRegisterableMediaFiles(configured);
+      const richestCount = countRegisterableMediaFiles(richest);
+      if (
+        isContainerAppHome(hostingHome()) &&
+        richest !== configured &&
+        richestCount > configuredCount + 10
+      ) {
+        console.error(
+          `[media] MEDIA_ROOT=${configured} (${configuredCount} bestanden) — schrijven naar rijkere map ${richest} (${richestCount}). ` +
+            `Zet CM_COMBELL_DATA_UPLOADS=${richest} in Combell env (en verwijder MEDIA_SYNC_SOURCE als die gelijk is aan MEDIA_ROOT).`,
+        );
+        return richest;
+      }
+      if (tryWritableMediaDir(configured)) return configured;
+    }
+    return richest;
   }
+
+  if (dataExplicit) {
+    console.error(
+      `[media] CM_COMBELL_DATA_UPLOADS is gezet maar niet schrijfbaar: ${dataExplicit} — Combell moet deze map aan de Node-container koppelen.`,
+    );
+  }
+
   return resolveMediaRoot();
 }
 

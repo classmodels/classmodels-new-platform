@@ -142,14 +142,33 @@ function resolvePersistentMediaDest(root) {
       return abs;
     }
     const home = process.env.HOME?.trim();
-    if (isContainerHome(home) && (raw.includes('/home/') || raw.includes('www/cm-media'))) {
-      console.error(
-        `[combell] MEDIA_ROOT=${raw} is niet zichtbaar in de Node-container — gebruik data-site of /app/shared/uploads.`,
-      );
-      for (const candidate of combellDataSiteUploadsCandidates()) {
-        if (tryWritableDir(candidate)) return path.resolve(candidate);
+    if (isContainerHome(home)) {
+      if (raw.includes('/home/') || raw.includes('www/cm-media')) {
+        console.error(
+          `[combell] MEDIA_ROOT=${raw} is niet zichtbaar in de Node-container — gebruik data-site of /app/shared/uploads.`,
+        );
+        for (const candidate of combellDataSiteUploadsCandidates()) {
+          if (tryWritableDir(candidate)) return path.resolve(candidate);
+        }
+        return combellContainerMediaDest(root);
       }
-      return combellContainerMediaDest(root);
+      let bestData = null;
+      let bestDataCount = 0;
+      for (const candidate of combellDataSiteUploadsCandidates()) {
+        if (!tryWritableDir(candidate)) continue;
+        const n = countMediaFiles(candidate);
+        if (n > bestDataCount) {
+          bestDataCount = n;
+          bestData = path.resolve(candidate);
+        }
+      }
+      const absCount = countMediaFiles(abs);
+      if (bestData && bestDataCount > absCount + 10) {
+        console.error(
+          `[combell] MEDIA_ROOT=${abs} (${absCount}) → data-site ${bestData} (${bestDataCount} mediabestanden)`,
+        );
+        return bestData;
+      }
     }
     try {
       fs.mkdirSync(abs, { recursive: true });

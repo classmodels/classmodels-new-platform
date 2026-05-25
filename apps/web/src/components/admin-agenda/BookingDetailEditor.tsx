@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ageFromIsoBirthYmd,
   fjString,
@@ -9,6 +9,7 @@ import {
   opmerkingenDisplayValue,
 } from '@/lib/agenda-booking-detail';
 import { agendaBookingPhotoPublicUrl } from '@/lib/agenda-booking-photo';
+import { getApiBase } from '@/lib/api';
 import { BookingNotificationLogSection } from '@/components/admin-agenda/BookingNotificationLogSection';
 import { GUEST_MINOR_PARENT_FIELD_KEYS } from '@/lib/agenda-guest-intake';
 
@@ -77,8 +78,35 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
 }: Props<T>) {
   const fj = detail.fieldsJson;
   const fotoStored = typeof fj.foto === 'string' ? fj.foto.trim() : '';
-  const photoSrc = fotoStored ? agendaBookingPhotoPublicUrl(fotoStored) : '';
+  const photoPublicSrc = fotoStored ? agendaBookingPhotoPublicUrl(fotoStored) : '';
+  const [photoSrc, setPhotoSrc] = useState(photoPublicSrc);
   const [photoErr, setPhotoErr] = useState(false);
+
+  useEffect(() => {
+    setPhotoErr(false);
+    setPhotoSrc(photoPublicSrc);
+    if (!fotoStored || !adminToken || !detail.id) return;
+    let revoked: string | undefined;
+    const ac = new AbortController();
+    void (async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/admin/agenda/bookings/${detail.id}/photo`, {
+          headers: { Authorization: `Bearer ${adminToken}` },
+          signal: ac.signal,
+        });
+        if (!res.ok) return;
+        const blob = await res.blob();
+        revoked = URL.createObjectURL(blob);
+        setPhotoSrc(revoked);
+      } catch {
+        /* fallback: publicMediaUrl */
+      }
+    })();
+    return () => {
+      ac.abort();
+      if (revoked) URL.revokeObjectURL(revoked);
+    };
+  }, [detail.id, adminToken, fotoStored, photoPublicSrc]);
 
   const geb = fjString(fj, 'geboortedatum');
   const age = geb ? ageFromIsoBirthYmd(geb) : null;
