@@ -24,8 +24,7 @@ const publicPort = parseInt(process.env.PORT || '3000', 10);
 const maxBootMs = parseInt(process.env.COMBELL_DUAL_BOOT_MS || '180000', 10);
 const strictNest = String(process.env.COMBELL_DUAL_STRICT_NEST || '').trim() === '1';
 /** Grote ZIP-uploads (tot ~6 GB): lange request-timeout op proxy + upstream. */
-/** Standaard 6 uur — enkele POST ZIP tot ~6 GB. */
-const uploadTimeoutMs = parseInt(process.env.COMBELL_UPLOAD_TIMEOUT_MS || '21600000', 10);
+const uploadTimeoutMs = parseInt(process.env.COMBELL_UPLOAD_TIMEOUT_MS || '7200000', 10);
 
 const taken = new Set([publicPort]);
 function pickPort(envKey, fallback) {
@@ -96,9 +95,6 @@ function forward(req, res, port) {
     if (!res.headersSent) res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end(`Upstream fout (${port}): ${e.message}`);
   });
-  /** Geen socket-timeout tijdens lange uploads (chunked of enkelvoudige ZIP). */
-  req.setTimeout(0);
-  res.setTimeout(0);
   req.pipe(p);
 }
 
@@ -129,7 +125,6 @@ function spawnNext() {
       ...process.env,
       PORT: String(webPort),
       COMBELL_HOST_ROUTER: '0',
-      COMBELL_WEB_WORKER: '1',
       CM_API_INTERNAL_URL: `http://127.0.0.1:${nestPort}`,
     },
   });
@@ -167,7 +162,6 @@ function nestChildEnv() {
     API_HOST: '127.0.0.1',
     API_PORT: String(nestPort),
     COMBELL_HOST_ROUTER: '0',
-    COMBELL_NEST_WORKER: '1',
   };
 }
 
@@ -256,17 +250,11 @@ function shouldRouteToNest(req) {
   if (pathOnly.startsWith('/__cm_api/') || pathOnly === '/__cm_api') {
     return true;
   }
-  /** Media op www zonder proxy-prefix (GET publiek; POST uploads rechtstreeks naar Nest). */
-  if (pathOnly.startsWith('/media/')) {
-    if (req.method === 'GET' || req.method === 'HEAD') return true;
-    if (req.method === 'POST') return true;
-  }
-  /** Agenda-foto's en legacy static uploads (`/uploads/agenda/…`). */
-  if (pathOnly.startsWith('/uploads/')) {
-    if (req.method === 'GET' || req.method === 'HEAD') return true;
-  }
-  /** Boekingen/agenda-uploads zonder `/__cm_api` (bv. verkeerde client-URL). */
-  if (req.method === 'POST' && (pathOnly.startsWith('/agenda/') || pathOnly.startsWith('/portal/'))) {
+  /** Publieke media op www zonder proxy-prefix (e-mail / oude links). */
+  if (
+    (req.method === 'GET' || req.method === 'HEAD') &&
+    pathOnly.startsWith('/media/')
+  ) {
     return true;
   }
   return hostToNest(effectiveHost(req));
@@ -290,23 +278,8 @@ async function bootBackends() {
 
   runCombellDbSetup(root);
   const boot = bootstrapMediaStorage(root);
-  let mediaRoot = boot.mediaRoot || resolvePersistentMediaDest(root);
-  const { combellDataSiteUploadsCandidates } = require('./combell-sync-media-uploads.cjs');
-  const dataCandidates = combellDataSiteUploadsCandidates();
-  for (const candidate of dataCandidates) {
-    try {
-      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
-        mediaRoot = candidate;
-        process.env.CM_COMBELL_DATA_UPLOADS = candidate;
-        console.error(`[combell-dual] data-site uploads zichtbaar → MEDIA_ROOT=${mediaRoot}`);
-        break;
-      }
-    } catch {
-      /**/
-    }
-  }
+  const mediaRoot = boot.mediaRoot || resolvePersistentMediaDest(root);
   process.env.MEDIA_ROOT = mediaRoot;
-  process.env.COMBELL_HOST_ROUTER = '1';
   console.error(
     `[combell-dual] MEDIA_ROOT=${mediaRoot} (bron ${boot.srcCount ?? '?'} → schijf ${boot.destCount ?? '?'})`,
   );

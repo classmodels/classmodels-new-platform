@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, readdirSync, statSync } from 'fs';
 import type { Dirent } from 'fs';
 import { homedir } from 'os';
 import { isAbsolute, join, resolve } from 'path';
@@ -51,152 +51,9 @@ function isContainerAppHome(home: string | undefined): boolean {
   return h === '/app' || h.endsWith('/app');
 }
 
-/** Combell data-site pad (deelt de 100 GB webhosting-quota, niet de kleine /app/shared-container). */
-export function combellDataSiteUploadsCandidates(): string[] {
-  const out: string[] = [];
-  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
-  if (explicit) out.push(explicit);
-  const siteUser = process.env.CM_COMBELL_SITE_USER?.trim() || 'class-modelsbe';
-  out.push(`/data/sites/web/${siteUser}/www/cm-media/uploads`);
-  out.push('/data/sites/web/class-modelsbe/www/cm-media/uploads');
-  return [...new Set(out.map((p) => p.replace(/\\/g, '/').replace(/\/+/g, '/')))];
-}
-
-/**
- * Alle plekken waar mediabestanden op Combell kunnen staan.
- * File Manager toont vaak map `data/` (niet `www/cm-media/uploads`).
- * Node-container gebruikt vaak `/app/shared/uploads` (niet zichtbaar in File Manager).
- */
-export function combellHostingDiscoveryPaths(): string[] {
-  const out: string[] = [];
-  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
-  if (explicit) out.push(explicit);
-  const siteUser = process.env.CM_COMBELL_SITE_USER?.trim() || 'class-modelsbe';
-  const base = `/data/sites/web/${siteUser}`;
-  out.push(
-    `${base}/data`,
-    `${base}/data/uploads`,
-    `${base}/www/cm-media/uploads`,
-    `${base}/shared/uploads`,
-    '/data/sites/web/class-modelsbe/data',
-    '/data/sites/web/class-modelsbe/data/uploads',
-    '/data/sites/web/class-modelsbe/www/cm-media/uploads',
-    '/app/shared/uploads',
-    '/app/shared',
-  );
-  const home = hostingHome();
-  if (home && !isContainerAppHome(home)) {
-    out.push(join(home, 'data'), join(home, 'www', 'cm-media', 'uploads'));
-  }
-  const sync = process.env.MEDIA_SYNC_SOURCE?.trim();
-  if (sync) out.push(sync);
-  return [...new Set(out.map((p) => p.replace(/\\/g, '/').replace(/\/+/g, '/')))];
-}
-
-/** Bestaande mappen uit discovery-lijst. */
-export function existingHostingDiscoveryPaths(): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const raw of combellHostingDiscoveryPaths()) {
-    const dir = raw.replace(/\/+$/, '') || raw;
-    if (seen.has(dir)) continue;
-    try {
-      if (existsSync(dir) && statSync(dir).isDirectory()) {
-        seen.add(dir);
-        out.push(dir);
-      }
-    } catch {
-      /**/
-    }
-  }
-  return out;
-}
-
-function countFilesWithExt(dir: string, extRe: RegExp, maxDepth = 3): number {
-  let n = 0;
-  const walk = (d: string, depth: number) => {
-    if (n > 20000 || depth > maxDepth) return;
-    let entries: Dirent[];
-    try {
-      entries = readdirSync(d, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const ent of entries) {
-      if (n > 20000) return;
-      const p = join(d, ent.name);
-      if (ent.isFile() && extRe.test(ent.name)) n += 1;
-      else if (ent.isDirectory()) walk(p, depth + 1);
-    }
-  };
-  try {
-    walk(dir, 0);
-  } catch {
-    return 0;
-  }
-  return n;
-}
-
-export function inventoryHostingMediaPaths(maxDepth = 3): Array<{
-  dir: string;
-  exists: boolean;
-  writable: boolean;
-  imageFiles: number;
-  jpgFiles: number;
-}> {
-  return combellHostingDiscoveryPaths().map((dir) => {
-    let exists = false;
-    let writable = false;
-    let imageFiles = 0;
-    let jpgFiles = 0;
-    try {
-      exists = existsSync(dir) && statSync(dir).isDirectory();
-      if (exists) {
-        writable = tryWritableMediaDir(dir);
-        imageFiles = countMediaFilesShallow(dir, maxDepth);
-        jpgFiles = countFilesWithExt(dir, /\.(jpe?g)$/i, maxDepth);
-      }
-    } catch {
-      /**/
-    }
-    return { dir, exists, writable, imageFiles, jpgFiles };
-  });
-}
-
-function isCombellDataSiteMediaPath(p: string): boolean {
-  const n = p.replace(/\\/g, '/');
-  return n.includes('/data/sites/web/') && n.includes('cm-media');
-}
-
-/** Test of map bestaat en schrijfbaar is (korte write-test). */
-export function tryWritableMediaDir(dir: string): boolean {
-  try {
-    mkdirSync(dir, { recursive: true });
-    if (!existsSync(dir) || !statSync(dir).isDirectory()) return false;
-    accessSync(dir, constants.W_OK);
-    const probe = join(dir, `.cm-write-probe-${process.pid}`);
-    writeFileSync(probe, '1');
-    unlinkSync(probe);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Vrije bytes op het filesystem van `dir` (null als onbekend). */
-export function mediaDirFreeBytes(dir: string): number | null {
-  try {
-    const { statfsSync } = require('node:fs') as typeof import('fs');
-    const s = statfsSync(dir);
-    return Number(s.bfree) * Number(s.bsize);
-  } catch {
-    return null;
-  }
-}
-
-/** Persistent uploads: alle bekende hosting-paden + container /app/shared. */
+/** Persistent uploads in Combell Node-container (support: ./shared → /app/shared). */
 function combellContainerMediaDirs(): string[] {
-  return combellHostingDiscoveryPaths();
+  return ['/app/shared/uploads', '/app/shared'];
 }
 
 /** Combell-fout: absolute pad `/www/cm-media/uploads` (zonder home) bestaat niet of is leeg. */
@@ -230,10 +87,6 @@ function tryFixRootlessWwwCmMediaPath(configured: string): string | null {
  * Absolute MEDIA_ROOT normaliseren: veelvoorkomende Combell-fouten en lege map vóór sync-bron.
  */
 function normalizeAbsoluteMediaRoot(configured: string): string {
-  if (isCombellDataSiteMediaPath(configured) && tryWritableMediaDir(configured)) {
-    return configured.replace(/\\/g, '/').replace(/\/+$/, '') || configured;
-  }
-
   if (isContainerAppHome(hostingHome()) && (configured.includes('/home/') || configured.includes('www/cm-media'))) {
     const containerDir = combellContainerMediaDirs().find((d) => {
       try {
@@ -282,13 +135,7 @@ function normalizeAbsoluteMediaRoot(configured: string): string {
     }
   }
 
-  if (
-    syncOk &&
-    syncSrc &&
-    syncCount > 0 &&
-    (!configuredOk || configuredCount === 0) &&
-    resolve(syncSrc) !== resolve(configured)
-  ) {
+  if (syncOk && syncSrc && syncCount > 0 && (!configuredOk || configuredCount === 0)) {
     console.error(
       `[media] MEDIA_ROOT (${configured}) ${!configuredOk ? 'bestaat niet' : 'bevat geen mediabestanden'} — gebruik MEDIA_SYNC_SOURCE=${syncSrc} (${syncCount} mediabestanden).`,
     );
@@ -392,7 +239,6 @@ function preferredHostingMediaDirs(): string[] {
   const home = hostingHome();
   if (home && !isContainerAppHome(home)) out.push(join(home, 'www/cm-media/uploads'));
   out.push('/home/ID460044/www/cm-media/uploads');
-  for (const d of combellDataSiteUploadsCandidates()) out.push(d);
   return [...new Set(out.map((p) => p.replace(/\\/g, '/')))];
 }
 
@@ -407,73 +253,6 @@ function localAppMediaCandidates(): string[] {
   return [...new Set(out)];
 }
 
-/** Telt mediabestanden + video/zip voor keuze van canonieke schrijfmap. */
-function countRegisterableMediaFiles(dir: string): number {
-  return (
-    countMediaFilesShallow(dir, 2) +
-    countFilesWithExt(dir, /\.(mp4|webm|mov|m4v|zip)$/i, 2)
-  );
-}
-
-function pickRichestWritableMediaDir(candidates: string[]): string | undefined {
-  let bestDir: string | undefined;
-  let bestCount = -1;
-  const seen = new Set<string>();
-  for (const raw of candidates) {
-    const dir = raw.replace(/\\/g, '/').replace(/\/+$/, '') || raw;
-    if (seen.has(dir)) continue;
-    seen.add(dir);
-    if (!tryWritableMediaDir(dir)) continue;
-    const n = countRegisterableMediaFiles(dir);
-    if (n > bestCount) {
-      bestCount = n;
-      bestDir = dir;
-    }
-  }
-  return bestDir;
-}
-
-/** Waar uploads naartoe mogen: rijkste **schrijfbare** map wint op Combell (data-site vs /app/shared). */
-export function resolveWritableMediaRoot(): string {
-  const candidates: string[] = [];
-  const mediaRootEnv = process.env.MEDIA_ROOT?.trim();
-  if (mediaRootEnv) candidates.push(resolveMediaRoot());
-  const dataExplicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
-  if (dataExplicit) candidates.push(dataExplicit);
-  candidates.push(...combellDataSiteUploadsCandidates());
-  candidates.push(...combellHostingDiscoveryPaths());
-
-  const richest = pickRichestWritableMediaDir(candidates);
-  if (richest) {
-    if (mediaRootEnv) {
-      const configured = resolveMediaRoot().replace(/\\/g, '/').replace(/\/+$/, '') || resolveMediaRoot();
-      const configuredCount = countRegisterableMediaFiles(configured);
-      const richestCount = countRegisterableMediaFiles(richest);
-      if (
-        isContainerAppHome(hostingHome()) &&
-        richest !== configured &&
-        richestCount > configuredCount + 10
-      ) {
-        console.error(
-          `[media] MEDIA_ROOT=${configured} (${configuredCount} bestanden) — schrijven naar rijkere map ${richest} (${richestCount}). ` +
-            `Zet CM_COMBELL_DATA_UPLOADS=${richest} in Combell env (en verwijder MEDIA_SYNC_SOURCE als die gelijk is aan MEDIA_ROOT).`,
-        );
-        return richest;
-      }
-      if (tryWritableMediaDir(configured)) return configured;
-    }
-    return richest;
-  }
-
-  if (dataExplicit) {
-    console.error(
-      `[media] CM_COMBELL_DATA_UPLOADS is gezet maar niet schrijfbaar: ${dataExplicit} — Combell moet deze map aan de Node-container koppelen.`,
-    );
-  }
-
-  return resolveMediaRoot();
-}
-
 export function resolveMediaRoot(): string {
   const raw = process.env.MEDIA_ROOT?.trim();
   if (raw) {
@@ -482,11 +261,15 @@ export function resolveMediaRoot(): string {
 
   if (isContainerAppHome(hostingHome())) {
     for (const dir of combellContainerMediaDirs()) {
-      if (tryWritableMediaDir(dir)) {
-        if (process.env.NODE_ENV === 'production') {
-          console.error(`[media] Combell: MEDIA_ROOT → ${dir}`);
+      try {
+        if (existsSync(dir) && statSync(dir).isDirectory()) {
+          if (process.env.NODE_ENV === 'production') {
+            console.error(`[media] Combell-container: gebruik ${dir}`);
+          }
+          return dir;
         }
-        return dir;
+      } catch {
+        /**/
       }
     }
     return '/app/shared/uploads';

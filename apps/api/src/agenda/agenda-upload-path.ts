@@ -1,10 +1,6 @@
 import { existsSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
-import {
-  combellHostingDiscoveryPaths,
-  resolveMediaRoot,
-  resolveWritableMediaRoot,
-} from '../config/resolve-media-root';
+import { resolveMediaRoot } from '../config/resolve-media-root';
 
 const AGENDA_UPLOAD_NAME_RE = /^[a-z0-9][a-z0-9._-]{2,190}$/i;
 
@@ -59,24 +55,21 @@ export function agendaUploadPublicPath(filename: string): string {
   return `/agenda/uploads/${encodeURIComponent(safe)}`;
 }
 
-/** Zoek bestand: eerst MEDIA_ROOT (zelfde als static), daarna andere schrijfbare mappen (oude uploads). */
+/** Zoek bestand onder MEDIA_ROOT/agenda (legacy uploads). */
 export function resolveAgendaUploadAbsolutePath(stored: string | null | undefined): string | null {
   const name = agendaUploadFilename(stored);
   if (!name) return null;
-
-  const candidates = new Set<string>();
-  candidates.add(join(resolveMediaRoot(), 'agenda', name));
-  candidates.add(join(resolveWritableMediaRoot(), 'agenda', name));
-  for (const root of combellHostingDiscoveryPaths()) {
-    candidates.add(join(root, 'agenda', name));
+  const fp = join(resolveMediaRoot(), 'agenda', name);
+  try {
+    if (existsSync(fp)) return fp;
+  } catch {
+    /**/
   }
-
-  for (const fp of candidates) {
-    try {
-      if (existsSync(fp)) return fp;
-    } catch {
-      /**/
-    }
+  const flat = join(resolveMediaRoot(), name);
+  try {
+    if (existsSync(flat)) return flat;
+  } catch {
+    /**/
   }
   return null;
 }

@@ -13,26 +13,6 @@ const fs = require('fs');
 const path = require('path');
 
 /** Telt bestanden recursief (cap tegen enorme bomen). */
-function isNoSpaceError(err) {
-  return err && (err.code === 'ENOSPC' || err.code === 'EDQUOT' || /no space left/i.test(String(err.message)));
-}
-
-/** Kopieer zonder de build te laten crashen als /app/shared vol is. */
-function safeCpSync(src, dest, label) {
-  try {
-    fs.cpSync(src, dest, { recursive: true, force: true });
-    return true;
-  } catch (err) {
-    if (isNoSpaceError(err)) {
-      console.error(
-        `[combell] ${label}: schijf vol (${dest}) — overgeslagen. Zet CM_COMBELL_DATA_UPLOADS op de data-site map.`,
-      );
-      return false;
-    }
-    throw err;
-  }
-}
-
 function countMediaFiles(dir) {
   let n = 0;
   const max = 20000;
@@ -72,32 +52,8 @@ function isContainerHome(home) {
   return h === '/app' || h.endsWith('/app');
 }
 
-function combellDataSiteUploadsCandidates() {
-  const out = [];
-  const explicit = process.env.CM_COMBELL_DATA_UPLOADS?.trim();
-  if (explicit) out.push(explicit);
-  const siteUser = process.env.CM_COMBELL_SITE_USER?.trim() || 'class-modelsbe';
-  out.push(path.join('/data/sites/web', siteUser, 'www/cm-media/uploads'));
-  out.push('/data/sites/web/class-modelsbe/www/cm-media/uploads');
-  return [...new Set(out)];
-}
-
-function tryWritableDir(dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return false;
-    const probe = path.join(dir, `.cm-write-probe-${process.pid}`);
-    fs.writeFileSync(probe, '1');
-    fs.unlinkSync(probe);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function hostingMediaSources(root) {
   const out = [];
-  for (const d of combellDataSiteUploadsCandidates()) out.push(d);
   const fromEnv = process.env.MEDIA_SYNC_SOURCE?.trim();
   if (fromEnv) out.push(fromEnv);
   const home = process.env.HOME?.trim();
@@ -138,37 +94,12 @@ function resolvePersistentMediaDest(root) {
   const raw = process.env.MEDIA_ROOT?.trim();
   if (raw && path.isAbsolute(raw)) {
     const abs = path.resolve(raw);
-    if (raw.includes('/data/sites/web/') && tryWritableDir(abs)) {
-      return abs;
-    }
     const home = process.env.HOME?.trim();
-    if (isContainerHome(home)) {
-      if (raw.includes('/home/') || raw.includes('www/cm-media')) {
-        console.error(
-          `[combell] MEDIA_ROOT=${raw} is niet zichtbaar in de Node-container — gebruik data-site of /app/shared/uploads.`,
-        );
-        for (const candidate of combellDataSiteUploadsCandidates()) {
-          if (tryWritableDir(candidate)) return path.resolve(candidate);
-        }
-        return combellContainerMediaDest(root);
-      }
-      let bestData = null;
-      let bestDataCount = 0;
-      for (const candidate of combellDataSiteUploadsCandidates()) {
-        if (!tryWritableDir(candidate)) continue;
-        const n = countMediaFiles(candidate);
-        if (n > bestDataCount) {
-          bestDataCount = n;
-          bestData = path.resolve(candidate);
-        }
-      }
-      const absCount = countMediaFiles(abs);
-      if (bestData && bestDataCount > absCount + 10) {
-        console.error(
-          `[combell] MEDIA_ROOT=${abs} (${absCount}) → data-site ${bestData} (${bestDataCount} mediabestanden)`,
-        );
-        return bestData;
-      }
+    if (isContainerHome(home) && (raw.includes('/home/') || raw.includes('www/cm-media'))) {
+      console.error(
+        `[combell] MEDIA_ROOT=${raw} is niet zichtbaar in de Node-container — gebruik /app/shared/uploads (Combell persistent).`,
+      );
+      return combellContainerMediaDest(root);
     }
     try {
       fs.mkdirSync(abs, { recursive: true });
@@ -178,13 +109,6 @@ function resolvePersistentMediaDest(root) {
     return abs;
   }
   if (isContainerHome(process.env.HOME?.trim())) {
-    for (const candidate of combellDataSiteUploadsCandidates()) {
-      if (tryWritableDir(candidate)) {
-        console.error(`[combell] Node-container: MEDIA_ROOT → ${path.resolve(candidate)} (data-site, 100 GB quota)`);
-        return path.resolve(candidate);
-      }
-    }
-    console.error('[combell] Node-container: data-site niet schrijfbaar — fallback /app/shared/uploads');
     return combellContainerMediaDest(root);
   }
   for (const candidate of hostingMediaSources(root)) {
@@ -283,22 +207,9 @@ function migrateDeployMediaBundleToDest(root, dest) {
     );
     return { ok: true, srcCount, destCount, dest: destAbs, skipped: true };
   }
-  if (isContainerHome(process.env.HOME?.trim()) && destAbs.startsWith('/app/shared')) {
-    const dataSite = combellDataSiteUploadsCandidates().find((d) => tryWritableDir(d));
-    if (dataSite) {
-      console.error(`[combell] media bundle: container — data-site ${dataSite} i.p.v. volle ${destAbs}`);
-      return migrateDeployMediaBundleToDest(root, dataSite);
-    }
-    console.error(
-      `[combell] media bundle: overslaan (doel ${destAbs} vaak vol in container; sync bij Node-start met CM_COMBELL_DATA_UPLOADS)`,
-    );
-    return { ok: true, srcCount, destCount, dest: destAbs, skipped: true, reason: 'container-shared-full' };
-  }
   console.error(`[combell] media bundle: ${src} (${srcCount}) → ${destAbs} (was ${destCount})`);
   fs.mkdirSync(destAbs, { recursive: true });
-  if (!safeCpSync(src, destAbs, 'media bundle')) {
-    return { ok: true, srcCount, destCount, dest: destAbs, skipped: true, reason: 'enospc' };
-  }
+  fs.cpSync(src, destAbs, { recursive: true, force: true });
   const after = countMediaFiles(destAbs);
   console.error(`[combell] media bundle OK (${after} mediabestanden in MEDIA_ROOT)`);
   return { ok: true, srcCount, destCount: after, dest: destAbs, copied: true };
@@ -336,7 +247,7 @@ function migrateReleaseUploadsIfNewer(root, dest) {
   if (eCount > 0 && pCount === 0) {
     console.error(`[combell] media: migreren ${eCount} bestanden uit release-map → ${destAbs}`);
     fs.mkdirSync(destAbs, { recursive: true });
-    safeCpSync(ephemeral, destAbs, 'release uploads');
+    fs.cpSync(ephemeral, destAbs, { recursive: true, force: true });
   }
 }
 
@@ -367,7 +278,7 @@ function syncHostingMediaToApp(root, destArg) {
   }
   console.error(`[combell] media sync: ${src} (${srcCount}) → ${dest}`);
   fs.mkdirSync(dest, { recursive: true });
-  if (!safeCpSync(src, dest, 'media sync')) return false;
+  fs.cpSync(src, dest, { recursive: true, force: true });
   console.error(`[combell] media sync OK (${countMediaFiles(dest)} mediabestanden in doel)`);
   return true;
 }
@@ -381,30 +292,17 @@ module.exports = {
   bootstrapMediaStorage,
   countMediaFiles,
   deployMediaBundlePath,
-  combellDataSiteUploadsCandidates,
 };
 
 if (require.main === module) {
   const root = path.resolve(__dirname, '..');
-  const buildOnlyStage = String(process.env.COMBELL_BUILD_ONLY_STAGE || '').trim() === '1';
-  try {
-    if (buildOnlyStage) {
-      console.error('[combell] pipeline build: alleen media-bundle stagen (geen kopie naar /app/shared)');
-      stageRepoSharedMediaBundle(root);
-    } else {
-      bootstrapMediaStorage(root);
-      const dest = resolvePersistentMediaDest(root);
-      syncHostingMediaToApp(root, dest);
-    }
-  } catch (err) {
-    if (isNoSpaceError(err)) {
-      console.error('[combell] media stap overgeslagen: schijf vol — build gaat door; sync bij Node-start.');
-    } else {
-      throw err;
-    }
-  }
-  if (!buildOnlyStage) {
-    console.error('[combell] media sync overgeslagen indien geen bron (ok tijdens build; sync bij Node-start)');
+  bootstrapMediaStorage(root);
+  const dest = resolvePersistentMediaDest(root);
+  const ok = syncHostingMediaToApp(root, dest);
+  if (!ok) {
+    console.error(
+      '[combell] media sync overgeslagen (www niet bereikbaar tijdens build — ok; sync bij Node-start)',
+    );
   }
   process.exit(0);
 }

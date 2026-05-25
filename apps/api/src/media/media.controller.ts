@@ -20,18 +20,15 @@ import { diskStorage, memoryStorage } from 'multer';
 import { mkdirSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { basename, extname, join } from 'path';
-import { resolveWritableMediaRoot } from '../config/resolve-media-root';
+import { resolveMediaRoot } from '../config/resolve-media-root';
 import { mediaZipUploadMaxBytes } from './media-zip-import';
 import type { Response } from 'express';
 import {
   CreateMediaFolderDto,
-  FinishZipChunkedDto,
-  InitZipChunkedDto,
   MoveAssetsFolderDto,
   MoveToTrashDto,
   UpdateFolderSettingsDto,
 } from './dto/media-admin.dto';
-import { ZIP_UPLOAD_CHUNK_BYTES } from './media-zip-chunked';
 import { MediaService } from './media.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
@@ -42,8 +39,6 @@ import type { JwtPayload } from '../auth/jwt.strategy';
 const PUBLIC_FILE_MIME: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
-  '.mov': 'video/quicktime',
-  '.m4v': 'video/x-m4v',
   '.ogv': 'video/ogg',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -56,7 +51,7 @@ const PUBLIC_FILE_MIME: Record<string, string> = {
 };
 
 function zipUploadTmpDir(): string {
-  const dir = join(resolveWritableMediaRoot(), '.zip-upload-tmp');
+  const dir = join(resolveMediaRoot(), '.zip-upload-tmp');
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -135,15 +130,6 @@ export class MediaController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.read')
-  @Get('library/asset-ids')
-  libraryAssetIds(@Query('folderId') folderId?: string, @Query('q') q?: string) {
-    const fid = folderId?.trim();
-    if (!fid) return { error: 'folderId is verplicht' };
-    return this.media.listFolderAssetIds(fid, q);
-  }
-
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('folders/ensure-defaults')
   ensureFolders() {
@@ -185,7 +171,7 @@ export class MediaController {
     return this.media.saveFile(file, req.user.sub, folderId, label ? { fileLabel: label } : undefined);
   }
 
-  /** ZIP (tot ~6 GB) → als één bestand in gekozen mediamap (niet uitpakken). */
+  /** ZIP (tot ~6 GB) → uitpakken op schijf → mediaregels in gekozen map. */
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('upload-zip')
@@ -216,56 +202,6 @@ export class MediaController {
     return this.media.importZipUpload(file, req.user.sub, fid);
   }
 
-  /** Start chunked ZIP (grote bestanden, ±32 MB per request). */
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.write')
-  @Post('upload-zip/init')
-  async initZipChunked(@Body() body: InitZipChunkedDto, @Req() req: { user: JwtPayload }) {
-    return this.media.initZipChunkedUpload(
-      body.folderId,
-      body.fileName.trim(),
-      Math.floor(body.totalSize),
-      req.user.sub,
-    );
-  }
-
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.write')
-  @Post('upload-zip/chunk')
-  @UseInterceptors(
-    FileInterceptor('chunk', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          cb(null, zipUploadTmpDir());
-        },
-        filename: (_req, _file, cb) => {
-          cb(null, `chunk-${randomUUID()}`);
-        },
-      }),
-      limits: { fileSize: ZIP_UPLOAD_CHUNK_BYTES + 4 * 1024 * 1024 },
-    }),
-  )
-  uploadZipChunk(
-    @UploadedFile() file: Express.Multer.File,
-    @Req() req: { user: JwtPayload },
-    @Query('uploadId') uploadId?: string,
-    @Query('chunkIndex') chunkIndex?: string,
-  ) {
-    if (!file?.path) return { error: 'Geen chunk' };
-    const id = uploadId?.trim();
-    if (!id) return { error: 'uploadId is verplicht' };
-    const idx = chunkIndex != null ? parseInt(chunkIndex, 10) : NaN;
-    if (!Number.isFinite(idx)) return { error: 'chunkIndex is verplicht' };
-    return this.media.writeZipChunkedPart(id, idx, file.path, req.user.sub, file.size);
-  }
-
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.write')
-  @Post('upload-zip/finish')
-  finishZipChunked(@Body() body: FinishZipChunkedDto, @Req() req: { user: JwtPayload }) {
-    return this.media.finalizeZipChunkedUpload(body.uploadId, req.user.sub);
-  }
-
   /** Herstel: zelfde bestandsnaam als in DB, geen nieuw mediarecord. */
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
@@ -290,22 +226,6 @@ export class MediaController {
   @Get('admin/storage-info')
   storageInfo() {
     return this.media.getStorageDiagnostics();
-  }
-
-  /** ZIP al geüpload via Combell File Manager → www/cm-media/uploads/inbox/ */
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.write')
-  @Post('admin/import-inbox-zip')
-  importInboxZip(
-    @Req() req: { user: JwtPayload },
-    @Query('folderId') folderId?: string,
-    @Query('fileName') fileName?: string,
-  ) {
-    const fid = folderId?.trim();
-    if (!fid) return { error: 'folderId is verplicht' };
-    const name = fileName?.trim();
-    if (!name) return { error: 'fileName is verplicht (bv. modeshow.zip)' };
-    return this.media.importZipFromHostingInbox(name, fid, req.user.sub);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -392,35 +312,6 @@ export class MediaController {
   ) {
     const n = limit ? parseInt(limit, 10) : 40;
     return this.media.convertFolderPrimaryToJpeg(folderId, Number.isFinite(n) ? n : 40);
-  }
-
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.write')
-  @Post('folders/:folderId/convert-webp-only')
-  convertWebpOnly(
-    @Param('folderId', ParseUUIDPipe) folderId: string,
-    @Query('limit') limit?: string,
-  ) {
-    const n = limit ? parseInt(limit, 10) : 200;
-    return this.media.reconcileFolderWebpOnly(folderId, Number.isFinite(n) ? n : 200);
-  }
-
-  /** Snel: alleen losse JPG/PNG wissen (WebP + thumb blijven). Kleine batches i.v.m. Combell-timeout. */
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.write')
-  @Post('folders/:folderId/purge-orphan-jpgs')
-  purgeOrphanJpgs(
-    @Param('folderId', ParseUUIDPipe) folderId: string,
-    @Query('limit') limit?: string,
-    @Query('skip') skip?: string,
-  ) {
-    const n = limit ? parseInt(limit, 10) : 80;
-    const s = skip ? parseInt(skip, 10) : 0;
-    return this.media.purgeOrphanJpgsFast(
-      folderId,
-      Number.isFinite(n) ? Math.min(n, 120) : 80,
-      Number.isFinite(s) ? Math.max(0, s) : 0,
-    );
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)

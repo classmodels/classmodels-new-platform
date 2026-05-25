@@ -9,7 +9,6 @@ import {
   mkdirSync,
   existsSync,
   unlinkSync,
-  renameSync,
   statSync,
   writeFileSync,
   readdirSync,
@@ -24,23 +23,8 @@ import type { Response } from 'express';
 import archiver from 'archiver';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
-import {
-  combellDataSiteUploadsCandidates,
-  combellHostingDiscoveryPaths,
-  countMediaFilesShallow,
-  inventoryHostingMediaPaths,
-  mediaDirFreeBytes,
-  resolveMediaRoot,
-  resolveWritableMediaRoot,
-  tryWritableMediaDir,
-} from '../config/resolve-media-root';
+import { countMediaFilesShallow, resolveMediaRoot } from '../config/resolve-media-root';
 import { PrismaService } from '../prisma/prisma.service';
-import {
-  assemblyPath,
-  assertZipChunkSessionComplete,
-  createZipChunkSession,
-  writeZipChunk,
-} from './media-zip-chunked';
 import sharp from 'sharp';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 import {
@@ -51,11 +35,11 @@ import {
   modeshowPhotosFolderSlugs,
   modeshowZipOriginalName,
 } from '../portal/modeshow-downloads.config';
+import { extractZipArchiveToMediaRoot } from './media-zip-import';
 
 /**
  * Hosting: zo licht mogelijk (opslag + bandbreedte), nog aanvaardbaar voor web.
- * Standaard: origineel (JPG/PNG) + WebP + thumb (3 bestanden).
- * Met `storeUploadsAsWebpOnly` op de map: alleen WebP + kleine thumb (2 bestanden).
+ * Het **originele uploadbestand** blijft op schijf; WebP + thumb zijn service-kopieën.
  */
 const WEBP_FULL_QUALITY = 78;
 const WEBP_THUMB_QUALITY = 72;
@@ -83,7 +67,7 @@ export function parseMediaFolderSettings(raw: unknown): MediaFolderSettings {
   const d = o.deleteDaysAfterModelDownload;
   let deleteDaysAfterModelDownload: number | undefined;
   if (typeof d === 'number' && Number.isFinite(d) && d > 0) {
-    deleteDaysAfterModelDownload = Math.min(Math.floor(d), 3650);
+    deleteDaysAfterModelDownload = Math.min(Math.floor(d), 365);
   }
   const w = o.storeUploadsAsWebpOnly;
   const storeUploadsAsWebpOnly = typeof w === 'boolean' ? w : undefined;
@@ -104,7 +88,7 @@ function mergeMediaFolderSettings(
   const next: MediaFolderSettings = { ...cur };
   if (patch.deleteDaysAfterModelDownload !== undefined) {
     if (patch.deleteDaysAfterModelDownload <= 0) delete next.deleteDaysAfterModelDownload;
-    else next.deleteDaysAfterModelDownload = Math.min(patch.deleteDaysAfterModelDownload, 3650);
+    else next.deleteDaysAfterModelDownload = Math.min(patch.deleteDaysAfterModelDownload, 365);
   }
   if (patch.storeUploadsAsWebpOnly !== undefined) {
     next.storeUploadsAsWebpOnly = patch.storeUploadsAsWebpOnly;
@@ -223,167 +207,21 @@ export class MediaService {
     return m;
   }
 
-  /** Absoluut pad op schijf (alle bekende Combell-mappen, niet alleen writable root). */
-  private absolutePathForBasename(filename: string): string | null {
-    const safe = basename(filename);
-    if (!safe || safe === '.' || safe.includes('..')) return null;
-    for (const root of this.mediaLookupRoots()) {
-      const direct = join(root, safe);
-      if (existsSync(direct)) return direct;
-      const nested = this.findFileInRoot(root, safe);
-      if (nested) return nested;
-    }
-    return null;
-  }
-
   /** Absoluut pad voor GET /media/public/:bestand (ook in submappen van MEDIA_ROOT). */
   resolveAbsolutePathForPublicFilename(filename: string): string | null {
-    return this.absolutePathForBasename(filename);
+    const safe = basename(filename);
+    if (!safe || safe === '.') return null;
+    const root = this.root();
+    const direct = join(root, safe);
+    if (existsSync(direct)) return direct;
+    const rel = this.lookupDiskRelativePath(safe);
+    if (!rel) return null;
+    const nested = join(root, rel);
+    return existsSync(nested) ? nested : null;
   }
 
   root() {
-    return resolveWritableMediaRoot();
-  }
-
-  /** Alle bekende mappen waar mediabestanden kunnen staan (incl. File Manager `data/`). */
-  private mediaLookupRoots(): string[] {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    const add = (raw: string) => {
-      const dir = resolve(raw.replace(/\/+$/, '') || raw);
-      if (seen.has(dir)) return;
-      try {
-        if (existsSync(dir) && statSync(dir).isDirectory()) {
-          seen.add(dir);
-          out.push(dir);
-        }
-      } catch {
-        /**/
-      }
-    };
-    add(this.root());
-    for (const d of combellHostingDiscoveryPaths()) add(d);
-    add(join(this.monorepoRoot(), 'apps', 'api', 'uploads'));
-    add(join(this.monorepoRoot(), 'shared', 'uploads'));
-    return out;
-  }
-
-  private safeUnlinkAllRoots(key: string | null | undefined) {
-    if (!key) return;
-    for (const root of this.mediaLookupRoots()) {
-      this.safeUnlink(root, key);
-    }
-  }
-
-  /** Verwijdert bestand overal waar het voorkomt (ook in submappen), niet alleen in maproot. */
-  private unlinkBasenameEverywhere(filename: string): boolean {
-    if (!filename || filename.includes('..') || filename.includes('/')) return false;
-    let removed = false;
-    for (const root of this.mediaLookupRoots()) {
-      const p = this.findFileInRoot(root, filename);
-      if (!p) continue;
-      try {
-        unlinkSync(p);
-        removed = true;
-      } catch {
-        /**/
-      }
-    }
-    return removed;
-  }
-
-  private purgeLegacyFormatsForBaseId(baseId: string, extraNames: string[] = []): number {
-    let n = 0;
-    const names = new Set<string>(extraNames);
-    for (const ext of ['.jpg', '.jpeg', '.png', '.gif', '.JPG', '.JPEG', '.PNG']) {
-      names.add(`${baseId}${ext}`);
-    }
-    for (const name of names) {
-      if (this.unlinkBasenameEverywhere(name)) n += 1;
-    }
-    return n;
-  }
-
-  /** Snel: alleen bestanden in de hoofdmap van elke media-root (geen diepe scan → geen proxy-timeout). */
-  private purgeOrphanJpgsTopLevel(maxPerRoot = 500): number {
-    let removed = 0;
-    const exts = /\.(jpe?g|png)$/i;
-    for (const root of this.mediaLookupRoots()) {
-      let names: string[];
-      try {
-        names = readdirSync(root);
-      } catch {
-        continue;
-      }
-      for (const name of names) {
-        if (removed >= maxPerRoot) break;
-        if (!exts.test(name)) continue;
-        const webp = join(root, `${name.replace(/\.[^.]+$/, '')}.webp`);
-        if (!existsSync(webp)) continue;
-        try {
-          unlinkSync(join(root, name));
-          removed += 1;
-        } catch {
-          /**/
-        }
-      }
-    }
-    return removed;
-  }
-
-  /**
-   * Snelle JPG-opruiming (geen Sharp, geen diepe schijfscan) — past binnen Combell-proxy-timeout.
-   */
-  async purgeOrphanJpgsFast(
-    folderId: string,
-    limit = 80,
-    skip = 0,
-  ): Promise<{
-    jpgsRemoved: number;
-    scanned: number;
-    skip: number;
-    hasMore: boolean;
-    totalInFolder: number;
-    mediaRoot: string;
-    lookupRoots: string[];
-  }> {
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
-    if (!folder) throw new NotFoundException();
-    if (folder.slug === 'testshoot') {
-      throw new BadRequestException('Testshoot: geen JPG-opruiming (ZIP gebruikt primair bestand).');
-    }
-
-    const totalInFolder = await this.prisma.mediaAsset.count({
-      where: { folderId: folder.id, hardDeleted: false, mimeType: { startsWith: 'image/' } },
-    });
-
-    let jpgsRemoved = skip === 0 ? this.purgeOrphanJpgsTopLevel(800) : 0;
-
-    const assets = await this.prisma.mediaAsset.findMany({
-      where: { folderId: folder.id, hardDeleted: false, mimeType: { startsWith: 'image/' } },
-      orderBy: { id: 'asc' },
-      skip,
-      take: limit,
-    });
-
-    for (const a of assets) {
-      const baseId = this.assetBaseId(a.storageKey);
-      const extra: string[] = [];
-      if (a.storageKey !== `${baseId}.webp`) extra.push(a.storageKey);
-      if (a.webpKey) extra.push(a.webpKey);
-      jpgsRemoved += this.purgeLegacyFormatsForBaseId(baseId, extra);
-    }
-
-    const nextSkip = skip + assets.length;
-    return {
-      jpgsRemoved,
-      scanned: assets.length,
-      skip: nextSkip,
-      hasMore: nextSkip < totalInFolder,
-      totalInFolder,
-      mediaRoot: this.root(),
-      lookupRoots: this.mediaLookupRoots(),
-    };
+    return resolveMediaRoot();
   }
 
   /** Alleen schijf (geen nieuw DB-record): herstel mediabestanden op productie met zelfde bestandsnaam als in DB. */
@@ -408,18 +246,17 @@ export class MediaService {
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string {
+    const root = this.root();
     for (const k of [asset.thumbKey, asset.webpKey, asset.storageKey]) {
       if (!k) continue;
-      const base = basename(k);
-      if (this.absolutePathForBasename(base)) return base;
+      if (existsSync(join(root, k))) return k;
+      const rel = this.lookupDiskRelativePath(basename(k));
+      if (rel) return basename(k);
     }
-    return basename(asset.storageKey) || asset.storageKey;
+    return asset.storageKey;
   }
 
-  /**
-   * Modellenrooster: thumb → webp → storage (alleen .webp).
-   * Geen existsSync per model (dat maakte het rooster traag op hosting).
-   */
+  /** Modellenrooster: thumb → webp → storage (geen existsSync per rij). */
   resolveCatalogThumbKey(asset: {
     storageKey: string;
     webpKey?: string | null;
@@ -434,17 +271,12 @@ export class MediaService {
     if (thumb) return thumb;
     const webp = pick(asset.webpKey);
     if (webp) return webp;
-    if (asset.storageKey.toLowerCase().endsWith('.webp')) {
-      return pick(asset.storageKey);
-    }
+    if (asset.storageKey.toLowerCase().endsWith('.webp')) return pick(asset.storageKey);
     const storage = pick(asset.storageKey);
-    if (storage && /\.(jpe?g|png)$/i.test(storage)) {
-      return storage;
-    }
+    if (storage && /\.(jpe?g|png)$/i.test(storage)) return storage;
     return null;
   }
 
-  /** Galerij in modellenfiche: compacte WebP, geen bron-JPG/PNG. */
   resolveGalleryWebKey(asset: {
     storageKey: string;
     webpKey?: string | null;
@@ -452,14 +284,11 @@ export class MediaService {
   }): string | null {
     const pick = (k: string | null | undefined): string | null => {
       if (!k?.trim()) return null;
-      const b = basename(k.trim());
-      return b || null;
+      return basename(k.trim()) || null;
     };
     const webp = pick(asset.webpKey);
     if (webp) return webp;
-    if (asset.storageKey.toLowerCase().endsWith('.webp')) {
-      return pick(asset.storageKey);
-    }
+    if (asset.storageKey.toLowerCase().endsWith('.webp')) return pick(asset.storageKey);
     return pick(asset.thumbKey);
   }
 
@@ -470,16 +299,18 @@ export class MediaService {
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string {
+    const root = this.root();
     const image = asset.mimeType?.startsWith('image/');
     const order = image
       ? [asset.webpKey, asset.storageKey, asset.thumbKey]
       : [asset.storageKey, asset.webpKey, asset.thumbKey];
     for (const k of order) {
       if (!k) continue;
-      const base = basename(k);
-      if (this.absolutePathForBasename(base)) return base;
+      if (existsSync(join(root, k))) return k;
+      const rel = this.lookupDiskRelativePath(basename(k));
+      if (rel) return basename(k);
     }
-    return basename(asset.storageKey) || asset.storageKey;
+    return asset.storageKey;
   }
 
   /** Modelportaal: volledige resolutie tot eerste download, als map-policy dat vereist. */
@@ -491,8 +322,9 @@ export class MediaService {
       typeof s.deleteDaysAfterModelDownload === 'number' &&
       s.deleteDaysAfterModelDownload > 0;
     if (policy && !asset.modelDownloadedAt && asset.mimeType.startsWith('image/')) {
-      const base = basename(asset.storageKey);
-      if (this.absolutePathForBasename(base)) return base;
+      const root = this.root();
+      if (existsSync(join(root, asset.storageKey))) return asset.storageKey;
+      if (this.lookupDiskRelativePath(basename(asset.storageKey))) return basename(asset.storageKey);
     }
     return this.resolveDetailFilename(asset);
   }
@@ -603,7 +435,6 @@ export class MediaService {
       ['tijdelijke-uploads', 'Tijdelijke uploads'],
       ['portfolio-fotograaf', 'Portfolio (fotograaf → model)'],
       ['portfolio-divers', 'Portfolio (divers / geen model)'],
-      ['agenda-afspraken', 'Agenda afspraakfotos'],
     ];
     for (const [slug, label] of extraFolders) {
       await this.prisma.mediaFolder.upsert({
@@ -613,199 +444,7 @@ export class MediaService {
       });
     }
 
-    for (const slug of ['models', 'portfolio-fotograaf', 'portfolio-divers', 'casting']) {
-      const f = await this.prisma.mediaFolder.findUnique({ where: { slug } });
-      if (f) await this.updateFolderSettings(f.id, { storeUploadsAsWebpOnly: true });
-    }
-
     return this.prisma.mediaFolder.findMany({ orderBy: { slug: 'asc' } });
-  }
-
-  private assetBaseId(storageKey: string): string {
-    const base = basename(storageKey);
-    return base.replace(/_thumb\.webp$/i, '').replace(/\.[^.]+$/, '') || base;
-  }
-
-  private safeUnlink(root: string, key: string | null | undefined) {
-    if (!key) return;
-    try {
-      const p = join(root, key);
-      if (existsSync(p)) unlinkSync(p);
-    } catch {
-      /* */
-    }
-  }
-
-  /**
-   * Map met WebP-only: full `.webp` + `_thumb.webp` op schijf (geen losse JPG/PNG).
-   * Verwerkt in batches (admin-knop).
-   */
-  private findFileInRoot(root: string, key: string): string | null {
-    const direct = join(root, key);
-    if (existsSync(direct)) return direct;
-    if (!key.includes('/') && !key.includes('..')) {
-      let ents: Dirent[];
-      try {
-        ents = readdirSync(root, { withFileTypes: true });
-      } catch {
-        return null;
-      }
-      for (const e of ents) {
-        if (e.isFile() && e.name === key) return join(root, e.name);
-      }
-      const walk = (dir: string, depth: number): string | null => {
-        if (depth > 8) return null;
-        let inner: Dirent[];
-        try {
-          inner = readdirSync(dir, { withFileTypes: true });
-        } catch {
-          return null;
-        }
-        for (const ent of inner) {
-          const p = join(dir, ent.name);
-          if (ent.isFile() && ent.name === key) return p;
-          if (ent.isDirectory()) {
-            const hit = walk(p, depth + 1);
-            if (hit) return hit;
-          }
-        }
-        return null;
-      };
-      return walk(root, 0);
-    }
-    return null;
-  }
-
-  /** Zoekt bronbestand in alle bekende media-mappen (hosting vs container). */
-  private resolveImagePathOnDisk(keys: string[], baseId: string): string | null {
-    const tryKeys = [...keys];
-    for (const ext of ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', '.gif', '.GIF', '.webp', '.WEBP']) {
-      tryKeys.push(`${baseId}${ext}`);
-    }
-    for (const root of this.mediaLookupRoots()) {
-      for (const k of tryKeys) {
-        const hit = this.findFileInRoot(root, k);
-        if (hit) return hit;
-      }
-    }
-    return null;
-  }
-
-  async reconcileFolderWebpOnly(
-    folderId: string,
-    limit = 200,
-  ): Promise<{
-    processed: number;
-    scanned: number;
-    skipped: number;
-    jpgsRemoved: number;
-    mediaRoot: string;
-    lookupRoots: string[];
-  }> {
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
-    if (!folder) throw new NotFoundException();
-    if (folder.slug === 'testshoot') {
-      throw new BadRequestException(
-        'Testshoot gebruikt het primaire bestand voor bezoeker-ZIP — geen WebP-only opschoning.',
-      );
-    }
-
-    const writableRoot = this.root();
-    const lookupRoots = this.mediaLookupRoots();
-    const assets = await this.prisma.mediaAsset.findMany({
-      where: { folderId: folder.id, hardDeleted: false, mimeType: { startsWith: 'image/' } },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
-
-    let processed = 0;
-    let jpgsRemoved = 0;
-    let skipped = 0;
-    for (const a of assets) {
-      const baseId = this.assetBaseId(a.storageKey);
-      const newStorageKey = `${baseId}.webp`;
-      const newThumbKey = `${baseId}_thumb.webp`;
-
-      const extraOrphans: string[] = [];
-      if (a.storageKey !== newStorageKey) extraOrphans.push(a.storageKey);
-      if (a.webpKey && a.webpKey !== newStorageKey && a.webpKey !== newThumbKey) extraOrphans.push(a.webpKey);
-      jpgsRemoved += this.purgeLegacyFormatsForBaseId(baseId, extraOrphans);
-
-      const srcPath = this.resolveImagePathOnDisk(
-        [a.storageKey, a.webpKey, a.thumbKey].filter(Boolean) as string[],
-        baseId,
-      );
-
-      const webpSomewhere =
-        this.resolveImagePathOnDisk([newStorageKey], baseId) ??
-        (existsSync(join(writableRoot, newStorageKey)) ? join(writableRoot, newStorageKey) : null);
-
-      if (!srcPath && !webpSomewhere) {
-        skipped++;
-        continue;
-      }
-
-      try {
-        const fullPath = join(writableRoot, newStorageKey);
-        if (!existsSync(fullPath)) {
-          const from = srcPath ?? webpSomewhere;
-          if (!from) {
-            skipped++;
-            continue;
-          }
-          await sharp(from)
-            .rotate()
-            .webp({ quality: WEBP_FULL_QUALITY, effort: WEBP_EFFORT })
-            .toFile(fullPath);
-        }
-        const thumbPath = join(writableRoot, newThumbKey);
-        if (!existsSync(thumbPath)) {
-          await sharp(fullPath)
-            .rotate()
-            .resize(360, 360, { fit: 'inside' })
-            .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
-            .toFile(thumbPath);
-        }
-
-        const stat = statSync(fullPath);
-        if (a.thumbKey && a.thumbKey !== newThumbKey) this.unlinkBasenameEverywhere(a.thumbKey);
-        if (a.webpKey && a.webpKey !== newStorageKey && a.webpKey !== newThumbKey) {
-          this.unlinkBasenameEverywhere(a.webpKey);
-        }
-
-        await this.prisma.mediaAsset.update({
-          where: { id: a.id },
-          data: {
-            storageKey: newStorageKey,
-            mimeType: 'image/webp',
-            sizeBytes: stat.size,
-            webpKey: null,
-            thumbKey: newThumbKey,
-          },
-        });
-        processed++;
-      } catch {
-        skipped++;
-      }
-    }
-
-    this.invalidateDiskBasenameIndex();
-    return {
-      processed,
-      scanned: assets.length,
-      skipped,
-      jpgsRemoved,
-      mediaRoot: writableRoot,
-      lookupRoots,
-    };
-  }
-
-  /** @deprecated gebruik reconcileFolderWebpOnly */
-  async reconcileModelsFolderWebpOnly(limit = 40) {
-    await this.ensureDefaultFolders();
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'models' } });
-    if (!folder) return { processed: 0, scanned: 0 };
-    return this.reconcileFolderWebpOnly(folder.id, limit);
   }
 
   /** Nieuwe lege map (slug uniek, afgeleid van label). */
@@ -943,29 +582,6 @@ export class MediaService {
     };
   }
 
-  /** Alle asset-id's in één map (bulk-selectie over alle pagina's). Optioneel filter op bestandsnaam. */
-  async listFolderAssetIds(folderId: string, search?: string) {
-    await this.purgeScheduledAssets();
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
-    if (!folder) throw new NotFoundException('Map niet gevonden.');
-    const q = search?.trim();
-    const where: {
-      folderId: string;
-      hardDeleted: false;
-      originalName?: { contains: string; mode: 'insensitive' };
-    } = { folderId, hardDeleted: false };
-    if (q) {
-      where.originalName = { contains: q, mode: 'insensitive' };
-    }
-    const rows = await this.prisma.mediaAsset.findMany({
-      where,
-      select: { id: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    const ids = rows.map((r) => r.id);
-    return { ids, total: ids.length, folderId, folderSlug: folder.slug };
-  }
-
   /** Platte JSON-response na upload (vermijdt Prisma-proxy / serialisatie-surprises in productie). */
   private uploadResponseDto(created: {
     id: string;
@@ -1009,13 +625,10 @@ export class MediaService {
 
   async saveFile(
     file: Express.Multer.File,
-    userId?: string | null,
+    userId: string | null,
     folderId?: string | null,
     opts?: SaveFileOptions,
   ) {
-    const { normalizeUploadImageFile } = await import('./normalize-upload-image');
-    file = await normalizeUploadImageFile(file);
-
     await this.purgeScheduledAssets();
     const root = this.root();
     this.ensureMediaRootWritable(root);
@@ -1095,34 +708,27 @@ export class MediaService {
         }
 
         if (file.mimetype.startsWith('image/')) {
-          try {
-            const orientedMeta = await sharp(full).rotate().metadata();
-            width = orientedMeta.width;
-            height = orientedMeta.height;
-            const webpQ = WEBP_FULL_QUALITY;
-            webpKey = `${id}.webp`;
-            await sharp(full)
-              .rotate()
-              .webp({
-                quality: webpQ,
-                effort: WEBP_EFFORT,
-              })
-              .toFile(join(root, webpKey));
-            thumbKey = `${id}_thumb.webp`;
-            await sharp(full)
-              .rotate()
-              .resize(360, 360, { fit: 'inside' })
-              .webp({
-                quality: WEBP_THUMB_QUALITY,
-                effort: WEBP_EFFORT,
-              })
-              .toFile(join(root, thumbKey));
-          } catch (webpErr) {
-            console.warn(
-              '[media] webp/thumb overgeslagen — origineel blijft bruikbaar:',
-              webpErr instanceof Error ? webpErr.message : webpErr,
-            );
-          }
+          const orientedMeta = await sharp(full).rotate().metadata();
+          width = orientedMeta.width;
+          height = orientedMeta.height;
+          const webpQ = WEBP_FULL_QUALITY;
+          webpKey = `${id}.webp`;
+          await sharp(full)
+            .rotate()
+            .webp({
+              quality: webpQ,
+              effort: WEBP_EFFORT,
+            })
+            .toFile(join(root, webpKey));
+          thumbKey = `${id}_thumb.webp`;
+          await sharp(full)
+            .rotate()
+            .resize(360, 360, { fit: 'inside' })
+            .webp({
+              quality: WEBP_THUMB_QUALITY,
+              effort: WEBP_EFFORT,
+            })
+            .toFile(join(root, thumbKey));
         }
       }
 
@@ -1150,7 +756,7 @@ export class MediaService {
           height,
           webpKey,
           thumbKey,
-          uploadedById: userId && /^[0-9a-f-]{36}$/i.test(userId) ? userId : undefined,
+          uploadedById: userId,
           folderId: folderId && folderId.length > 0 ? folderId : undefined,
           linkedModelUserId: linked,
         },
@@ -1224,7 +830,7 @@ export class MediaService {
       where: {
         uploadedById: userId,
         hardDeleted: false,
-        folder: { slug: { in: ['models', 'tijdelijke-uploads', 'setkaarten'] } },
+        folder: { slug: { in: ['models', 'tijdelijke-uploads'] } },
       },
       include: { folder: { select: { slug: true, settings: true } } },
       orderBy: { createdAt: 'desc' },
@@ -1238,8 +844,6 @@ export class MediaService {
     }));
   }
 
-  /** Modelportaal: standaard map `models` (slug). */
-  /** Hoofdfoto + max 8 galerijfoto's in map Modellen. */
   private static readonly MAX_PORTFOLIO_PHOTOS = 9;
 
   async assertGalleryLimit(userId: string): Promise<void> {
@@ -1282,6 +886,7 @@ export class MediaService {
     return { ok: true };
   }
 
+  /** Modelportaal: standaard map `models` (slug). */
   async saveForPortalUser(
     file: Express.Multer.File,
     userId: string,
@@ -1471,7 +1076,7 @@ export class MediaService {
       orderBy: { createdAt: 'asc' },
     });
     const root = this.root();
-    const onDisk = rows.filter((a) => this.absolutePathForBasename(a.storageKey));
+    const onDisk = rows.filter((a) => existsSync(join(root, a.storageKey)));
     if (!onDisk.length) throw new NotFoundException('Geen bestanden op schijf om te downloaden.');
 
     const zipName = `${folder.slug.replace(/[^\w-]+/g, '-') || 'map'}.zip`;
@@ -1493,8 +1098,7 @@ export class MediaService {
       archive.on('end', () => resolve());
       archive.pipe(res);
       for (const a of onDisk) {
-        const full = this.absolutePathForBasename(a.storageKey);
-        if (!full) continue;
+        const full = join(root, a.storageKey);
         let name = a.originalName?.trim() || basename(a.storageKey);
         if (!name || name.includes('..') || name.includes('/')) name = basename(a.storageKey);
         let finalName = name;
@@ -1521,7 +1125,7 @@ export class MediaService {
       orderBy: { createdAt: 'asc' },
     });
     const root = this.root();
-    const onDisk = rows.filter((a) => this.absolutePathForBasename(a.storageKey));
+    const onDisk = rows.filter((a) => existsSync(join(root, a.storageKey)));
     if (!onDisk.length) throw new NotFoundException('Geen portfolio-bestanden om te downloaden.');
 
     const u = await this.prisma.user.findUnique({
@@ -1551,8 +1155,7 @@ export class MediaService {
       archive.on('end', () => resolve());
       archive.pipe(res);
       for (const a of onDisk) {
-        const full = this.absolutePathForBasename(a.storageKey);
-        if (!full) continue;
+        const full = join(root, a.storageKey);
         archive.append(createReadStream(full), { name: a.originalName || basename(a.storageKey) });
         ids.push(a.id);
         filesInZip += 1;
@@ -1721,8 +1324,8 @@ export class MediaService {
    * Bestanden die al als storageKey/webpKey/thumbKey bestaan, worden overgeslagen.
    */
   /**
-   * Upload een .zip (tot ~6 GB) als één mediabestand in de gekozen map (niet uitpakken).
-   * Modellen downloaden het .zip-bestand via het modellenportaal.
+   * Upload een .zip (tot ~6 GB via schijf), uitpakken naar MEDIA_ROOT, registreren in map.
+   * Grote bestanden: zet MEDIA_ZIP_UPLOAD_MAX_BYTES; reverse proxy moet lange uploads toestaan.
    */
   async importZipUpload(file: Express.Multer.File, userId: string, folderId: string) {
     const zipPath = (file as Express.Multer.File & { path?: string }).path;
@@ -1742,234 +1345,69 @@ export class MediaService {
     const root = this.root();
     this.ensureMediaRootWritable(root);
 
-    const id = randomUUID();
-    const storageKey = `${id}.zip`;
-    const dest = join(root, storageKey);
+    const extracted = await extractZipArchiveToMediaRoot(zipPath, root);
     try {
-      renameSync(zipPath, dest);
-    } catch (e) {
-      const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
-      if (code === 'ENOSPC') {
-        throw new BadRequestException(
-          `Schijf vol op MEDIA_ROOT (${root}). De Node-container gebruikt mogelijk /app/shared (klein) i.p.v. je 100 GB hosting. ` +
-            'Zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads in Combell env en herstart de app.',
-        );
-      }
-      throw new BadRequestException('ZIP kon niet naar MEDIA_ROOT worden verplaatst.');
+      unlinkSync(zipPath);
+    } catch {
+      /**/
     }
 
-    const originalName = basename(file.originalname || 'archief.zip');
-    const sizeBytes = statSync(dest).size;
-
-    const created = await this.prisma.mediaAsset.create({
-      data: {
-        originalName,
-        storageKey,
-        mimeType: 'application/zip',
-        sizeBytes,
-        uploadedById: userId,
-        folderId: folder.id,
-      },
-    });
-    this.invalidateDiskBasenameIndex();
+    let registered = 0;
+    let regSkipped = 0;
+    const errors: string[] = [];
+    for (let round = 0; round < 80; round++) {
+      const r = await this.registerDiskOrphanAssets(userId, {
+        folderSlug: folder.slug,
+        limit: 500,
+        dryRun: false,
+      });
+      registered += r.registered;
+      regSkipped += r.skipped;
+      if (r.errors.length) errors.push(...r.errors.slice(0, 5));
+      if (r.registered === 0) break;
+    }
 
     return {
       ok: true,
       folderSlug: folder.slug,
       mediaRoot: root,
-      zipName: originalName,
-      assetId: created.id,
-      storageKey: created.storageKey,
-      sizeBytes,
+      zipName: file.originalname,
+      extractedFiles: extracted.extracted,
+      skippedZipEntries: extracted.skippedEntries,
+      bytesWritten: extracted.bytesWritten,
+      registered,
+      registerSkipped: regSkipped,
+      errors: errors.slice(0, 12),
     };
   }
 
-  /**
-   * ZIP staat al op de hosting-schijf (File Manager / SFTP → www/cm-media/uploads/inbox/).
-   * Geen browser-upload — omzeilt volle /app/shared-container.
-   */
-  async importZipFromHostingInbox(fileName: string, folderId: string, userId: string) {
-    const safe = basename(fileName?.trim() || '');
-    if (!safe || !/\.zip$/i.test(safe)) {
-      throw new BadRequestException('Geef een .zip-bestandsnaam op (bv. modeshow.zip).');
-    }
-
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
-    if (!folder) throw new NotFoundException('Map niet gevonden.');
-    if (folder.slug === 'verwijderde') {
-      throw new BadRequestException('ZIP kan niet naar de prullenbak.');
-    }
-
-    let inboxFile: string | null = null;
-    let root: string | null = null;
-    const inboxBases = [
-      ...combellDataSiteUploadsCandidates(),
-      this.root(),
-      resolveMediaRoot(),
-      ...combellHostingDiscoveryPaths(),
-    ];
-    const seenBases = new Set<string>();
-    for (const base of inboxBases) {
-      const normalized = base.replace(/\\/g, '/').replace(/\/+$/, '') || base;
-      if (seenBases.has(normalized)) continue;
-      seenBases.add(normalized);
-      const candidate = join(normalized, 'inbox', safe);
-      try {
-        if (existsSync(candidate) && statSync(candidate).isFile()) {
-          if (tryWritableMediaDir(normalized)) {
-            inboxFile = candidate;
-            root = normalized;
-            break;
-          }
-        }
-      } catch {
-        /**/
-      }
-    }
-
-    if (!inboxFile || !root) {
-      const hint = [...seenBases]
-        .map((b) => `${b}/inbox/${safe}`)
-        .join(' of ');
-      throw new BadRequestException(
-        `ZIP niet gevonden of map niet schrijfbaar vanuit Node. Zet het bestand via Combell File Manager in: www/cm-media/uploads/inbox/${safe} (serverpad: ${hint}).`,
-      );
-    }
-
-    this.ensureMediaRootWritable(root);
-    const id = randomUUID();
-    const storageKey = `${id}.zip`;
-    const dest = join(root, storageKey);
-    try {
-      renameSync(inboxFile, dest);
-    } catch (e) {
-      const code = e && typeof e === 'object' && 'code' in e ? (e as NodeJS.ErrnoException).code : undefined;
-      if (code === 'ENOSPC') {
-        throw new BadRequestException(`Schijf vol bij verplaatsen naar ${root}.`);
-      }
-      throw new BadRequestException(
-        `Kon ZIP niet registreren vanuit inbox. Controleer rechten op ${root}.`,
-      );
-    }
-
-    const sizeBytes = statSync(dest).size;
-    const created = await this.prisma.mediaAsset.create({
-      data: {
-        originalName: safe,
-        storageKey,
-        mimeType: 'application/zip',
-        sizeBytes,
-        uploadedById: userId,
-        folderId: folder.id,
-      },
-    });
-    this.invalidateDiskBasenameIndex();
-
-    return {
-      ok: true,
-      folderSlug: folder.slug,
-      mediaRoot: root,
-      zipName: safe,
-      assetId: created.id,
-      storageKey: created.storageKey,
-      sizeBytes,
-      fromInbox: true,
-    };
-  }
-
-  /** Grote ZIP in stukken (±32 MB) — voorkomt proxy-timeout bij 4+ GB enkelvoudige POST. */
-  async initZipChunkedUpload(folderId: string, fileName: string, totalSize: number, userId: string) {
-    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
-    if (!folder) throw new BadRequestException('Map niet gevonden.');
-    if (folder.slug === 'verwijderde') throw new BadRequestException('ZIP kan niet naar de prullenbak.');
-    try {
-      return createZipChunkSession(folderId, fileName, totalSize, userId);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'init_failed';
-      if (msg === 'not_a_zip') throw new BadRequestException('Alleen .zip-bestanden.');
-      if (msg === 'size_out_of_range') {
-        throw new BadRequestException('ZIP is te groot of ongeldig (max. volgens serverlimiet).');
-      }
-      if (msg === 'disk_full_or_quota') {
-        throw new BadRequestException(
-          'Onvoldoende schijfruimte op de server voor deze ZIP. Vrij ruimte op MEDIA_ROOT of vraag Combell om meer opslag.',
-        );
-      }
-      throw new BadRequestException('ZIP-upload kon niet starten.');
-    }
-  }
-
-  async writeZipChunkedPart(
-    uploadId: string,
-    chunkIndex: number,
-    chunkDiskPath: string,
-    userId: string,
-    reportedBytes?: number,
-  ) {
-    try {
-      return await writeZipChunk(uploadId, chunkIndex, chunkDiskPath, userId, reportedBytes);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'chunk_failed';
-      if (msg === 'upload_session_not_found') throw new BadRequestException('Uploadsessie verlopen of ongeldig.');
-      if (msg === 'forbidden') throw new BadRequestException('Geen toegang tot deze upload.');
-      if (msg.startsWith('chunk_size_mismatch')) {
-        throw new BadRequestException(
-          'Uploadfragment incompleet (netwerk of proxy). Probeer opnieuw; grote ZIP’s worden in delen geüpload.',
-        );
-      }
-      if (msg === 'invalid_chunk_index' || msg === 'chunk_empty') {
-        throw new BadRequestException('Ongeldig uploadfragment.');
-      }
-      throw new BadRequestException('Fragment uploaden mislukt.');
-    }
-  }
-
-  async finalizeZipChunkedUpload(uploadId: string, userId: string) {
-    let meta;
-    try {
-      meta = assertZipChunkSessionComplete(uploadId, userId);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'finish_failed';
-      if (msg === 'incomplete_chunks') {
-        throw new BadRequestException('Niet alle delen zijn ontvangen — upload opnieuw.');
-      }
-      if (msg === 'upload_session_not_found') throw new BadRequestException('Uploadsessie verlopen.');
-      if (msg === 'forbidden') throw new BadRequestException('Geen toegang.');
-      throw new BadRequestException('ZIP afronden mislukt.');
-    }
-    const assembly = assemblyPath(uploadId);
-    const fake = {
-      path: assembly,
-      originalname: meta.fileName,
-      size: meta.totalSize,
-    } as Express.Multer.File;
-    return this.importZipUpload(fake, userId, meta.folderId);
+  private assetOnDisk(storageKey: string): boolean {
+    const root = this.root();
+    if (existsSync(join(root, storageKey))) return true;
+    return Boolean(this.lookupDiskRelativePath(basename(storageKey)));
   }
 
   private async findModeshowZipInFolder(folderId: string) {
     const zipName = modeshowZipOriginalName();
-    const zipWhere = {
-      folderId,
-      hardDeleted: false,
-      OR: [
-        { mimeType: 'application/zip' },
-        { storageKey: { endsWith: '.zip' } },
-        { originalName: { endsWith: '.zip' } },
-      ],
-      ...(zipName ? { originalName: zipName } : {}),
-    };
     const rows = await this.prisma.mediaAsset.findMany({
-      where: zipWhere,
+      where: {
+        folderId,
+        hardDeleted: false,
+        OR: [
+          { mimeType: 'application/zip' },
+          { storageKey: { endsWith: '.zip' } },
+          { originalName: { endsWith: '.zip' } },
+        ],
+        ...(zipName ? { originalName: zipName } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       select: { id: true, originalName: true, sizeBytes: true, storageKey: true },
       take: 20,
     });
-    const root = this.root();
-    const onDisk = rows.filter((r) => this.absolutePathForBasename(r.storageKey));
+    const onDisk = rows.filter((r) => this.assetOnDisk(r.storageKey));
     if (!onDisk.length) return null;
     if (zipName) return onDisk[0]!;
-    const modeshow = onDisk.find((r) => /modeshow/i.test(r.originalName));
-    return modeshow ?? onDisk[0]!;
+    return onDisk.find((r) => /modeshow/i.test(r.originalName)) ?? onDisk[0]!;
   }
 
   private async findModeshowFilmInFolder(folderId: string) {
@@ -1986,18 +1424,16 @@ export class MediaService {
               { storageKey: { endsWith: '.mp4' } },
               { storageKey: { endsWith: '.mov' } },
               { storageKey: { endsWith: '.webm' } },
-              { storageKey: { endsWith: '.m4v' } },
             ],
           }),
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true, originalName: true, sizeBytes: true, storageKey: true, mimeType: true },
     });
-    if (!filmRow || !this.absolutePathForBasename(filmRow.storageKey)) return null;
+    if (!filmRow || !this.assetOnDisk(filmRow.storageKey)) return null;
     return filmRow;
   }
 
-  /** Status voor modeshow-downloads in het modellenportaal. */
   async getModeshowDownloadsMeta() {
     const filmAvailableFrom = modeshowFilmAvailableFrom();
     const now = new Date();
@@ -2005,18 +1441,13 @@ export class MediaService {
     let photosZip: { id: string; originalName: string; sizeBytes: number } | null = null;
     let film: { id: string; originalName: string; sizeBytes: number; mimeType: string } | null = null;
     let folderSlug = folderSlugs[0] ?? 'uploads';
-
     for (const slug of folderSlugs) {
       const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
       if (!folder) continue;
       const zipRow = await this.findModeshowZipInFolder(folder.id);
       if (!zipRow) continue;
       folderSlug = slug;
-      photosZip = {
-        id: zipRow.id,
-        originalName: zipRow.originalName,
-        sizeBytes: zipRow.sizeBytes,
-      };
+      photosZip = { id: zipRow.id, originalName: zipRow.originalName, sizeBytes: zipRow.sizeBytes };
       const filmRow = await this.findModeshowFilmInFolder(folder.id);
       if (filmRow) {
         film = {
@@ -2028,7 +1459,6 @@ export class MediaService {
       }
       break;
     }
-
     if (!film) {
       for (const slug of folderSlugs) {
         const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
@@ -2045,7 +1475,6 @@ export class MediaService {
         }
       }
     }
-
     return {
       filmAvailableFrom: filmAvailableFrom.toISOString(),
       filmAvailableNow: now >= filmAvailableFrom,
@@ -2056,19 +1485,6 @@ export class MediaService {
       photosZip,
       film,
     };
-  }
-
-  private modeshowFilmAvailabilityGuard() {
-    try {
-      assertModeshowFilmAvailable();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.startsWith('MODESHOW_FILM_NOT_YET:')) {
-        const from = msg.slice('MODESHOW_FILM_NOT_YET:'.length);
-        throw new BadRequestException(`De film is beschikbaar vanaf ${from}.`);
-      }
-      throw e;
-    }
   }
 
   async streamModeshowPhotosZip(modelUserId: string, res: Response): Promise<void> {
@@ -2082,7 +1498,15 @@ export class MediaService {
   }
 
   async streamModeshowFilm(modelUserId: string, res: Response): Promise<void> {
-    this.modeshowFilmAvailabilityGuard();
+    try {
+      assertModeshowFilmAvailable();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.startsWith('MODESHOW_FILM_NOT_YET:')) {
+        throw new BadRequestException(`De film is beschikbaar vanaf ${msg.slice('MODESHOW_FILM_NOT_YET:'.length)}.`);
+      }
+      throw e;
+    }
     const meta = await this.getModeshowDownloadsMeta();
     if (!meta.film) throw new NotFoundException('Geen film gevonden in de mediatheek.');
     await this.streamMediaAssetDownload(meta.film.id, res);
@@ -2092,14 +1516,14 @@ export class MediaService {
     });
   }
 
-  /** Download één mediabestand (storageKey) voor ingelogde modellen. */
   async streamMediaAssetDownload(assetId: string, res: Response): Promise<void> {
     const row = await this.prisma.mediaAsset.findFirst({
       where: { id: assetId, hardDeleted: false },
     });
     if (!row) throw new NotFoundException('Bestand niet gevonden.');
-    const full = this.absolutePathForBasename(row.storageKey);
-    if (!full) throw new NotFoundException('Bestand ontbreekt op schijf.');
+    const root = this.root();
+    const full = join(root, row.storageKey);
+    if (!existsSync(full)) throw new NotFoundException('Bestand ontbreekt op schijf.');
     const downloadName = await this.resolveDownloadFilename(row.storageKey);
     if (row.mimeType) res.setHeader('Content-Type', row.mimeType);
     res.setHeader(
@@ -2395,7 +1819,9 @@ export class MediaService {
     const missingSamples: { id: string; storageKey: string }[] = [];
     for (const a of sampleRows) {
       const key = this.resolvePublicFilename(a);
-      const onDisk = Boolean(this.absolutePathForBasename(key));
+      const onDisk =
+        existsSync(join(root, key)) ||
+        Boolean(this.lookupDiskRelativePath(basename(key)));
       if (!onDisk) {
         missingPrimary++;
         if (missingSamples.length < 8) {
@@ -2407,23 +1833,8 @@ export class MediaService {
     const bundleDir = join(this.monorepoRoot(), 'apps', 'api', '.deploy-media-bundle', 'uploads');
     const sharedDir = join(this.monorepoRoot(), 'shared', 'uploads');
 
-    const freeBytes = mediaDirFreeBytes(root);
-    const pathInventory = inventoryHostingMediaPaths(4);
-    const hostingCandidates = pathInventory.filter((p) => p.exists);
-    const richest = [...hostingCandidates].sort((a, b) => b.imageFiles - a.imageFiles)[0];
-    const richestWritable = [...hostingCandidates]
-      .filter((p) => p.writable)
-      .sort((a, b) => b.imageFiles - a.imageFiles)[0];
-
     return {
       mediaRoot: root,
-      writableMediaRoot: resolveWritableMediaRoot(),
-      hostingCandidates,
-      pathInventory,
-      recommendedEnvUploadsPath:
-        richestWritable && richestWritable.imageFiles > 0 ? richestWritable.dir : richest?.dir ?? null,
-      mediaRootFreeBytes: freeBytes,
-      mediaRootFreeGb: freeBytes != null ? Math.round((freeBytes / (1024 * 1024 * 1024)) * 10) / 10 : null,
       mediaRootExists: existsSync(root),
       diskRegisterableFiles: diskFiles,
       diskImageFiles: diskImages,
