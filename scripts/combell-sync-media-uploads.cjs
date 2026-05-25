@@ -381,6 +381,7 @@ module.exports = {
   bootstrapMediaStorage,
   countMediaFiles,
   deployMediaBundlePath,
+  combellDataSiteUploadsCandidates,
 };
 
 if (require.main === module) {

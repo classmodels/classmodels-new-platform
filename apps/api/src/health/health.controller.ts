@@ -1,7 +1,8 @@
 import { Controller, Get } from '@nestjs/common';
-import { accessSync, constants as fsConstants, readdirSync } from 'fs';
+import { accessSync, constants as fsConstants, existsSync, readdirSync } from 'fs';
 import { userInfo } from 'os';
 import {
+  combellDataSiteUploadsCandidates,
   inventoryHostingMediaPaths,
   resolveMediaRoot,
   resolveWritableMediaRoot,
@@ -14,19 +15,21 @@ function combellHostRouterStatus() {
   const on = v === '1' || v === 'true' || v === 'yes' || v === 'on';
   const home = String(process.env.HOME ?? '').replace(/\/+$/, '');
   const inContainer = home === '/app' || home.endsWith('/app');
-  const invalidButContainerFallback =
-    !off && !on && process.env.NODE_ENV === 'production' && inContainer;
+  const isNestWorker = process.env.COMBELL_NEST_WORKER === '1';
+  const forcedInContainer =
+    process.env.NODE_ENV === 'production' && inContainer && !isNestWorker;
   return {
     env: raw || null,
-    valid: on,
-    invalidValue: !off && !on,
-    dualProxyExpected: on || invalidButContainerFallback,
+    valid: on || forcedInContainer,
+    forcedInContainer,
+    isNestWorker,
+    dualProxyExpected: on || forcedInContainer,
     hint:
-      on ?
+      forcedInContainer && off ?
+        'COMBELL_HOST_ROUTER=0 wordt genegeerd in de container. Verwijder de variabele of zet op 1.'
+      : on || forcedInContainer ?
         null
-      : invalidButContainerFallback ?
-        'Zet COMBELL_HOST_ROUTER=1 in Combell (nu ongeldige waarde, bv. ".").'
-      : 'Zet COMBELL_HOST_ROUTER=1 — anders draait alleen Next, geen Nest-uploads.',
+      : 'Zet COMBELL_HOST_ROUTER=1 of verwijder de variabele (niet 0).',
   };
 }
 
@@ -74,6 +77,11 @@ export class HealthController {
         imageFiles: p.imageFiles,
       }));
 
+    const dataSiteCandidates = combellDataSiteUploadsCandidates().map((dir) => ({
+      dir,
+      exists: existsSync(dir),
+    }));
+
     const rootsMatch = root.replace(/\/+$/, '') === writableRoot.replace(/\/+$/, '');
 
     return {
@@ -91,6 +99,7 @@ export class HealthController {
       envMediaRoot: process.env.MEDIA_ROOT?.trim() || null,
       envDataUploads: process.env.CM_COMBELL_DATA_UPLOADS?.trim() || null,
       hostingPathsSample: paths,
+      dataSiteCandidates,
       note:
         'File Manager map data/uploads is niet altijd dezelfde als mediaRoot hierboven. ' +
         'Node leest/schrijft onder mediaRoot/writableMediaRoot.',

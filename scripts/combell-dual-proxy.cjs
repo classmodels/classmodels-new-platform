@@ -129,6 +129,7 @@ function spawnNext() {
       ...process.env,
       PORT: String(webPort),
       COMBELL_HOST_ROUTER: '0',
+      COMBELL_WEB_WORKER: '1',
       CM_API_INTERNAL_URL: `http://127.0.0.1:${nestPort}`,
     },
   });
@@ -166,6 +167,7 @@ function nestChildEnv() {
     API_HOST: '127.0.0.1',
     API_PORT: String(nestPort),
     COMBELL_HOST_ROUTER: '0',
+    COMBELL_NEST_WORKER: '1',
   };
 }
 
@@ -288,8 +290,23 @@ async function bootBackends() {
 
   runCombellDbSetup(root);
   const boot = bootstrapMediaStorage(root);
-  const mediaRoot = boot.mediaRoot || resolvePersistentMediaDest(root);
+  let mediaRoot = boot.mediaRoot || resolvePersistentMediaDest(root);
+  const { combellDataSiteUploadsCandidates } = require('./combell-sync-media-uploads.cjs');
+  const dataCandidates = combellDataSiteUploadsCandidates();
+  for (const candidate of dataCandidates) {
+    try {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+        mediaRoot = candidate;
+        process.env.CM_COMBELL_DATA_UPLOADS = candidate;
+        console.error(`[combell-dual] data-site uploads zichtbaar → MEDIA_ROOT=${mediaRoot}`);
+        break;
+      }
+    } catch {
+      /**/
+    }
+  }
   process.env.MEDIA_ROOT = mediaRoot;
+  process.env.COMBELL_HOST_ROUTER = '1';
   console.error(
     `[combell-dual] MEDIA_ROOT=${mediaRoot} (bron ${boot.srcCount ?? '?'} → schijf ${boot.destCount ?? '?'})`,
   );
