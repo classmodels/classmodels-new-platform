@@ -257,11 +257,15 @@ function shouldRouteToNest(req) {
   /** Media op www zonder proxy-prefix (GET publiek; POST uploads rechtstreeks naar Nest). */
   if (pathOnly.startsWith('/media/')) {
     if (req.method === 'GET' || req.method === 'HEAD') return true;
-    if (req.method === 'POST' && pathOnly.startsWith('/media/upload')) return true;
+    if (req.method === 'POST') return true;
   }
   /** Agenda-foto's en legacy static uploads (`/uploads/agenda/…`). */
   if (pathOnly.startsWith('/uploads/')) {
     if (req.method === 'GET' || req.method === 'HEAD') return true;
+  }
+  /** Boekingen/agenda-uploads zonder `/__cm_api` (bv. verkeerde client-URL). */
+  if (req.method === 'POST' && (pathOnly.startsWith('/agenda/') || pathOnly.startsWith('/portal/'))) {
+    return true;
   }
   return hostToNest(effectiveHost(req));
 }
