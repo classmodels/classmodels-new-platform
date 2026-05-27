@@ -17,13 +17,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage, memoryStorage } from 'multer';
-import { mkdirSync } from 'fs';
-import { randomUUID } from 'crypto';
-import { basename, extname, join } from 'path';
-import { resolveMediaRoot } from '../config/resolve-media-root';
-import { resolveZipUploadTmpDir } from '../config/resolve-zip-upload-dir';
-import { mediaZipUploadMaxBytes } from './media-zip-import';
+import { memoryStorage } from 'multer';
+import { basename, extname } from 'path';
+import { buildZipUploadMulterOptions } from './media-zip-multer-options';
 import type { Response } from 'express';
 import {
   CreateMediaFolderDto,
@@ -52,10 +48,6 @@ const PUBLIC_FILE_MIME: Record<string, string> = {
   '.pdf': 'application/pdf',
   '.mp3': 'audio/mpeg',
 };
-
-function zipUploadTmpDir(): string {
-  return resolveZipUploadTmpDir();
-}
 
 @Controller('media')
 export class MediaController {
@@ -192,22 +184,7 @@ export class MediaController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('upload-zip')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: (_req, _file, cb) => {
-          cb(null, zipUploadTmpDir());
-        },
-        filename: (_req, file, cb) => {
-          cb(null, `${randomUUID()}${extname(file.originalname) || '.zip'}`);
-        },
-      }),
-      limits: { fileSize: mediaZipUploadMaxBytes() },
-      fileFilter: (_req, file, cb) => {
-        cb(null, /\.zip$/i.test(file.originalname || ''));
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file', buildZipUploadMulterOptions()))
   uploadZip(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: { user: JwtPayload },

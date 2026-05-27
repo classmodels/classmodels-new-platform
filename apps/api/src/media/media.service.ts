@@ -49,6 +49,7 @@ import {
   modeshowZipOriginalName,
 } from '../portal/modeshow-downloads.config';
 import { extractZipArchiveToMediaRoot } from './media-zip-import';
+import type { R2ZipMulterFile } from './media-r2-zip-multer';
 
 /**
  * Hosting: zo licht mogelijk (opslag + bandbreedte), nog aanvaardbaar voor web.
@@ -360,10 +361,25 @@ export class MediaService implements OnModuleInit {
     }
 
     const root = this.root();
+    let destKey = fileName;
+    const existingKey = await this.prisma.mediaAsset.findFirst({
+      where: { storageKey: destKey, hardDeleted: false },
+      select: { id: true },
+    });
+    if (existingKey) {
+      const stem = fileName.replace(/\.zip$/i, '');
+      destKey = `${stem}-${Date.now()}.zip`;
+    }
+
+    if (mediaUsesR2()) {
+      await r2PutLocalFile(destKey, source, 'application/zip');
+      const sz = (await r2ObjectSize(destKey)) ?? statSync(source).size;
+      return this.persistInboxZipRecord(userId, folder, fileName, destKey, root, sz);
+    }
+
     this.ensureMediaRootWritable(root);
     mkdirSync(join(root, 'inbox'), { recursive: true });
 
-    let destKey = fileName;
     let dest = join(root, destKey);
     if (source !== dest && !this.isNonEmptyFile(dest)) {
       copyFileSync(source, dest);
@@ -378,11 +394,18 @@ export class MediaService implements OnModuleInit {
       throw new BadRequestException('Kopiëren naar MEDIA_ROOT mislukt.');
     }
 
-    if (mediaUsesR2()) {
-      await r2PutLocalFile(destKey, dest, 'application/zip');
-    }
-
     const st = statSync(dest);
+    return this.persistInboxZipRecord(userId, folder, fileName, destKey, root, st.size);
+  }
+
+  private async persistInboxZipRecord(
+    userId: string,
+    folder: { id: string; slug: string },
+    fileName: string,
+    destKey: string,
+    mediaRoot: string,
+    sizeBytes: number,
+  ) {
     const existing = await this.prisma.mediaAsset.findFirst({
       where: { storageKey: destKey, hardDeleted: false },
     });
@@ -391,7 +414,7 @@ export class MediaService implements OnModuleInit {
         where: { id: existing.id },
         data: {
           folderId: folder.id,
-          sizeBytes: st.size,
+          sizeBytes,
           mimeType: 'application/zip',
           originalName: fileName,
         },
@@ -399,10 +422,11 @@ export class MediaService implements OnModuleInit {
       this.invalidateDiskBasenameIndex();
       return {
         ok: true,
+        storedToR2: mediaUsesR2(),
         zipName: fileName,
         storageKey: destKey,
-        mediaRoot: root,
-        sizeBytes: st.size,
+        mediaRoot,
+        sizeBytes,
         assetId: existing.id,
         updated: true,
       };
@@ -413,7 +437,7 @@ export class MediaService implements OnModuleInit {
         originalName: fileName,
         storageKey: destKey,
         mimeType: 'application/zip',
-        sizeBytes: st.size,
+        sizeBytes,
         uploadedById: userId,
         folderId: folder.id,
       },
@@ -421,10 +445,11 @@ export class MediaService implements OnModuleInit {
     this.invalidateDiskBasenameIndex();
     return {
       ok: true,
+      storedToR2: mediaUsesR2(),
       zipName: fileName,
       storageKey: destKey,
-      mediaRoot: root,
-      sizeBytes: st.size,
+      mediaRoot,
+      sizeBytes,
       assetId: created.id,
       updated: false,
     };
@@ -1718,6 +1743,51 @@ export class MediaService implements OnModuleInit {
     return safe;
   }
 
+  /** ZIP staat al in R2 (gestreamd tijdens upload); alleen mediaregel aanmaken. */
+  private async registerZipAfterR2Stream(
+    file: R2ZipMulterFile,
+    userId: string,
+    folder: { id: string; slug: string },
+  ) {
+    const destKey = file.r2StorageKey?.trim();
+    if (!destKey) {
+      throw new BadRequestException('ZIP-upload mislukt (geen R2-sleutel).');
+    }
+    const sz = await r2ObjectSize(destKey);
+    if (sz === null) {
+      throw new BadRequestException('ZIP staat niet in R2 na upload. Controleer R2-credentials en bucket.');
+    }
+    const zipLabel = basename(file.originalname || destKey);
+    const created = await this.prisma.mediaAsset.create({
+      data: {
+        originalName: zipLabel,
+        storageKey: destKey,
+        mimeType: 'application/zip',
+        sizeBytes: sz,
+        uploadedById: userId,
+        folderId: folder.id,
+      },
+    });
+    this.invalidateDiskBasenameIndex();
+    return {
+      ok: true,
+      storedToR2: true,
+      streamedToR2: true,
+      folderSlug: folder.slug,
+      mediaRoot: this.root(),
+      zipName: file.originalname,
+      storageKey: destKey,
+      extractedFiles: 0,
+      skippedZipEntries: 0,
+      bytesWritten: sz,
+      registered: 1,
+      registerSkipped: 0,
+      assetId: created.id,
+      hint: 'ZIP rechtstreeks naar Cloudflare R2 gestreamd (geen lokale schijf gebruikt).',
+      errors: [] as string[],
+    };
+  }
+
   /**
    * Bij R2: ZIP niet uitpakken (geen dubbele schijf), bestand naar bucket + mediaregel.
    * Geschikt voor modeshow-download-ZIP’s; inhoud blijft in het .zip-bestand.
@@ -1805,6 +1875,10 @@ export class MediaService implements OnModuleInit {
     }
 
     if (mediaUsesR2()) {
+      const r2f = file as R2ZipMulterFile;
+      if (r2f.r2Uploaded && r2f.r2StorageKey) {
+        return this.registerZipAfterR2Stream(r2f, userId, folder);
+      }
       return this.importZipUploadStoreToR2(file, userId, folder);
     }
 

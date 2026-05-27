@@ -32,10 +32,14 @@ export class HttpAllExceptionsFilter implements ExceptionFilter {
       });
     }
     if (code === 'ENOSPC' || /no space left/i.test(rawMsg)) {
+      const isZipPath = String(req.url ?? '').includes('/media/upload-zip');
       return res.status(HttpStatus.BAD_REQUEST).json({
-        message:
-          'Schijf vol op MEDIA_ROOT. Node schrijft mogelijk naar /app/shared (vol) terwijl je hosting nog ruimte heeft. ' +
-          'Zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads en herstart.',
+        message: isZipPath
+          ? 'Schijf vol tijdens ZIP-upload. Zorg dat MEDIA_BACKEND=r2 actief is (nieuwste deploy) — dan gaat de ZIP rechtstreeks naar R2. ' +
+            'Anders: upload via Combell File Manager naar www/cm-media/uploads/inbox/ en gebruik “ZIP uit inbox registreren”. ' +
+            'Of zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads en herstart.'
+          : 'Schijf vol op MEDIA_ROOT. Node schrijft mogelijk naar /app/shared (vol) terwijl je hosting nog ruimte heeft. ' +
+            'Zet CM_COMBELL_DATA_UPLOADS=/data/sites/web/class-modelsbe/www/cm-media/uploads en herstart.',
       });
     }
 

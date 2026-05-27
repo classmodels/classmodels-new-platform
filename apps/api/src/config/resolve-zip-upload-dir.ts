@@ -1,4 +1,5 @@
 import { accessSync, constants, mkdirSync } from 'fs';
+import { homedir } from 'os';
 import { join } from 'path';
 import { resolveMediaRoot } from './resolve-media-root';
 
@@ -9,6 +10,11 @@ export function resolveZipUploadTmpDir(): string {
   if (combell) candidates.push(join(combell, '.zip-upload-tmp'));
   const cmMedia = process.env.CM_MEDIA_UPLOADS?.trim();
   if (cmMedia) candidates.push(join(cmMedia, '.zip-upload-tmp'));
+  const home = process.env.HOME?.trim() || homedir();
+  if (home && home !== '/app') {
+    candidates.push(join(home, 'www/cm-media/uploads/.zip-upload-tmp'));
+  }
+  candidates.push('/home/ID460044/www/cm-media/uploads/.zip-upload-tmp');
   candidates.push(join(resolveMediaRoot(), '.zip-upload-tmp'));
 
   for (const dir of candidates) {
