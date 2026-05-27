@@ -13,7 +13,7 @@ import {
 } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { resolveMediaRoot } from '../config/resolve-media-root';
+import { resolveZipUploadTmpDir } from '../config/resolve-zip-upload-dir';
 import { mediaZipUploadMaxBytes } from './media-zip-import';
 
 function chunkBytesFromEnv(): number {
@@ -40,7 +40,7 @@ export type ZipChunkSessionMeta = {
 };
 
 export function zipChunkSessionsRoot(): string {
-  const dir = join(resolveMediaRoot(), '.zip-upload-tmp', 'sessions');
+  const dir = join(resolveZipUploadTmpDir(), 'sessions');
   mkdirSync(dir, { recursive: true });
   return dir;
 }

@@ -22,6 +22,7 @@ import { mkdirSync } from 'fs';
 import { randomUUID } from 'crypto';
 import { basename, extname, join } from 'path';
 import { resolveMediaRoot } from '../config/resolve-media-root';
+import { resolveZipUploadTmpDir } from '../config/resolve-zip-upload-dir';
 import { mediaZipUploadMaxBytes } from './media-zip-import';
 import type { Response } from 'express';
 import {
@@ -53,9 +54,7 @@ const PUBLIC_FILE_MIME: Record<string, string> = {
 };
 
 function zipUploadTmpDir(): string {
-  const dir = join(resolveMediaRoot(), '.zip-upload-tmp');
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return resolveZipUploadTmpDir();
 }
 
 @Controller('media')

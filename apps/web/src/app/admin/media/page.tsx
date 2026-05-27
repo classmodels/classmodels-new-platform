@@ -858,8 +858,11 @@ export default function AdminMediaPage() {
             </div>
           ) : null}
           <p className="text-[11px] leading-snug text-muted">
-            Combell toont ~100 GB voor het hele pakket. Als ZIP-upload “schijf vol” zegt, gebruik de{' '}
-            <strong>inbox-methode</strong> hieronder.
+            Combell toont ~100 GB voor het hele pakket. Grote ZIP&apos;s schrijven tijdelijk naar schijf
+            (daarna naar R2 als <code className="text-[10px]">MEDIA_BACKEND=r2</code>). Zet{' '}
+            <code className="text-[10px]">CM_COMBELL_DATA_UPLOADS</code> op je grote uploads-map — anders
+            vult <code className="text-[10px]">/app/shared</code> (~3 GB) en krijg je “schijf vol” na 100%.
+            Bij “schijf vol”: gebruik de <strong>inbox-methode</strong> hieronder.
           </p>
           <button
             type="button"

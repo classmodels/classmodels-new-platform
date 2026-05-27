@@ -1709,6 +1709,82 @@ export class MediaService implements OnModuleInit {
    * Registreert mediabestanden op schijf onder MEDIA_ROOT die nog geen MediaAsset hebben (o.a. na FTP of verkeerde MEDIA_ROOT).
    * Bestanden die al als storageKey/webpKey/thumbKey bestaan, worden overgeslagen.
    */
+  private sanitizeZipStorageKey(originalName: string): string {
+    const base = basename(originalName.trim()) || 'upload.zip';
+    let safe = base.replace(/[^\w.\-()+\s]/g, '_').replace(/\s+/g, ' ').trim();
+    if (!safe || safe === '.' || safe === '..') safe = 'upload.zip';
+    if (safe.length > 180) safe = `${safe.slice(0, 170)}.zip`;
+    if (!/\.zip$/i.test(safe)) safe = `${safe}.zip`;
+    return safe;
+  }
+
+  /**
+   * Bij R2: ZIP niet uitpakken (geen dubbele schijf), bestand naar bucket + mediaregel.
+   * Geschikt voor modeshow-download-ZIP’s; inhoud blijft in het .zip-bestand.
+   */
+  private async importZipUploadStoreToR2(
+    file: Express.Multer.File,
+    userId: string,
+    folder: { id: string; slug: string },
+  ) {
+    const zipPath = (file as Express.Multer.File & { path?: string }).path;
+    if (!zipPath || !existsSync(zipPath)) {
+      throw new BadRequestException('ZIP-upload mislukt (tijdelijk bestand ontbreekt).');
+    }
+    if (!this.isNonEmptyFile(zipPath)) {
+      throw new BadRequestException('ZIP-upload mislukt (leeg tijdelijk bestand).');
+    }
+
+    let destKey = this.sanitizeZipStorageKey(file.originalname || 'upload.zip');
+    const existingKey = await this.prisma.mediaAsset.findFirst({
+      where: { storageKey: destKey, hardDeleted: false },
+      select: { id: true },
+    });
+    if (existingKey) {
+      const stem = destKey.replace(/\.zip$/i, '');
+      destKey = `${stem}-${Date.now()}.zip`;
+    }
+
+    await r2PutLocalFile(destKey, zipPath, 'application/zip');
+    const st = statSync(zipPath);
+    try {
+      unlinkSync(zipPath);
+    } catch {
+      /**/
+    }
+
+    const zipLabel = basename(file.originalname || destKey);
+    const created = await this.prisma.mediaAsset.create({
+      data: {
+        originalName: zipLabel,
+        storageKey: destKey,
+        mimeType: 'application/zip',
+        sizeBytes: st.size,
+        uploadedById: userId,
+        folderId: folder.id,
+      },
+    });
+    this.invalidateDiskBasenameIndex();
+
+    return {
+      ok: true,
+      storedToR2: true,
+      folderSlug: folder.slug,
+      mediaRoot: this.root(),
+      zipName: file.originalname,
+      storageKey: destKey,
+      extractedFiles: 0,
+      skippedZipEntries: 0,
+      bytesWritten: st.size,
+      registered: 1,
+      registerSkipped: 0,
+      assetId: created.id,
+      hint:
+        'ZIP staat in Cloudflare R2 (niet uitgepakt). Modellen downloaden het .zip-bestand; voor losse foto’s in de map: foto-upload of uitpakken op schijf (zonder R2).',
+      errors: [] as string[],
+    };
+  }
+
   /**
    * Upload een .zip (tot ~6 GB via schijf), uitpakken naar MEDIA_ROOT, registreren in map.
    * Grote bestanden: zet MEDIA_ZIP_UPLOAD_MAX_BYTES; reverse proxy moet lange uploads toestaan.
@@ -1726,6 +1802,10 @@ export class MediaService implements OnModuleInit {
     if (!folder) throw new NotFoundException('Map niet gevonden.');
     if (folder.slug === 'verwijderde') {
       throw new BadRequestException('ZIP kan niet naar de prullenbak.');
+    }
+
+    if (mediaUsesR2()) {
+      return this.importZipUploadStoreToR2(file, userId, folder);
     }
 
     const root = this.root();
