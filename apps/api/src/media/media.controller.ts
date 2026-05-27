@@ -62,29 +62,34 @@ function zipUploadTmpDir(): string {
 export class MediaController {
   constructor(private media: MediaService) {}
 
-  private resolvePublicFile(filename: string): { safe: string; full: string } {
+  private async resolvePublicFile(filename: string): Promise<{ safe: string }> {
     const safe = basename(filename);
-    let full = this.media.resolveAbsolutePathForPublicFilename(safe);
-    if (!full && /%[0-9a-fA-F]{2}/.test(filename)) {
+    if (!safe || safe === '.') throw new NotFoundException();
+    let exists = await this.media.assetKeyExists(safe);
+    if (!exists && /%[0-9a-fA-F]{2}/.test(filename)) {
       try {
         const dec = basename(decodeURIComponent(filename));
-        if (dec && dec !== safe) full = this.media.resolveAbsolutePathForPublicFilename(dec);
+        if (dec && dec !== safe) exists = await this.media.assetKeyExists(dec);
       } catch {
         /**/
       }
     }
-    if (!safe || safe === '.' || !full) throw new NotFoundException();
-    return { safe, full };
+    if (!exists) throw new NotFoundException();
+    return { safe };
   }
 
   /** Publieke URL voor website/app; alleen bestandsnaam (geen pad-traversal). */
   @Get('public/:filename')
-  serve(@Param('filename') filename: string, @Res() res: Response) {
-    const { safe, full } = this.resolvePublicFile(filename);
+  async serve(@Param('filename') filename: string, @Res() res: Response) {
+    const { safe } = await this.resolvePublicFile(filename);
     const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
     if (mime) res.setHeader('Content-Type', mime);
-    /** Range-requests: nodig voor betrouwbare `<video>`-playback (o.a. Safari). */
-    return res.sendFile(full, { acceptRanges: true });
+    const stream = await this.media.openAssetReadStream(safe);
+    return new Promise<void>((resolve, reject) => {
+      stream.on('error', reject);
+      stream.on('end', () => resolve());
+      stream.pipe(res);
+    });
   }
 
   /**
@@ -99,7 +104,7 @@ export class MediaController {
   /** Zelfde bestand als /public, maar forceert download (attachment). */
   @Get('download/:filename')
   async serveDownload(@Param('filename') filename: string, @Res() res: Response) {
-    const { safe, full } = this.resolvePublicFile(filename);
+    const { safe } = await this.resolvePublicFile(filename);
     const downloadName = await this.media.resolveDownloadFilename(safe);
     const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
     if (mime) res.setHeader('Content-Type', mime);
@@ -107,7 +112,12 @@ export class MediaController {
       'Content-Disposition',
       `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
     );
-    return res.sendFile(full, { acceptRanges: true });
+    const stream = await this.media.openAssetReadStream(safe);
+    return new Promise<void>((resolve, reject) => {
+      stream.on('error', reject);
+      stream.on('end', () => resolve());
+      stream.pipe(res);
+    });
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -246,6 +256,20 @@ export class MediaController {
   /** ZIP uit Combell File Manager `…/uploads/inbox/` → MEDIA_ROOT + mediaregel. */
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
+  @Post('admin/register-r2-object')
+  registerR2Object(
+    @Req() req: { user: JwtPayload },
+    @Query('folderId') folderId?: string,
+    @Query('storageKey') storageKey?: string,
+    @Query('originalName') originalName?: string,
+  ) {
+    const fid = folderId?.trim();
+    const key = storageKey?.trim();
+    if (!fid) throw new BadRequestException('folderId is verplicht');
+    if (!key) throw new BadRequestException('storageKey is verplicht');
+    return this.media.registerR2Object(req.user.sub, fid, key, originalName);
+  }
+
   @Post('admin/import-inbox-zip')
   importInboxZip(
     @Req() req: { user: JwtPayload },

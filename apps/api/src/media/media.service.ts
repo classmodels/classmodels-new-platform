@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  OnModuleInit,
 } from '@nestjs/common';
 import {
   copyFileSync,
@@ -24,7 +25,16 @@ import type { Response } from 'express';
 import archiver from 'archiver';
 import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
-import { countMediaFilesShallow, resolveMediaRoot } from '../config/resolve-media-root';
+import { countMediaFilesShallow, logResolvedMediaRoot, resolveMediaRoot } from '../config/resolve-media-root';
+import {
+  logR2Boot,
+  mediaUsesR2,
+  r2DeleteObject,
+  r2GetObjectStream,
+  r2ObjectExists,
+  r2ObjectSize,
+  r2PutLocalFile,
+} from './media-r2';
 import { PrismaService } from '../prisma/prisma.service';
 import sharp from 'sharp';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
@@ -110,7 +120,7 @@ type AssetWithFolder = {
 };
 
 @Injectable()
-export class MediaService {
+export class MediaService implements OnModuleInit {
   /** Cache: basename → pad relatief t.o.v. MEDIA_ROOT (lege map = geen cache). */
   private diskBasenameIndex: { root: string; map: Map<string, string> } | null = null;
 
@@ -118,6 +128,65 @@ export class MediaService {
     private prisma: PrismaService,
     private modelHistory: ModelPortalHistoryService,
   ) {}
+
+  onModuleInit() {
+    if (mediaUsesR2()) logR2Boot();
+    else logResolvedMediaRoot();
+  }
+
+  usesR2Storage(): boolean {
+    return mediaUsesR2();
+  }
+
+  /** Lees stream (R2 of lokale schijf). */
+  async openAssetReadStream(storageKey: string): Promise<NodeJS.ReadableStream> {
+    const key = basename(storageKey.trim());
+    if (!key || key === '.') throw new NotFoundException('Bestand niet gevonden.');
+    if (mediaUsesR2() && (await r2ObjectExists(key))) {
+      return r2GetObjectStream(key);
+    }
+    const full = this.resolveAssetAbsolutePath(key);
+    if (!full) throw new NotFoundException('Bestand ontbreekt in opslag.');
+    return createReadStream(full);
+  }
+
+  async assetKeyExists(storageKey: string): Promise<boolean> {
+    const key = storageKey.trim();
+    if (!key || key.includes('..')) return false;
+    if (mediaUsesR2()) {
+      const sz = await r2ObjectSize(basename(key));
+      if (sz !== null) return true;
+    }
+    return this.resolveAssetAbsolutePath(key) !== null;
+  }
+
+  private async syncLocalKeysToR2(keys: string[]): Promise<void> {
+    if (!mediaUsesR2()) return;
+    const root = this.root();
+    for (const key of keys) {
+      if (!key) continue;
+      const local = join(root, key);
+      if (!this.isNonEmptyFile(local)) continue;
+      const mime = this.mimeFromFilename(key);
+      await r2PutLocalFile(key, local, mime);
+    }
+  }
+
+  private mimeFromFilename(name: string): string | undefined {
+    const ext = extname(name).toLowerCase();
+    const map: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.zip': 'application/zip',
+    };
+    return map[ext];
+  }
 
   private invalidateDiskBasenameIndex() {
     this.diskBasenameIndex = null;
@@ -307,6 +376,10 @@ export class MediaService {
       throw new BadRequestException('Kopiëren naar MEDIA_ROOT mislukt.');
     }
 
+    if (mediaUsesR2()) {
+      await r2PutLocalFile(destKey, dest, 'application/zip');
+    }
+
     const st = statSync(dest);
     const existing = await this.prisma.mediaAsset.findFirst({
       where: { storageKey: destKey, hardDeleted: false },
@@ -384,6 +457,45 @@ export class MediaService {
     for (const k of [asset.thumbKey, asset.webpKey, asset.storageKey]) {
       if (!k) continue;
       if (this.resolveAssetAbsolutePath(k)) return basename(k);
+    }
+    return asset.storageKey;
+  }
+
+  async resolvePublicFilenameAsync(asset: {
+    storageKey: string;
+    webpKey?: string | null;
+    thumbKey?: string | null;
+  }): Promise<string> {
+    for (const k of [asset.thumbKey, asset.webpKey, asset.storageKey]) {
+      if (!k) continue;
+      const base = basename(k);
+      if (mediaUsesR2()) {
+        const sz = await r2ObjectSize(base);
+        if (sz !== null) return base;
+      }
+      if (this.resolveAssetAbsolutePath(k)) return base;
+    }
+    return asset.storageKey;
+  }
+
+  async resolveDetailFilenameAsync(asset: {
+    storageKey: string;
+    mimeType: string;
+    webpKey?: string | null;
+    thumbKey?: string | null;
+  }): Promise<string> {
+    const image = asset.mimeType?.startsWith('image/');
+    const order = image
+      ? [asset.webpKey, asset.storageKey, asset.thumbKey]
+      : [asset.storageKey, asset.webpKey, asset.thumbKey];
+    for (const k of order) {
+      if (!k) continue;
+      const base = basename(k);
+      if (mediaUsesR2()) {
+        const sz = await r2ObjectSize(base);
+        if (sz !== null) return base;
+      }
+      if (this.resolveAssetAbsolutePath(k)) return base;
     }
     return asset.storageKey;
   }
@@ -686,11 +798,13 @@ export class MediaService {
       take,
     });
 
-    const mappedAssets = assetRows.map((a) => ({
-      ...a,
-      publicKey: this.resolvePublicFilename(a),
-      detailKey: this.resolveDetailFilename(a),
-    }));
+    const mappedAssets = await Promise.all(
+      assetRows.map(async (a) => ({
+        ...a,
+        publicKey: await this.resolvePublicFilenameAsync(a),
+        detailKey: await this.resolveDetailFilenameAsync(a),
+      })),
+    );
 
     const folders = foldersMeta.map((f) => ({
       id: f.id,
@@ -899,6 +1013,9 @@ export class MediaService {
         },
       });
       this.invalidateDiskBasenameIndex();
+      await this.syncLocalKeysToR2(
+        [storageKey, webpKey, thumbKey].filter((k): k is string => Boolean(k)),
+      );
       try {
         return this.uploadResponseDto(created);
       } catch (e) {
@@ -1518,8 +1635,8 @@ export class MediaService {
     };
   }
 
-  private assetOnDisk(storageKey: string): boolean {
-    return Boolean(this.resolveAssetAbsolutePath(storageKey));
+  private async assetOnStorage(storageKey: string): Promise<boolean> {
+    return this.assetKeyExists(storageKey);
   }
 
   private async findModeshowZipInFolder(folderId: string) {
@@ -1539,10 +1656,16 @@ export class MediaService {
       select: { id: true, originalName: true, sizeBytes: true, storageKey: true },
       take: 20,
     });
-    const onDisk = rows.filter((r) => this.assetOnDisk(r.storageKey));
-    if (!onDisk.length) return null;
-    if (zipName) return onDisk[0]!;
-    return onDisk.find((r) => /modeshow/i.test(r.originalName)) ?? onDisk[0]!;
+    for (const row of rows) {
+      if (await this.assetOnStorage(row.storageKey)) {
+        if (zipName) return row;
+        if (/modeshow/i.test(row.originalName)) return row;
+      }
+    }
+    for (const row of rows) {
+      if (await this.assetOnStorage(row.storageKey)) return row;
+    }
+    return null;
   }
 
   private async findModeshowFilmInFolder(folderId: string) {
@@ -1565,7 +1688,7 @@ export class MediaService {
       orderBy: { createdAt: 'desc' },
       select: { id: true, originalName: true, sizeBytes: true, storageKey: true, mimeType: true },
     });
-    if (!filmRow || !this.assetOnDisk(filmRow.storageKey)) return null;
+    if (!filmRow || !(await this.assetOnStorage(filmRow.storageKey))) return null;
     return filmRow;
   }
 
@@ -1656,20 +1779,69 @@ export class MediaService {
       where: { id: assetId, hardDeleted: false },
     });
     if (!row) throw new NotFoundException('Bestand niet gevonden.');
-    const full = this.resolveAssetAbsolutePath(row.storageKey);
-    if (!full) throw new NotFoundException('Bestand ontbreekt op schijf.');
     const downloadName = await this.resolveDownloadFilename(row.storageKey);
     if (row.mimeType) res.setHeader('Content-Type', row.mimeType);
     res.setHeader(
       'Content-Disposition',
       `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
     );
+    const stream = await this.openAssetReadStream(row.storageKey);
     return new Promise<void>((resolve, reject) => {
-      const stream = createReadStream(full);
       stream.on('error', reject);
       stream.on('end', () => resolve());
       stream.pipe(res);
     });
+  }
+
+  /** Bestand staat al in R2 (bv. via Cloudflare UI); alleen DB-registreren. */
+  async registerR2Object(
+    userId: string,
+    folderId: string,
+    storageKeyRaw: string,
+    originalName?: string,
+  ) {
+    const storageKey = basename(storageKeyRaw.trim());
+    if (!storageKey || storageKey.includes('..')) {
+      throw new BadRequestException('Ongeldige storageKey.');
+    }
+    if (!mediaUsesR2()) {
+      throw new BadRequestException('MEDIA_BACKEND=r2 is niet actief op deze server.');
+    }
+    const sz = await r2ObjectSize(storageKey);
+    if (sz === null) {
+      throw new NotFoundException(
+        `Bestand "${storageKey}" niet gevonden in R2 bucket. Upload eerst naar Cloudflare R2.`,
+      );
+    }
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException('Map niet gevonden.');
+    const mime = this.mimeFromFilename(storageKey) ?? 'application/octet-stream';
+    const existing = await this.prisma.mediaAsset.findFirst({
+      where: { storageKey, hardDeleted: false },
+    });
+    if (existing) {
+      await this.prisma.mediaAsset.update({
+        where: { id: existing.id },
+        data: {
+          folderId: folder.id,
+          sizeBytes: sz,
+          mimeType: mime,
+          originalName: originalName?.trim() || existing.originalName,
+        },
+      });
+      return { ok: true, assetId: existing.id, storageKey, sizeBytes: sz, updated: true };
+    }
+    const created = await this.prisma.mediaAsset.create({
+      data: {
+        originalName: originalName?.trim() || storageKey,
+        storageKey,
+        mimeType: mime,
+        sizeBytes: sz,
+        uploadedById: userId,
+        folderId: folder.id,
+      },
+    });
+    return { ok: true, assetId: created.id, storageKey, sizeBytes: sz, updated: false };
   }
 
   async registerDiskOrphanAssets(
@@ -1901,6 +2073,7 @@ export class MediaService {
     }
     const root = this.root();
     for (const k of [a.storageKey, a.webpKey, a.thumbKey].filter(Boolean) as string[]) {
+      if (mediaUsesR2()) void r2DeleteObject(basename(k));
       try {
         unlinkSync(join(root, k));
       } catch {
@@ -1970,11 +2143,15 @@ export class MediaService {
     return {
       mediaRoot: root,
       mediaRootExists: existsSync(root),
+      mediaBackend: mediaUsesR2() ? 'r2' : 'local',
+      r2Bucket: mediaUsesR2() ? process.env.R2_BUCKET?.trim() || null : null,
       diskRegisterableFiles: diskFiles,
       diskImageFiles: diskImages,
       env: {
+        MEDIA_BACKEND: process.env.MEDIA_BACKEND?.trim() || null,
         MEDIA_ROOT: process.env.MEDIA_ROOT?.trim() || null,
         MEDIA_SYNC_SOURCE: process.env.MEDIA_SYNC_SOURCE?.trim() || null,
+        R2_BUCKET: process.env.R2_BUCKET?.trim() || null,
         HOME: process.env.HOME?.trim() || null,
         NODE_ENV: process.env.NODE_ENV || null,
       },

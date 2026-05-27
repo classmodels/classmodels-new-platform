@@ -3,6 +3,13 @@
 # Zie scripts/combell-optie-a.txt voor uitleg en wat je aan Combell vraagt
 
 COMBELL_HOST_ROUTER=1
+# Cloudflare R2 (grote foto's/ZIP's/films — verplicht voor mediatheek op schaal):
+MEDIA_BACKEND=r2
+R2_BUCKET=classmodels-media
+R2_ACCOUNT_ID=VERVANG_MET_CLOUDFLARE_ACCOUNT_ID
+R2_ENDPOINT=https://VERVANG_ACCOUNT_ID.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=VERVANG_ACCESS_KEY
+R2_SECRET_ACCESS_KEY=VERVANG_SECRET_KEY
 # Geen ".", placeholder of leeg — anders start geen dual-proxy (geen Nest, geen /media/public).
 DB_URL=VERVANG_VOLLEDIGE_MYSQL_URL_VAN_COMBELL
 JWT_SECRET=VERVANG_LANG_WILLEKEURIG_GEHEIM

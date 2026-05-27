@@ -6,8 +6,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { createReadStream } from 'node:fs';
 import { basename, join } from 'node:path';
+import type { Readable } from 'node:stream';
 import type { Response } from 'express';
 import archiver from 'archiver';
 import type { Prisma } from '@prisma/client';
@@ -206,20 +206,26 @@ export class TestshootService {
       }
     });
 
-    let filesInZip = 0;
+    const zipEntries: { stream: Readable; name: string }[] = [];
+    for (const p of model.photos) {
+      const key = p.asset.storageKey;
+      try {
+        const stream = (await this.media.openAssetReadStream(key)) as Readable;
+        zipEntries.push({
+          stream,
+          name: p.asset.originalName || basename(key),
+        });
+      } catch {
+        /** ontbreekt in R2/schijf */
+      }
+    }
+    let filesInZip = zipEntries.length;
     await new Promise<void>((resolve, reject) => {
       archive.on('error', reject);
       archive.on('end', () => resolve());
       archive.pipe(res);
-      for (const p of model.photos) {
-        const key = p.asset.storageKey;
-        const full = this.media.resolveAssetAbsolutePath(key);
-        if (full) {
-          archive.append(createReadStream(full), {
-            name: p.asset.originalName || basename(key),
-          });
-          filesInZip += 1;
-        }
+      for (const entry of zipEntries) {
+        archive.append(entry.stream, { name: entry.name });
       }
       void archive.finalize();
     });
