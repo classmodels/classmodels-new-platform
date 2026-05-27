@@ -38,13 +38,11 @@ export class ModelPushService {
   }
 
   private async getOrCreatePushSettings(userId: string) {
-    let row = await this.prisma.modelPushSettings.findUnique({ where: { userId } });
-    if (!row) {
-      row = await this.prisma.modelPushSettings.create({
-        data: { userId, notifyHistoryEvents: true, notifyAgencyBroadcasts: true },
-      });
-    }
-    return row;
+    return this.prisma.modelPushSettings.upsert({
+      where: { userId },
+      create: { userId, notifyHistoryEvents: true, notifyAgencyBroadcasts: true },
+      update: {},
+    });
   }
 
   async getSummaryForUser(userId: string) {

@@ -32,6 +32,21 @@ if (combellHostRouterEnabled()) {
   }
   require(dual);
 } else {
+  function runStandaloneIfPresent() {
+    if (process.env.NODE_ENV !== 'production') return false;
+    const standalone = path.join(cwd, '.next', 'standalone', 'server.js');
+    if (!fs.existsSync(standalone)) return false;
+    const port = process.env.PORT || '3000';
+    const r = spawnSync(process.execPath, [standalone], {
+      stdio: 'inherit',
+      cwd,
+      env: { ...process.env, PORT: String(port) },
+    });
+    process.exit(r.status === null ? 1 : r.status);
+  }
+
+  runStandaloneIfPresent();
+
   function tryNextBin(nextRoot) {
     const bin = path.join(nextRoot, 'dist', 'bin', 'next');
     const app = path.join(nextRoot, 'dist', 'pages', '_app.js');
