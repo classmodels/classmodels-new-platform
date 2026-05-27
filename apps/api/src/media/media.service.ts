@@ -14,6 +14,7 @@ import {
   statSync,
   writeFileSync,
   readdirSync,
+  readFileSync,
   accessSync,
   constants as fsConstants,
 } from 'fs';
@@ -33,6 +34,7 @@ import {
   r2GetObjectStream,
   r2ObjectExists,
   r2ObjectSize,
+  r2PutBuffer,
   r2PutLocalFile,
 } from './media-r2';
 import { PrismaService } from '../prisma/prisma.service';
@@ -866,6 +868,133 @@ export class MediaService implements OnModuleInit {
     };
   }
 
+  private async readUploadBuffer(file: Express.Multer.File): Promise<Buffer> {
+    const multerPath = (file as Express.Multer.File & { path?: string }).path;
+    if (Buffer.isBuffer(file.buffer) && file.buffer.length > 0) {
+      return file.buffer;
+    }
+    if (multerPath && existsSync(multerPath)) {
+      const buf = readFileSync(multerPath);
+      if (buf.length > 0) return buf;
+    }
+    throw new BadRequestException('Leeg uploadbestand (geen bytes ontvangen).');
+  }
+
+  /** Bij R2: Sharp in geheugen → direct naar bucket (geen lege lokale schijf). */
+  private async saveFileToR2(
+    file: Express.Multer.File,
+    userId: string | null,
+    folderId?: string | null,
+    opts?: SaveFileOptions,
+  ) {
+    const inputBuf = await this.readUploadBuffer(file);
+    const id = randomUUID();
+
+    let folder: { slug: string; settings: unknown } | null = null;
+    if (folderId) {
+      folder = await this.prisma.mediaFolder.findUnique({
+        where: { id: folderId },
+        select: { slug: true, settings: true },
+      });
+    }
+    const folderSettings = parseMediaFolderSettings(folder?.settings);
+    const webpOnly = Boolean(
+      folderSettings.storeUploadsAsWebpOnly &&
+        file.mimetype.startsWith('image/') &&
+        folder?.slug !== 'testshoot',
+    );
+
+    let width: number | undefined;
+    let height: number | undefined;
+    let webpKey: string | undefined;
+    let thumbKey: string | undefined;
+    let storageKey: string;
+    let mimeType = file.mimetype;
+    let sizeBytes = inputBuf.length;
+
+    try {
+      if (webpOnly) {
+        storageKey = `${id}.webp`;
+        const webpBuf = await sharp(inputBuf)
+          .rotate()
+          .webp({ quality: WEBP_FULL_QUALITY, effort: WEBP_EFFORT })
+          .toBuffer();
+        const meta = await sharp(webpBuf).metadata();
+        width = meta.width ?? undefined;
+        height = meta.height ?? undefined;
+        mimeType = 'image/webp';
+        sizeBytes = webpBuf.length;
+        thumbKey = `${id}_thumb.webp`;
+        const thumbBuf = await sharp(webpBuf)
+          .rotate()
+          .resize(360, 360, { fit: 'inside' })
+          .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
+          .toBuffer();
+        await r2PutBuffer(storageKey, webpBuf, 'image/webp');
+        await r2PutBuffer(thumbKey, thumbBuf, 'image/webp');
+      } else {
+        const extRaw = extname(file.originalname) || (file.mimetype === 'image/png' ? '.png' : '.jpg');
+        const ext = extRaw.replace(/^\./, '') || 'bin';
+        storageKey = `${id}.${ext}`;
+        await r2PutBuffer(storageKey, inputBuf, mimeType || this.mimeFromFilename(storageKey));
+
+        if (file.mimetype.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(file.originalname)) {
+          const orientedMeta = await sharp(inputBuf).rotate().metadata();
+          width = orientedMeta.width;
+          height = orientedMeta.height;
+          webpKey = `${id}.webp`;
+          const webpBuf = await sharp(inputBuf)
+            .rotate()
+            .webp({ quality: WEBP_FULL_QUALITY, effort: WEBP_EFFORT })
+            .toBuffer();
+          await r2PutBuffer(webpKey, webpBuf, 'image/webp');
+          thumbKey = `${id}_thumb.webp`;
+          const thumbBuf = await sharp(webpBuf)
+            .rotate()
+            .resize(360, 360, { fit: 'inside' })
+            .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
+            .toBuffer();
+          await r2PutBuffer(thumbKey, thumbBuf, 'image/webp');
+        }
+      }
+
+      const displayFile =
+        webpOnly ?
+          ({
+            ...file,
+            originalname: `${basename(file.originalname, extname(file.originalname)) || 'bestand'}.webp`,
+          } as Express.Multer.File)
+        : file;
+      const displayOriginal = this.buildDisplayOriginalName(displayFile, folder ?? undefined, opts);
+      const linked =
+        opts?.linkedModelUserId && /^[0-9a-f-]{36}$/i.test(opts.linkedModelUserId) ?
+          opts.linkedModelUserId
+        : undefined;
+
+      const created = await this.prisma.mediaAsset.create({
+        data: {
+          originalName: displayOriginal,
+          storageKey,
+          mimeType,
+          sizeBytes,
+          width,
+          height,
+          webpKey,
+          thumbKey,
+          uploadedById: userId,
+          folderId: folderId && folderId.length > 0 ? folderId : undefined,
+          linkedModelUserId: linked,
+        },
+      });
+      return this.uploadResponseDto(created);
+    } catch (e: unknown) {
+      if (e instanceof BadRequestException || e instanceof NotFoundException) throw e;
+      console.error('[media] saveFileToR2 mislukt:', e);
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new BadRequestException(`Upload naar R2 mislukt: ${msg}`);
+    }
+  }
+
   async saveFile(
     file: Express.Multer.File,
     userId: string | null,
@@ -873,6 +1002,9 @@ export class MediaService implements OnModuleInit {
     opts?: SaveFileOptions,
   ) {
     await this.purgeScheduledAssets();
+    if (mediaUsesR2()) {
+      return this.saveFileToR2(file, userId, folderId, opts);
+    }
     const root = this.root();
     this.ensureMediaRootWritable(root);
     const id = randomUUID();

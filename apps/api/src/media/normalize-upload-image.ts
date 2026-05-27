@@ -73,7 +73,9 @@ export async function normalizeUploadImageFile(file: Express.Multer.File): Promi
   } else if (multerPath && existsSync(multerPath)) {
     buf = readFileSync(multerPath);
   }
-  if (!buf?.length) return file;
+  if (!buf?.length) {
+    throw new BadRequestException('Leeg uploadbestand (geen bytes ontvangen).');
+  }
 
   if (isHeicLike(file)) {
     const jpegBuf = await toJpegBuffer(buf, file);
