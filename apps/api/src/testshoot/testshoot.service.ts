@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { basename, join } from 'node:path';
 import type { Response } from 'express';
 import archiver from 'archiver';
@@ -14,6 +14,7 @@ import type { Prisma } from '@prisma/client';
 import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MediaService } from '../media/media.service';
+import { normalizeUploadImageFile } from '../media/normalize-upload-image';
 import type { TestshootFeedbackDto } from './dto/testshoot-feedback.dto';
 
 const ZIP_SIG_SECONDS = 900;
@@ -190,7 +191,6 @@ export class TestshootService {
     });
     if (!model || model.photos.length === 0) throw new NotFoundException();
 
-    const root = this.media.root();
     const safeName = model.name.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot';
     const filename = `${safeName}-fotos.zip`;
 
@@ -213,8 +213,8 @@ export class TestshootService {
       archive.pipe(res);
       for (const p of model.photos) {
         const key = p.asset.storageKey;
-        const full = join(root, key);
-        if (existsSync(full)) {
+        const full = this.media.resolveAssetAbsolutePath(key);
+        if (full) {
           archive.append(createReadStream(full), {
             name: p.asset.originalName || basename(key),
           });
@@ -290,7 +290,8 @@ export class TestshootService {
 
     let added = 0;
     for (const file of files) {
-      const asset = await this.media.saveFile(file, userId, folder?.id ?? undefined, {
+      const normalized = await normalizeUploadImageFile(file);
+      const asset = await this.media.saveFile(normalized, userId, folder?.id ?? undefined, {
         fileLabel: model.name,
       });
       await this.prisma.testshootPhoto.create({

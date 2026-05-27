@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  copyFileSync,
   createReadStream,
   createWriteStream,
   mkdirSync,
@@ -207,17 +208,151 @@ export class MediaService {
     return m;
   }
 
-  /** Absoluut pad voor GET /media/public/:bestand (ook in submappen van MEDIA_ROOT). */
-  resolveAbsolutePathForPublicFilename(filename: string): string | null {
-    const safe = basename(filename);
-    if (!safe || safe === '.') return null;
+  /** Bestand bestaat en heeft inhoud (geen lege placeholder na mislukte upload). */
+  private isNonEmptyFile(full: string): boolean {
+    try {
+      if (!existsSync(full)) return false;
+      return statSync(full).size > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Absoluut pad voor storageKey (plat of in submap van MEDIA_ROOT). */
+  resolveAssetAbsolutePath(storageKey: string): string | null {
+    const key = storageKey.trim();
+    if (!key || key.includes('..')) return null;
     const root = this.root();
-    const direct = join(root, safe);
-    if (existsSync(direct)) return direct;
-    const rel = this.lookupDiskRelativePath(safe);
+    const direct = join(root, key);
+    if (this.isNonEmptyFile(direct)) return direct;
+    const rel = this.lookupDiskRelativePath(basename(key));
     if (!rel) return null;
     const nested = join(root, rel);
-    return existsSync(nested) ? nested : null;
+    return this.isNonEmptyFile(nested) ? nested : null;
+  }
+
+  /** Absoluut pad voor GET /media/public/:bestand (ook in submappen van MEDIA_ROOT). */
+  resolveAbsolutePathForPublicFilename(filename: string): string | null {
+    return this.resolveAssetAbsolutePath(filename);
+  }
+
+  /** Zoekt ZIP in Combell File Manager-inbox (buiten de Node-container). */
+  private resolveHostingInboxZipPaths(fileName: string): string[] {
+    const safe = basename(fileName);
+    const out: string[] = [];
+    const add = (base: string | undefined) => {
+      if (!base?.trim()) return;
+      const b = base.trim();
+      out.push(join(b, 'inbox', safe));
+      out.push(join(b, safe));
+    };
+    add(process.env.CM_COMBELL_DATA_UPLOADS?.trim());
+    add(process.env.CM_MEDIA_UPLOADS?.trim());
+    const home = process.env.HOME?.trim();
+    if (home && home !== '/app') add(join(home, 'www/cm-media/uploads'));
+    add('/home/ID460044/www/cm-media/uploads');
+    const root = this.root();
+    out.push(join(root, 'inbox', safe));
+    return [...new Set(out)];
+  }
+
+  /**
+   * ZIP uit Combell File Manager-inbox → MEDIA_ROOT + mediaregel (modeshow-downloads, grote bestanden).
+   */
+  async importInboxZip(userId: string, folderId: string, fileNameRaw: string) {
+    const fileName = basename(fileNameRaw.trim());
+    if (!fileName || fileName === '.' || fileName.includes('..')) {
+      throw new BadRequestException('Ongeldige bestandsnaam.');
+    }
+    if (!/\.zip$/i.test(fileName)) {
+      throw new BadRequestException('Alleen .zip-bestanden.');
+    }
+
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException('Map niet gevonden.');
+    if (folder.slug === 'verwijderde') {
+      throw new BadRequestException('ZIP kan niet naar de prullenbak.');
+    }
+
+    const candidates = this.resolveHostingInboxZipPaths(fileName);
+    let source: string | null = null;
+    for (const p of candidates) {
+      if (this.isNonEmptyFile(p)) {
+        source = p;
+        break;
+      }
+    }
+    if (!source) {
+      throw new NotFoundException(
+        `ZIP "${fileName}" niet gevonden in inbox. Upload naar File Manager: www/cm-media/uploads/inbox/${fileName} (of zet CM_COMBELL_DATA_UPLOADS). Gezocht in: ${candidates.slice(0, 4).join('; ')}…`,
+      );
+    }
+
+    const root = this.root();
+    this.ensureMediaRootWritable(root);
+    mkdirSync(join(root, 'inbox'), { recursive: true });
+
+    let destKey = fileName;
+    let dest = join(root, destKey);
+    if (source !== dest && !this.isNonEmptyFile(dest)) {
+      copyFileSync(source, dest);
+    } else if (source !== dest && this.isNonEmptyFile(dest)) {
+      const stem = fileName.replace(/\.zip$/i, '');
+      destKey = `${stem}-${Date.now()}.zip`;
+      dest = join(root, destKey);
+      copyFileSync(source, dest);
+    }
+
+    if (!this.isNonEmptyFile(dest)) {
+      throw new BadRequestException('Kopiëren naar MEDIA_ROOT mislukt.');
+    }
+
+    const st = statSync(dest);
+    const existing = await this.prisma.mediaAsset.findFirst({
+      where: { storageKey: destKey, hardDeleted: false },
+    });
+    if (existing) {
+      await this.prisma.mediaAsset.update({
+        where: { id: existing.id },
+        data: {
+          folderId: folder.id,
+          sizeBytes: st.size,
+          mimeType: 'application/zip',
+          originalName: fileName,
+        },
+      });
+      this.invalidateDiskBasenameIndex();
+      return {
+        ok: true,
+        zipName: fileName,
+        storageKey: destKey,
+        mediaRoot: root,
+        sizeBytes: st.size,
+        assetId: existing.id,
+        updated: true,
+      };
+    }
+
+    const created = await this.prisma.mediaAsset.create({
+      data: {
+        originalName: fileName,
+        storageKey: destKey,
+        mimeType: 'application/zip',
+        sizeBytes: st.size,
+        uploadedById: userId,
+        folderId: folder.id,
+      },
+    });
+    this.invalidateDiskBasenameIndex();
+    return {
+      ok: true,
+      zipName: fileName,
+      storageKey: destKey,
+      mediaRoot: root,
+      sizeBytes: st.size,
+      assetId: created.id,
+      updated: false,
+    };
   }
 
   root() {
@@ -246,12 +381,9 @@ export class MediaService {
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string {
-    const root = this.root();
     for (const k of [asset.thumbKey, asset.webpKey, asset.storageKey]) {
       if (!k) continue;
-      if (existsSync(join(root, k))) return k;
-      const rel = this.lookupDiskRelativePath(basename(k));
-      if (rel) return basename(k);
+      if (this.resolveAssetAbsolutePath(k)) return basename(k);
     }
     return asset.storageKey;
   }
@@ -299,16 +431,13 @@ export class MediaService {
     webpKey?: string | null;
     thumbKey?: string | null;
   }): string {
-    const root = this.root();
     const image = asset.mimeType?.startsWith('image/');
     const order = image
       ? [asset.webpKey, asset.storageKey, asset.thumbKey]
       : [asset.storageKey, asset.webpKey, asset.thumbKey];
     for (const k of order) {
       if (!k) continue;
-      if (existsSync(join(root, k))) return k;
-      const rel = this.lookupDiskRelativePath(basename(k));
-      if (rel) return basename(k);
+      if (this.resolveAssetAbsolutePath(k)) return basename(k);
     }
     return asset.storageKey;
   }
@@ -705,6 +834,14 @@ export class MediaService {
             ws.write(file.buffer as Buffer);
             ws.end();
           });
+        }
+        if (!this.isNonEmptyFile(full)) {
+          try {
+            unlinkSync(full);
+          } catch {
+            /**/
+          }
+          throw new BadRequestException('Upload mislukt: leeg bestand op schijf.');
         }
 
         if (file.mimetype.startsWith('image/')) {
@@ -1382,9 +1519,7 @@ export class MediaService {
   }
 
   private assetOnDisk(storageKey: string): boolean {
-    const root = this.root();
-    if (existsSync(join(root, storageKey))) return true;
-    return Boolean(this.lookupDiskRelativePath(basename(storageKey)));
+    return Boolean(this.resolveAssetAbsolutePath(storageKey));
   }
 
   private async findModeshowZipInFolder(folderId: string) {
@@ -1521,9 +1656,8 @@ export class MediaService {
       where: { id: assetId, hardDeleted: false },
     });
     if (!row) throw new NotFoundException('Bestand niet gevonden.');
-    const root = this.root();
-    const full = join(root, row.storageKey);
-    if (!existsSync(full)) throw new NotFoundException('Bestand ontbreekt op schijf.');
+    const full = this.resolveAssetAbsolutePath(row.storageKey);
+    if (!full) throw new NotFoundException('Bestand ontbreekt op schijf.');
     const downloadName = await this.resolveDownloadFilename(row.storageKey);
     if (row.mimeType) res.setHeader('Content-Type', row.mimeType);
     res.setHeader(

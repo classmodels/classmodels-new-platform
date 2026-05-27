@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -30,6 +31,7 @@ import {
   UpdateFolderSettingsDto,
 } from './dto/media-admin.dto';
 import { MediaService } from './media.service';
+import { normalizeUploadImageFile } from './normalize-upload-image';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -160,7 +162,7 @@ export class MediaController {
       limits: { fileSize: 200 * 1024 * 1024 },
     }),
   )
-  upload(
+  async upload(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: { user: JwtPayload },
     @Query('folderId') folderId?: string,
@@ -168,7 +170,13 @@ export class MediaController {
   ) {
     if (!file) return { error: 'Geen bestand' };
     const label = fileLabel?.trim();
-    return this.media.saveFile(file, req.user.sub, folderId, label ? { fileLabel: label } : undefined);
+    const normalized = await normalizeUploadImageFile(file);
+    return this.media.saveFile(
+      normalized,
+      req.user.sub,
+      folderId,
+      label ? { fileLabel: label } : undefined,
+    );
   }
 
   /** ZIP (tot ~6 GB) → uitpakken op schijf → mediaregels in gekozen map. */
@@ -233,6 +241,22 @@ export class MediaController {
   @Post('admin/apply-deploy-bundle')
   applyDeployBundle(@Query('force') force?: string) {
     return this.media.applyDeployMediaBundle(force === '1' || force === 'true');
+  }
+
+  /** ZIP uit Combell File Manager `…/uploads/inbox/` → MEDIA_ROOT + mediaregel. */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('admin/import-inbox-zip')
+  importInboxZip(
+    @Req() req: { user: JwtPayload },
+    @Query('folderId') folderId?: string,
+    @Query('fileName') fileName?: string,
+  ) {
+    const fid = folderId?.trim();
+    const name = fileName?.trim();
+    if (!fid) throw new BadRequestException('folderId is verplicht');
+    if (!name) throw new BadRequestException('fileName is verplicht');
+    return this.media.importInboxZip(req.user.sub, fid, name);
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
