@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000 --hostname 127.0.0.1",
     "build": "node build.cjs",
+    "serve": "node start.cjs",
     "start": "node start.cjs",
     "lint": "next lint"
   },

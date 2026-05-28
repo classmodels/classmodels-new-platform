@@ -5,6 +5,7 @@
   "scripts": {
     "build": "node build.cjs",
     "dev": "nest start --watch",
+    "serve": "node dist/src/main",
     "start": "node dist/src/main",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
