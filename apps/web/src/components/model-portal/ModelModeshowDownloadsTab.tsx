@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
-import { downloadWithProgress, type DownloadProgressUpdate } from '@/lib/download-with-progress';
+import {
+  downloadProgressSublabel,
+  downloadWithProgress,
+  type DownloadProgressUpdate,
+} from '@/lib/download-with-progress';
 import { CmProgressBar } from '@/components/CmProgressBar';
 import { MODEL_BTN_GOLD, MODEL_BTN_SILVER } from './model-portal-buttons';
 import { ModelPortalCustomDownloads } from './ModelPortalCustomDownloads';
@@ -26,6 +30,40 @@ function formatBytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function progressTitle(kind: 'photos' | 'film', p: DownloadProgressUpdate): string {
+  const what = kind === 'film' ? 'Film' : 'Foto’s';
+  if (p.phase === 'connecting') {
+    return `${what}: verbinding maken — even geduld`;
+  }
+  if (p.phase === 'saving') {
+    return `${what}: opslaan op je apparaat…`;
+  }
+  if (p.percent != null) {
+    return `${what}: downloaden (${p.percent}%)`;
+  }
+  return `${what}: downloaden — dit kan lang duren`;
+}
+
+function DownloadProgressPanel({
+  kind,
+  progress,
+}: {
+  kind: 'photos' | 'film';
+  progress: DownloadProgressUpdate;
+}) {
+  return (
+    <div className="mt-4">
+      <CmProgressBar
+        prominent
+        label={progressTitle(kind, progress)}
+        sublabel={downloadProgressSublabel(progress)}
+        percent={progress.indeterminate ? undefined : (progress.percent ?? undefined)}
+        indeterminate={progress.indeterminate}
+      />
+    </div>
+  );
 }
 
 export function ModelModeshowDownloadsTab() {
@@ -55,14 +93,16 @@ export function ModelModeshowDownloadsTab() {
     if (!token) return;
     setBusy(kind);
     setProgress({
+      phase: 'connecting',
       percent: null,
       loaded: 0,
       total: sizeBytes > 0 ? sizeBytes : null,
-      indeterminate: !(sizeBytes > 0),
+      indeterminate: true,
     });
     void downloadWithProgress(`${getApiBase()}${path}`, {
       token,
       fallbackName,
+      expectedBytes: sizeBytes > 0 ? sizeBytes : undefined,
       onProgress: setProgress,
     })
       .catch((e) => alert(e instanceof Error ? e.message : 'Download mislukt'))
@@ -98,21 +138,21 @@ export function ModelModeshowDownloadsTab() {
       ? `Download ${meta.configuredFilmName}`
       : 'Download film try-out modeshow';
 
-  const progressLabel =
-    progress?.indeterminate ?
-      `Download bezig (${busy === 'film' ? 'film' : 'foto’s'}) — dit kan 10–60 minuten duren. Laat dit tabblad open.`
-    : `Downloaden: ${progress?.percent ?? 0}%`;
+  const photosBusy = busy === 'photos';
+  const filmBusy = busy === 'film';
 
   return (
     <div className="space-y-6">
       <p className="text-sm leading-relaxed text-muted">
-        Download hieronder de foto&apos;s (ZIP) en de film van de try-out modeshow. Bij grote bestanden zie je een
-        voortgangsbalk zodra de download start.
+        Klik op download — je ziet meteen een <strong>voortgangsbalk</strong> (ook tijdens het wachten op de server).
+        Laat dit tabblad open tot de download klaar is.
       </p>
       {err ? <p className="text-sm text-red-700">{err}</p> : null}
 
       {busy && progress ? (
-        <CmProgressBar label={progressLabel} percent={progress.indeterminate ? undefined : (progress.percent ?? undefined)} indeterminate={progress.indeterminate} />
+        <div className="sticky top-2 z-20">
+          <DownloadProgressPanel kind={busy} progress={progress} />
+        </div>
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -132,8 +172,13 @@ export function ModelModeshowDownloadsTab() {
               );
             }}
           >
-            {busy === 'photos' ? 'Downloaden…' : photosBtnLabel}
+            {photosBusy ?
+              progress?.percent != null ?
+                `Downloaden… ${progress.percent}%`
+              : 'Download gestart…'
+            : photosBtnLabel}
           </button>
+          {photosBusy && progress ? <DownloadProgressPanel kind="photos" progress={progress} /> : null}
           {meta?.photosZip ? (
             <p className="mt-3 rounded-md border border-line bg-panel/60 px-3 py-2 text-xs text-ink">
               <span className="font-medium">Bestand:</span>
@@ -174,8 +219,13 @@ export function ModelModeshowDownloadsTab() {
               );
             }}
           >
-            {busy === 'film' ? 'Downloaden…' : filmBtnLabel}
+            {filmBusy ?
+              progress?.percent != null ?
+                `Downloaden… ${progress.percent}%`
+              : 'Download gestart — even geduld…'
+            : filmBtnLabel}
           </button>
+          {filmBusy && progress ? <DownloadProgressPanel kind="film" progress={progress} /> : null}
           {meta?.film ? (
             <p className="mt-3 rounded-md border border-line bg-panel/60 px-3 py-2 text-xs text-ink">
               <span className="font-medium">Bestand:</span>

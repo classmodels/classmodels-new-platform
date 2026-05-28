@@ -1,99 +1,183 @@
 import { parseApiErrorBody } from '@/lib/api';
 
+export type DownloadProgressPhase = 'connecting' | 'downloading' | 'saving' | 'done';
+
 export type DownloadProgressUpdate = {
   percent: number | null;
   loaded: number;
   total: number | null;
   indeterminate: boolean;
+  phase: DownloadProgressPhase;
 };
 
-export async function downloadWithProgress(
+const DEFAULT_TIMEOUT_MS = 21_600_000;
+
+function emit(
+  onProgress: ((p: DownloadProgressUpdate) => void) | undefined,
+  patch: Partial<DownloadProgressUpdate> & Pick<DownloadProgressUpdate, 'phase'>,
+  base?: DownloadProgressUpdate,
+) {
+  const next: DownloadProgressUpdate = {
+    percent: patch.percent ?? base?.percent ?? null,
+    loaded: patch.loaded ?? base?.loaded ?? 0,
+    total: patch.total ?? base?.total ?? null,
+    indeterminate: patch.indeterminate ?? base?.indeterminate ?? true,
+    phase: patch.phase,
+  };
+  onProgress?.(next);
+  return next;
+}
+
+function formatMb(n: number): string {
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/** Download met zichtbare voortgang (XHR + directe “bezig”-status vóór eerste byte). */
+export function downloadWithProgress(
   url: string,
   options: {
     token?: string;
     fallbackName: string;
+    /** Bekende grootte uit API — voor % en sublabel vóór Content-Length. */
+    expectedBytes?: number;
     onProgress?: (p: DownloadProgressUpdate) => void;
     timeoutMs?: number;
   },
 ): Promise<void> {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(
-    () => controller.abort(),
-    options.timeoutMs ?? 21_600_000,
-  );
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    let state = emit(
+      options.onProgress,
+      {
+        phase: 'connecting',
+        percent: null,
+        loaded: 0,
+        total: options.expectedBytes && options.expectedBytes > 0 ? options.expectedBytes : null,
+        indeterminate: true,
+      },
+      undefined,
+    );
 
-  try {
-    const headers: Record<string, string> = {};
-    if (options.token) headers.Authorization = `Bearer ${options.token}`;
+    const timer = window.setTimeout(() => {
+      xhr.abort();
+      reject(new Error('Download-timeout. Laat dit tabblad open en probeer opnieuw.'));
+    }, timeoutMs);
 
-    const res = await fetch(url, { headers, signal: controller.signal });
-    if (!res.ok) {
-      const t = await res.text();
-      throw new Error(parseApiErrorBody(t || res.statusText));
-    }
+    xhr.open('GET', url, true);
+    xhr.responseType = 'blob';
+    if (options.token) xhr.setRequestHeader('Authorization', `Bearer ${options.token}`);
 
-    const totalHeader = res.headers.get('Content-Length');
-    const total = totalHeader ? parseInt(totalHeader, 10) : null;
-    const indeterminate = !total || !Number.isFinite(total) || total <= 0;
+    xhr.onprogress = (e) => {
+      const total =
+        e.lengthComputable && e.total > 0 ? e.total
+        : state.total && state.total > 0 ? state.total
+        : options.expectedBytes && options.expectedBytes > 0 ? options.expectedBytes
+        : null;
 
-    let name = options.fallbackName;
-    const cd = res.headers.get('Content-Disposition');
-    const m = cd?.match(/filename\*=UTF-8''([^;]+)/);
-    if (m?.[1]) name = decodeURIComponent(m[1]);
+      const loaded = e.loaded;
+      const indeterminate = !total || total <= 0;
+      const percent =
+        indeterminate ? null : (
+          loaded >= total ? 100 : (
+            Math.min(99, Math.floor((loaded / total) * 100))
+          )
+        );
 
-    const body = res.body;
-    if (!body) {
-      const blob = await res.blob();
-      triggerSave(blob, name);
-      options.onProgress?.({ percent: 100, loaded: blob.size, total: blob.size, indeterminate: false });
-      return;
-    }
+      state = emit(
+        options.onProgress,
+        {
+          phase: 'downloading',
+          percent,
+          loaded,
+          total,
+          indeterminate,
+        },
+        state,
+      );
+    };
 
-    const reader = body.getReader();
-    const chunks: Uint8Array[] = [];
-    let loaded = 0;
-
-    options.onProgress?.({ percent: indeterminate ? null : 0, loaded: 0, total, indeterminate });
-
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        chunks.push(value);
-        loaded += value.length;
-        const percent =
-          indeterminate ? null : (
-            loaded >= total! ? 100 : (
-              Math.min(99, Math.floor((loaded / total!) * 100))
-            )
-          );
-        options.onProgress?.({ percent, loaded, total, indeterminate });
+    xhr.onload = () => {
+      window.clearTimeout(timer);
+      if (xhr.status < 200 || xhr.status >= 300) {
+        reject(new Error(parseApiErrorBody(xhr.responseText || xhr.statusText || `HTTP ${xhr.status}`)));
+        return;
       }
-    }
 
-    const blob = new Blob(chunks as BlobPart[]);
-    options.onProgress?.({
-      percent: 100,
-      loaded: blob.size,
-      total: total ?? blob.size,
-      indeterminate: false,
-    });
-    triggerSave(blob, name);
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw new Error('Download-timeout. Laat dit tabblad open en probeer opnieuw.');
-    }
-    throw e;
-  } finally {
-    window.clearTimeout(timeout);
-  }
+      const blob = xhr.response as Blob;
+      if (!blob || blob.size === 0) {
+        reject(new Error('Leeg bestand ontvangen.'));
+        return;
+      }
+
+      let name = options.fallbackName;
+      const cd = xhr.getResponseHeader('Content-Disposition');
+      const m = cd?.match(/filename\*=UTF-8''([^;]+)/);
+      if (m?.[1]) name = decodeURIComponent(m[1]);
+
+      state = emit(
+        options.onProgress,
+        {
+          phase: 'saving',
+          percent: 100,
+          loaded: blob.size,
+          total: blob.size,
+          indeterminate: false,
+        },
+        state,
+      );
+
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+
+      emit(
+        options.onProgress,
+        {
+          phase: 'done',
+          percent: 100,
+          loaded: blob.size,
+          total: blob.size,
+          indeterminate: false,
+        },
+        state,
+      );
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      window.clearTimeout(timer);
+      reject(
+        new Error(
+          'Netwerkonderbreking tijdens download. Laat dit tabblad open en probeer opnieuw.',
+        ),
+      );
+    };
+
+    xhr.onabort = () => {
+      window.clearTimeout(timer);
+      reject(new Error('Download geannuleerd of timeout.'));
+    };
+
+    xhr.send();
+  });
 }
 
-function triggerSave(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
+export function downloadProgressSublabel(p: DownloadProgressUpdate): string {
+  if (p.phase === 'connecting') {
+    return 'Verbinding met server — bij grote films kan dit enkele minuten duren vóór de eerste %.';
+  }
+  if (p.phase === 'saving') {
+    return 'Bestand wordt opgeslagen op je apparaat…';
+  }
+  if (p.total && p.total > 0) {
+    return `${formatMb(p.loaded)} van ${formatMb(p.total)}`;
+  }
+  if (p.loaded > 0) return `${formatMb(p.loaded)} gedownload`;
+  return 'Even geduld…';
 }

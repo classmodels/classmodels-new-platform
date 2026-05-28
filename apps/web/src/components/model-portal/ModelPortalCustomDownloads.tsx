@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
-import { downloadWithProgress, type DownloadProgressUpdate } from '@/lib/download-with-progress';
+import {
+  downloadProgressSublabel,
+  downloadWithProgress,
+  type DownloadProgressUpdate,
+} from '@/lib/download-with-progress';
 import { CmProgressBar } from '@/components/CmProgressBar';
 import { MODEL_BTN_GOLD } from './model-portal-buttons';
 
@@ -60,6 +64,7 @@ export function ModelPortalCustomDownloads() {
                 if (!token) return;
                 setBusyId(row.id);
                 setProgress({
+                  phase: 'connecting',
                   percent: null,
                   loaded: 0,
                   total: row.asset.sizeBytes,
@@ -70,6 +75,7 @@ export function ModelPortalCustomDownloads() {
                   {
                     token,
                     fallbackName: row.asset.originalName,
+                    expectedBytes: row.asset.sizeBytes,
                     onProgress: setProgress,
                   },
                 )
@@ -80,7 +86,11 @@ export function ModelPortalCustomDownloads() {
                   });
               }}
             >
-              {busyId === row.id ? 'Downloaden…' : row.label}
+              {busyId === row.id ?
+                progress?.percent != null ?
+                  `Downloaden… ${progress.percent}%`
+                : 'Download gestart…'
+              : row.label}
             </button>
             <p className="mt-1 text-xs text-muted">
               {row.asset.originalName} ({formatBytes(row.asset.sizeBytes)})
@@ -90,11 +100,15 @@ export function ModelPortalCustomDownloads() {
       </ul>
       {progress && busyId ? (
         <CmProgressBar
+          prominent
           label={
-            progress.indeterminate ?
-              'Download gestart — dit kan lang duren bij grote bestanden. Laat dit tabblad open.'
-            : `Downloaden (${progress.percent ?? 0}%)`
+            progress.phase === 'connecting' ?
+              'Verbinding met server — even geduld'
+            : progress.percent != null ?
+              `Downloaden (${progress.percent}%)`
+            : 'Download bezig — laat dit tabblad open'
           }
+          sublabel={downloadProgressSublabel(progress)}
           percent={progress.indeterminate ? undefined : (progress.percent ?? undefined)}
           indeterminate={progress.indeterminate}
         />
