@@ -1860,10 +1860,6 @@ export class MediaService implements OnModuleInit {
    * Grote bestanden: zet MEDIA_ZIP_UPLOAD_MAX_BYTES; reverse proxy moet lange uploads toestaan.
    */
   async importZipUpload(file: Express.Multer.File, userId: string, folderId: string) {
-    const zipPath = (file as Express.Multer.File & { path?: string }).path;
-    if (!zipPath || !existsSync(zipPath)) {
-      throw new BadRequestException('ZIP-upload mislukt (tijdelijk bestand ontbreekt).');
-    }
     if (!/\.zip$/i.test(file.originalname || '')) {
       throw new BadRequestException('Alleen .zip-bestanden.');
     }
@@ -1880,6 +1876,11 @@ export class MediaService implements OnModuleInit {
         return this.registerZipAfterR2Stream(r2f, userId, folder);
       }
       return this.importZipUploadStoreToR2(file, userId, folder);
+    }
+
+    const zipPath = (file as Express.Multer.File & { path?: string }).path;
+    if (!zipPath || !existsSync(zipPath)) {
+      throw new BadRequestException('ZIP-upload mislukt (tijdelijk bestand ontbreekt).');
     }
 
     const root = this.root();

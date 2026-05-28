@@ -117,6 +117,7 @@ export default function AdminMediaPage() {
   const [totalAllBytes, setTotalAllBytes] = useState(0);
   const [storageInfo, setStorageInfo] = useState<{
     mediaRoot: string;
+    mediaBackend?: 'r2' | 'local' | string;
     writableMediaRoot?: string;
     mediaRootFreeGb?: number | null;
     hostingCandidates?: { dir: string; exists: boolean; writable: boolean }[];
@@ -206,6 +207,7 @@ export default function AdminMediaPage() {
   );
 
   const mediaBusy = zipUploading || fileUploading;
+  const usesR2Backend = (storageInfo?.mediaBackend || '').toLowerCase() === 'r2';
 
   const isTrashFolder = activeFolder?.slug === 'verwijderde';
 
@@ -279,6 +281,7 @@ export default function AdminMediaPage() {
     try {
       const d = await adminFetch<{
         mediaRoot: string;
+        mediaBackend?: 'r2' | 'local' | string;
         writableMediaRoot?: string;
         mediaRootFreeGb?: number | null;
         hostingCandidates?: { dir: string; exists: boolean; writable: boolean }[];
@@ -296,6 +299,11 @@ export default function AdminMediaPage() {
       setStorageInfo(null);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    void loadStorageInfo();
+  }, [token, loadStorageInfo]);
 
   const importInboxZip = async () => {
     if (!token || !selectedFolderId || isTrashFolder || !inboxZipName.trim()) return;
@@ -857,13 +865,19 @@ export default function AdminMediaPage() {
               ) : null}
             </div>
           ) : null}
-          <p className="text-[11px] leading-snug text-muted">
-            Combell toont ~100 GB voor het hele pakket. Grote ZIP&apos;s schrijven tijdelijk naar schijf
-            (daarna naar R2 als <code className="text-[10px]">MEDIA_BACKEND=r2</code>). Zet{' '}
-            <code className="text-[10px]">CM_COMBELL_DATA_UPLOADS</code> op je grote uploads-map — anders
-            vult <code className="text-[10px]">/app/shared</code> (~3 GB) en krijg je “schijf vol” na 100%.
-            Bij “schijf vol”: gebruik de <strong>inbox-methode</strong> hieronder.
-          </p>
+          {usesR2Backend ? (
+            <p className="text-[11px] leading-snug text-muted">
+              R2-opslag actief. Nieuwe uploads (foto/video/ZIP) horen rechtstreeks in R2 te landen.
+            </p>
+          ) : (
+            <p className="text-[11px] leading-snug text-muted">
+              Combell toont ~100 GB voor het hele pakket. Grote ZIP&apos;s schrijven tijdelijk naar schijf
+              (daarna naar R2 als <code className="text-[10px]">MEDIA_BACKEND=r2</code>). Zet{' '}
+              <code className="text-[10px]">CM_COMBELL_DATA_UPLOADS</code> op je grote uploads-map — anders
+              vult <code className="text-[10px]">/app/shared</code> (~3 GB) en krijg je “schijf vol” na 100%.
+              Bij “schijf vol”: gebruik de <strong>inbox-methode</strong> hieronder.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -1063,7 +1077,8 @@ export default function AdminMediaPage() {
                 />
               </div>
             ) : null}
-            <div className="mt-2 rounded border border-dashed border-amber-300 bg-amber-50/60 px-2 py-2 text-[10px] text-ink">
+            {!usesR2Backend ? (
+              <div className="mt-2 rounded border border-dashed border-amber-300 bg-amber-50/60 px-2 py-2 text-[10px] text-ink">
               <p className="font-semibold text-amber-950">Alternatief: ZIP via Combell File Manager (werkt bij “schijf vol”)</p>
               <ol className="mt-1 list-inside list-decimal space-y-0.5 text-muted">
                 <li>Combell → File Manager → map <code>www/cm-media/uploads/inbox/</code> (maak <code>inbox</code> aan als die ontbreekt)</li>
@@ -1088,6 +1103,7 @@ export default function AdminMediaPage() {
                 </button>
               </div>
             </div>
+            ) : null}
             {zipMsg ? (
               <p className="mt-1 whitespace-pre-wrap break-all text-[10px] text-ink">{zipMsg}</p>
             ) : null}
