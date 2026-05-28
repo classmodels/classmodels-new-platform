@@ -1941,13 +1941,21 @@ export class MediaService implements OnModuleInit {
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true, originalName: true, sizeBytes: true, storageKey: true },
-      take: 20,
+      take: 60,
     });
+    const filmLikeRe = /(film|video|mp4|mov|webm)/i;
+    const photoLikeRe = /(foto|photos?|jpg|jpeg|beelden|afbeeld)/i;
+
     for (const row of rows) {
-      if (await this.assetOnStorage(row.storageKey)) {
-        if (zipName) return row;
-        if (/modeshow/i.test(row.originalName)) return row;
-      }
+      if (!(await this.assetOnStorage(row.storageKey))) continue;
+      if (zipName) return row;
+      const name = row.originalName || '';
+      if (photoLikeRe.test(name) && !filmLikeRe.test(name)) return row;
+    }
+    for (const row of rows) {
+      if (!(await this.assetOnStorage(row.storageKey))) continue;
+      const name = row.originalName || '';
+      if (/modeshow/i.test(name) && !filmLikeRe.test(name)) return row;
     }
     for (const row of rows) {
       if (await this.assetOnStorage(row.storageKey)) return row;
@@ -1955,9 +1963,9 @@ export class MediaService implements OnModuleInit {
     return null;
   }
 
-  private async findModeshowFilmInFolder(folderId: string) {
+  private async findModeshowFilmInFolder(folderId: string, excludeAssetId?: string) {
     const filmName = modeshowFilmOriginalName();
-    const filmRow = await this.prisma.mediaAsset.findFirst({
+    const filmRows = await this.prisma.mediaAsset.findMany({
       where: {
         folderId,
         hardDeleted: false,
@@ -1977,9 +1985,30 @@ export class MediaService implements OnModuleInit {
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true, originalName: true, sizeBytes: true, storageKey: true, mimeType: true },
+      take: 60,
     });
-    if (!filmRow || !(await this.assetOnStorage(filmRow.storageKey))) return null;
-    return filmRow;
+    const isVideoLike = (r: { storageKey: string; mimeType: string; originalName: string }) =>
+      r.mimeType.startsWith('video/') || /\.(mp4|mov|webm)$/i.test(r.storageKey) || /\.(mp4|mov|webm)$/i.test(r.originalName || '');
+    const isFilmZip = (r: { storageKey: string; mimeType: string; originalName: string }) =>
+      (/\.zip$/i.test(r.storageKey) || r.mimeType === 'application/zip') &&
+      /(film|video|mp4|mov|webm)/i.test(r.originalName || r.storageKey);
+
+    for (const row of filmRows) {
+      if (excludeAssetId && row.id === excludeAssetId) continue;
+      if (!(await this.assetOnStorage(row.storageKey))) continue;
+      if (filmName) return row;
+      if (isVideoLike(row)) return row;
+    }
+    for (const row of filmRows) {
+      if (excludeAssetId && row.id === excludeAssetId) continue;
+      if (!(await this.assetOnStorage(row.storageKey))) continue;
+      if (isFilmZip(row)) return row;
+    }
+    for (const row of filmRows) {
+      if (excludeAssetId && row.id === excludeAssetId) continue;
+      if (await this.assetOnStorage(row.storageKey)) return row;
+    }
+    return null;
   }
 
   async getModeshowDownloadsMeta() {
@@ -1996,7 +2025,7 @@ export class MediaService implements OnModuleInit {
       if (!zipRow) continue;
       folderSlug = slug;
       photosZip = { id: zipRow.id, originalName: zipRow.originalName, sizeBytes: zipRow.sizeBytes };
-      const filmRow = await this.findModeshowFilmInFolder(folder.id);
+      const filmRow = await this.findModeshowFilmInFolder(folder.id, zipRow.id);
       if (filmRow) {
         film = {
           id: filmRow.id,
@@ -2011,7 +2040,7 @@ export class MediaService implements OnModuleInit {
       for (const slug of folderSlugs) {
         const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
         if (!folder) continue;
-        const filmRow = await this.findModeshowFilmInFolder(folder.id);
+        const filmRow = await this.findModeshowFilmInFolder(folder.id, photosZip?.id);
         if (filmRow) {
           film = {
             id: filmRow.id,
