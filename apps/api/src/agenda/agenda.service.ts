@@ -257,9 +257,14 @@ function buildSlotRowsForCalendar(cal: CalSlotSchedule): { startTime: string; en
   let breakA: number | null = null;
   let breakB: number | null = null;
   if (cal.breakStart && cal.breakEnd) {
-    breakA = timeToMinutes(cal.breakStart);
-    breakB = timeToMinutes(cal.breakEnd);
-    if (breakB <= breakA) {
+    try {
+      breakA = timeToMinutesSafe(cal.breakStart);
+      breakB = timeToMinutesSafe(cal.breakEnd);
+      if (breakB <= breakA) {
+        breakA = null;
+        breakB = null;
+      }
+    } catch {
       breakA = null;
       breakB = null;
     }
@@ -288,6 +293,18 @@ function buildSlotRowsForCalendar(cal: CalSlotSchedule): { startTime: string; en
   if (explicitStarts?.length) {
     for (const cur of explicitStarts) {
       if (slotFitsPause(cur)) pushRow(cur);
+    }
+    /** Geen enkele expliciete start past → val terug op raster (anders worden alle sloten gewist). */
+    if (rows.length === 0) {
+      let cur = startM;
+      while (cur + dur <= endM) {
+        if (breakA != null && breakB != null && cur < breakB && cur + dur > breakA) {
+          cur = breakB;
+          continue;
+        }
+        pushRow(cur);
+        cur += step;
+      }
     }
   } else {
     let cur = startM;
@@ -479,7 +496,24 @@ export class AgendaService implements OnModuleInit {
       where: { calendarId: cal.id },
       select: { openDate: true, repeatYearly: true },
     });
-    return this.openDayYmdSetInRange(from, to, openRows);
+    const set = this.openDayYmdSetInRange(from, to, openRows);
+
+    /** Planning: datums met open sloten tellen mee (ook zonder aparte open-dag-regel). */
+    const slotRows = await this.prisma.agendaSlot.findMany({
+      where: {
+        calendarId: cal.id,
+        status: 'open',
+        slotDate: {
+          gte: parseYmdDayStart(slotDateToYmd(from)),
+          lte: parseYmdDayEnd(slotDateToYmd(to)),
+        },
+      },
+      select: { slotDate: true },
+    });
+    for (const s of slotRows) {
+      set.add(slotDateToYmd(s.slotDate));
+    }
+    return set;
   }
 
   private async materializeGuestSlotsInRange(
@@ -683,6 +717,11 @@ export class AgendaService implements OnModuleInit {
       select: { id: true, startTime: true, endTime: true },
     });
 
+    /** Planning-sloten behouden als het rooster geen geldige tijden oplevert. */
+    if (expected.length === 0) {
+      if (existing.length > 0) return;
+    }
+
     const expectedByStart = new Map(
       expected.map((r) => [normTime(r.startTime), { startTime: normTime(r.startTime), endTime: normTime(r.endTime) }]),
     );
@@ -825,15 +864,28 @@ export class AgendaService implements OnModuleInit {
     if (to < from) throw new BadRequestException('Datum tot moet na vanaf liggen');
 
     const closedSet = await this.closedDayYmdSet(cal.id, from, to);
-    const openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
-    await this.materializeGuestSlotsInRange(cal, from, to, closedSet, openYmdSet);
+    let openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
+
+    try {
+      await this.materializeGuestSlotsInRange(cal, from, to, closedSet, openYmdSet);
+    } catch (e) {
+      this.log.warn(
+        `getSlots materialize ${slug}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+
+    /** Na materialize opnieuw: open dagen kunnen net sloten hebben gekregen. */
+    openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
 
     const now = new Date();
     const deduped = await this.collectGuestVisibleBookableSlotsDeduped(cal, from, to, now, closedSet, openYmdSet);
 
+    const openDatesFromSlots = deduped.map((s) => slotDateToYmd(s.slotDate));
     const openDates =
       openYmdSet && usesOpenDayMode(cal.restrictToOpenDays)
-        ? [...openYmdSet].filter((ymd) => !closedSet.has(ymd)).sort()
+        ? [...new Set([...openYmdSet, ...openDatesFromSlots])]
+            .filter((ymd) => !closedSet.has(ymd))
+            .sort()
         : undefined;
 
     return {
