@@ -81,6 +81,9 @@ export function ModelModeshowDownloadsTab() {
 
   const filmFromLabel = meta?.filmAvailableFromLabel ?? '21 mei 2026';
   const searchFolders = meta?.folderSlugs?.join(', ') ?? meta?.folderSlug ?? 'uploads';
+  const photosBtnLabel = meta?.photosZip?.originalName?.trim()
+    ? `Download ${meta.photosZip.originalName}`
+    : 'Download foto’s try-out modeshow';
 
   return (
     <div className="space-y-6">
@@ -108,7 +111,7 @@ export function ModelModeshowDownloadsTab() {
               .finally(() => setBusy(null));
           }}
         >
-          {busy === 'photos' ? 'Bezig…' : 'Download foto’s try-out modeshow'}
+          {busy === 'photos' ? 'Bezig…' : photosBtnLabel}
         </button>
         {meta?.photosZip ? (
           <p className="mt-3 rounded-md border border-line bg-panel/60 px-3 py-2 text-xs text-ink">
