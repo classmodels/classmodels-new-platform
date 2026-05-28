@@ -143,7 +143,7 @@ export function ModelModeshowDownloadsTab() {
             void downloadWithToken(
               '/portal/model/modeshow-downloads/film',
               token,
-              meta?.film?.originalName ?? 'modeshow-film.mp4',
+              meta?.film?.originalName ?? 'modeshow-film.zip',
             )
               .catch((e) => alert(e instanceof Error ? e.message : 'Download mislukt'))
               .finally(() => setBusy(null));
@@ -160,7 +160,7 @@ export function ModelModeshowDownloadsTab() {
           </p>
         ) : meta?.filmAvailableNow ? (
           <p className="mt-3 text-xs text-amber-900">
-            Nog geen film in de mediatheek-map ({searchFolders}). Upload een echt videobestand (.mp4/.mov/.webm) — een .zip telt niet als film.
+            Nog geen film/ZIP in de mediatheek-map ({searchFolders}). Upload een film-bestand of ZIP en probeer opnieuw.
           </p>
         ) : null}
       </section>

@@ -1966,9 +1966,12 @@ export class MediaService implements OnModuleInit {
         : {
             OR: [
               { mimeType: { startsWith: 'video/' } },
+              { mimeType: 'application/zip' },
               { storageKey: { endsWith: '.mp4' } },
               { storageKey: { endsWith: '.mov' } },
               { storageKey: { endsWith: '.webm' } },
+              { storageKey: { endsWith: '.zip' } },
+              { originalName: { endsWith: '.zip' } },
             ],
           }),
       },
