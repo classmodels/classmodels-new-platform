@@ -19,13 +19,19 @@ export function modeshowPhotosFolderSlugs(): string[] {
   return ['film-modeshow', 'fotomodeshow-klein', 'uploads'];
 }
 
-/** Optioneel: vaste ZIP-bestandsnaam (anders nieuwste .zip met “modeshow” in de naam). */
+/**
+ * Exacte bestandsnaam voor de foto-download (mediatheek `originalName`).
+ * Voorbeeld: Modeshow ok JPG klein .zip
+ */
 export function modeshowZipOriginalName(): string | null {
   const raw = process.env.MODEL_MODESHOW_ZIP_NAME?.trim();
   return raw || null;
 }
 
-/** Optioneel: vaste bestandsnaam voor de film; anders nieuwste video in de map. */
+/**
+ * Exacte bestandsnaam voor de film-download (mediatheek `originalName`).
+ * Mag .mp4 of .zip zijn. Voorbeeld: Modeshow 2026 film.zip
+ */
 export function modeshowFilmOriginalName(): string | null {
   const raw = process.env.MODEL_MODESHOW_FILM_NAME?.trim();
   return raw || null;

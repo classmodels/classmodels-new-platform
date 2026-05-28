@@ -49,7 +49,7 @@ import {
   modeshowZipOriginalName,
 } from '../portal/modeshow-downloads.config';
 import { extractZipArchiveToMediaRoot } from './media-zip-import';
-import type { R2ZipMulterFile } from './media-r2-zip-multer';
+import type { R2StreamMulterFile } from './media-r2-stream-multer';
 
 /**
  * Hosting: zo licht mogelijk (opslag + bandbreedte), nog aanvaardbaar voor web.
@@ -826,11 +826,19 @@ export class MediaService implements OnModuleInit {
     });
 
     const mappedAssets = await Promise.all(
-      assetRows.map(async (a) => ({
-        ...a,
-        publicKey: await this.resolvePublicFilenameAsync(a),
-        detailKey: await this.resolveDetailFilenameAsync(a),
-      })),
+      assetRows.map(async (a) => {
+        const storageOk = await this.assetKeyExists(a.storageKey);
+        return {
+          ...a,
+          publicKey: await this.resolvePublicFilenameAsync(a),
+          detailKey: await this.resolveDetailFilenameAsync(a),
+          storageOk,
+          onR2:
+            mediaUsesR2() ?
+              await r2ObjectExists(basename(a.storageKey))
+            : undefined,
+        };
+      }),
     );
 
     const folders = foldersMeta.map((f) => ({
@@ -1027,6 +1035,14 @@ export class MediaService implements OnModuleInit {
     opts?: SaveFileOptions,
   ) {
     await this.purgeScheduledAssets();
+    const sizeHint = file.size || (Buffer.isBuffer(file.buffer) ? file.buffer.length : 0);
+    const isLargeVideo =
+      file.mimetype?.startsWith('video/') || /\.(mp4|mov|webm|m4v|mkv)$/i.test(file.originalname || '');
+    if (mediaUsesR2() && isLargeVideo && sizeHint > 8 * 1024 * 1024) {
+      throw new BadRequestException(
+        'Grote video’s upload je via «ZIP uploaden» of de grote-upload-route (stream naar R2), niet via gewone upload.',
+      );
+    }
     if (mediaUsesR2()) {
       return this.saveFileToR2(file, userId, folderId, opts);
     }
@@ -1743,26 +1759,29 @@ export class MediaService implements OnModuleInit {
     return safe;
   }
 
-  /** ZIP staat al in R2 (gestreamd tijdens upload); alleen mediaregel aanmaken. */
-  private async registerZipAfterR2Stream(
-    file: R2ZipMulterFile,
+  /** Bestand staat al in R2 (gestreamd tijdens upload); alleen mediaregel aanmaken. */
+  private async registerStreamedR2Asset(
+    file: R2StreamMulterFile,
     userId: string,
     folder: { id: string; slug: string },
   ) {
     const destKey = file.r2StorageKey?.trim();
     if (!destKey) {
-      throw new BadRequestException('ZIP-upload mislukt (geen R2-sleutel).');
+      throw new BadRequestException('Upload mislukt (geen R2-sleutel).');
     }
     const sz = await r2ObjectSize(destKey);
     if (sz === null) {
-      throw new BadRequestException('ZIP staat niet in R2 na upload. Controleer R2-credentials en bucket.');
+      throw new BadRequestException(
+        'Bestand staat niet in R2 na upload. Controleer MEDIA_BACKEND=r2 en R2-credentials.',
+      );
     }
-    const zipLabel = basename(file.originalname || destKey);
+    const label = basename(file.originalname || destKey);
+    const mime = this.mimeFromFilename(destKey) ?? file.mimetype ?? 'application/octet-stream';
     const created = await this.prisma.mediaAsset.create({
       data: {
-        originalName: zipLabel,
+        originalName: label,
         storageKey: destKey,
-        mimeType: 'application/zip',
+        mimeType: mime,
         sizeBytes: sz,
         uploadedById: userId,
         folderId: folder.id,
@@ -1775,7 +1794,7 @@ export class MediaService implements OnModuleInit {
       streamedToR2: true,
       folderSlug: folder.slug,
       mediaRoot: this.root(),
-      zipName: file.originalname,
+      fileName: file.originalname,
       storageKey: destKey,
       extractedFiles: 0,
       skippedZipEntries: 0,
@@ -1783,9 +1802,33 @@ export class MediaService implements OnModuleInit {
       registered: 1,
       registerSkipped: 0,
       assetId: created.id,
-      hint: 'ZIP rechtstreeks naar Cloudflare R2 gestreamd (geen lokale schijf gebruikt).',
+      mimeType: mime,
+      hint: 'Bestand rechtstreeks naar Cloudflare R2 gestreamd (geen lokale schijf).',
       errors: [] as string[],
     };
+  }
+
+  /** Grote ZIP of video → R2 stream + mediaregel. */
+  async importLargeMediaUpload(file: Express.Multer.File, userId: string, folderId: string) {
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { id: folderId } });
+    if (!folder) throw new NotFoundException('Map niet gevonden.');
+    if (folder.slug === 'verwijderde') {
+      throw new BadRequestException('Upload kan niet naar de prullenbak.');
+    }
+
+    const r2f = file as R2StreamMulterFile;
+    if (mediaUsesR2() && r2f.r2Uploaded && r2f.r2StorageKey) {
+      return this.registerStreamedR2Asset(r2f, userId, folder);
+    }
+
+    const name = file.originalname || '';
+    if (/\.zip$/i.test(name)) {
+      return this.importZipUpload(file, userId, folderId);
+    }
+
+    throw new BadRequestException(
+      'Grote upload vereist MEDIA_BACKEND=r2 op de server. Kleine foto’s via gewone upload.',
+    );
   }
 
   /**
@@ -1871,9 +1914,9 @@ export class MediaService implements OnModuleInit {
     }
 
     if (mediaUsesR2()) {
-      const r2f = file as R2ZipMulterFile;
+      const r2f = file as R2StreamMulterFile;
       if (r2f.r2Uploaded && r2f.r2StorageKey) {
-        return this.registerZipAfterR2Stream(r2f, userId, folder);
+        return this.registerStreamedR2Asset(r2f, userId, folder);
       }
       return this.importZipUploadStoreToR2(file, userId, folder);
     }
@@ -1924,6 +1967,161 @@ export class MediaService implements OnModuleInit {
 
   private async assetOnStorage(storageKey: string): Promise<boolean> {
     return this.assetKeyExists(storageKey);
+  }
+
+  private normalizeDisplayFileName(name: string): string {
+    return name.trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  private modeshowNameLooksLikeFilm(name: string): boolean {
+    const n = name.toLowerCase();
+    if (/\.(mp4|mov|webm|m4v)(\.\w+)?$/i.test(n)) return true;
+    if (/\.mp4\.zip$/i.test(n)) return true;
+    return /(film|video)/i.test(n) && /\.zip$/i.test(n);
+  }
+
+  private modeshowNameLooksLikePhotos(name: string): boolean {
+    const n = name.toLowerCase();
+    if (this.modeshowNameLooksLikeFilm(n)) return false;
+    return /(foto|photos?|jpg|jpeg|klein|beelden|afbeeld)/i.test(n);
+  }
+
+  /** Corrigeert omgedraaide foto/film-toewijzing (bv. mp4.zip onder foto’s). */
+  private swapModeshowSlotsIfNeeded<
+    P extends { id: string; originalName: string; sizeBytes: number },
+    F extends { id: string; originalName: string; sizeBytes: number; mimeType: string },
+  >(photosZip: P | null, film: F | null): { photosZip: P | null; film: F | null } {
+    if (!photosZip || !film) return { photosZip, film };
+    const pFilm = this.modeshowNameLooksLikeFilm(photosZip.originalName);
+    const pPhoto = this.modeshowNameLooksLikePhotos(photosZip.originalName);
+    const fFilm = this.modeshowNameLooksLikeFilm(film.originalName);
+    const fPhoto = this.modeshowNameLooksLikePhotos(film.originalName);
+    if ((pFilm && fPhoto) || (pFilm && !fFilm && photosZip.sizeBytes >= film.sizeBytes && fPhoto)) {
+      return { photosZip: film as unknown as P, film: photosZip as unknown as F };
+    }
+    if (pFilm && !fFilm && !fPhoto) {
+      return { photosZip: null, film };
+    }
+    if (pPhoto && fPhoto && !pFilm && !fFilm) {
+      return { photosZip, film: null };
+    }
+    return { photosZip, film };
+  }
+
+  private async listModeshowZipCandidates(folderSlugs: string[]) {
+    type Row = {
+      id: string;
+      originalName: string;
+      sizeBytes: number;
+      storageKey: string;
+      mimeType: string;
+      folderSlug: string;
+    };
+    const out: Row[] = [];
+    for (const slug of folderSlugs) {
+      const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+      if (!folder) continue;
+      const rows = await this.prisma.mediaAsset.findMany({
+        where: {
+          folderId: folder.id,
+          hardDeleted: false,
+          OR: [
+            { mimeType: 'application/zip' },
+            { storageKey: { endsWith: '.zip' } },
+            { originalName: { endsWith: '.zip' } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          originalName: true,
+          sizeBytes: true,
+          storageKey: true,
+          mimeType: true,
+        },
+        take: 40,
+      });
+      for (const row of rows) {
+        if (!(await this.assetOnStorage(row.storageKey))) continue;
+        let sizeBytes = row.sizeBytes;
+        if (mediaUsesR2()) {
+          const r2Size = await r2ObjectSize(basename(row.storageKey));
+          if (r2Size !== null) sizeBytes = r2Size;
+        }
+        out.push({ ...row, sizeBytes, folderSlug: slug });
+      }
+    }
+    return out;
+  }
+
+  /** Zoekt asset op exacte weergavenaam in opgegeven mappen (R2 moet bestand hebben). */
+  private async findModeshowAssetByConfiguredName(
+    configuredOriginalName: string,
+    folderSlugs: string[],
+  ): Promise<{
+    id: string;
+    originalName: string;
+    sizeBytes: number;
+    storageKey: string;
+    mimeType: string;
+    folderSlug: string;
+  } | null> {
+    const target = this.normalizeDisplayFileName(configuredOriginalName);
+    if (!target) return null;
+
+    let best: {
+      id: string;
+      originalName: string;
+      sizeBytes: number;
+      storageKey: string;
+      mimeType: string;
+      folderSlug: string;
+      createdAt: Date;
+    } | null = null;
+
+    for (const slug of folderSlugs) {
+      const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+      if (!folder) continue;
+
+      const rows = await this.prisma.mediaAsset.findMany({
+        where: { folderId: folder.id, hardDeleted: false },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          originalName: true,
+          sizeBytes: true,
+          storageKey: true,
+          mimeType: true,
+          createdAt: true,
+        },
+        take: 200,
+      });
+
+      for (const row of rows) {
+        if (this.normalizeDisplayFileName(row.originalName) !== target) continue;
+        if (!(await this.assetOnStorage(row.storageKey))) continue;
+        if (!best || row.createdAt > best.createdAt) {
+          best = { ...row, folderSlug: slug };
+        }
+      }
+    }
+
+    if (!best) return null;
+
+    let sizeBytes = best.sizeBytes;
+    if (mediaUsesR2()) {
+      const r2Size = await r2ObjectSize(basename(best.storageKey));
+      if (r2Size !== null) sizeBytes = r2Size;
+    }
+
+    return {
+      id: best.id,
+      originalName: best.originalName,
+      sizeBytes,
+      storageKey: best.storageKey,
+      mimeType: best.mimeType,
+      folderSlug: best.folderSlug,
+    };
   }
 
   private async findModeshowZipInFolder(folderId: string) {
@@ -2015,28 +2213,46 @@ export class MediaService implements OnModuleInit {
     const filmAvailableFrom = modeshowFilmAvailableFrom();
     const now = new Date();
     const folderSlugs = modeshowPhotosFolderSlugs();
+    const configuredPhotosName = modeshowZipOriginalName();
+    const configuredFilmName = modeshowFilmOriginalName();
+
     let photosZip: { id: string; originalName: string; sizeBytes: number } | null = null;
     let film: { id: string; originalName: string; sizeBytes: number; mimeType: string } | null = null;
-    let folderSlug = folderSlugs[0] ?? 'uploads';
-    for (const slug of folderSlugs) {
-      const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
-      if (!folder) continue;
-      const zipRow = await this.findModeshowZipInFolder(folder.id);
-      if (!zipRow) continue;
-      folderSlug = slug;
-      photosZip = { id: zipRow.id, originalName: zipRow.originalName, sizeBytes: zipRow.sizeBytes };
-      const filmRow = await this.findModeshowFilmInFolder(folder.id, zipRow.id);
-      if (filmRow) {
+    let folderSlug = folderSlugs[0] ?? 'film-modeshow';
+
+    if (configuredPhotosName) {
+      const row = await this.findModeshowAssetByConfiguredName(configuredPhotosName, folderSlugs);
+      if (row) {
+        folderSlug = row.folderSlug;
+        photosZip = { id: row.id, originalName: row.originalName, sizeBytes: row.sizeBytes };
+      }
+    }
+
+    if (configuredFilmName) {
+      const row = await this.findModeshowAssetByConfiguredName(configuredFilmName, folderSlugs);
+      if (row) {
         film = {
-          id: filmRow.id,
-          originalName: filmRow.originalName,
-          sizeBytes: filmRow.sizeBytes,
-          mimeType: filmRow.mimeType,
+          id: row.id,
+          originalName: row.originalName,
+          sizeBytes: row.sizeBytes,
+          mimeType: row.mimeType,
         };
       }
-      break;
     }
-    if (!film) {
+
+    // Fallback alleen als env-variabelen ontbreken (niet aanbevolen op productie).
+    if (!configuredPhotosName && !photosZip) {
+      for (const slug of folderSlugs) {
+        const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+        if (!folder) continue;
+        const zipRow = await this.findModeshowZipInFolder(folder.id);
+        if (!zipRow) continue;
+        folderSlug = slug;
+        photosZip = { id: zipRow.id, originalName: zipRow.originalName, sizeBytes: zipRow.sizeBytes };
+        break;
+      }
+    }
+    if (!configuredFilmName && !film) {
       for (const slug of folderSlugs) {
         const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
         if (!folder) continue;
@@ -2052,6 +2268,48 @@ export class MediaService implements OnModuleInit {
         }
       }
     }
+
+    if (!configuredPhotosName || !configuredFilmName) {
+      const candidates = await this.listModeshowZipCandidates(folderSlugs);
+      if (!photosZip) {
+        const photoRow =
+          candidates.find((c) => this.modeshowNameLooksLikePhotos(c.originalName)) ??
+          candidates
+            .filter((c) => !this.modeshowNameLooksLikeFilm(c.originalName))
+            .sort((a, b) => a.sizeBytes - b.sizeBytes)[0];
+        if (photoRow) {
+          photosZip = {
+            id: photoRow.id,
+            originalName: photoRow.originalName,
+            sizeBytes: photoRow.sizeBytes,
+          };
+          folderSlug = photoRow.folderSlug;
+        }
+      }
+      if (!film) {
+        const filmRow =
+          candidates
+            .filter((c) => c.id !== photosZip?.id)
+            .filter((c) => this.modeshowNameLooksLikeFilm(c.originalName))
+            .sort((a, b) => b.sizeBytes - a.sizeBytes)[0] ??
+          candidates
+            .filter((c) => c.id !== photosZip?.id)
+            .sort((a, b) => b.sizeBytes - a.sizeBytes)[0];
+        if (filmRow) {
+          film = {
+            id: filmRow.id,
+            originalName: filmRow.originalName,
+            sizeBytes: filmRow.sizeBytes,
+            mimeType: filmRow.mimeType,
+          };
+        }
+      }
+    }
+
+    const swapped = this.swapModeshowSlotsIfNeeded(photosZip, film);
+    photosZip = swapped.photosZip;
+    film = swapped.film;
+
     return {
       filmAvailableFrom: filmAvailableFrom.toISOString(),
       filmAvailableNow: now >= filmAvailableFrom,
@@ -2059,6 +2317,8 @@ export class MediaService implements OnModuleInit {
       photosAvailableNow: Boolean(photosZip),
       folderSlug,
       folderSlugs,
+      configuredPhotosName,
+      configuredFilmName,
       photosZip,
       film,
     };
@@ -2066,7 +2326,12 @@ export class MediaService implements OnModuleInit {
 
   async streamModeshowPhotosZip(modelUserId: string, res: Response): Promise<void> {
     const meta = await this.getModeshowDownloadsMeta();
-    if (!meta.photosZip) throw new NotFoundException('Geen fot ZIP gevonden in de mediatheek.');
+    if (!meta.photosZip) {
+      const hint = meta.configuredPhotosName
+        ? `Bestand «${meta.configuredPhotosName}» niet gevonden. Controleer MODEL_MODESHOW_ZIP_NAME en map ${meta.folderSlugs.join(', ')}.`
+        : 'Geen fot ZIP gevonden. Zet MODEL_MODESHOW_ZIP_NAME op Combell.';
+      throw new NotFoundException(hint);
+    }
     await this.streamMediaAssetDownload(meta.photosZip.id, res);
     void this.modelHistory.log(modelUserId, 'modeshow_photos_zip_downloaded', {
       assetId: meta.photosZip.id,
@@ -2085,7 +2350,12 @@ export class MediaService implements OnModuleInit {
       throw e;
     }
     const meta = await this.getModeshowDownloadsMeta();
-    if (!meta.film) throw new NotFoundException('Geen film gevonden in de mediatheek.');
+    if (!meta.film) {
+      const hint = meta.configuredFilmName
+        ? `Bestand «${meta.configuredFilmName}» niet gevonden. Controleer MODEL_MODESHOW_FILM_NAME en map ${meta.folderSlugs.join(', ')}.`
+        : 'Geen film gevonden. Zet MODEL_MODESHOW_FILM_NAME op Combell.';
+      throw new NotFoundException(hint);
+    }
     await this.streamMediaAssetDownload(meta.film.id, res);
     void this.modelHistory.log(modelUserId, 'modeshow_film_downloaded', {
       assetId: meta.film.id,
@@ -2099,7 +2369,13 @@ export class MediaService implements OnModuleInit {
     });
     if (!row) throw new NotFoundException('Bestand niet gevonden.');
     const downloadName = await this.resolveDownloadFilename(row.storageKey);
+    let sizeBytes = row.sizeBytes;
+    if (mediaUsesR2()) {
+      const r2Sz = await r2ObjectSize(basename(row.storageKey));
+      if (r2Sz !== null) sizeBytes = r2Sz;
+    }
     if (row.mimeType) res.setHeader('Content-Type', row.mimeType);
+    if (sizeBytes > 0) res.setHeader('Content-Length', String(sizeBytes));
     res.setHeader(
       'Content-Disposition',
       `attachment; filename*=UTF-8''${encodeURIComponent(downloadName)}`,
@@ -2161,6 +2437,77 @@ export class MediaService implements OnModuleInit {
       },
     });
     return { ok: true, assetId: created.id, storageKey, sizeBytes: sz, updated: false };
+  }
+
+  /** Controle welke mediarecords wel/niet in R2 staan (admin). */
+  async auditR2Storage(opts: { limit?: number; folderSlug?: string } = {}) {
+    if (!mediaUsesR2()) {
+      throw new BadRequestException('MEDIA_BACKEND=r2 is niet actief op deze server.');
+    }
+    const limit = Math.min(2000, Math.max(1, Math.floor(opts.limit ?? 500)));
+    const folderSlug = opts.folderSlug?.trim();
+
+    const where: { hardDeleted: boolean; folder?: { slug: string } } = { hardDeleted: false };
+    if (folderSlug) where.folder = { slug: folderSlug };
+
+    const rows = await this.prisma.mediaAsset.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        originalName: true,
+        storageKey: true,
+        sizeBytes: true,
+        mimeType: true,
+        folder: { select: { slug: true } },
+      },
+    });
+
+    let onR2 = 0;
+    let missingOnR2 = 0;
+    let sizeMismatch = 0;
+    const missingSamples: {
+      id: string;
+      originalName: string;
+      storageKey: string;
+      sizeBytes: number;
+      folderSlug: string | null;
+    }[] = [];
+
+    for (const row of rows) {
+      const key = basename(row.storageKey);
+      const r2Sz = await r2ObjectSize(key);
+      if (r2Sz === null) {
+        missingOnR2 += 1;
+        if (missingSamples.length < 25) {
+          missingSamples.push({
+            id: row.id,
+            originalName: row.originalName,
+            storageKey: key,
+            sizeBytes: row.sizeBytes,
+            folderSlug: row.folder?.slug ?? null,
+          });
+        }
+        continue;
+      }
+      onR2 += 1;
+      if (Math.abs(r2Sz - row.sizeBytes) > 4096) sizeMismatch += 1;
+    }
+
+    return {
+      ok: true,
+      bucket: process.env.R2_BUCKET?.trim() || null,
+      scanned: rows.length,
+      onR2,
+      missingOnR2,
+      sizeMismatch,
+      missingSamples,
+      hint:
+        missingOnR2 > 0 ?
+          'Ontbrekende bestanden: opnieuw uploaden via ZIP/grote upload, inbox-import, of POST /media/admin/backfill-r2 (als ze nog op schijf staan).'
+        : 'Alle gescande bestanden staan in R2.',
+    };
   }
 
   /** Eenmalige migratie: bestaande lokale media-assets naar R2 kopieren. */
@@ -2518,8 +2865,20 @@ export class MediaService implements OnModuleInit {
 
     let missingPrimary = 0;
     const missingSamples: { id: string; storageKey: string }[] = [];
+    let missingOnR2 = 0;
+    const missingR2Samples: { id: string; storageKey: string }[] = [];
     for (const a of sampleRows) {
       const key = this.resolvePublicFilename(a);
+      if (mediaUsesR2()) {
+        const ok = await r2ObjectExists(basename(a.storageKey));
+        if (!ok) {
+          missingOnR2 += 1;
+          if (missingR2Samples.length < 8) {
+            missingR2Samples.push({ id: a.id, storageKey: basename(a.storageKey) });
+          }
+        }
+        continue;
+      }
       const onDisk =
         existsSync(join(root, key)) ||
         Boolean(this.lookupDiskRelativePath(basename(key)));
@@ -2558,6 +2917,8 @@ export class MediaService implements OnModuleInit {
         scanned: sampleRows.length,
         missingPrimaryOnDisk: missingPrimary,
         missingSamples,
+        missingOnR2,
+        missingR2Samples,
       },
     };
   }

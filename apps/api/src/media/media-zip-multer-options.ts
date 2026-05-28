@@ -4,7 +4,7 @@ import { extname } from 'path';
 import { resolveZipUploadTmpDir } from '../config/resolve-zip-upload-dir';
 import { mediaZipUploadMaxBytes } from './media-zip-import';
 import { mediaUsesR2 } from './media-r2';
-import { createR2ZipMulterStorage } from './media-r2-zip-multer';
+import { createR2StreamMulterStorage } from './media-r2-stream-multer';
 
 export function buildZipUploadMulterOptions() {
   const limits = { fileSize: mediaZipUploadMaxBytes() };
@@ -18,7 +18,7 @@ export function buildZipUploadMulterOptions() {
 
   if (mediaUsesR2()) {
     console.error('[media] ZIP-upload → direct stream naar R2 (geen lokale schijf)');
-    return { storage: createR2ZipMulterStorage(), limits, fileFilter };
+    return { storage: createR2StreamMulterStorage(), limits, fileFilter };
   }
 
   return {

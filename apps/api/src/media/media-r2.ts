@@ -5,7 +5,8 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { createReadStream } from 'fs';
+import { Upload } from '@aws-sdk/lib-storage';
+import { createReadStream, statSync } from 'fs';
 import { Readable } from 'stream';
 import type { Readable as ReadableType } from 'stream';
 
@@ -100,11 +101,28 @@ export async function r2PutLocalFile(
   localPath: string,
   contentType?: string,
 ): Promise<void> {
+  const size = statSync(localPath).size;
+  const body = createReadStream(localPath);
+  if (size > 80 * 1024 * 1024) {
+    await new Upload({
+      client: getR2Client(),
+      params: {
+        Bucket: r2BucketName(),
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      },
+      queueSize: 4,
+      partSize: 10 * 1024 * 1024,
+      leavePartsOnError: false,
+    }).done();
+    return;
+  }
   await getR2Client().send(
     new PutObjectCommand({
       Bucket: r2BucketName(),
       Key: key,
-      Body: createReadStream(localPath),
+      Body: body,
       ContentType: contentType,
     }),
   );

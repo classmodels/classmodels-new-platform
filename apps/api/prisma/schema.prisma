@@ -263,8 +263,25 @@ model MediaAsset {
   profilePhotoFor User?     @relation("UserProfilePhoto")
   createdAt    DateTime     @default(now())
   testshootPhotos TestshootPhoto[]
+  portalDownloads PortalDownload[]
 
   @@index([linkedModelUserId, folderId])
+}
+
+/// Configureerbare downloadknoppen in het modelportaal (gekoppeld aan één mediabestand in R2).
+model PortalDownload {
+  id             String     @id @default(uuid())
+  label          String
+  mediaAssetId   String
+  mediaAsset     MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  section        String     @default("model-portal")
+  sortOrder      Int        @default(0)
+  active         Boolean    @default(true)
+  availableFrom  DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([section, active, sortOrder])
 }
 
 /// Admin markeert favoriet-model (zoals WP `favs` usermeta).

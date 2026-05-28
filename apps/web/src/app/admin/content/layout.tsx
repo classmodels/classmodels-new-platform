@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const tabs = [
   { href: '/admin/content', label: 'Teksten', hint: 'Knoppen, titels, korte zinnen' },
   { href: '/admin/content/paginas', label: "Pagina's", hint: 'Foto, video, kolommen' },
+  { href: '/admin/content/downloads', label: 'Portaal-downloads', hint: 'Knop → mediabestand' },
   { href: '/admin/menus', label: "Menu's", hint: 'Links naar pagina\'s' },
 ] as const;
 

@@ -13,7 +13,9 @@ import {
 } from '@/lib/api';
 import { formatEtaSeconds, uploadWithProgress } from '@/lib/upload-with-progress';
 import {
+  fileNeedsR2StreamUpload,
   formatZipUploadError,
+  uploadLargeReliable,
   uploadZipReliable,
   zipUploadApiLabel,
   zipUploadModeLabel,
@@ -32,6 +34,8 @@ type MediaAssetRow = {
   thumbKey?: string | null;
   publicKey: string;
   detailKey: string;
+  storageOk?: boolean;
+  onR2?: boolean;
 };
 
 type Folder = {
@@ -132,6 +136,14 @@ export default function AdminMediaPage() {
   } | null>(null);
   const [inboxZipName, setInboxZipName] = useState('');
   const [inboxBusy, setInboxBusy] = useState(false);
+  const [r2Audit, setR2Audit] = useState<{
+    scanned: number;
+    onR2: number;
+    missingOnR2: number;
+    missingSamples: { originalName: string; storageKey: string }[];
+    hint?: string;
+  } | null>(null);
+  const [r2AuditBusy, setR2AuditBusy] = useState(false);
   /** Tijdens upload: map vastzetten zodat de UI niet springt. */
   const [pinnedFolderId, setPinnedFolderId] = useState<string | null>(null);
   const loadSeqRef = useRef(0);
@@ -400,29 +412,65 @@ export default function AdminMediaPage() {
     }
   };
 
+  const runR2Audit = async () => {
+    if (!token || !activeFolder) return;
+    setR2AuditBusy(true);
+    try {
+      const q = new URLSearchParams({ limit: '500', folderSlug: activeFolder.slug });
+      const r = await adminFetch<{
+        scanned: number;
+        onR2: number;
+        missingOnR2: number;
+        missingSamples: { originalName: string; storageKey: string }[];
+        hint?: string;
+      }>(`/media/admin/r2-audit?${q}`, token);
+      setR2Audit(r);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'R2-controle mislukt');
+    } finally {
+      setR2AuditBusy(false);
+    }
+  };
+
   const upload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !file || !selectedFolderId || fileUploading || zipUploading) return;
-    const fd = new FormData();
-    fd.append('file', file);
     const params = new URLSearchParams();
     params.set('folderId', selectedFolderId);
     if (fileLabel.trim()) params.set('fileLabel', fileLabel.trim());
     const q = `?${params.toString()}`;
+    const streamToR2 = usesR2Backend && fileNeedsR2StreamUpload(file);
     setFileUploading(true);
     setPinnedFolderId(selectedFolderId);
     setUploadProgress({ label: file.name, percent: 0, etaSeconds: null });
     try {
-      const text = await uploadWithProgress(`${getLargeUploadApiBase()}/media/upload${q}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-        onProgress: (p) =>
-          setUploadProgress({
-            label: file.name,
-            percent: p.percent,
-            etaSeconds: p.etaSeconds,
-          }),
-      });
+      const text =
+        streamToR2 ?
+          await uploadLargeReliable({
+            file,
+            folderId: selectedFolderId,
+            token,
+            onProgress: (p) =>
+              setUploadProgress({
+                label: file.name,
+                percent: p.percent,
+                etaSeconds: p.etaSeconds,
+              }),
+          })
+        : await (async () => {
+            const fd = new FormData();
+            fd.append('file', file);
+            return uploadWithProgress(`${getLargeUploadApiBase()}/media/upload${q}`, {
+              headers: { Authorization: `Bearer ${token}` },
+              body: fd,
+              onProgress: (p) =>
+                setUploadProgress({
+                  label: file.name,
+                  percent: p.percent,
+                  etaSeconds: p.etaSeconds,
+                }),
+            });
+          })();
       if (!text) {
         /* lege body = ok */
       }
@@ -866,9 +914,34 @@ export default function AdminMediaPage() {
             </div>
           ) : null}
           {usesR2Backend ? (
-            <p className="text-[11px] leading-snug text-muted">
-              R2-opslag actief. Nieuwe uploads (foto/video/ZIP) horen rechtstreeks in R2 te landen.
-            </p>
+            <div className="space-y-2 text-[11px] leading-snug text-muted">
+              <p>
+                R2 actief. Foto&apos;s: gewone upload. Video&apos;s en ZIP&apos;s: stream naar R2 (voortgangsbalk).
+                In Cloudflare zie je bestanden als <code className="text-[10px]">uuid.zip</code> of{' '}
+                <code className="text-[10px]">uuid.mp4</code> — niet de weergavenaam uit de mediatheek.
+              </p>
+              {activeFolder ? (
+                <button
+                  type="button"
+                  disabled={r2AuditBusy}
+                  onClick={() => void runR2Audit()}
+                  className="rounded border border-burgundy bg-burgundy/10 px-2 py-1 text-[11px] font-medium text-burgundy hover:bg-panel disabled:opacity-50"
+                >
+                  {r2AuditBusy ? 'Controleren…' : `R2-controle map «${activeFolder.label}»`}
+                </button>
+              ) : null}
+              {r2Audit ? (
+                <p className={r2Audit.missingOnR2 > 0 ? 'text-amber-950' : 'text-green-900'}>
+                  {r2Audit.onR2} op R2, {r2Audit.missingOnR2} ontbreken (van {r2Audit.scanned} gescand).
+                  {r2Audit.missingOnR2 > 0 ?
+                    ` Upload opnieuw of backfill: ${r2Audit.missingSamples
+                      .slice(0, 3)
+                      .map((s) => s.originalName)
+                      .join(', ')}…`
+                  : null}
+                </p>
+              ) : null}
+            </div>
           ) : (
             <p className="text-[11px] leading-snug text-muted">
               Combell toont ~100 GB voor het hele pakket. Grote ZIP&apos;s schrijven tijdelijk naar schijf
@@ -991,6 +1064,7 @@ export default function AdminMediaPage() {
                   type="button"
                   onClick={() => vidInputRef.current?.click()}
                   className="rounded border border-line bg-white px-2 py-1 text-[11px] text-ink hover:bg-panel"
+                  title={usesR2Backend ? 'Video streamt naar R2 met voortgangsbalk' : undefined}
                 >
                   Video kiezen
                 </button>
@@ -1455,10 +1529,20 @@ export default function AdminMediaPage() {
                             </div>
                           )}
                         </div>
+                        {usesR2Backend && a.storageOk === false ? (
+                          <div className="absolute left-1 top-1 z-10 rounded bg-red-600 px-1 py-0.5 text-[8px] font-bold text-white">
+                            niet in R2
+                          </div>
+                        ) : null}
                         <div className="border-t border-line px-1 py-0.5">
                           <span className="line-clamp-2 text-[9px] leading-tight text-muted group-hover:text-ink" title={a.originalName}>
                             {a.originalName}
                           </span>
+                          {usesR2Backend && a.storageKey ? (
+                            <span className="block truncate font-mono text-[8px] text-muted/80" title={a.storageKey}>
+                              {a.storageKey}
+                            </span>
+                          ) : null}
                         </div>
                       </button>
                     </li>

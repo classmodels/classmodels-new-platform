@@ -19,6 +19,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { basename, extname } from 'path';
+import { buildLargeMediaUploadMulterOptions } from './media-large-multer-options';
 import { buildZipUploadMulterOptions } from './media-zip-multer-options';
 import type { Response } from 'express';
 import {
@@ -180,7 +181,7 @@ export class MediaController {
     );
   }
 
-  /** ZIP (tot ~6 GB) → uitpakken op schijf → mediaregels in gekozen map. */
+  /** ZIP (tot ~6 GB) → R2 stream of uitpakken op schijf. */
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
   @Post('upload-zip')
@@ -194,6 +195,22 @@ export class MediaController {
     const fid = folderId?.trim();
     if (!fid) return { error: 'folderId is verplicht' };
     return this.media.importZipUpload(file, req.user.sub, fid);
+  }
+
+  /** Grote ZIP of video (tot ~6 GB) → stream naar R2 + mediaregel. */
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
+  @Post('upload-large')
+  @UseInterceptors(FileInterceptor('file', buildLargeMediaUploadMulterOptions()))
+  uploadLarge(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: { user: JwtPayload },
+    @Query('folderId') folderId?: string,
+  ) {
+    if (!file) return { error: 'Geen bestand' };
+    const fid = folderId?.trim();
+    if (!fid) return { error: 'folderId is verplicht' };
+    return this.media.importLargeMediaUpload(file, req.user.sub, fid);
   }
 
   /** Herstel: zelfde bestandsnaam als in DB, geen nieuw mediarecord. */
@@ -260,7 +277,16 @@ export class MediaController {
   }
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @Permissions('admin.media.write')
+  @Permissions('admin.media.read')
+  @Get('admin/r2-audit')
+  r2Audit(@Query('limit') limit?: string, @Query('folderSlug') folderSlug?: string) {
+    const lim = limit ? parseInt(limit, 10) : 500;
+    return this.media.auditR2Storage({
+      limit: Number.isFinite(lim) ? lim : 500,
+      folderSlug: folderSlug?.trim() || undefined,
+    });
+  }
+
   @Post('admin/backfill-r2')
   backfillR2(
     @Query('limit') limit?: string,

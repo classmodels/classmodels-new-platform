@@ -12,6 +12,11 @@ import { PortalModelBriefsController } from './portal-model-briefs.controller';
 import { PortalModelHistoryController } from './portal-model-history.controller';
 import { PortalModelMediaController } from './portal-model-media.controller';
 import { PortalModelModeshowDownloadsController } from './portal-model-modeshow-downloads.controller';
+import {
+  AdminPortalDownloadsController,
+  PortalDownloadsController,
+} from './portal-downloads.controller';
+import { PortalDownloadsService } from './portal-downloads.service';
 import { PortalModelSetCardController } from './portal-model-set-card.controller';
 import { PortalModelTryoutModeshowController } from './portal-model-tryout-modeshow.controller';
 import { PortalModelReviewsController } from './portal-model-reviews.controller';
@@ -29,10 +34,12 @@ import { ModelSetCardService } from './model-set-card.service';
     PortalModelHistoryController,
     PortalModelTryoutModeshowController,
     PortalModelModeshowDownloadsController,
+    PortalDownloadsController,
+    AdminPortalDownloadsController,
     PortalModelSetCardController,
     PortalModelReviewsController,
   ],
-  providers: [BriefsService, TryoutModeshowService, ModelSetCardService],
+  providers: [BriefsService, TryoutModeshowService, ModelSetCardService, PortalDownloadsService],
   exports: [BriefsService, ModelSetCardService],
 })
 export class PortalModule {}
