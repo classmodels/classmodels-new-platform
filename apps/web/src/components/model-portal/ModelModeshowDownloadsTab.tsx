@@ -122,7 +122,7 @@ export function ModelModeshowDownloadsTab() {
           </p>
         ) : (
           <p className="mt-3 text-xs text-amber-900">
-            Nog geen ZIP gevonden in mediatheek ({searchFolders}). Zet «Modeshow … .zip» in map <strong>Uploads</strong>{' '}
+            Nog geen ZIP gevonden in mediatheek ({searchFolders}). Zet «Modeshow … .zip» in map <strong>film modeshow</strong>{' '}
             of upload opnieuw via Mediatheek.
           </p>
         )}
@@ -159,7 +159,9 @@ export function ModelModeshowDownloadsTab() {
             <span className="text-muted"> ({formatBytes(meta.film.sizeBytes)})</span>
           </p>
         ) : meta?.filmAvailableNow ? (
-          <p className="mt-3 text-xs text-amber-900">Nog geen film in de mediatheek-map.</p>
+          <p className="mt-3 text-xs text-amber-900">
+            Nog geen film in de mediatheek-map ({searchFolders}). Upload een echt videobestand (.mp4/.mov/.webm) — een .zip telt niet als film.
+          </p>
         ) : null}
       </section>
       </div>

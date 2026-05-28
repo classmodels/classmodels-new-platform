@@ -16,7 +16,7 @@ export function modeshowPhotosFolderSlugs(): string[] {
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
   }
-  return ['fotomodeshow-klein', 'uploads'];
+  return ['film-modeshow', 'fotomodeshow-klein', 'uploads'];
 }
 
 /** Optioneel: vaste ZIP-bestandsnaam (anders nieuwste .zip met “modeshow” in de naam). */
