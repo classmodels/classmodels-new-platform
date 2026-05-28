@@ -2130,6 +2130,81 @@ export class MediaService implements OnModuleInit {
     return { ok: true, assetId: created.id, storageKey, sizeBytes: sz, updated: false };
   }
 
+  /** Eenmalige migratie: bestaande lokale media-assets naar R2 kopieren. */
+  async backfillExistingAssetsToR2(
+    opts: { limit: number; dryRun: boolean; onlyMissing: boolean } = {
+      limit: 500,
+      dryRun: true,
+      onlyMissing: true,
+    },
+  ) {
+    if (!mediaUsesR2()) {
+      throw new BadRequestException('MEDIA_BACKEND=r2 is niet actief op deze server.');
+    }
+    const limit = Math.min(5000, Math.max(1, Math.floor(opts.limit || 500)));
+    const dryRun = Boolean(opts.dryRun);
+    const onlyMissing = opts.onlyMissing !== false;
+    const root = this.root();
+
+    const rows = await this.prisma.mediaAsset.findMany({
+      where: { hardDeleted: false },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+      select: { id: true, storageKey: true, webpKey: true, thumbKey: true },
+    });
+
+    let scannedAssets = 0;
+    let candidateKeys = 0;
+    let migrated = 0;
+    let alreadyOnR2 = 0;
+    let missingOnDisk = 0;
+    const errors: string[] = [];
+
+    for (const row of rows) {
+      scannedAssets += 1;
+      const keys = [row.storageKey, row.webpKey, row.thumbKey]
+        .filter((k): k is string => Boolean(k?.trim()))
+        .map((k) => basename(k));
+      for (const key of [...new Set(keys)]) {
+        candidateKeys += 1;
+        const local = this.resolveAssetAbsolutePath(key);
+        if (!local) {
+          missingOnDisk += 1;
+          continue;
+        }
+        try {
+          if (onlyMissing && (await r2ObjectExists(key))) {
+            alreadyOnR2 += 1;
+            continue;
+          }
+          if (dryRun) {
+            migrated += 1;
+            continue;
+          }
+          await r2PutLocalFile(key, local, this.mimeFromFilename(key));
+          migrated += 1;
+        } catch (e) {
+          errors.push(`${row.id}:${key} -> ${e instanceof Error ? e.message : String(e)}`);
+          if (errors.length >= 40) break;
+        }
+      }
+      if (errors.length >= 40) break;
+    }
+
+    return {
+      ok: true,
+      dryRun,
+      onlyMissing,
+      mediaRoot: root,
+      scannedAssets,
+      candidateKeys,
+      migrated,
+      alreadyOnR2,
+      missingOnDisk,
+      errors,
+    };
+  }
+
   async registerDiskOrphanAssets(
     uploadedById: string,
     opts: { folderSlug: string; limit: number; dryRun: boolean },

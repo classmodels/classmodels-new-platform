@@ -261,6 +261,22 @@ export class MediaController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
+  @Post('admin/backfill-r2')
+  backfillR2(
+    @Query('limit') limit?: string,
+    @Query('dryRun') dryRun?: string,
+    @Query('onlyMissing') onlyMissing?: string,
+  ) {
+    const lim = limit ? parseInt(limit, 10) : 500;
+    return this.media.backfillExistingAssetsToR2({
+      limit: Number.isFinite(lim) ? lim : 500,
+      dryRun: dryRun !== '0' && dryRun !== 'false',
+      onlyMissing: onlyMissing !== '0' && onlyMissing !== 'false',
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
   @Post('register-disk-orphans')
   registerDiskOrphans(
     @Req() req: { user: JwtPayload },
