@@ -50,6 +50,12 @@ export class AdminAgendaController {
     return this.agenda.adminOverview();
   }
 
+  @Post('ensure-defaults')
+  @Permissions('admin.agenda.write')
+  ensureDefaults() {
+    return this.agenda.adminEnsureDefaultCalendars();
+  }
+
   /** HTML-voorbeeld van de bevestigingsmail (open in browser). */
   @Get('notifications/preview/booking-confirmation')
   @Permissions('admin.agenda.read')

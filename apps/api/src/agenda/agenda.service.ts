@@ -35,6 +35,9 @@ import {
   UpdateAgendaCalendarDto,
 } from './dto/agenda.dto';
 import {
+  ensureDefaultAgendaCalendars,
+} from './agenda-default-calendars';
+import {
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
@@ -204,6 +207,10 @@ function timeToMinutes(t: string): number {
   return h * 60 + m;
 }
 
+function timeToMinutesSafe(t: string | null | undefined, fallback = '08:00:00'): number {
+  return timeToMinutes(safeNormTime(t, fallback));
+}
+
 /** HH:mm-regels → minuten sinds middernacht; leeg = null. */
 function parseOptionalSlotStartsLines(raw: string | null | undefined): number[] | null {
   if (!raw?.trim()) return null;
@@ -232,11 +239,20 @@ type CalSlotSchedule = {
   breakEnd: string | null;
 };
 
+function safeNormTime(t: string | null | undefined, fallback = '08:00:00'): string {
+  try {
+    if (!t?.trim()) return normTime(fallback);
+    return normTime(t);
+  } catch {
+    return normTime(fallback);
+  }
+}
+
 function buildSlotRowsForCalendar(cal: CalSlotSchedule): { startTime: string; endTime: string }[] {
-  const startM = timeToMinutes(cal.defaultDayStartTime ?? '08:00:00');
-  const endM = timeToMinutes(cal.defaultDayEndTime ?? '18:00:00');
-  const dur = cal.durationMinutes;
-  const step = cal.slotStepMinutes ?? dur;
+  const startM = timeToMinutesSafe(cal.defaultDayStartTime ?? '08:00:00');
+  const endM = timeToMinutesSafe(cal.defaultDayEndTime ?? '18:00:00');
+  const dur = Math.max(1, cal.durationMinutes || 30);
+  const step = Math.max(1, cal.slotStepMinutes ?? dur);
   const explicitStarts = parseOptionalSlotStartsLines(cal.optionalSlotStarts ?? undefined);
   let breakA: number | null = null;
   let breakB: number | null = null;
@@ -316,6 +332,16 @@ export class AgendaService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    try {
+      const r = await ensureDefaultAgendaCalendars(this.prisma);
+      if (r.created > 0) {
+        this.log.log(`Agenda: ${r.created} standaardagenda('s) aangemaakt (totaal ${r.total}).`);
+      }
+    } catch (e) {
+      this.log.warn(
+        `Agenda standaardagenda's bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
     try {
       await this.ensureAgendaBookingsMediaFolder();
     } catch (e) {
@@ -1416,22 +1442,42 @@ export class AgendaService implements OnModuleInit {
   }
 
   async adminOverview() {
+    await ensureDefaultAgendaCalendars(this.prisma);
     const calendars = await this.prisma.agendaCalendar.findMany({
       orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
     });
-    const now = new Date();
+    const todayYmd = ymdEuropeBrussels(new Date());
+    const todayStart = parseYmdDayStart(todayYmd);
 
     const enriched = await Promise.all(
       calendars.map(async (c) => {
-        const openSlotsFuture = await this.countGuestBookableSlotStarts(c, now);
-        const bookingsCount = await this.prisma.agendaBooking.count({
-          where: { calendarId: c.id, ...activeBookingFilter },
-        });
-        return { ...c, openSlotsFuture, bookingsCount };
+        try {
+          const openSlotsFuture = await this.prisma.agendaSlot.count({
+            where: {
+              calendarId: c.id,
+              status: 'open',
+              slotDate: { gte: todayStart },
+            },
+          });
+          const bookingsCount = await this.prisma.agendaBooking.count({
+            where: { calendarId: c.id, ...activeBookingFilter },
+          });
+          return { ...c, openSlotsFuture, bookingsCount };
+        } catch (e) {
+          this.log.warn(`adminOverview ${c.slug}: ${e instanceof Error ? e.message : String(e)}`);
+          const bookingsCount = await this.prisma.agendaBooking.count({
+            where: { calendarId: c.id, ...activeBookingFilter },
+          }).catch(() => 0);
+          return { ...c, openSlotsFuture: 0, bookingsCount };
+        }
       }),
     );
 
     return { calendars: enriched };
+  }
+
+  async adminEnsureDefaultCalendars() {
+    return ensureDefaultAgendaCalendars(this.prisma);
   }
 
   async adminCreateCalendar(dto: CreateAgendaCalendarDto) {

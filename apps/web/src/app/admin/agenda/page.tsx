@@ -24,6 +24,7 @@ export default function AdminAgendaOverviewPage() {
   const [newSlug, setNewSlug] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [busy, setBusy] = useState(false);
+  const [ensureBusy, setEnsureBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -39,6 +40,24 @@ export default function AdminAgendaOverviewPage() {
   useEffect(() => {
     load().catch(() => {});
   }, [load]);
+
+  const ensureDefaults = async () => {
+    if (!token) return;
+    setEnsureBusy(true);
+    setMsg(null);
+    setErr(null);
+    try {
+      const r = await adminFetch<{ created: number; total: number }>('/admin/agenda/ensure-defaults', token, {
+        method: 'POST',
+      });
+      setMsg(`Standaardagenda's gecontroleerd (${r.total} totaal${r.created ? `, ${r.created} nieuw` : ''}).`);
+      await load();
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Herstellen mislukt');
+    } finally {
+      setEnsureBusy(false);
+    }
+  };
 
   const createAgenda = async (e: FormEvent) => {
     e.preventDefault();
@@ -84,7 +103,19 @@ export default function AdminAgendaOverviewPage() {
 
   return (
     <div className="space-y-8">
-      {err ? <p className="text-sm text-red-600">{err}</p> : null}
+      {err ? (
+        <div className="space-y-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+          <p className="text-sm text-red-700">{err}</p>
+          <button
+            type="button"
+            disabled={ensureBusy}
+            onClick={() => void ensureDefaults()}
+            className="rounded border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-900 hover:bg-red-100 disabled:opacity-50"
+          >
+            {ensureBusy ? 'Bezig…' : 'Standaardagenda\'s herstellen (portfolio, casting, …)'}
+          </button>
+        </div>
+      ) : null}
       {msg ? (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
           {msg}
@@ -92,7 +123,19 @@ export default function AdminAgendaOverviewPage() {
       ) : null}
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-ink">Nieuwe agenda</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-ink">Nieuwe agenda</h2>
+          {calendars.length === 0 ? (
+            <button
+              type="button"
+              disabled={ensureBusy}
+              onClick={() => void ensureDefaults()}
+              className="rounded-md border border-burgundy bg-burgundy/10 px-3 py-1.5 text-xs font-medium text-burgundy hover:bg-panel disabled:opacity-50"
+            >
+              {ensureBusy ? 'Bezig…' : 'Standaardagenda\'s laden'}
+            </button>
+          ) : null}
+        </div>
         <p className="mt-1 text-xs text-muted">
           Slug is de unieke technische naam (kleine letters, koppeltekens). Er wordt automatisch een standaardformulier
           toegevoegd.
