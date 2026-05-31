@@ -97,13 +97,25 @@ function onlyDigits(x: string): string {
   return x.replace(/\D/g, '');
 }
 
+function userRoleSlugs(u: UserRow): Set<string> {
+  return new Set(u.roles.map((r) => r.role.slug));
+}
+
+/** Alleen rol «inactief», zonder model/newface/tryout. */
+function isPureInactiveModel(slugs: Set<string>): boolean {
+  return slugs.has('inactief') && !slugs.has('model') && !slugs.has('newface') && !slugs.has('tryout');
+}
+
 function userMatchesRoleFilters(u: UserRow, filters: Set<RoleFilterKey>): boolean {
+  const slugs = userRoleSlugs(u);
+  if (isPureInactiveModel(slugs)) {
+    return filters.has('inactief');
+  }
   if (filters.size === 0) return true;
-  const slugs = new Set(u.roles.map((r) => r.role.slug));
   for (const key of filters) {
     if (key === 'admin' && slugs.has('admin')) return true;
     if (key === 'client' && slugs.has('client')) return true;
-    if (key === 'modelAny' && ['model', 'newface', 'tryout', 'inactief'].some((s) => slugs.has(s))) return true;
+    if (key === 'modelAny' && ['model', 'newface', 'tryout'].some((s) => slugs.has(s))) return true;
     if (key === 'newface' && slugs.has('newface')) return true;
     if (key === 'tryout' && slugs.has('tryout')) return true;
     if (key === 'inactief' && slugs.has('inactief')) return true;
@@ -339,10 +351,14 @@ function AdminGebruikersPageContent() {
       const s = new Set(u.roles.map((r) => r.role.slug));
       if (s.has('admin')) admin++;
       if (s.has('client')) client++;
-      if (s.has('model') || s.has('newface') || s.has('tryout') || s.has('inactief')) modelAny++;
-      if (s.has('newface')) newface++;
-      if (s.has('tryout')) tryout++;
-      if (s.has('inactief')) inactief++;
+      if (isPureInactiveModel(s)) {
+        inactief++;
+      } else {
+        if (s.has('model') || s.has('newface') || s.has('tryout')) modelAny++;
+        if (s.has('newface')) newface++;
+        if (s.has('tryout')) tryout++;
+        if (s.has('inactief')) inactief++;
+      }
     }
     return {
       total: rows.length,

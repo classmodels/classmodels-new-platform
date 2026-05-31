@@ -470,7 +470,7 @@ function ModelPortalPageInner() {
   if (loading || !portalUser) return <div className="p-8 text-sm text-muted">Laden…</div>;
 
   const premiumReturn = searchParams.get('premium') === 'return';
-  const firstName = portalUser.firstName?.trim() || '';
+  const displayName = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ').trim();
 
   const premiumButton =
     can('payments.checkout') && !portalUser.isPremium ? (
@@ -970,7 +970,7 @@ function ModelPortalPageInner() {
       sectionTitleBarInnerClassName={undefined}
       pushUnreadCount={portalUser.push?.unreadCount ?? 0}
       isPremium={isPremium}
-      userFirstName={firstName}
+      userDisplayName={displayName}
       premiumButton={premiumButton}
     >
       {main}

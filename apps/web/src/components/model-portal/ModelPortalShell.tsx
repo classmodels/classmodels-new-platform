@@ -9,19 +9,15 @@ import Link from 'next/link';
 import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { CmText } from '@/components/CmText';
-import { useContent } from '@/context/content-context';
 
 function ModelPortalHeroInner({
-  userFirstName,
+  userDisplayName,
   premiumButton,
 }: {
-  userFirstName: string;
+  userDisplayName: string;
   premiumButton?: ReactNode;
 }) {
-  const { byKey } = useContent();
-  const legacyWelcome = (byKey['portal.model.hero.welcome'] ?? '').trim();
-  const defaultWithName = userFirstName.trim() ? `Welkom, ${userFirstName}` : 'Welkom';
-  const greetingFallback = legacyWelcome || defaultWithName;
+  const greeting = userDisplayName.trim() ? `Welkom, ${userDisplayName.trim()}` : 'Welkom';
 
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_min(260px,34%)] md:items-center md:gap-8">
@@ -32,12 +28,9 @@ function ModelPortalHeroInner({
           className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
           fallback="Model"
         />
-        <CmText
-          contentKey="portal.model.hero.greeting"
-          as="h2"
-          className="mt-2 font-serif text-2xl font-semibold tracking-tight text-white md:text-3xl lg:text-4xl"
-          fallback={greetingFallback}
-        />
+        <h2 className="mt-2 font-serif text-2xl font-semibold tracking-tight text-white md:text-3xl lg:text-4xl">
+          {greeting}
+        </h2>
         <CmText
           contentKey="portal.model.hero.body"
           as="p"
@@ -73,7 +66,7 @@ export function ModelPortalShell({
   sectionHeaderRight,
   sectionTitleBarClassName,
   sectionTitleBarInnerClassName,
-  userFirstName,
+  userDisplayName,
   premiumButton,
   pushUnreadCount = 0,
   isPremium = true,
@@ -92,7 +85,8 @@ export function ModelPortalShell({
   sectionTitleBarClassName?: string;
   /** bv. `items-start !flex-wrap` voor langere toolbars */
   sectionTitleBarInnerClassName?: string;
-  userFirstName: string;
+  /** Volledige naam voor de welkomst (voornaam + familienaam). */
+  userDisplayName: string;
   premiumButton?: ReactNode;
   /** Ongelezen pushberichten (tab Pushberichten in het menu). */
   pushUnreadCount?: number;
@@ -116,7 +110,7 @@ export function ModelPortalShell({
       <ImpersonationBanner />
       <div className="w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
         <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
-          <ModelPortalHeroInner userFirstName={userFirstName} premiumButton={premiumButton} />
+          <ModelPortalHeroInner userDisplayName={userDisplayName} premiumButton={premiumButton} />
         </div>
       </div>
 

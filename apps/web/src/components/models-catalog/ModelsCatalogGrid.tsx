@@ -612,7 +612,7 @@ export function ModelsCatalogGrid({
       inactief: 0,
     };
     for (const m of rows) {
-      c.alle++;
+      if (!m.isInactive) c.alle++;
       if (m.isFavorite && !m.isInactive) c.favoriet++;
       if (m.isNewface && !m.isInactive) c.newface++;
       if (m.isTryout && !m.isInactive) c.tryout++;
@@ -697,9 +697,10 @@ export function ModelsCatalogGrid({
   }, [rows]);
 
   const visibleForTab = (m: CatalogModel): boolean => {
+    if (!isAdmin && m.isInactive) return false;
     switch (tab) {
       case 'alle':
-        return true;
+        return !m.isInactive;
       case 'favoriet':
         return m.isFavorite && !m.isInactive;
       case 'newface':
@@ -709,7 +710,7 @@ export function ModelsCatalogGrid({
       case 'inactief':
         return m.isInactive;
       default:
-        return true;
+        return !m.isInactive;
     }
   };
 
