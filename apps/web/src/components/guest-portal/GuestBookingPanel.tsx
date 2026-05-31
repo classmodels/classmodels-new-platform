@@ -65,6 +65,7 @@ export function GuestBookingPanel({
   bookUrl,
   onBookingSuccess,
   autoBookOnPick = false,
+  showOccupiedSlots = false,
 }: {
   calendarSlug: string;
   heading: string;
@@ -77,6 +78,8 @@ export function GuestBookingPanel({
   onBookingSuccess?: () => void | Promise<void>;
   /** Eén klik boeken zonder formulier (opleiding). */
   autoBookOnPick?: boolean;
+  /** Volle sloten tonen als «Bezet» (portfolio). */
+  showOccupiedSlots?: boolean;
 }) {
   const [step, setStep] = useState<Step>('slots');
   const [loading, setLoading] = useState(true);
@@ -283,6 +286,74 @@ export function GuestBookingPanel({
     },
     [authToken, bookUrl, loadData, onBookingSuccess],
   );
+
+  const isSlotOccupied = (s: SlotDto) =>
+    showOccupiedSlots && typeof s.remaining === 'number' && s.remaining <= 0;
+
+  const renderSlotButton = (s: SlotDto, sel: boolean, compact?: boolean) => {
+    const occupied = isSlotOccupied(s);
+    return (
+      <button
+        key={s.id}
+        type="button"
+        disabled={occupied || busy}
+        className={[
+          'flex w-full min-w-0 items-center gap-2 rounded-md border px-3 py-2 text-left text-xs font-medium tabular-nums transition',
+          compact ? 'px-2 py-1.5' : '',
+          occupied
+            ? 'cursor-not-allowed border-red-300 bg-red-50 text-red-800'
+            : sel
+              ? compact
+                ? 'border-zinc-900 ring-1 ring-zinc-900 bg-white'
+                : 'border-burgundy ring-1 ring-burgundy bg-panel'
+              : compact
+                ? 'border-zinc-200 bg-white hover:border-zinc-400'
+                : 'border-line bg-panel hover:border-burgundy/45',
+        ].join(' ')}
+        onClick={() => {
+          if (occupied) return;
+          if (autoBookOnPick) {
+            void quickBook(s.id);
+            return;
+          }
+          setSlotId(s.id);
+          setStep('form');
+          setErr(null);
+        }}
+      >
+        <span
+          className={[
+            'flex h-3.5 w-3.5 shrink-0 rounded-full border',
+            occupied
+              ? 'border-red-400 bg-red-200'
+              : sel
+                ? compact
+                  ? 'border-zinc-900 bg-zinc-900'
+                  : 'border-burgundy bg-burgundy'
+                : 'border-zinc-300',
+          ].join(' ')}
+          aria-hidden
+        />
+        <span className={occupied ? 'text-red-800' : compact ? 'text-zinc-900' : 'text-ink'}>
+          {occupied ? (
+            <>
+              {slotTimeLabel(s)} <span className="font-semibold">— Bezet</span>
+            </>
+          ) : (
+            <>
+              {slotTimeLabel(s)}
+              {authToken && typeof s.remaining === 'number' && s.remaining > 1 ? (
+                <span className={`ml-1 text-[10px] font-normal ${compact ? 'text-zinc-500' : 'text-muted'}`}>
+                  {' '}
+                  ({s.remaining} vrij)
+                </span>
+              ) : null}
+            </>
+          )}
+        </span>
+      </button>
+    );
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -650,44 +721,7 @@ export function GuestBookingPanel({
                       {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
                         <p className="px-1 py-2 text-[11px] text-muted">Geen vrije momenten (meer) op deze dag.</p>
                       ) : null}
-                      {(slotsByYmd.get(ymd) ?? []).map((s) => {
-                        const sel = slotId === s.id;
-                        return (
-                          <button
-                            key={s.id}
-                            type="button"
-                            className={[
-                              'flex w-full min-w-0 items-center gap-2 rounded-md border bg-panel px-3 py-2 text-left text-xs font-medium tabular-nums transition',
-                              sel ? 'border-burgundy ring-1 ring-burgundy' : 'border-line hover:border-burgundy/45',
-                            ].join(' ')}
-                            onClick={() => {
-                              if (autoBookOnPick) {
-                                void quickBook(s.id);
-                                return;
-                              }
-                              setSlotId(s.id);
-                              setStep('form');
-                              setErr(null);
-                            }}
-                          >
-                            <span
-                              className={[
-                                'flex h-3.5 w-3.5 shrink-0 rounded-full border',
-                                sel ? 'border-burgundy bg-burgundy' : 'border-zinc-300',
-                              ].join(' ')}
-                              aria-hidden
-                            />
-                            <span className="text-ink">
-                              {slotTimeLabel(s)}
-                              {authToken &&
-                              typeof s.remaining === 'number' &&
-                              s.remaining > 1 ? (
-                                <span className="ml-1 text-[10px] font-normal text-muted"> ({s.remaining} vrij)</span>
-                              ) : null}
-                            </span>
-                          </button>
-                        );
-                      })}
+                      {(slotsByYmd.get(ymd) ?? []).map((s) => renderSlotButton(s, slotId === s.id))}
                     </div>
                   </div>
                 ))}
@@ -746,46 +780,7 @@ export function GuestBookingPanel({
                   {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
                     <p className="px-1 py-2 text-[10px] text-zinc-500">Geen vrije momenten (meer).</p>
                   ) : null}
-                  {(slotsByYmd.get(ymd) ?? []).map((s) => {
-                    const sel = slotId === s.id;
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          if (autoBookOnPick) {
-                            void quickBook(s.id);
-                            return;
-                          }
-                          setSlotId(s.id);
-                          setStep('form');
-                          setErr(null);
-                        }}
-                        className={[
-                          'flex w-full min-w-0 items-center gap-2 rounded-md border bg-white px-2 py-1.5 text-left text-xs font-medium transition',
-                          sel
-                            ? 'border-zinc-900 ring-1 ring-zinc-900'
-                            : 'border-zinc-200 hover:border-zinc-400',
-                        ].join(' ')}
-                      >
-                        <span
-                          className={[
-                            'flex h-3.5 w-3.5 shrink-0 rounded-full border',
-                            sel ? 'border-zinc-900 bg-zinc-900' : 'border-zinc-300',
-                          ].join(' ')}
-                          aria-hidden
-                        />
-                        <span className="tabular-nums text-zinc-900">
-                          {slotTimeLabel(s)}
-                          {authToken &&
-                          typeof s.remaining === 'number' &&
-                          s.remaining > 1 ? (
-                            <span className="ml-1 text-[10px] font-normal text-zinc-500"> ({s.remaining})</span>
-                          ) : null}
-                        </span>
-                      </button>
-                    );
-                  })}
+                  {(slotsByYmd.get(ymd) ?? []).map((s) => renderSlotButton(s, slotId === s.id, true))}
                 </div>
               </div>
             ))}

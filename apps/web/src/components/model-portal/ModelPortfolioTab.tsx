@@ -212,6 +212,7 @@ export function ModelPortfolioTab({
             authToken={token}
             bookUrl="/portal/model/agenda/book-form"
             autoBookOnPick
+            showOccupiedSlots
             onBookingSuccess={async () => {
               await load();
               setPanel('summary');

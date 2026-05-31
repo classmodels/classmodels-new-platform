@@ -9,7 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import type { Role, User, UserRole } from '@prisma/client';
-import { sendHtmlMail } from '../mail/send-html-mail';
+import { sendHtmlMailDetailed } from '../mail/send-html-mail';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService, pickPublicMediaKey } from '../users/users.service';
 import { mergePermissionsFromRoles, premiumEffective } from './permissions.util';
@@ -133,13 +133,11 @@ export class AuthService {
     return this.buildAuthResponse(fresh as UserWithRoles);
   }
 
-  /** Altijd hetzelfde antwoord (geen account-enumeratie). */
+  /** Altijd hetzelfde antwoord als account niet gevonden (geen account-enumeratie). */
   async forgotPassword(identifier: string) {
-    const generic = {
-      ok: true,
-      message:
-        'Als er een account bij dit e-mailadres of telefoonnummer hoort, ontvang je een e-mail met instructies.',
-    };
+    const genericMessage =
+      'Als er een account bij dit e-mailadres of telefoonnummer hoort, ontvang je een e-mail met instructies.';
+    const generic = { ok: true, message: genericMessage, emailSent: false as boolean };
     const user = await this.users.findByLoginIdentifierWithRoles(identifier);
     if (!user?.email) return generic;
 
@@ -159,11 +157,22 @@ export class AuthService {
       <p>Werkt de link niet? Kopieer: ${link}</p>
       <p>Heb je dit niet aangevraagd? Negeer deze mail.</p>
     `;
-    const sent = await sendHtmlMail(this.prisma, user.email, 'Nieuw wachtwoord — Class Models', html);
-    if (!sent) {
-      this.log.warn(`Wachtwoord-reset niet gemaild (SMTP?): ${user.email}`);
+    const mail = await sendHtmlMailDetailed(
+      this.prisma,
+      user.email,
+      'Nieuw wachtwoord — Class Models',
+      html,
+    );
+    if (!mail.ok) {
+      this.log.warn(`Wachtwoord-reset niet gemaild naar ${user.email}: ${mail.error ?? 'onbekend'}`);
+      return generic;
     }
-    return generic;
+    return {
+      ok: true,
+      emailSent: true,
+      message:
+        'We hebben een e-mail met een link om je wachtwoord opnieuw in te stellen gestuurd. Controleer ook je spamfolder.',
+    };
   }
 
   async resetPasswordWithToken(token: string, newPassword: string) {

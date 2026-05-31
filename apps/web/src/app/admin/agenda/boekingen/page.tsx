@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
-import { isCancelledAgendaStatus, prepareFieldsJsonForSave, validateBookingDetailForSave } from '@/lib/agenda-booking-detail';
+import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave } from '@/lib/agenda-booking-detail';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 
 type Cal = {
@@ -121,6 +121,8 @@ export default function AdminAgendaBoekingenPage() {
 
   const [statusSel, setStatusSel] = useState<Set<string>>(() => new Set(STATUS_OPTS.map((x) => x.v)));
 
+  const [showPastBookings, setShowPastBookings] = useState(false);
+
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -176,6 +178,11 @@ export default function AdminAgendaBoekingenPage() {
     loadBookings().catch(() => setBookings([]));
   }, [loadBookings]);
 
+  const visibleBookings = useMemo(
+    () => (showPastBookings ? bookings : bookings.filter((b) => !isAgendaBookingPast(b))),
+    [bookings, showPastBookings],
+  );
+
   const df = useMemo(() => new Intl.DateTimeFormat('nl-BE', { dateStyle: 'medium', timeStyle: 'short' }), []);
 
   const toggleCal = (id: string) => {
@@ -206,8 +213,8 @@ export default function AdminAgendaBoekingenPage() {
   };
 
   const toggleAllVisible = () => {
-    if (selectedIds.size === bookings.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(bookings.map((b) => b.id)));
+    if (selectedIds.size === visibleBookings.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(visibleBookings.map((b) => b.id)));
   };
 
   const bulkDelete = async () => {
@@ -421,6 +428,23 @@ export default function AdminAgendaBoekingenPage() {
         </div>
 
         <div className="mt-4 border-t border-line pt-3">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={`rounded border px-2 py-0.5 text-[11px] font-medium ${
+                showPastBookings ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-line bg-panel text-ink hover:bg-zinc-100'
+              }`}
+              onClick={() => setShowPastBookings((v) => !v)}
+            >
+              {showPastBookings ? 'Verberg verleden' : 'Toon verleden'}
+            </button>
+            {!showPastBookings && bookings.length > visibleBookings.length ? (
+              <span className="text-[11px] text-muted">
+                {bookings.length - visibleBookings.length} afspraak
+                {bookings.length - visibleBookings.length !== 1 ? 'en' : ''} uit het verleden verborgen
+              </span>
+            ) : null}
+          </div>
           <div className="mb-2 flex flex-wrap gap-2">
             <button
               type="button"
@@ -468,7 +492,7 @@ export default function AdminAgendaBoekingenPage() {
             <thead>
               <tr className="border-b border-line text-muted">
                 <th className="py-2 pr-2">
-                  <input type="checkbox" checked={bookings.length > 0 && selectedIds.size === bookings.length} onChange={toggleAllVisible} />
+                  <input type="checkbox" checked={visibleBookings.length > 0 && selectedIds.size === visibleBookings.length} onChange={toggleAllVisible} />
                 </th>
                 <th className="py-2 pr-3 font-medium">Moment</th>
                 <th className="py-2 pr-3 font-medium">Agenda</th>
@@ -479,7 +503,7 @@ export default function AdminAgendaBoekingenPage() {
               </tr>
             </thead>
             <tbody>
-              {bookings.map((b) => {
+              {visibleBookings.map((b) => {
                 const slotD = b.slot?.slotDate?.slice(0, 10);
                 const nm =
                   b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
@@ -537,7 +561,13 @@ export default function AdminAgendaBoekingenPage() {
             </tbody>
           </table>
         </div>
-        {!bookings.length && !loading ? <p className="mt-4 text-xs text-muted">Geen boekingen in dit bereik.</p> : null}
+        {!visibleBookings.length && !loading ? (
+          <p className="mt-4 text-xs text-muted">
+            {bookings.length && !showPastBookings
+              ? 'Geen komende afspraken in dit bereik. Klik op «Toon verleden» om eerdere afspraken te zien.'
+              : 'Geen boekingen in dit bereik.'}
+          </p>
+        ) : null}
       </section>
 
       {detail || detailLoading ? (

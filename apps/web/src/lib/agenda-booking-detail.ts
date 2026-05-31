@@ -11,6 +11,12 @@ export function planningHideCancelledBooking(_calendarSlug: string, _status: str
   return false;
 }
 
+/** Afspraak is voorbij (eindtijd ligt in het verleden). */
+export function isAgendaBookingPast(row: { endAt: string }): boolean {
+  const t = Date.parse(row.endAt);
+  return Number.isFinite(t) && t < Date.now();
+}
+
 export function ageFromIsoBirthYmd(ymdRaw: string | null | undefined, ref = new Date()): number | null {
   const ymd = ymdRaw?.trim();
   if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return null;

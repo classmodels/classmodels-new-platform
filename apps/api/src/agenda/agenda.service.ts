@@ -574,12 +574,13 @@ export class AgendaService implements OnModuleInit {
 
   /** Zelfde filters als publieke slotlijst: sluitingen, open dagen, capaciteit, dedupe op dag+startuur. */
   private async collectGuestVisibleBookableSlotsDeduped(
-    cal: { id: string; capacity: number },
+    cal: { id: string; capacity: number; slug?: string },
     from: Date,
     to: Date,
     now: Date,
     closedSet: Set<string>,
     openYmdSet: Set<string> | null,
+    opts?: { includeOccupied?: boolean },
   ): Promise<
     Array<{
       id: string;
@@ -634,7 +635,7 @@ export class AgendaService implements OnModuleInit {
       const booked = bookedBySlotId.get(s.id) ?? 0;
       const cap = effectiveSlotCapacity(s.capacity, cal.capacity);
       const remaining = Math.max(0, cap - booked);
-      if (remaining <= 0) continue;
+      if (remaining <= 0 && !opts?.includeOccupied) continue;
 
       withCap.push({
         ...s,
@@ -878,7 +879,16 @@ export class AgendaService implements OnModuleInit {
     openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
 
     const now = new Date();
-    const deduped = await this.collectGuestVisibleBookableSlotsDeduped(cal, from, to, now, closedSet, openYmdSet);
+    const includeOccupied = cal.slug === 'portfolio';
+    const deduped = await this.collectGuestVisibleBookableSlotsDeduped(
+      cal,
+      from,
+      to,
+      now,
+      closedSet,
+      openYmdSet,
+      { includeOccupied },
+    );
 
     const openDatesFromSlots = deduped.map((s) => slotDateToYmd(s.slotDate));
     const openDates =

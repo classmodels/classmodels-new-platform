@@ -7,6 +7,7 @@ import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
 import {
   planningHideCancelledBooking,
+  isAgendaBookingPast,
   isCancelledAgendaStatus,
   prepareFieldsJsonForSave,
   validateBookingDetailForSave,
@@ -186,6 +187,7 @@ export default function AdminAgendaPlanningPage() {
   const [selectedInitialized, setSelectedInitialized] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('week');
+  const [showPastBookings, setShowPastBookings] = useState(false);
   const [rows, setRows] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [listPreset, setListPreset] = useState<ListPresetId>('week');
@@ -257,10 +259,15 @@ export default function AdminAgendaPlanningPage() {
 
   const statusesParam = useMemo(() => [...statusSel].join(','), [statusSel]);
 
-  const displayRows = useMemo(
+  const baseRows = useMemo(
     () => rows.filter((b) => !planningHideCancelledBooking(b.calendar.slug, b.status)),
     [rows],
   );
+
+  const displayRows = useMemo(() => {
+    if (showPastBookings) return baseRows;
+    return baseRows.filter((b) => !isAgendaBookingPast(b));
+  }, [baseRows, showPastBookings]);
 
   const loadBookings = useCallback(async () => {
     if (!token || selected.size === 0) {
@@ -697,6 +704,15 @@ export default function AdminAgendaPlanningPage() {
               </div>
               <button
                 type="button"
+                className={`rounded px-2 py-1 text-xs font-medium ${
+                  showPastBookings ? 'bg-zinc-800 text-white' : 'border border-line bg-white text-ink hover:bg-panel'
+                }`}
+                onClick={() => setShowPastBookings((v) => !v)}
+              >
+                {showPastBookings ? 'Verberg verleden' : 'Toon verleden'}
+              </button>
+              <button
+                type="button"
                 className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white"
                 onClick={applyPicker}
               >
@@ -830,6 +846,11 @@ export default function AdminAgendaPlanningPage() {
             <p className="text-xs text-muted">
               <strong className="text-ink">{displayRows.length}</strong> afspraak{displayRows.length !== 1 ? 'en' : ''} in dit
               bereik — elke boeking telt apart (ook op hetzelfde uur).
+              {!showPastBookings && baseRows.length > displayRows.length ? (
+                <span className="ml-1">
+                  ({baseRows.length - displayRows.length} uit het verleden verborgen — klik «Toon verleden»)
+                </span>
+              ) : null}
             </p>
           ) : null}
 
