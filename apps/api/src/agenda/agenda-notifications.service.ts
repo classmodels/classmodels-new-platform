@@ -6,7 +6,8 @@ import {
 } from './agenda-mail-placeholders';
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
-import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
+import { resolveSmtpConfig, smtpTransportOptions } from '../mail/mail-smtp-resolve';
+import { sendHtmlMailDetailed } from '../mail/send-html-mail';
 import { PrismaService } from '../prisma/prisma.service';
 import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl, officeOnlyStaticMapImageUrl } from './class-models-office';
 import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
@@ -222,9 +223,18 @@ export class AgendaNotificationService {
           `Melding: ${ctx.calendarTitle}`;
         const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(t.body, vars));
         const smtpFast = trigger === 'booking_created';
-        const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, { smtpFast });
+        const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, {
+          smtpFast,
+          skipMap: trigger === 'booking_created',
+          reliable: trigger === 'booking_created',
+        });
         if (sendResult.ok) emailSent = true;
-        else lastEmailError = sendResult.error;
+        else {
+          lastEmailError = sendResult.error;
+          this.log.error(
+            `Agenda-mail mislukt (${ctx.calendarSlug}, sjabloon "${t.name}") → ${to}: ${sendResult.error ?? 'onbekend'}`,
+          );
+        }
         await this.recordBookingNotificationLog({
           bookingId: ctx.bookingId,
           channel: 'email',
@@ -252,10 +262,17 @@ export class AgendaNotificationService {
         if (fallbackOk) {
           emailSent = true;
           lastEmailError = undefined;
+        } else if (!lastEmailError) {
+          lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
         }
       }
       result.emailSent = emailSent;
       result.emailError = emailSent ? undefined : lastEmailError;
+      if (!emailSent && trigger === 'booking_created' && ctx.toEmail?.trim()) {
+        this.log.error(
+          `Geen bevestigingsmail verstuurd voor boeking ${ctx.bookingId ?? '?'} → ${ctx.toEmail}: ${lastEmailError ?? 'onbekend'}`,
+        );
+      }
 
       const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
       const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
@@ -356,9 +373,13 @@ export class AgendaNotificationService {
           ),
         ),
       );
-      const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, { smtpFast: true });
+      const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, {
+        smtpFast: true,
+        skipMap: true,
+        reliable: true,
+      });
       if (!sendResult.ok) {
-        this.log.warn(
+        this.log.error(
           `Standaard bevestigingsmail mislukt → ${to}: ${sendResult.error ?? 'onbekende fout'}`,
         );
       }
@@ -435,13 +456,9 @@ export class AgendaNotificationService {
       const rateDelta = parseInt(process.env.SMTP_RATE_DELTA_MS || '1000', 10);
       const rateLimit = parseInt(process.env.SMTP_RATE_LIMIT || '3', 10);
       const transporter = nodemailer.createTransport({
-        host: cfg.host,
-        port: cfg.port,
-        secure: cfg.secure,
-        auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+        ...smtpTransportOptions(cfg),
         pool: true,
         maxConnections: 2,
-        /** Nodemailer-default is 100 — daarna faalt vaak alles; lager + pool-reset in bulk. */
         maxMessages: parseInt(process.env.SMTP_POOL_MAX_MESSAGES || '25', 10) || 25,
         rateDelta: Number.isFinite(rateDelta) && rateDelta > 0 ? rateDelta : 1000,
         rateLimit: Number.isFinite(rateLimit) && rateLimit > 0 ? rateLimit : 3,
@@ -511,19 +528,28 @@ export class AgendaNotificationService {
     );
   }
 
-  /** Routekaart als inline CID (e-mailclients laden externe OSM-URL's vaak niet). */
+  /** Verstuur agenda-e-mail; bij `reliable` geen SMTP-pool (transactionele mail). */
   private async sendAgendaEmail(
     to: string,
     subject: string,
     html: string,
     ctx: Pick<DispatchBookingCtx, 'staticMapImageUrl' | 'mapFrom' | 'mapTo'>,
-    opts?: { smtpFast?: boolean },
+    opts?: { smtpFast?: boolean; skipMap?: boolean; reliable?: boolean },
   ): Promise<{ ok: boolean; error?: string }> {
-    const prepared = await embedRouteMapInEmailHtml(html, {
-      staticMapImageUrl: ctx.staticMapImageUrl,
-      mapFrom: ctx.mapFrom,
-      mapTo: ctx.mapTo,
-    });
+    const prepared = opts?.skipMap
+      ? { html, inlineAttachments: [] as SmtpInlineAttachment[] }
+      : await embedRouteMapInEmailHtml(html, {
+          staticMapImageUrl: ctx.staticMapImageUrl,
+          mapFrom: ctx.mapFrom,
+          mapTo: ctx.mapTo,
+        });
+
+    if (opts?.reliable && prepared.inlineAttachments.length === 0) {
+      return sendHtmlMailDetailed(this.prisma, to, subject, prepared.html, {
+        fast: opts.smtpFast,
+      });
+    }
+
     return this.trySendSmtpDetailed(to, subject, prepared.html, prepared.inlineAttachments, {
       maxAttempts: opts?.smtpFast ? 2 : undefined,
     });
@@ -564,7 +590,10 @@ export class AgendaNotificationService {
       }
 
       const smtp = await this.getSmtpTransport();
-      if (!smtp) return { ok: false, error: lastErr };
+      if (!smtp) {
+        lastErr = 'SMTP niet geconfigureerd (Admin → E-mail of SMTP_HOST in .env)';
+        return { ok: false, error: lastErr };
+      }
 
       try {
         await smtp.transporter.sendMail({

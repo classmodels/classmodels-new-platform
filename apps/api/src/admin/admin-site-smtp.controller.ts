@@ -3,7 +3,7 @@ import * as nodemailer from 'nodemailer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
-import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
+import { resolveSmtpConfig, smtpTransportOptions } from '../mail/mail-smtp-resolve';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PatchSiteSmtpSettingsDto, SiteSmtpTestDto } from './dto/site-smtp-settings.dto';
 
@@ -33,6 +33,7 @@ export class AdminSiteSmtpController {
       effectiveHost: effective?.host ?? null,
       effectiveSource: effective?.source ?? null,
       envSmtpHostConfigured: !!envHost,
+      smtpMisconfigured: !!effective?.user && !effective?.pass,
     };
   }
 
@@ -96,12 +97,7 @@ export class AdminSiteSmtpController {
       };
     }
     try {
-      const transporter = nodemailer.createTransport({
-        host: cfg.host,
-        port: cfg.port,
-        secure: cfg.secure,
-        auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
-      });
+      const transporter = nodemailer.createTransport(smtpTransportOptions(cfg));
       await transporter.sendMail({
         from: cfg.from,
         to,

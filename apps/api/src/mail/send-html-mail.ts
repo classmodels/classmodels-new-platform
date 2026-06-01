@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { PrismaService } from '../prisma/prisma.service';
-import { resolveSmtpConfig } from './mail-smtp-resolve';
+import { resolveSmtpConfig, smtpTransportOptions } from './mail-smtp-resolve';
 
 const log = new Logger('sendHtmlMail');
 
@@ -23,47 +23,65 @@ function isSmtpRateOrQuotaError(msg: string): boolean {
   );
 }
 
-/** SMTP-mail zonder Nest-module (voorkomt Auth ↔ Agenda circular import). */
+export type SendHtmlMailOptions = {
+  /** Minder retries (bevestigingsmail bij boeking). */
+  fast?: boolean;
+};
+
+/** SMTP-mail zonder pool — betrouwbaarder voor losse transactionele mails. */
 export async function sendHtmlMailDetailed(
   prisma: PrismaService,
   to: string,
   subject: string,
   html: string,
-): Promise<{ ok: boolean; error?: string }> {
+  opts?: SendHtmlMailOptions,
+): Promise<{ ok: boolean; error?: string; smtpSource?: string }> {
   const addr = to?.trim();
   if (!addr) return { ok: false, error: 'Geen e-mailadres' };
 
-  const maxAttempts = parseInt(process.env.SMTP_SEND_MAX_ATTEMPTS || '5', 10) || 5;
-  let lastErr = 'SMTP niet geconfigureerd';
+  const maxAttempts = opts?.fast
+    ? 2
+    : parseInt(process.env.SMTP_SEND_MAX_ATTEMPTS || '5', 10) || 5;
+  let lastErr = 'SMTP niet geconfigureerd (zet SMTP_HOST in .env of Admin → E-mail)';
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) {
+      const rateBase = opts?.fast ? 1500 : parseInt(process.env.SMTP_RATE_LIMIT_RETRY_MS || '8000', 10);
       const waitMs = isSmtpRateOrQuotaError(lastErr)
-        ? Math.min(
-            120_000,
-            parseInt(process.env.SMTP_RATE_LIMIT_RETRY_MS || '8000', 10) * Math.pow(2, attempt - 1),
-          )
+        ? Math.min(120_000, rateBase * Math.pow(2, attempt - 1))
         : 1500 * attempt;
       await new Promise((r) => setTimeout(r, waitMs));
     }
 
     const cfg = await resolveSmtpConfig(prisma);
-    if (!cfg) return { ok: false, error: lastErr };
+    if (!cfg) {
+      log.error(`SMTP niet geconfigureerd — mail naar ${addr} niet verstuurd.`);
+      return { ok: false, error: lastErr };
+    }
 
-    const transporter = nodemailer.createTransport({
-      host: cfg.host,
-      port: cfg.port,
-      secure: cfg.secure,
-      auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
-    });
+    if (cfg.user && !cfg.pass) {
+      lastErr = 'SMTP-wachtwoord ontbreekt (Admin → E-mail of SMTP_PASS in .env)';
+      log.error(`${lastErr} — host ${cfg.host}, bron ${cfg.source}`);
+      return { ok: false, error: lastErr, smtpSource: cfg.source };
+    }
+
+    const transporter = nodemailer.createTransport(smtpTransportOptions(cfg));
 
     try {
-      await transporter.sendMail({ from: cfg.from, to: addr, subject, html });
-      log.log(`E-mail verstuurd naar ${addr}`);
-      return { ok: true };
+      await transporter.sendMail({
+        from: cfg.from,
+        to: addr,
+        subject,
+        html,
+        text: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      });
+      log.log(`E-mail verstuurd naar ${addr} via ${cfg.host} (${cfg.source})`);
+      return { ok: true, smtpSource: cfg.source };
     } catch (e) {
       lastErr = smtpErrorMessage(e);
-      log.warn(`SMTP poging ${attempt + 1}/${maxAttempts} → ${addr}: ${lastErr}`);
+      log.warn(
+        `SMTP poging ${attempt + 1}/${maxAttempts} → ${addr} (${cfg.host}, ${cfg.source}): ${lastErr}`,
+      );
       if (!isSmtpRateOrQuotaError(lastErr) && attempt >= 1) break;
     } finally {
       try {
@@ -74,6 +92,7 @@ export async function sendHtmlMailDetailed(
     }
   }
 
+  log.error(`E-mail definitief mislukt → ${addr}: ${lastErr}`);
   return { ok: false, error: lastErr };
 }
 

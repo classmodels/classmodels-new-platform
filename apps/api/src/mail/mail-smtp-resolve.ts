@@ -7,14 +7,37 @@ export type ResolvedSmtpConfig = {
   user?: string;
   pass: string;
   from: string;
-  source: 'database' | 'env';
+  source: 'database' | 'env' | 'database+env';
 };
 
+function smtpFromEnv(): ResolvedSmtpConfig | null {
+  const host = process.env.SMTP_HOST?.trim();
+  if (!host) return null;
+  const port = parseInt(process.env.SMTP_PORT ?? '587', 10);
+  return {
+    host,
+    port: Number.isFinite(port) && port > 0 ? port : 587,
+    secure: process.env.SMTP_SECURE === '1' || port === 465,
+    user: process.env.SMTP_USER?.trim() || undefined,
+    pass: process.env.SMTP_PASS ?? '',
+    from: process.env.MAIL_FROM?.trim() || 'Class Models <noreply@class-models.be>',
+    source: 'env',
+  };
+}
+
 /**
- * SMTP voor de hele site: rij `SiteSmtpSettings` (id=1) wint als `smtpHost` gezet is,
- * anders omgevingsvariabelen `SMTP_*` / `MAIL_FROM` (zoals Combell pipeline-.env).
+ * SMTP voor de hele site.
+ * - `SMTP_FORCE_ENV=1`: altijd process.env (debug / Combell pipeline-.env).
+ * - Anders: DB-host wint, maar ontbrekend wachtwoord/user/from vult aan uit env.
+ * - Geen geldige DB-host: volledig env.
  */
 export async function resolveSmtpConfig(prisma: PrismaService): Promise<ResolvedSmtpConfig | null> {
+  if (process.env.SMTP_FORCE_ENV === '1') {
+    return smtpFromEnv();
+  }
+
+  const envCfg = smtpFromEnv();
+
   let row: {
     smtpHost: string | null;
     smtpPort: number | null;
@@ -40,33 +63,71 @@ export async function resolveSmtpConfig(prisma: PrismaService): Promise<Resolved
   }
 
   const dbHost = row?.smtpHost?.trim();
-  if (dbHost && row) {
-    const port = row.smtpPort && row.smtpPort > 0 ? row.smtpPort : 587;
-    const secure = row.smtpSecure === true || port === 465;
+  if (!dbHost) {
+    return envCfg;
+  }
+
+  const dbPass = (row?.smtpPass ?? '').trim();
+  const dbUser = row?.smtpUser?.trim() || undefined;
+  const port =
+    row?.smtpPort && row.smtpPort > 0 ? row.smtpPort : (envCfg?.port ?? 587);
+  const secure = row?.smtpSecure === true || port === 465;
+
+  // DB-host zonder wachtwoord terwijl env wél credentials heeft → env (voorkomt stille mislukking).
+  if (!dbPass && envCfg?.pass) {
     return {
-      host: dbHost,
-      port,
-      secure,
-      user: row.smtpUser?.trim() || undefined,
-      pass: row.smtpPass ?? '',
+      ...envCfg,
       from:
-        row.mailFrom?.trim() ||
-        process.env.MAIL_FROM?.trim() ||
+        row?.mailFrom?.trim() ||
+        envCfg.from ||
         'Class Models <noreply@class-models.be>',
-      source: 'database',
+      source: 'database+env',
     };
   }
 
-  const host = process.env.SMTP_HOST?.trim();
-  if (!host) return null;
-  const port = parseInt(process.env.SMTP_PORT ?? '587', 10);
+  // DB-host zonder enige auth en env heeft host → env
+  if (!dbPass && !dbUser && envCfg) {
+    return envCfg;
+  }
+
+  const mergedUser = dbUser || envCfg?.user;
+  const mergedPass = dbPass || envCfg?.pass || '';
+  const mergedFrom =
+    row?.mailFrom?.trim() ||
+    envCfg?.from ||
+    'Class Models <noreply@class-models.be>';
+
   return {
-    host,
+    host: dbHost,
     port,
-    secure: process.env.SMTP_SECURE === '1' || port === 465,
-    user: process.env.SMTP_USER?.trim() || undefined,
-    pass: process.env.SMTP_PASS ?? '',
-    from: process.env.MAIL_FROM?.trim() || 'Class Models <noreply@classmodels.be>',
-    source: 'env',
+    secure,
+    user: mergedUser,
+    pass: mergedPass,
+    from: mergedFrom,
+    source: dbPass ? 'database' : envCfg ? 'database+env' : 'database',
+  };
+}
+
+export function smtpTransportOptions(cfg: ResolvedSmtpConfig): {
+  host: string;
+  port: number;
+  secure: boolean;
+  auth?: { user: string; pass: string };
+  connectionTimeout: number;
+  greetingTimeout: number;
+  socketTimeout: number;
+} {
+  const timeoutMs = Math.max(
+    5000,
+    parseInt(process.env.SMTP_CONNECTION_TIMEOUT_MS || '15000', 10) || 15000,
+  );
+  return {
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.secure,
+    auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+    connectionTimeout: timeoutMs,
+    greetingTimeout: timeoutMs,
+    socketTimeout: timeoutMs,
   };
 }

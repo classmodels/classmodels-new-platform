@@ -43,7 +43,7 @@ import {
   isMinorFromIsoDateString,
   validateGuestMinorParentFields,
 } from './guest-intake-calendars';
-import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl, officeOnlyStaticMapImageUrl } from './class-models-office';
+import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl } from './class-models-office';
 import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
 import { AgendaTravelService } from './agenda-travel.service';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
@@ -1134,10 +1134,6 @@ export class AgendaService implements OnModuleInit {
       const showEnd = cal.showEndTimeOnPublic !== false;
       const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
 
-      const notifyTimeoutMs = Math.max(
-        8000,
-        parseInt(process.env.AGENDA_NOTIFY_TIMEOUT_MS || '20000', 10) || 20000,
-      );
       const dispatchCtx = {
         bookingId: booking.id,
         toEmail: email || null,
@@ -1153,17 +1149,22 @@ export class AgendaService implements OnModuleInit {
         officeAddress: CLASS_MODELS_OFFICE.fullAddress,
         distanceLabel: '',
         mapsDirectionsUrl: guestIntake ? mapsDirectionsUrl : '',
-        staticMapImageUrl: guestIntake ? officeOnlyStaticMapImageUrl() : '',
+        staticMapImageUrl: '',
       };
-      const notifications = await withFetchTimeout(
-        this.notifications.dispatchBookingLifecycle('booking_created', dispatchCtx),
-        notifyTimeoutMs,
-        {
-          emailSent: false,
-          smsSent: false,
-          emailError: 'Verzenden duurde te lang; controleer later uw mailbox.',
-        },
-      );
+      let notifications: {
+        emailSent: boolean;
+        smsSent: boolean;
+        emailError?: string;
+      } = { emailSent: false, smsSent: false };
+      try {
+        notifications = await this.notifications.dispatchBookingLifecycle('booking_created', dispatchCtx);
+      } catch (err) {
+        this.log.error(
+          `dispatchBookingLifecycle: ${err instanceof Error ? err.message : String(err)}`,
+          err instanceof Error ? err.stack : undefined,
+        );
+        notifications.emailError = err instanceof Error ? err.message : String(err);
+      }
 
       let travelPayload: Awaited<ReturnType<AgendaTravelService['travelInfoForGuestFields']>> = null;
       if (guestIntake) {

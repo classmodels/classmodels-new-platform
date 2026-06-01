@@ -13,8 +13,9 @@ type SmtpRow = {
   mailFrom: string | null;
   updatedAt: string;
   effectiveHost: string | null;
-  effectiveSource: 'database' | 'env' | null;
+  effectiveSource: 'database' | 'env' | 'database+env' | null;
   envSmtpHostConfigured: boolean;
+  smtpMisconfigured?: boolean;
 };
 
 export default function AdminMailInstellingenPage() {
@@ -130,13 +131,27 @@ export default function AdminMailInstellingenPage() {
             <span className="font-medium text-ink">Actieve SMTP-host:</span>{' '}
             <code className="text-xs">{data.effectiveHost ?? '(geen — geen mails)'}</code>
             {data.effectiveSource ? (
-              <span className="ml-2 text-xs text-muted">({data.effectiveSource === 'database' ? 'database' : 'omgeving'})</span>
+              <span className="ml-2 text-xs text-muted">
+                (
+                {data.effectiveSource === 'database'
+                  ? 'database'
+                  : data.effectiveSource === 'database+env'
+                    ? 'database + .env'
+                    : 'omgeving'}
+                )
+              </span>
             ) : null}
           </p>
-          {!data.smtpHost?.trim() && data.envSmtpHostConfigured ? (
-            <p className="text-xs text-amber-800">
-              Er is nog geen host in de database; de API gebruikt nu <code className="px-1">SMTP_HOST</code> uit de
-              omgeving.
+          {data.smtpMisconfigured ? (
+            <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+              SMTP-gebruiker staat ingesteld maar het wachtwoord ontbreekt. Mails worden niet verstuurd tot u het
+              wachtwoord hier invult of <code className="px-1">SMTP_PASS</code> in de server-.env zet.
+            </p>
+          ) : null}
+          {!data.effectiveHost ? (
+            <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Geen SMTP geconfigureerd — agenda-bevestigingsmails worden niet verstuurd. Vul hieronder in of zet{' '}
+              <code className="px-1">SMTP_HOST</code> op de server.
             </p>
           ) : null}
         </div>
