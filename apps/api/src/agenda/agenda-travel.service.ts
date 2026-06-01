@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
 import {
   CLASS_MODELS_OFFICE,
   formatGuestAddressFromFields,
@@ -24,16 +25,17 @@ type LatLon = { lat: number; lon: number };
 @Injectable()
 export class AgendaTravelService {
   private readonly log = new Logger(AgendaTravelService.name);
-  private officeCoords: LatLon | null = null;
+  private readonly geocodeMs = fetchTimeoutMs('AGENDA_GEOCODE_TIMEOUT_MS', 5000);
+  private readonly routeMs = fetchTimeoutMs('AGENDA_ROUTE_TIMEOUT_MS', 5000);
 
   async travelInfoForGuestFields(fields: Record<string, string>): Promise<AgendaTravelInfo | null> {
     const visitorAddress = formatGuestAddressFromFields(fields);
     if (!visitorAddress || visitorAddress.length < 6) return null;
     try {
-      const from = await this.geocode(visitorAddress);
-      const to = await this.officeCoordinates();
+      const from = await withFetchTimeout(this.geocode(visitorAddress), this.geocodeMs, null);
+      const to = this.officeCoordinates();
       if (!from || !to) return null;
-      const route = await this.drivingRoute(from, to);
+      const route = await withFetchTimeout(this.drivingRoute(from, to), this.routeMs, null);
       if (!route) return null;
       const distanceKm = Math.round((route.distanceM / 1000) * 10) / 10;
       const durationMinutes = Math.max(1, Math.round(route.durationS / 60));
@@ -78,11 +80,8 @@ export class AgendaTravelService {
     return `https://staticmap.openstreetmap.de/staticmap.php?${params.toString()}`;
   }
 
-  private async officeCoordinates(): Promise<LatLon | null> {
-    if (this.officeCoords) return this.officeCoords;
-    const c = await this.geocode(CLASS_MODELS_OFFICE.fullAddress);
-    if (c) this.officeCoords = c;
-    return c;
+  private officeCoordinates(): LatLon {
+    return { lat: CLASS_MODELS_OFFICE.lat, lon: CLASS_MODELS_OFFICE.lon };
   }
 
   private async geocode(query: string): Promise<LatLon | null> {
@@ -90,6 +89,7 @@ export class AgendaTravelService {
     const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=be`;
     const res = await fetch(url, {
       headers: { 'User-Agent': 'ClassModelsAgenda/1.0 (class-models.be)' },
+      signal: AbortSignal.timeout(this.geocodeMs),
     });
     if (!res.ok) return null;
     const rows = (await res.json()) as Array<{ lat: string; lon: string }>;
@@ -107,7 +107,7 @@ export class AgendaTravelService {
   ): Promise<{ distanceM: number; durationS: number } | null> {
     const path = `${from.lon},${from.lat};${to.lon},${to.lat}`;
     const url = `https://router.project-osrm.org/route/v1/driving/${path}?overview=false`;
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(this.routeMs) });
     if (!res.ok) return null;
     const json = (await res.json()) as {
       routes?: Array<{ distance?: number; duration?: number }>;

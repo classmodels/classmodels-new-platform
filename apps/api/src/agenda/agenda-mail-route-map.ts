@@ -1,6 +1,10 @@
 import { Logger } from '@nestjs/common';
+import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
+import { officeOnlyStaticMapImageUrl } from './class-models-office';
 
 const log = new Logger('AgendaMailRouteMap');
+const mapFetchMs = () => fetchTimeoutMs('AGENDA_MAIL_MAP_FETCH_MS', 3000);
+const mapTotalMs = () => fetchTimeoutMs('AGENDA_MAIL_MAP_TOTAL_MS', 5000);
 
 export const ROUTE_MAP_EMAIL_CID = 'cm-route-map@classmodels';
 
@@ -52,7 +56,7 @@ async function fetchMapImageBuffer(url: string): Promise<Buffer | null> {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'ClassModelsAgenda/1.0 (class-models.be; mail-inline-map)' },
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(mapFetchMs()),
     });
     if (!res.ok) {
       log.debug(`Kaart-URL HTTP ${res.status}: ${url.slice(0, 80)}…`);
@@ -83,15 +87,27 @@ export async function fetchRouteMapImageBuffer(
   if (key && from && to) urls.push(googleStaticMapUrl(from, to, key));
   if (primaryUrl?.trim()) urls.push(primaryUrl.trim());
   if (from && to) urls.push(...osmStaticMapUrls(from, to));
+  urls.push(officeOnlyStaticMapImageUrl());
 
   const seen = new Set<string>();
+  const maxTries = 2;
+  let tries = 0;
   for (const url of urls) {
     if (seen.has(url)) continue;
     seen.add(url);
+    if (tries >= maxTries) break;
+    tries++;
     const buf = await fetchMapImageBuffer(url);
     if (buf) return buf;
   }
   return null;
+}
+
+function stripBrokenRouteMapImg(html: string): string {
+  return html.replace(
+    /<p[^>]*>\s*<a[^>]*>\s*<img[^>]*alt="Route naar Class-Models"[^>]*\/?>\s*<\/a>\s*<\/p>/gi,
+    '',
+  );
 }
 
 /**
@@ -111,13 +127,13 @@ export async function embedRouteMapInEmailHtml(
     return { html, inlineAttachments: [] };
   }
 
-  const image = await fetchRouteMapImageBuffer(mapUrl, opts.mapFrom, opts.mapTo);
+  const image = await withFetchTimeout(
+    fetchRouteMapImageBuffer(mapUrl, opts.mapFrom, opts.mapTo),
+    mapTotalMs(),
+    null,
+  );
   if (!image) {
-    const withoutImg = html.replace(
-      /<p[^>]*>\s*<a[^>]*>\s*<img[^>]*alt="Route naar Class-Models"[^>]*\/?>\s*<\/a>\s*<\/p>/gi,
-      '',
-    );
-    return { html: withoutImg, inlineAttachments: [] };
+    return { html: stripBrokenRouteMapImg(html), inlineAttachments: [] };
   }
 
   const cid = ROUTE_MAP_EMAIL_CID;

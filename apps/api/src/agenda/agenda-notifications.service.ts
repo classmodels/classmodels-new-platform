@@ -8,7 +8,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { PrismaService } from '../prisma/prisma.service';
-import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl } from './class-models-office';
+import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl, officeOnlyStaticMapImageUrl } from './class-models-office';
+import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
 import { embedRouteMapInEmailHtml, type SmtpInlineAttachment } from './agenda-mail-route-map';
 
 type SmtpAttachment = SmtpInlineAttachment | { filename: string; content: Buffer; contentType?: string };
@@ -220,7 +221,8 @@ export class AgendaNotificationService {
           applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
           `Melding: ${ctx.calendarTitle}`;
         const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(t.body, vars));
-        const sendResult = await this.sendAgendaEmail(to, subject, html, ctx);
+        const smtpFast = trigger === 'booking_created';
+        const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, { smtpFast });
         if (sendResult.ok) emailSent = true;
         else lastEmailError = sendResult.error;
         await this.recordBookingNotificationLog({
@@ -354,7 +356,7 @@ export class AgendaNotificationService {
           ),
         ),
       );
-      const sendResult = await this.sendAgendaEmail(to, subject, html, ctx);
+      const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, { smtpFast: true });
       if (!sendResult.ok) {
         this.log.warn(
           `Standaard bevestigingsmail mislukt → ${to}: ${sendResult.error ?? 'onbekende fout'}`,
@@ -515,13 +517,16 @@ export class AgendaNotificationService {
     subject: string,
     html: string,
     ctx: Pick<DispatchBookingCtx, 'staticMapImageUrl' | 'mapFrom' | 'mapTo'>,
+    opts?: { smtpFast?: boolean },
   ): Promise<{ ok: boolean; error?: string }> {
     const prepared = await embedRouteMapInEmailHtml(html, {
       staticMapImageUrl: ctx.staticMapImageUrl,
       mapFrom: ctx.mapFrom,
       mapTo: ctx.mapTo,
     });
-    return this.trySendSmtpDetailed(to, subject, prepared.html, prepared.inlineAttachments);
+    return this.trySendSmtpDetailed(to, subject, prepared.html, prepared.inlineAttachments, {
+      maxAttempts: opts?.smtpFast ? 2 : undefined,
+    });
   }
 
   private async trySendSmtp(
@@ -539,20 +544,20 @@ export class AgendaNotificationService {
     subject: string,
     html: string,
     attachments?: SmtpAttachment[],
+    opts?: { maxAttempts?: number },
   ): Promise<{ ok: boolean; error?: string }> {
     const addr = to?.trim();
     if (!addr) return { ok: false, error: 'Geen e-mailadres' };
 
-    const maxAttempts = parseInt(process.env.SMTP_SEND_MAX_ATTEMPTS || '5', 10) || 5;
+    const maxAttempts =
+      opts?.maxAttempts ?? (parseInt(process.env.SMTP_SEND_MAX_ATTEMPTS || '5', 10) || 5);
     let lastErr = 'SMTP niet geconfigureerd';
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
+        const rateBase = opts?.maxAttempts === 2 ? 2000 : parseInt(process.env.SMTP_RATE_LIMIT_RETRY_MS || '8000', 10);
         const waitMs = this.isSmtpRateOrQuotaError(lastErr)
-          ? Math.min(
-              120_000,
-              parseInt(process.env.SMTP_RATE_LIMIT_RETRY_MS || '8000', 10) * Math.pow(2, attempt - 1),
-            )
+          ? Math.min(120_000, rateBase * Math.pow(2, attempt - 1))
           : 1500 * attempt;
         await new Promise((r) => setTimeout(r, waitMs));
         this.resetSmtpPool();
@@ -736,11 +741,15 @@ export class AgendaNotificationService {
     let staticMapImageUrl = '';
     if (isGuestIntakeCalendarSlug(calendarSlug) && visitorAddress) {
       try {
-        const t = await this.travel.travelInfoForGuestFields(fj);
+        const t = await withFetchTimeout(
+          this.travel.travelInfoForGuestFields(fj),
+          fetchTimeoutMs('AGENDA_GEOCODE_TIMEOUT_MS', 5000) + fetchTimeoutMs('AGENDA_ROUTE_TIMEOUT_MS', 5000),
+          null,
+        );
         if (t) {
           distanceLabel = t.distanceLabel;
           mapsDirectionsUrl = t.mapsDirectionsUrl;
-          staticMapImageUrl = t.staticMapImageUrl;
+          staticMapImageUrl = t.staticMapImageUrl || officeOnlyStaticMapImageUrl();
           return {
             bookingId: b.id,
             bookingStatus: b.status,

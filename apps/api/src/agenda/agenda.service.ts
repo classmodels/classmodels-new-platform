@@ -43,7 +43,8 @@ import {
   isMinorFromIsoDateString,
   validateGuestMinorParentFields,
 } from './guest-intake-calendars';
-import { CLASS_MODELS_OFFICE } from './class-models-office';
+import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl, officeOnlyStaticMapImageUrl } from './class-models-office';
+import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
 import { AgendaTravelService } from './agenda-travel.service';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
 import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
@@ -1064,14 +1065,9 @@ export class AgendaService implements OnModuleInit {
     });
 
     const hideCancelLink = process.env.AGENDA_HIDE_CANCEL_LINK === '1';
-    let travelPayload: Awaited<ReturnType<AgendaTravelService['travelInfoForGuestFields']>> = null;
-    if (webGuest && isGuestIntakeCalendarSlug(cal.slug)) {
-      try {
-        travelPayload = await this.travel.travelInfoForGuestFields(fieldsJson);
-      } catch {
-        travelPayload = null;
-      }
-    }
+    const guestIntake = webGuest && isGuestIntakeCalendarSlug(cal.slug);
+    const visitorAddress = guestIntake ? formatGuestAddressFromFields(fieldsJson) : '';
+    const mapsDirectionsUrl = visitorAddress ? googleMapsDirectionsUrl(visitorAddress) : '';
 
     const bookingSuccessPayload = (notifications?: {
       emailSent: boolean;
@@ -1115,16 +1111,6 @@ export class AgendaService implements OnModuleInit {
       if (!hideCancelLink) {
         out.cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
       }
-      if (travelPayload) {
-        out.travel = {
-          distanceKm: travelPayload.distanceKm,
-          durationMinutes: travelPayload.durationMinutes,
-          distanceLabel: travelPayload.distanceLabel,
-          mapsDirectionsUrl: travelPayload.mapsDirectionsUrl,
-          mapsEmbedUrl: travelPayload.mapsEmbedUrl,
-          visitorAddress: travelPayload.visitorAddress,
-        };
-      }
       return out;
     };
 
@@ -1149,8 +1135,8 @@ export class AgendaService implements OnModuleInit {
       const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
 
       const notifyTimeoutMs = Math.max(
-        5000,
-        parseInt(process.env.AGENDA_NOTIFY_TIMEOUT_MS || '45000', 10) || 45000,
+        8000,
+        parseInt(process.env.AGENDA_NOTIFY_TIMEOUT_MS || '20000', 10) || 20000,
       );
       const dispatchCtx = {
         bookingId: booking.id,
@@ -1165,45 +1151,43 @@ export class AgendaService implements OnModuleInit {
         cancelUrl,
         confirmUrl,
         officeAddress: CLASS_MODELS_OFFICE.fullAddress,
-        distanceLabel: travelPayload?.distanceLabel ?? '',
-        mapsDirectionsUrl: travelPayload?.mapsDirectionsUrl ?? '',
-        staticMapImageUrl: travelPayload?.staticMapImageUrl ?? '',
-        mapFrom: travelPayload?.mapFrom,
-        mapTo: travelPayload?.mapTo,
+        distanceLabel: '',
+        mapsDirectionsUrl: guestIntake ? mapsDirectionsUrl : '',
+        staticMapImageUrl: guestIntake ? officeOnlyStaticMapImageUrl() : '',
       };
-      const notifications = await new Promise<{
-        emailSent: boolean;
-        smsSent: boolean;
-        emailError?: string;
-      }>((resolve) => {
-        const timer = setTimeout(() => {
-          this.log.warn(
-            `dispatchBookingLifecycle timeout (${notifyTimeoutMs}ms) voor boeking ${booking.id}`,
-          );
-          resolve({
-            emailSent: false,
-            smsSent: false,
-            emailError: 'Verzenden duurde te lang; controleer later uw mailbox.',
-          });
-        }, notifyTimeoutMs);
-        void this.notifications
-          .dispatchBookingLifecycle('booking_created', dispatchCtx)
-          .then((r) => {
-            clearTimeout(timer);
-            resolve(r);
-          })
-          .catch((err) => {
-            clearTimeout(timer);
-            this.log.warn(
-              `dispatchBookingLifecycle: ${err instanceof Error ? err.message : String(err)}`,
-            );
-            resolve({
-              emailSent: false,
-              smsSent: false,
-              emailError: err instanceof Error ? err.message : String(err),
-            });
-          });
-      });
+      const notifications = await withFetchTimeout(
+        this.notifications.dispatchBookingLifecycle('booking_created', dispatchCtx),
+        notifyTimeoutMs,
+        {
+          emailSent: false,
+          smsSent: false,
+          emailError: 'Verzenden duurde te lang; controleer later uw mailbox.',
+        },
+      );
+
+      let travelPayload: Awaited<ReturnType<AgendaTravelService['travelInfoForGuestFields']>> = null;
+      if (guestIntake) {
+        travelPayload = await withFetchTimeout(
+          this.travel.travelInfoForGuestFields(fieldsJson),
+          fetchTimeoutMs('AGENDA_TRAVEL_UI_TIMEOUT_MS', 6000),
+          null,
+        );
+      }
+
+      const bookingSuccessPayloadWithTravel = (n?: typeof notifications) => {
+        const out = bookingSuccessPayload(n);
+        if (travelPayload) {
+          out.travel = {
+            distanceKm: travelPayload.distanceKm,
+            durationMinutes: travelPayload.durationMinutes,
+            distanceLabel: travelPayload.distanceLabel,
+            mapsDirectionsUrl: travelPayload.mapsDirectionsUrl,
+            mapsEmbedUrl: travelPayload.mapsEmbedUrl,
+            visitorAddress: travelPayload.visitorAddress,
+          };
+        }
+        return out;
+      };
 
       if (userId) {
         const ymd = slot.slotDate.toISOString().slice(0, 10);
@@ -1218,7 +1202,7 @@ export class AgendaService implements OnModuleInit {
         });
       }
 
-      return bookingSuccessPayload(notifications);
+      return bookingSuccessPayloadWithTravel(notifications);
     } catch (e) {
       this.log.error(
         `Agenda book: post-commit pad gefaald — boeking ${booking.id} staat wél in de database: ${e instanceof Error ? e.message : String(e)}`,

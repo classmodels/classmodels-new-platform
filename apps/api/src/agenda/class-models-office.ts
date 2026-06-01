@@ -6,11 +6,25 @@ export const CLASS_MODELS_OFFICE = {
   city: 'Hulshout',
   country: 'België',
   fullAddress: 'Provinciebaan 3, 2235 Hulshout, België',
+  /** Vast coördinaat (geen Nominatim nodig bij elke boeking). */
+  lat: 51.0745,
+  lon: 4.7908,
   mapsEmbedUrl:
     'https://maps.google.com/maps?q=Provinciebaan+3,+2235+Hulshout,+Belgi%C3%AB&hl=nl&z=16&output=embed',
   mapsPlaceUrl:
     'https://www.google.com/maps/search/?api=1&query=Provinciebaan+3,+2235+Hulshout,+Belgium',
 } as const;
+
+/** Statische kaart alleen kantoor — snel op te halen voor e-mail zonder geocoding. */
+export function officeOnlyStaticMapImageUrl(): string {
+  const params = new URLSearchParams({
+    center: `${CLASS_MODELS_OFFICE.lat},${CLASS_MODELS_OFFICE.lon}`,
+    zoom: '14',
+    size: '560x280',
+    markers: `${CLASS_MODELS_OFFICE.lat},${CLASS_MODELS_OFFICE.lon},red`,
+  });
+  return `https://staticmap.openstreetmap.de/staticmap.php?${params.toString()}`;
+}
 
 export function formatGuestAddressFromFields(fields: Record<string, string>): string {
   const straat = (fields.straat ?? '').trim();
