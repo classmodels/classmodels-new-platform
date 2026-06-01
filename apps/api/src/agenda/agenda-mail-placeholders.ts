@@ -13,7 +13,29 @@ export type AgendaMailPlaceholderContext = {
   officeAddress?: string;
   distanceLabel?: string;
   mapsDirectionsUrl?: string;
+  staticMapImageUrl?: string;
 };
+
+function buildMapsRouteBlockHtml(ctx: AgendaMailPlaceholderContext): string {
+  const office = (ctx.officeAddress ?? '').trim();
+  if (!office) return '';
+  const esc = (s: string) => escHtml(s);
+  const dist = (ctx.distanceLabel ?? '').trim();
+  const mapsDir = (ctx.mapsDirectionsUrl ?? '').trim();
+  const mapUrl = (ctx.staticMapImageUrl ?? '').trim();
+
+  const distBlock = dist
+    ? `<p style="margin:8px 0 0;font-size:14px;color:#52525b;">Afstand: <strong>${esc(dist)}</strong></p>`
+    : '';
+  const mapBlock = mapUrl
+    ? `<p style="margin:14px 0 0;text-align:center;"><a href="${esc(mapsDir || '#')}" style="text-decoration:none;"><img src="${esc(mapUrl)}" alt="Route naar Class-Models" width="520" style="display:block;max-width:100%;height:auto;margin:0 auto;border:0;border-radius:6px;border:1px solid #e4e4e7;" /></a></p>`
+    : '';
+  const linkBlock = mapsDir
+    ? `<p style="margin:10px 0 0;font-size:14px;text-align:center;"><a href="${esc(mapsDir)}" style="color:#6f121b;font-weight:600;">Open route in Google Maps</a></p>`
+    : '';
+
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #e4e4e7;border-radius:6px;margin:16px 0;background:#fafafa;"><tr><td style="padding:14px 16px;"><p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;">Kantoor</p><p style="margin:6px 0 0;font-weight:600;font-size:15px;color:#18181b;">${esc(office)}</p>${distBlock}${mapBlock}${linkBlock}</td></tr></table>`;
+}
 
 function escHtml(s: string) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -60,6 +82,9 @@ export function buildAgendaMailPlaceholderVars(
       office_address: office,
       distance_label: dist,
       maps_directions_url: mapsDir,
+      maps_route_block_html: office
+        ? buildMapsRouteBlockHtml(ctx).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        : '',
     };
   }
   const esc = (s: string) => escHtml(s);
@@ -82,6 +107,7 @@ export function buildAgendaMailPlaceholderVars(
     maps_directions_link_html: mapsDir
       ? `<a href="${esc(mapsDir)}">Route naar ons kantoor in Google Maps</a>`
       : '',
+    maps_route_block_html: office ? buildMapsRouteBlockHtml(ctx) : '',
   };
 }
 

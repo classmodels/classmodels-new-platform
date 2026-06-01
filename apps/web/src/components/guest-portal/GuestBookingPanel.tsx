@@ -184,13 +184,6 @@ export function GuestBookingPanel({
     loadData();
   }, [loadData]);
 
-  useEffect(() => {
-    if (step !== 'success') return;
-    if (onBookingSuccess) return;
-    const t = window.setTimeout(() => onClose(), 14000);
-    return () => window.clearTimeout(t);
-  }, [step, onClose, onBookingSuccess]);
-
   const sortedDates = useMemo(() => {
     const s = new Set<string>();
     for (const x of slots) s.add(x.slotDate);
@@ -729,7 +722,9 @@ export function GuestBookingPanel({
             Terug naar de pagina
           </button>
         </div>
-        <p className="text-center text-[11px] text-zinc-400">Dit scherm sluit automatisch binnen enkele seconden.</p>
+        <p className="text-center text-[11px] text-zinc-500">
+          Dit scherm blijft open tot u op «Terug naar de pagina» klikt.
+        </p>
       </div>
     );
   }

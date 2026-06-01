@@ -43,6 +43,10 @@ const PLACEHOLDERS = [
   ['distance_label', 'Afstand tot kantoor (bv. ca. 12 km)'],
   ['maps_directions_url', 'Link route Google Maps'],
   ['maps_directions_link_html', 'Klikbare route-link (HTML)'],
+  [
+    'maps_route_block_html',
+    'Kantoor + afstand + kaartafbeelding + Google Maps-link (volledig blok; leeg zonder adres)',
+  ],
 ] as const;
 
 function offsetMinutesToHoursInput(m: number): string {

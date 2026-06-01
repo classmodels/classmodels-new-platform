@@ -13,6 +13,8 @@ export type AgendaTravelInfo = {
   mapsEmbedUrl: string;
   officeAddress: string;
   distanceLabel: string;
+  /** Statische kaartafbeelding voor e-mail (OSM). */
+  staticMapImageUrl: string;
 };
 
 type LatLon = { lat: number; lon: number };
@@ -41,6 +43,7 @@ export class AgendaTravelService {
         mapsEmbedUrl: CLASS_MODELS_OFFICE.mapsEmbedUrl,
         officeAddress: CLASS_MODELS_OFFICE.fullAddress,
         distanceLabel: `ca. ${distanceKm} km (${durationMinutes} min met de auto)`,
+        staticMapImageUrl: this.staticMapImageUrl(from, to),
       };
     } catch (e) {
       this.log.warn(
@@ -54,8 +57,16 @@ export class AgendaTravelService {
         mapsEmbedUrl: CLASS_MODELS_OFFICE.mapsEmbedUrl,
         officeAddress: CLASS_MODELS_OFFICE.fullAddress,
         distanceLabel: '',
+        staticMapImageUrl: '',
       };
     }
+  }
+
+  private staticMapImageUrl(from: LatLon, to: LatLon): string {
+    const centerLat = ((from.lat + to.lat) / 2).toFixed(5);
+    const centerLon = ((from.lon + to.lon) / 2).toFixed(5);
+    const markers = `${from.lat},${from.lon},lightblue1|${to.lat},${to.lon},red`;
+    return `https://staticmap.openstreetmap.de/staticmap.php?center=${centerLat},${centerLon}&zoom=11&size=560x280&markers=${markers}`;
   }
 
   private async officeCoordinates(): Promise<LatLon | null> {

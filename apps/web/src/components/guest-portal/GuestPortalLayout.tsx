@@ -1159,9 +1159,11 @@ export function GuestPortalLayout() {
           </aside>
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm">
-            <div className="cm-red-titlebar shrink-0 border-b border-line">
+            <div
+              className={`cm-red-titlebar shrink-0 border-b border-line ${showGuestOfficeInBar ? 'cm-red-titlebar--stacked' : ''}`}
+            >
               <div
-                className={`cm-red-titlebar-inner ${showGuestOfficeInBar ? '!h-auto min-h-[44px] flex-col items-start gap-1 py-2' : ''}`}
+                className={`cm-red-titlebar-inner ${showGuestOfficeInBar ? 'flex-col items-start gap-1' : ''}`}
               >
                 <CmText
                   contentKey={rightPanelContentKey}

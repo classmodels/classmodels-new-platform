@@ -32,6 +32,19 @@ body {
     @apply min-w-0 text-sm font-semibold;
   }
 
+  /* Twee regels (bv. titel + kantooradres) — vaste 44px knipt tekst af. */
+  .cm-red-titlebar--stacked {
+    height: auto;
+    min-height: 52px;
+  }
+  .cm-red-titlebar--stacked .cm-red-titlebar-inner {
+    height: auto;
+    min-height: 52px;
+    align-items: flex-start;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
   /* Rond: globale `border-radius: 0` overschrijven voor push-tellers */
   .push-pill-badge,
   .push-menu-badge {

@@ -1157,6 +1157,7 @@ export class AgendaService implements OnModuleInit {
           officeAddress: CLASS_MODELS_OFFICE.fullAddress,
           distanceLabel: travelPayload?.distanceLabel ?? '',
           mapsDirectionsUrl: travelPayload?.mapsDirectionsUrl ?? '',
+          staticMapImageUrl: travelPayload?.staticMapImageUrl ?? '',
         })
         .catch((err) => {
           this.log.warn(

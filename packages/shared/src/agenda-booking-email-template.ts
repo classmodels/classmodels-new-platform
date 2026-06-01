@@ -20,6 +20,7 @@ export const AGENDA_DEFAULT_BOOKING_EMAIL_HTML = `<!DOCTYPE html>
 <div style="margin-top:12px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;">Datum &amp; uur</div>
 <div style="font-weight:600;">{{appointment_date}} om {{appointment_time}}</div>
 </td></tr></table>
+{{maps_route_block_html}}
 <p style="margin:0 0 16px;font-size:14px;color:#52525b;"><strong>Komst bevestigen</strong><br/>
 Op de dag <em>vóór</em> uw afspraak kunt u via onderstaande knop laten weten dat u komt. De knop werkt alleen op die dag (Belgische tijd).</p>
 {{confirm_button_html}}

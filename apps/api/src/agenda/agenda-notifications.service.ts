@@ -9,7 +9,8 @@ import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { PrismaService } from '../prisma/prisma.service';
 import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl } from './class-models-office';
-import { isAgendaBookingEnrolled } from './guest-intake-calendars';
+import { AgendaTravelService } from './agenda-travel.service';
+import { isAgendaBookingEnrolled, isGuestIntakeCalendarSlug } from './guest-intake-calendars';
 
 export type AgendaConfirmationPayload = {
   toEmail: string | null;
@@ -37,6 +38,7 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   officeAddress?: string;
   distanceLabel?: string;
   mapsDirectionsUrl?: string;
+  staticMapImageUrl?: string;
 };
 
 /** Opvolging/herinnering: filter op ingeschreven ja/nee (status `confirmed` = ingeschreven). */
@@ -97,7 +99,10 @@ export class AgendaNotificationService {
     from: string;
   } | null = null;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private travel: AgendaTravelService,
+  ) {}
 
   /** Voorbeeld-HTML voor admin (zelfde template als echte mail). */
   previewBookingConfirmationHtml(): string {
@@ -172,6 +177,7 @@ export class AgendaNotificationService {
           officeAddress: ctx.officeAddress,
           distanceLabel: ctx.distanceLabel,
           mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+          staticMapImageUrl: ctx.staticMapImageUrl,
         },
         'html',
       );
@@ -246,6 +252,7 @@ export class AgendaNotificationService {
               officeAddress: ctx.officeAddress,
               distanceLabel: ctx.distanceLabel,
               mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+              staticMapImageUrl: ctx.staticMapImageUrl,
             },
             'plain',
           ),
@@ -574,7 +581,7 @@ export class AgendaNotificationService {
         }
         if (!due) continue;
 
-        const ctx = await this.buildDispatchCtxFromBooking(b);
+        const ctx = await this.buildDispatchCtxFromBooking(b, cal.slug);
         const ok = await this.sendSingleTemplate(template, template.trigger as AgendaLifecycleTrigger, ctx);
         if (ok) sentCount++;
       }
@@ -602,6 +609,7 @@ export class AgendaNotificationService {
         calendar: { slug: string; title: string; showEndTimeOnPublic: boolean };
       };
     },
+    calendarSlug: string,
   ): Promise<DispatchBookingCtx> {
     const cal = b.slot.calendar;
     const hideCancel = process.env.AGENDA_HIDE_CANCEL_LINK === '1';
@@ -641,6 +649,21 @@ export class AgendaNotificationService {
         ? (b.fieldsJson as Record<string, string>)
         : {};
     const visitorAddress = formatGuestAddressFromFields(fj);
+    let distanceLabel = '';
+    let mapsDirectionsUrl = visitorAddress ? googleMapsDirectionsUrl(visitorAddress) : '';
+    let staticMapImageUrl = '';
+    if (isGuestIntakeCalendarSlug(calendarSlug) && visitorAddress) {
+      try {
+        const t = await this.travel.travelInfoForGuestFields(fj);
+        if (t) {
+          distanceLabel = t.distanceLabel;
+          mapsDirectionsUrl = t.mapsDirectionsUrl;
+          staticMapImageUrl = t.staticMapImageUrl;
+        }
+      } catch {
+        /* route optioneel */
+      }
+    }
 
     return {
       bookingId: b.id,
@@ -655,8 +678,9 @@ export class AgendaNotificationService {
       cancelUrl,
       confirmUrl,
       officeAddress: CLASS_MODELS_OFFICE.fullAddress,
-      distanceLabel: '',
-      mapsDirectionsUrl: visitorAddress ? googleMapsDirectionsUrl(visitorAddress) : '',
+      distanceLabel,
+      mapsDirectionsUrl,
+      staticMapImageUrl,
     };
   }
 
@@ -682,6 +706,7 @@ export class AgendaNotificationService {
         officeAddress: ctx.officeAddress,
         distanceLabel: ctx.distanceLabel,
         mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+        staticMapImageUrl: ctx.staticMapImageUrl,
       },
       'html',
     );
@@ -696,6 +721,7 @@ export class AgendaNotificationService {
         officeAddress: ctx.officeAddress,
         distanceLabel: ctx.distanceLabel,
         mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+        staticMapImageUrl: ctx.staticMapImageUrl,
       },
       'plain',
     );
