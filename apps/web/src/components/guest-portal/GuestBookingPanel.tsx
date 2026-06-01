@@ -49,18 +49,31 @@ type TravelInfo = {
   visitorAddress: string;
 };
 
+type BookNotifications = {
+  emailSent?: boolean;
+  smsSent?: boolean;
+  emailError?: string;
+};
+
 function parseBookResponse(text: string): {
   cancelUrl?: string;
   travel?: TravelInfo;
   officeAddress?: string;
+  notifications?: BookNotifications;
 } {
   try {
     const j = JSON.parse(text) as {
       cancelUrl?: string;
       officeAddress?: string;
       travel?: TravelInfo;
+      notifications?: BookNotifications;
     };
-    return { cancelUrl: j.cancelUrl, travel: j.travel, officeAddress: j.officeAddress };
+    return {
+      cancelUrl: j.cancelUrl,
+      travel: j.travel,
+      officeAddress: j.officeAddress,
+      notifications: j.notifications,
+    };
   } catch {
     return {};
   }
@@ -122,6 +135,7 @@ export function GuestBookingPanel({
   const [busy, setBusy] = useState(false);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
   const [travelInfo, setTravelInfo] = useState<TravelInfo | null>(null);
+  const [bookNotifications, setBookNotifications] = useState<BookNotifications | null>(null);
 
   /** Pagina voor pro-kolomweergave (0 = eerste 4 datums met sloten). */
   const [dayPage, setDayPage] = useState(0);
@@ -297,6 +311,7 @@ export function GuestBookingPanel({
         const parsed = parseBookResponse(text);
         if (parsed.cancelUrl) setCancelUrl(parsed.cancelUrl);
         setTravelInfo(parsed.travel ?? null);
+        setBookNotifications(parsed.notifications ?? null);
         if (onBookingSuccess) {
           await Promise.resolve(onBookingSuccess());
           await loadData();
@@ -446,6 +461,7 @@ export function GuestBookingPanel({
       const parsed = parseBookResponse(text);
       setCancelUrl(parsed.cancelUrl ?? null);
       setTravelInfo(parsed.travel ?? null);
+      setBookNotifications(parsed.notifications ?? null);
       if (onBookingSuccess) {
         await Promise.resolve(onBookingSuccess());
         setStep('slots');
@@ -671,8 +687,19 @@ export function GuestBookingPanel({
             Inschrijving is gelukt
           </p>
           <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600">
-            U ontvangt een SMS en een mail ter bevestiging van uw afspraak.
+            {bookNotifications?.emailSent && bookNotifications?.smsSent
+              ? 'U ontvangt een bevestiging per SMS en per e-mail.'
+              : bookNotifications?.emailSent
+                ? 'U ontvangt een bevestiging per e-mail.'
+                : bookNotifications?.smsSent
+                  ? 'U ontvangt een bevestiging per SMS.'
+                  : bookNotifications && !bookNotifications.emailSent && !bookNotifications.smsSent
+                    ? 'Uw afspraak staat vast. De bevestigingsmail kon niet worden verstuurd — controleer uw e-mailadres of neem contact op met Class-Models.'
+                    : 'U ontvangt zo dadelijk een bevestiging per SMS en/of e-mail (indien ingevuld).'}
           </p>
+          {bookNotifications?.emailError && !bookNotifications.emailSent ? (
+            <p className="mt-2 text-center text-xs text-amber-800">{bookNotifications.emailError}</p>
+          ) : null}
           <p className="mt-3 rounded-md border border-burgundy/25 bg-burgundy/5 px-3 py-2 text-center text-xs leading-relaxed text-zinc-800">
             <strong className="text-burgundy">Locatie:</strong> {GUEST_APPOINTMENT_OFFICE_LINE.replace(/^Uw afspraak vindt plaats op ons kantoor: /, '')}
           </p>

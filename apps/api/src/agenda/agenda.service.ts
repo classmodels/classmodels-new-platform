@@ -1073,11 +1073,16 @@ export class AgendaService implements OnModuleInit {
       }
     }
 
-    const bookingSuccessPayload = (): {
+    const bookingSuccessPayload = (notifications?: {
+      emailSent: boolean;
+      smsSent: boolean;
+      emailError?: string;
+    }): {
       success: true;
       bookingId: string;
       cancelUrl?: string;
       officeAddress?: string;
+      notifications?: { emailSent: boolean; smsSent: boolean; emailError?: string };
       travel?: {
         distanceKm: number;
         durationMinutes: number;
@@ -1092,6 +1097,7 @@ export class AgendaService implements OnModuleInit {
         bookingId: string;
         cancelUrl?: string;
         officeAddress?: string;
+        notifications?: { emailSent: boolean; smsSent: boolean; emailError?: string };
         travel?: {
           distanceKm: number;
           durationMinutes: number;
@@ -1105,6 +1111,7 @@ export class AgendaService implements OnModuleInit {
         bookingId: booking.id,
         officeAddress: CLASS_MODELS_OFFICE.fullAddress,
       };
+      if (notifications) out.notifications = notifications;
       if (!hideCancelLink) {
         out.cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
       }
@@ -1141,29 +1148,62 @@ export class AgendaService implements OnModuleInit {
       const showEnd = cal.showEndTimeOnPublic !== false;
       const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
 
-      void this.notifications
-        .dispatchBookingLifecycle('booking_created', {
-          bookingId: booking.id,
-          toEmail: email || null,
-          phone: phone || null,
-          displayName: name || firstname || 'klant',
-          calendarTitle: String(cal.title ?? ''),
-          calendarSlug: String(cal.slug ?? ''),
-          bookingStatus: booking.status,
-          dateLabel,
-          timeLabel,
-          cancelUrl,
-          confirmUrl,
-          officeAddress: CLASS_MODELS_OFFICE.fullAddress,
-          distanceLabel: travelPayload?.distanceLabel ?? '',
-          mapsDirectionsUrl: travelPayload?.mapsDirectionsUrl ?? '',
-          staticMapImageUrl: travelPayload?.staticMapImageUrl ?? '',
-        })
-        .catch((err) => {
+      const notifyTimeoutMs = Math.max(
+        5000,
+        parseInt(process.env.AGENDA_NOTIFY_TIMEOUT_MS || '45000', 10) || 45000,
+      );
+      const dispatchCtx = {
+        bookingId: booking.id,
+        toEmail: email || null,
+        phone: phone || null,
+        displayName: name || firstname || 'klant',
+        calendarTitle: String(cal.title ?? ''),
+        calendarSlug: String(cal.slug ?? ''),
+        bookingStatus: booking.status,
+        dateLabel,
+        timeLabel,
+        cancelUrl,
+        confirmUrl,
+        officeAddress: CLASS_MODELS_OFFICE.fullAddress,
+        distanceLabel: travelPayload?.distanceLabel ?? '',
+        mapsDirectionsUrl: travelPayload?.mapsDirectionsUrl ?? '',
+        staticMapImageUrl: travelPayload?.staticMapImageUrl ?? '',
+        mapFrom: travelPayload?.mapFrom,
+        mapTo: travelPayload?.mapTo,
+      };
+      const notifications = await new Promise<{
+        emailSent: boolean;
+        smsSent: boolean;
+        emailError?: string;
+      }>((resolve) => {
+        const timer = setTimeout(() => {
           this.log.warn(
-            `dispatchBookingLifecycle (async): ${err instanceof Error ? err.message : String(err)}`,
+            `dispatchBookingLifecycle timeout (${notifyTimeoutMs}ms) voor boeking ${booking.id}`,
           );
-        });
+          resolve({
+            emailSent: false,
+            smsSent: false,
+            emailError: 'Verzenden duurde te lang; controleer later uw mailbox.',
+          });
+        }, notifyTimeoutMs);
+        void this.notifications
+          .dispatchBookingLifecycle('booking_created', dispatchCtx)
+          .then((r) => {
+            clearTimeout(timer);
+            resolve(r);
+          })
+          .catch((err) => {
+            clearTimeout(timer);
+            this.log.warn(
+              `dispatchBookingLifecycle: ${err instanceof Error ? err.message : String(err)}`,
+            );
+            resolve({
+              emailSent: false,
+              smsSent: false,
+              emailError: err instanceof Error ? err.message : String(err),
+            });
+          });
+      });
 
       if (userId) {
         const ymd = slot.slotDate.toISOString().slice(0, 10);
@@ -1178,7 +1218,7 @@ export class AgendaService implements OnModuleInit {
         });
       }
 
-      return bookingSuccessPayload();
+      return bookingSuccessPayload(notifications);
     } catch (e) {
       this.log.error(
         `Agenda book: post-commit pad gefaald — boeking ${booking.id} staat wél in de database: ${e instanceof Error ? e.message : String(e)}`,

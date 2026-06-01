@@ -9,6 +9,9 @@ import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { PrismaService } from '../prisma/prisma.service';
 import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl } from './class-models-office';
+import { embedRouteMapInEmailHtml, type SmtpInlineAttachment } from './agenda-mail-route-map';
+
+type SmtpAttachment = SmtpInlineAttachment | { filename: string; content: Buffer; contentType?: string };
 import { AgendaTravelService } from './agenda-travel.service';
 import { isAgendaBookingEnrolled, isGuestIntakeCalendarSlug } from './guest-intake-calendars';
 
@@ -39,6 +42,15 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   distanceLabel?: string;
   mapsDirectionsUrl?: string;
   staticMapImageUrl?: string;
+  mapFrom?: { lat: number; lon: number };
+  mapTo?: { lat: number; lon: number };
+};
+
+export type DispatchBookingResult = {
+  emailSent: boolean;
+  smsSent: boolean;
+  /** Laatste SMTP-fout (indien e-mailadres aanwezig maar niet verzonden). */
+  emailError?: string;
 };
 
 /** Opvolging/herinnering: filter op ingeschreven ja/nee (status `confirmed` = ingeschreven). */
@@ -156,10 +168,14 @@ export class AgendaNotificationService {
   }
 
   /**
-   * Alleen actieve sjablonen uit de database (offset 0 = meteen). Geen fallback-mail of -SMS:
-   * er wordt niets verstuurd tenzij u een passend sjabloon aan heeft staan en SMTP/BulkSMS werkt.
+   * Actieve sjablonen (offset 0 = meteen). Bij `booking_created` en mislukte/geen sjabloon-mail:
+   * standaard bevestigingsmail als fallback.
    */
-  async dispatchBookingLifecycle(trigger: AgendaLifecycleTrigger, ctx: DispatchBookingCtx): Promise<void> {
+  async dispatchBookingLifecycle(
+    trigger: AgendaLifecycleTrigger,
+    ctx: DispatchBookingCtx,
+  ): Promise<DispatchBookingResult> {
+    const result: DispatchBookingResult = { emailSent: false, smsSent: false };
     try {
       const rows = await this.prisma.agendaNotificationTemplate.findMany({
         where: { enabled: true, trigger },
@@ -195,6 +211,7 @@ export class AgendaNotificationService {
       }
 
       let emailSent = false;
+      let lastEmailError: string | undefined;
       const emailTemplates = dueNow.filter((x) => x.channel === 'email');
       for (const t of emailTemplates) {
         const to = ctx.toEmail?.trim();
@@ -203,8 +220,9 @@ export class AgendaNotificationService {
           applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
           `Melding: ${ctx.calendarTitle}`;
         const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(t.body, vars));
-        const result = await this.sendHtmlMailDetailed(to, subject, html);
-        if (result.ok) emailSent = true;
+        const sendResult = await this.sendAgendaEmail(to, subject, html, ctx);
+        if (sendResult.ok) emailSent = true;
+        else lastEmailError = sendResult.error;
         await this.recordBookingNotificationLog({
           bookingId: ctx.bookingId,
           channel: 'email',
@@ -214,21 +232,28 @@ export class AgendaNotificationService {
           subject,
           recipient: to,
           bodyPreview: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
-          sent: result.ok,
-          errorMessage: result.ok ? undefined : result.error,
+          sent: sendResult.ok,
+          errorMessage: sendResult.ok ? undefined : sendResult.error,
         });
       }
       if (!emailSent && trigger === 'booking_created' && ctx.toEmail?.trim()) {
         if (!emailTemplates.length) {
-          this.log.debug(
-            `Agenda "${ctx.calendarSlug}": geen actief e-mailsjabloon (offset 0) — geen mail verstuurd.`,
+          this.log.warn(
+            `Agenda "${ctx.calendarSlug}": geen actief e-mailsjabloon (offset 0) — standaard bevestigingsmail proberen.`,
           );
         } else {
-          this.log.debug(
-            `Agenda "${ctx.calendarSlug}": e-mailsjabloon(nen) niet verzonden (SMTP of inhoud).`,
+          this.log.warn(
+            `Agenda "${ctx.calendarSlug}": sjabloon-mail mislukt (${lastEmailError ?? 'onbekend'}) — standaard bevestigingsmail proberen.`,
           );
         }
+        const fallbackOk = await this.sendDefaultBookingConfirmation(ctx);
+        if (fallbackOk) {
+          emailSent = true;
+          lastEmailError = undefined;
+        }
       }
+      result.emailSent = emailSent;
+      result.emailError = emailSent ? undefined : lastEmailError;
 
       const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
       const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
@@ -271,6 +296,7 @@ export class AgendaNotificationService {
           errorMessage: ok ? undefined : 'SMS niet verstuurd (BulkSMS of credentials).',
         });
       }
+      result.smsSent = smsSent;
       if (!smsSent && trigger === 'booking_created') {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (msisdn) {
@@ -292,30 +318,65 @@ export class AgendaNotificationService {
           );
         }
       }
+      return result;
     } catch (e) {
       this.log.error(
         `Agenda "${trigger}" (${ctx.calendarSlug}): melding/SMS-pad gefaald — boeking of actie blijft geldig: ${e instanceof Error ? e.message : String(e)}`,
         e instanceof Error ? e.stack : undefined,
       );
+      return result;
     }
   }
 
-  /** Handmatige of legacy bevestigingsmail (niet meer automatisch bij boeking zonder sjabloon). */
-  async sendBookingConfirmation(p: AgendaConfirmationPayload): Promise<void> {
+  /** Standaard HTML-bevestiging (fallback bij booking_created). */
+  async sendDefaultBookingConfirmation(ctx: DispatchBookingCtx): Promise<boolean> {
+    const to = ctx.toEmail?.trim();
+    if (!to) return false;
     try {
-      const subject = `Bevestiging: ${p.calendarTitle} — Class Models`;
-      const html = this.buildEmailHtml(p);
-      const mailed = await this.trySendSmtp(p.toEmail, subject, html);
-      if (!mailed) {
-        this.log.log(`E-mail (niet verstuurd — zet SMTP_HOST): ${subject} → ${p.toEmail ?? '(geen e-mail)'}`);
-        this.log.debug(html);
+      const subject = `Bevestiging: ${ctx.calendarTitle} — Class Models`;
+      const html = coerceOutgoingEmailHtml(
+        applyAgendaMailPlaceholders(
+          AGENDA_DEFAULT_BOOKING_EMAIL_HTML,
+          buildAgendaMailPlaceholderVars(
+            {
+              displayName: ctx.displayName,
+              calendarTitle: ctx.calendarTitle,
+              dateLabel: ctx.dateLabel,
+              timeLabel: ctx.timeLabel,
+              cancelUrl: ctx.cancelUrl,
+              confirmUrl: ctx.confirmUrl,
+              officeAddress: ctx.officeAddress ?? CLASS_MODELS_OFFICE.fullAddress,
+              distanceLabel: ctx.distanceLabel ?? '',
+              mapsDirectionsUrl: ctx.mapsDirectionsUrl ?? '',
+              staticMapImageUrl: ctx.staticMapImageUrl ?? '',
+            },
+            'html',
+          ),
+        ),
+      );
+      const sendResult = await this.sendAgendaEmail(to, subject, html, ctx);
+      if (!sendResult.ok) {
+        this.log.warn(
+          `Standaard bevestigingsmail mislukt → ${to}: ${sendResult.error ?? 'onbekende fout'}`,
+        );
       }
+      return sendResult.ok;
     } catch (e) {
       this.log.error(
-        `Standaard bevestigingsmail kon niet worden opgebouwd of verstuurd: ${e instanceof Error ? e.message : String(e)}`,
+        `Standaard bevestigingsmail kon niet worden opgebouwd: ${e instanceof Error ? e.message : String(e)}`,
         e instanceof Error ? e.stack : undefined,
       );
+      return false;
     }
+  }
+
+  /** Handmatige bevestigingsmail (admin). */
+  async sendBookingConfirmation(p: AgendaConfirmationPayload): Promise<void> {
+    await this.sendDefaultBookingConfirmation({
+      ...p,
+      calendarSlug: '',
+      officeAddress: CLASS_MODELS_OFFICE.fullAddress,
+    });
   }
 
   private async trySendBulksms(
@@ -448,11 +509,26 @@ export class AgendaNotificationService {
     );
   }
 
+  /** Routekaart als inline CID (e-mailclients laden externe OSM-URL's vaak niet). */
+  private async sendAgendaEmail(
+    to: string,
+    subject: string,
+    html: string,
+    ctx: Pick<DispatchBookingCtx, 'staticMapImageUrl' | 'mapFrom' | 'mapTo'>,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const prepared = await embedRouteMapInEmailHtml(html, {
+      staticMapImageUrl: ctx.staticMapImageUrl,
+      mapFrom: ctx.mapFrom,
+      mapTo: ctx.mapTo,
+    });
+    return this.trySendSmtpDetailed(to, subject, prepared.html, prepared.inlineAttachments);
+  }
+
   private async trySendSmtp(
     to: string | null,
     subject: string,
     html: string,
-    attachments?: { filename: string; content: Buffer }[],
+    attachments?: SmtpAttachment[],
   ): Promise<boolean> {
     const r = await this.trySendSmtpDetailed(to, subject, html, attachments);
     return r.ok;
@@ -462,7 +538,7 @@ export class AgendaNotificationService {
     to: string | null,
     subject: string,
     html: string,
-    attachments?: { filename: string; content: Buffer }[],
+    attachments?: SmtpAttachment[],
   ): Promise<{ ok: boolean; error?: string }> {
     const addr = to?.trim();
     if (!addr) return { ok: false, error: 'Geen e-mailadres' };
@@ -496,7 +572,13 @@ export class AgendaNotificationService {
                 attachments: attachments.map((a) => ({
                   filename: a.filename,
                   content: a.content,
-                  contentType: 'application/pdf',
+                  ...('cid' in a && a.cid
+                    ? {
+                        cid: a.cid,
+                        contentDisposition: 'inline' as const,
+                        contentType: a.contentType ?? 'image/png',
+                      }
+                    : { contentType: a.contentType ?? 'application/pdf' }),
                 })),
               }
             : {}),
@@ -659,6 +741,25 @@ export class AgendaNotificationService {
           distanceLabel = t.distanceLabel;
           mapsDirectionsUrl = t.mapsDirectionsUrl;
           staticMapImageUrl = t.staticMapImageUrl;
+          return {
+            bookingId: b.id,
+            bookingStatus: b.status,
+            calendarSlug: cal.slug,
+            calendarTitle: cal.title,
+            displayName,
+            toEmail: b.email,
+            phone: b.phone,
+            dateLabel,
+            timeLabel,
+            cancelUrl,
+            confirmUrl,
+            officeAddress: CLASS_MODELS_OFFICE.fullAddress,
+            distanceLabel,
+            mapsDirectionsUrl,
+            staticMapImageUrl,
+            mapFrom: t.mapFrom,
+            mapTo: t.mapTo,
+          };
         }
       } catch {
         /* route optioneel */
@@ -733,7 +834,7 @@ export class AgendaNotificationService {
         applyAgendaMailPlaceholders(template.subject?.trim() || `Herinnering: ${ctx.calendarTitle}`, varsPlain) ||
         `Herinnering: ${ctx.calendarTitle}`;
       const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(template.body, varsHtml));
-      const result = await this.sendHtmlMailDetailed(to, subject, html);
+      const result = await this.sendAgendaEmail(to, subject, html, ctx);
       await this.recordBookingNotificationLog({
         bookingId: ctx.bookingId,
         channel: 'email',
