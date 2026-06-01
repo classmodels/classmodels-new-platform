@@ -10,6 +10,9 @@ export type AgendaMailPlaceholderContext = {
   timeLabel: string;
   cancelUrl: string;
   confirmUrl: string;
+  officeAddress?: string;
+  distanceLabel?: string;
+  mapsDirectionsUrl?: string;
 };
 
 function escHtml(s: string) {
@@ -38,6 +41,10 @@ export function buildAgendaMailPlaceholderVars(
   ctx: AgendaMailPlaceholderContext,
   mode: 'html' | 'plain',
 ): Record<string, string> {
+  const office = ctx.officeAddress ?? '';
+  const dist = ctx.distanceLabel ?? '';
+  const mapsDir = ctx.mapsDirectionsUrl ?? '';
+
   if (mode === 'plain') {
     return {
       client_name: ctx.displayName || 'klant',
@@ -50,6 +57,9 @@ export function buildAgendaMailPlaceholderVars(
       confirm_link_html: ctx.confirmUrl,
       cancel_button_html: '',
       confirm_button_html: '',
+      office_address: office,
+      distance_label: dist,
+      maps_directions_url: mapsDir,
     };
   }
   const esc = (s: string) => escHtml(s);
@@ -66,6 +76,12 @@ export function buildAgendaMailPlaceholderVars(
     confirm_link_html: `<a href="${confirmU}">Ik bevestig mijn komst</a>`,
     cancel_button_html: `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:6px;background:#6f121b;"><a href="${cancelU}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Afspraak annuleren</a></td></tr></table>`,
     confirm_button_html: `<table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:20px;"><tr><td style="border-radius:6px;background:#0f766e;"><a href="${confirmU}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Ik bevestig mijn komst</a></td></tr></table>`,
+    office_address: esc(office),
+    distance_label: esc(dist),
+    maps_directions_url: esc(mapsDir),
+    maps_directions_link_html: mapsDir
+      ? `<a href="${esc(mapsDir)}">Route naar ons kantoor in Google Maps</a>`
+      : '',
   };
 }
 

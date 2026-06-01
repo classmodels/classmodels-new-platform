@@ -155,6 +155,7 @@ function guestMailtoHref(bookingSubject: string) {
 
 /** Agenda Pro-stijl: kalender links + kolommen rechts (intake, casting, gratis fotoshoot). */
 import { GUEST_INTAKE_CALENDAR_SLUGS } from '@/lib/agenda-guest-intake';
+import { GUEST_APPOINTMENT_OFFICE_LINE } from '@/lib/class-models-office';
 
 const GUEST_AGENDA_PRO_SLUGS = new Set<string>(GUEST_INTAKE_CALENDAR_SLUGS);
 
@@ -797,6 +798,8 @@ export function GuestPortalLayout() {
   }, []);
 
   const menuLabel = GUEST_MENU.find((m) => m.id === active)?.label ?? '';
+  const showGuestOfficeInBar =
+    bookingFlow != null && GUEST_AGENDA_PRO_SLUGS.has(bookingFlow.calendarSlug);
   const rightPanelTitle = bookingFlow ? 'Online afspraak' : contentSlug ? 'Pagina' : menuLabel;
   const rightPanelContentKey = bookingFlow
     ? 'portal.guest.panel.title.booking'
@@ -1157,13 +1160,20 @@ export function GuestPortalLayout() {
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm">
             <div className="cm-red-titlebar shrink-0 border-b border-line">
-              <div className="cm-red-titlebar-inner">
+              <div
+                className={`cm-red-titlebar-inner ${showGuestOfficeInBar ? '!h-auto min-h-[44px] flex-col items-start gap-1 py-2' : ''}`}
+              >
                 <CmText
                   contentKey={rightPanelContentKey}
                   as="h2"
                   className="cm-red-titlebar-title"
                   fallback={rightPanelTitle}
                 />
+                {showGuestOfficeInBar ? (
+                  <p className="text-[11px] font-medium leading-snug text-white/95 md:text-xs">
+                    {GUEST_APPOINTMENT_OFFICE_LINE}
+                  </p>
+                ) : null}
               </div>
             </div>
             <div className="min-h-0 flex-1 p-4 md:p-6">

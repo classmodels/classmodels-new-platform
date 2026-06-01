@@ -39,6 +39,10 @@ const PLACEHOLDERS = [
   ['confirm_link_html', 'HTML-link komst bevestigen'],
   ['cancel_button_html', 'Knop “Afspraak annuleren” (tabel + stijl)'],
   ['confirm_button_html', 'Knop “Ik bevestig mijn komst” (tabel + stijl)'],
+  ['office_address', 'Adres kantoor (Provinciebaan 3, Hulshout)'],
+  ['distance_label', 'Afstand tot kantoor (bv. ca. 12 km)'],
+  ['maps_directions_url', 'Link route Google Maps'],
+  ['maps_directions_link_html', 'Klikbare route-link (HTML)'],
 ] as const;
 
 function offsetMinutesToHoursInput(m: number): string {

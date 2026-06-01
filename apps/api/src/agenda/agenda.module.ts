@@ -7,13 +7,21 @@ import { AdminAgendaController } from './admin-agenda.controller';
 import { AdminBulkMessagingController } from './admin-bulk-messaging.controller';
 import { AgendaPublicController } from './agenda-public.controller';
 import { AgendaNotificationService } from './agenda-notifications.service';
+import { AgendaReminderScheduler } from './agenda-reminder.scheduler';
+import { AgendaTravelService } from './agenda-travel.service';
 import { AgendaService } from './agenda.service';
 import { BulkMessagingService } from './bulk-messaging.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, MediaModule, ModelPortalHistoryModule],
   controllers: [AgendaPublicController, AdminAgendaController, AdminBulkMessagingController],
-  providers: [AgendaService, AgendaNotificationService, BulkMessagingService],
+  providers: [
+    AgendaService,
+    AgendaNotificationService,
+    AgendaTravelService,
+    AgendaReminderScheduler,
+    BulkMessagingService,
+  ],
   exports: [AgendaService, AgendaNotificationService],
 })
 export class AgendaModule {}

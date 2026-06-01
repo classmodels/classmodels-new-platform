@@ -8,6 +8,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { PrismaService } from '../prisma/prisma.service';
+import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl } from './class-models-office';
 import { isAgendaBookingEnrolled } from './guest-intake-calendars';
 
 export type AgendaConfirmationPayload = {
@@ -33,6 +34,9 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   /** Huidige reserveringsstatus (o.a. voor opvolg-/herinneringssjablonen). */
   bookingStatus?: string;
   bookingId?: string;
+  officeAddress?: string;
+  distanceLabel?: string;
+  mapsDirectionsUrl?: string;
 };
 
 /** Opvolging/herinnering: filter op ingeschreven ja/nee (status `confirmed` = ingeschreven). */
@@ -157,7 +161,20 @@ export class AgendaNotificationService {
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       });
 
-      const vars = buildAgendaMailPlaceholderVars(ctx, 'html');
+      const vars = buildAgendaMailPlaceholderVars(
+        {
+          displayName: ctx.displayName,
+          calendarTitle: ctx.calendarTitle,
+          dateLabel: ctx.dateLabel,
+          timeLabel: ctx.timeLabel,
+          cancelUrl: ctx.cancelUrl,
+          confirmUrl: ctx.confirmUrl,
+          officeAddress: ctx.officeAddress,
+          distanceLabel: ctx.distanceLabel,
+          mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+        },
+        'html',
+      );
 
       const matches = rows.filter(
         (t) =>
@@ -216,7 +233,23 @@ export class AgendaNotificationService {
       for (const t of smsTemplates) {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (!msisdn) continue;
-        const text = applyAgendaMailPlaceholders(t.body, buildAgendaMailPlaceholderVars(ctx, 'plain'));
+        const text = applyAgendaMailPlaceholders(
+          t.body,
+          buildAgendaMailPlaceholderVars(
+            {
+              displayName: ctx.displayName,
+              calendarTitle: ctx.calendarTitle,
+              dateLabel: ctx.dateLabel,
+              timeLabel: ctx.timeLabel,
+              cancelUrl: ctx.cancelUrl,
+              confirmUrl: ctx.confirmUrl,
+              officeAddress: ctx.officeAddress,
+              distanceLabel: ctx.distanceLabel,
+              mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+            },
+            'plain',
+          ),
+        );
         const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
         if (ok) smsSent = true;
         await this.recordBookingNotificationLog({
@@ -479,6 +512,240 @@ export class AgendaNotificationService {
     }
 
     return { ok: false, error: lastErr };
+  }
+
+  /**
+   * Verstuurt herinneringen/opvolging met offset ≠ 0 (bv. −12 uur vóór start).
+   * Wordt elke 5 minuten aangeroepen door AgendaReminderScheduler.
+   */
+  async processScheduledNotifications(): Promise<number> {
+    const windowMin = Math.max(
+      5,
+      parseInt(process.env.AGENDA_REMINDER_WINDOW_MIN || '12', 10) || 12,
+    );
+    const templates = await this.prisma.agendaNotificationTemplate.findMany({
+      where: {
+        enabled: true,
+        trigger: { in: ['reminder', 'followup'] },
+        offsetMinutes: { not: 0 },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    if (!templates.length) return 0;
+
+    const now = Date.now();
+    const bookings = await this.prisma.agendaBooking.findMany({
+      where: {
+        status: { in: ['pending', 'confirmed', 'acknowledged'] },
+        startAt: {
+          gte: new Date(now - 7 * 24 * 60 * 60 * 1000),
+          lte: new Date(now + 14 * 24 * 60 * 60 * 1000),
+        },
+      },
+      include: {
+        slot: { include: { calendar: true } },
+      },
+    });
+
+    let sentCount = 0;
+    for (const template of templates) {
+      const offset = template.offsetMinutes;
+      if (offset === 0) continue;
+      const target = Math.abs(offset);
+      const isBefore = offset < 0;
+
+      for (const b of bookings) {
+        const cal = b.slot.calendar;
+        if (!templateAppliesToCalendar(template.calendarSlugs, cal.slug)) continue;
+        if (!templateMatchesEnrollmentFilter(template.enrollmentFilter, b.status)) continue;
+
+        const already = await this.prisma.agendaBookingNotificationLog.findFirst({
+          where: { bookingId: b.id, templateId: template.id, sent: true },
+        });
+        if (already) continue;
+
+        const diffMin = (b.startAt.getTime() - now) / 60_000;
+        let due = false;
+        if (template.trigger === 'reminder' && isBefore) {
+          due = diffMin > 0 && diffMin >= target - windowMin && diffMin <= target + windowMin;
+        } else if (template.trigger === 'followup' && !isBefore) {
+          const sinceStart = -diffMin;
+          due = sinceStart >= target - windowMin && sinceStart <= target + windowMin;
+        }
+        if (!due) continue;
+
+        const ctx = await this.buildDispatchCtxFromBooking(b);
+        const ok = await this.sendSingleTemplate(template, template.trigger as AgendaLifecycleTrigger, ctx);
+        if (ok) sentCount++;
+      }
+    }
+    return sentCount;
+  }
+
+  private async buildDispatchCtxFromBooking(
+    b: {
+      id: string;
+      status: string;
+      name: string | null;
+      firstname: string | null;
+      lastname: string | null;
+      email: string | null;
+      phone: string | null;
+      fieldsJson: unknown;
+      cancelToken: string | null;
+      startAt: Date;
+      endAt: Date;
+      slot: {
+        startTime: string;
+        endTime: string;
+        slotDate: Date;
+        calendar: { slug: string; title: string; showEndTimeOnPublic: boolean };
+      };
+    },
+  ): Promise<DispatchBookingCtx> {
+    const cal = b.slot.calendar;
+    const hideCancel = process.env.AGENDA_HIDE_CANCEL_LINK === '1';
+    const token = b.cancelToken ?? '';
+    const webBase = (
+      process.env.WEB_PUBLIC_URL ||
+      process.env.WEB_APP_URL ||
+      process.env.APP_PUBLIC_URL ||
+      'https://www.class-models.be'
+    ).replace(/\/$/, '');
+    const cancelUrl = hideCancel || !token ? '' : `${webBase}/portal/guest/annuleer?token=${encodeURIComponent(token)}`;
+    const confirmUrl = token ? `${webBase}/portal/guest/bevestig?token=${encodeURIComponent(token)}` : '';
+
+    let dateLabel: string;
+    try {
+      dateLabel = new Intl.DateTimeFormat('nl-BE', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(b.slot.slotDate);
+    } catch {
+      dateLabel = b.slot.slotDate.toISOString().slice(0, 10);
+    }
+    const st = String(b.slot.startTime ?? '').slice(0, 5);
+    const et = String(b.slot.endTime ?? '').slice(0, 5);
+    const timeLabel =
+      cal.showEndTimeOnPublic !== false ? `${st} – ${et}` : st;
+
+    const displayName =
+      (b.name ?? '').trim() ||
+      [b.firstname, b.lastname].filter(Boolean).join(' ').trim() ||
+      'klant';
+
+    const fj =
+      b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+        ? (b.fieldsJson as Record<string, string>)
+        : {};
+    const visitorAddress = formatGuestAddressFromFields(fj);
+
+    return {
+      bookingId: b.id,
+      bookingStatus: b.status,
+      calendarSlug: cal.slug,
+      calendarTitle: cal.title,
+      displayName,
+      toEmail: b.email,
+      phone: b.phone,
+      dateLabel,
+      timeLabel,
+      cancelUrl,
+      confirmUrl,
+      officeAddress: CLASS_MODELS_OFFICE.fullAddress,
+      distanceLabel: '',
+      mapsDirectionsUrl: visitorAddress ? googleMapsDirectionsUrl(visitorAddress) : '',
+    };
+  }
+
+  private async sendSingleTemplate(
+    template: {
+      id: string;
+      name: string;
+      channel: string;
+      subject: string | null;
+      body: string;
+    },
+    trigger: AgendaLifecycleTrigger,
+    ctx: DispatchBookingCtx,
+  ): Promise<boolean> {
+    const varsHtml = buildAgendaMailPlaceholderVars(
+      {
+        displayName: ctx.displayName,
+        calendarTitle: ctx.calendarTitle,
+        dateLabel: ctx.dateLabel,
+        timeLabel: ctx.timeLabel,
+        cancelUrl: ctx.cancelUrl,
+        confirmUrl: ctx.confirmUrl,
+        officeAddress: ctx.officeAddress,
+        distanceLabel: ctx.distanceLabel,
+        mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+      },
+      'html',
+    );
+    const varsPlain = buildAgendaMailPlaceholderVars(
+      {
+        displayName: ctx.displayName,
+        calendarTitle: ctx.calendarTitle,
+        dateLabel: ctx.dateLabel,
+        timeLabel: ctx.timeLabel,
+        cancelUrl: ctx.cancelUrl,
+        confirmUrl: ctx.confirmUrl,
+        officeAddress: ctx.officeAddress,
+        distanceLabel: ctx.distanceLabel,
+        mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+      },
+      'plain',
+    );
+
+    if (template.channel === 'email') {
+      const to = ctx.toEmail?.trim();
+      if (!to) return false;
+      const subject =
+        applyAgendaMailPlaceholders(template.subject?.trim() || `Herinnering: ${ctx.calendarTitle}`, varsPlain) ||
+        `Herinnering: ${ctx.calendarTitle}`;
+      const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(template.body, varsHtml));
+      const result = await this.sendHtmlMailDetailed(to, subject, html);
+      await this.recordBookingNotificationLog({
+        bookingId: ctx.bookingId,
+        channel: 'email',
+        trigger,
+        templateId: template.id,
+        templateName: template.name,
+        subject,
+        recipient: to,
+        bodyPreview: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+        sent: result.ok,
+        errorMessage: result.ok ? undefined : result.error,
+      });
+      return result.ok;
+    }
+
+    if (template.channel === 'sms') {
+      const msisdn = normalizeBelgiumMsisdn(ctx.phone);
+      if (!msisdn) return false;
+      const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
+      const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
+      const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
+      const text = applyAgendaMailPlaceholders(template.body, varsPlain);
+      const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
+      await this.recordBookingNotificationLog({
+        bookingId: ctx.bookingId,
+        channel: 'sms',
+        trigger,
+        templateId: template.id,
+        templateName: template.name,
+        recipient: msisdn,
+        bodyPreview: text,
+        sent: ok,
+        errorMessage: ok ? undefined : 'SMS niet verstuurd (BulkSMS of credentials).',
+      });
+      return ok;
+    }
+
+    return false;
   }
 
   private buildEmailHtml(p: AgendaConfirmationPayload): string {

@@ -12,6 +12,7 @@ import {
   validateGuestMinorParentFieldsClient,
 } from '@/lib/agenda-guest-intake';
 import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
+import { CLASS_MODELS_OFFICE, GUEST_APPOINTMENT_OFFICE_LINE } from '@/lib/class-models-office';
 
 function ymdLocal(d: Date): string {
   return ymdEuropeBrussels(d);
@@ -38,6 +39,32 @@ type SlotDto = {
 };
 
 type Step = 'slots' | 'form' | 'success';
+
+type TravelInfo = {
+  distanceKm: number;
+  durationMinutes: number;
+  distanceLabel: string;
+  mapsDirectionsUrl: string;
+  mapsEmbedUrl: string;
+  visitorAddress: string;
+};
+
+function parseBookResponse(text: string): {
+  cancelUrl?: string;
+  travel?: TravelInfo;
+  officeAddress?: string;
+} {
+  try {
+    const j = JSON.parse(text) as {
+      cancelUrl?: string;
+      officeAddress?: string;
+      travel?: TravelInfo;
+    };
+    return { cancelUrl: j.cancelUrl, travel: j.travel, officeAddress: j.officeAddress };
+  } catch {
+    return {};
+  }
+}
 
 function fieldEffectiveRequired(guestWebBooking: boolean, f: FieldDto): boolean {
   if (!guestWebBooking) return f.required;
@@ -94,6 +121,7 @@ export function GuestBookingPanel({
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
   const [busy, setBusy] = useState(false);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
+  const [travelInfo, setTravelInfo] = useState<TravelInfo | null>(null);
 
   /** Pagina voor pro-kolomweergave (0 = eerste 4 datums met sloten). */
   const [dayPage, setDayPage] = useState(0);
@@ -205,6 +233,7 @@ export function GuestBookingPanel({
 
   const guestWebBooking = !authToken;
   const strictGuestForm = guestWebBooking && isGuestIntakeCalendarSlug(calendarSlug);
+  const showGuestOffice = guestWebBooking && isGuestIntakeCalendarSlug(calendarSlug);
   const showMinorGuard =
     strictGuestForm && isMinorFromIsoDateString((form.geboortedatum ?? '').trim());
 
@@ -272,6 +301,9 @@ export function GuestBookingPanel({
           }
           throw new Error(msg);
         }
+        const parsed = parseBookResponse(text);
+        if (parsed.cancelUrl) setCancelUrl(parsed.cancelUrl);
+        setTravelInfo(parsed.travel ?? null);
         if (onBookingSuccess) {
           await Promise.resolve(onBookingSuccess());
           await loadData();
@@ -418,12 +450,9 @@ export function GuestBookingPanel({
         }
         throw new Error(msg);
       }
-      try {
-        const j = JSON.parse(text) as { cancelUrl?: string };
-        setCancelUrl(j.cancelUrl ?? null);
-      } catch {
-        setCancelUrl(null);
-      }
+      const parsed = parseBookResponse(text);
+      setCancelUrl(parsed.cancelUrl ?? null);
+      setTravelInfo(parsed.travel ?? null);
       if (onBookingSuccess) {
         await Promise.resolve(onBookingSuccess());
         setStep('slots');
@@ -637,15 +666,53 @@ export function GuestBookingPanel({
   }
 
   if (step === 'success') {
+    const embedUrl =
+      travelInfo?.mapsDirectionsUrl && travelInfo.visitorAddress
+        ? `https://maps.google.com/maps?output=embed&hl=nl&z=10&saddr=${encodeURIComponent(travelInfo.visitorAddress)}&daddr=${encodeURIComponent(CLASS_MODELS_OFFICE.fullAddress)}`
+        : travelInfo?.mapsEmbedUrl ?? CLASS_MODELS_OFFICE.mapsEmbedUrl;
+
     return (
       <div className="space-y-5">
-        <div className="rounded-lg border border-zinc-200 bg-white px-5 py-6 text-center shadow-sm">
-          <p className="text-base font-semibold tracking-tight text-zinc-900">Inschrijving is gelukt</p>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-600">
+        <div className="rounded-lg border border-zinc-200 bg-white px-5 py-6 shadow-sm">
+          <p className="text-center text-base font-semibold tracking-tight text-zinc-900">
+            Inschrijving is gelukt
+          </p>
+          <p className="mt-3 text-center text-sm leading-relaxed text-zinc-600">
             U ontvangt een SMS en een mail ter bevestiging van uw afspraak.
           </p>
+          <p className="mt-3 rounded-md border border-burgundy/25 bg-burgundy/5 px-3 py-2 text-center text-xs leading-relaxed text-zinc-800">
+            <strong className="text-burgundy">Locatie:</strong> {GUEST_APPOINTMENT_OFFICE_LINE.replace(/^Uw afspraak vindt plaats op ons kantoor: /, '')}
+          </p>
+          {travelInfo?.distanceLabel ? (
+            <p className="mt-2 text-center text-sm font-medium text-zinc-900">
+              Afstand tot ons kantoor: {travelInfo.distanceLabel}
+            </p>
+          ) : null}
+          {showGuestOffice ? (
+            <div className="mt-4 overflow-hidden rounded-md border border-zinc-200">
+              <iframe
+                title="Route naar Class-Models"
+                src={embedUrl}
+                className="h-[220px] w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          ) : null}
+          {travelInfo?.mapsDirectionsUrl ? (
+            <p className="mt-3 text-center">
+              <a
+                href={travelInfo.mapsDirectionsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-burgundy underline underline-offset-2"
+              >
+                Open route in Google Maps
+              </a>
+            </p>
+          ) : null}
           {cancelUrl ? (
-            <p className="mt-4 text-left text-xs text-zinc-500">
+            <p className="mt-4 text-center text-xs text-zinc-500">
               Annuleren kan via de link in uw mail.{' '}
               <Link href={cancelUrl} className="font-medium text-burgundy underline underline-offset-2">
                 Direct annuleren
@@ -847,6 +914,9 @@ export function GuestBookingPanel({
             {step === 'slots' ? 'Online afspraak' : 'Uw gegevens'}
             {calTitle ? <span className="mt-0.5 block text-xs font-normal text-zinc-500">{calTitle}</span> : null}
           </h2>
+          {showGuestOffice ? (
+            <p className="mt-2 text-[11px] leading-snug text-zinc-600">{GUEST_APPOINTMENT_OFFICE_LINE}</p>
+          ) : null}
         </div>
       </div>
 

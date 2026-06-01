@@ -43,6 +43,8 @@ import {
   isMinorFromIsoDateString,
   validateGuestMinorParentFields,
 } from './guest-intake-calendars';
+import { CLASS_MODELS_OFFICE } from './class-models-office';
+import { AgendaTravelService } from './agenda-travel.service';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
 import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
 import { MediaService } from '../media/media.service';
@@ -344,6 +346,7 @@ export class AgendaService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private notifications: AgendaNotificationService,
+    private travel: AgendaTravelService,
     private modelHistory: ModelPortalHistoryService,
     private media: MediaService,
   ) {}
@@ -1061,17 +1064,59 @@ export class AgendaService implements OnModuleInit {
     });
 
     const hideCancelLink = process.env.AGENDA_HIDE_CANCEL_LINK === '1';
+    let travelPayload: Awaited<ReturnType<AgendaTravelService['travelInfoForGuestFields']>> = null;
+    if (webGuest && isGuestIntakeCalendarSlug(cal.slug)) {
+      try {
+        travelPayload = await this.travel.travelInfoForGuestFields(fieldsJson);
+      } catch {
+        travelPayload = null;
+      }
+    }
+
     const bookingSuccessPayload = (): {
       success: true;
       bookingId: string;
       cancelUrl?: string;
+      officeAddress?: string;
+      travel?: {
+        distanceKm: number;
+        durationMinutes: number;
+        distanceLabel: string;
+        mapsDirectionsUrl: string;
+        mapsEmbedUrl: string;
+        visitorAddress: string;
+      };
     } => {
-      const out: { success: true; bookingId: string; cancelUrl?: string } = {
+      const out: {
+        success: true;
+        bookingId: string;
+        cancelUrl?: string;
+        officeAddress?: string;
+        travel?: {
+          distanceKm: number;
+          durationMinutes: number;
+          distanceLabel: string;
+          mapsDirectionsUrl: string;
+          mapsEmbedUrl: string;
+          visitorAddress: string;
+        };
+      } = {
         success: true,
         bookingId: booking.id,
+        officeAddress: CLASS_MODELS_OFFICE.fullAddress,
       };
       if (!hideCancelLink) {
         out.cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
+      }
+      if (travelPayload) {
+        out.travel = {
+          distanceKm: travelPayload.distanceKm,
+          durationMinutes: travelPayload.durationMinutes,
+          distanceLabel: travelPayload.distanceLabel,
+          mapsDirectionsUrl: travelPayload.mapsDirectionsUrl,
+          mapsEmbedUrl: travelPayload.mapsEmbedUrl,
+          visitorAddress: travelPayload.visitorAddress,
+        };
       }
       return out;
     };
@@ -1109,6 +1154,9 @@ export class AgendaService implements OnModuleInit {
           timeLabel,
           cancelUrl,
           confirmUrl,
+          officeAddress: CLASS_MODELS_OFFICE.fullAddress,
+          distanceLabel: travelPayload?.distanceLabel ?? '',
+          mapsDirectionsUrl: travelPayload?.mapsDirectionsUrl ?? '',
         })
         .catch((err) => {
           this.log.warn(
