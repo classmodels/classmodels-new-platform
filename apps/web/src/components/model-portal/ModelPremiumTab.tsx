@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import type { AuthUser } from '@/context/auth-context';
 import {
   isPremiumPromoActive,
@@ -41,14 +41,7 @@ export function ModelPremiumTab({
   canCheckout,
   onStartCheckout,
 }: Props) {
-  const [promoActive, setPromoActive] = useState(() => isPremiumPromoActive());
-
-  useEffect(() => {
-    const tick = () => setPromoActive(isPremiumPromoActive());
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
+  const [promoActive] = useState(() => isPremiumPromoActive());
 
   const promoPrice = premiumInfo?.promoPrice ?? String(PREMIUM_PROMO_PRICE);
   const yearlyPrice = premiumInfo?.yearlyPrice ?? String(PREMIUM_YEARLY_PRICE);
@@ -193,7 +186,7 @@ export function ModelPremiumTab({
             <h2 className="font-serif text-xl font-semibold text-ink">Klaar om te upgraden?</h2>
             <p className="mt-1 max-w-xl text-sm text-muted">
               {promoActive
-                ? `Promotie t/m zaterdag 12:00 — daarna €${yearlyPrice} per jaar.`
+                ? 'Alleen vandaag voordeelprijs — daarna €' + yearlyPrice + ' per jaar.'
                 : `Jaarabonnement €${yearlyPrice} per jaar.`}
             </p>
           </div>
