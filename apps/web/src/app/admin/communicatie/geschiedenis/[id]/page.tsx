@@ -17,6 +17,8 @@ type DeliveryRow = {
   openCount: number;
   lastOpenedAt: string | null;
   errorMessage: string | null;
+  attemptCount?: number;
+  deliveredCount?: number;
   user: { firstName: string | null; lastName: string | null; email: string } | null;
 };
 
@@ -32,12 +34,16 @@ type CampaignDetail = {
   status?: string;
   createdAt: string;
   list: { name: string } | null;
+  deliveriesView?: 'unique' | 'all';
+  rawLogRows?: number;
   stats: {
     sent: number;
     failed?: number;
     pending?: number;
     opened: number;
     deliveryRows?: number;
+    rawLogRows?: number;
+    totalDeliveredAttempts?: number;
     duplicateAttempts?: number;
     uniqueRecipients?: number;
     planned?: number;
@@ -57,11 +63,19 @@ type Progress = {
   retryFailedRemaining?: number;
 };
 
+function statusLabel(status: string): string {
+  if (status === 'sent') return 'Verzonden';
+  if (status === 'failed') return 'Mislukt';
+  if (status === 'pending') return 'In wachtrij';
+  return status;
+}
+
 export default function CommunicatieGeschiedenisDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { token, can } = useAuth();
   const [data, setData] = useState<CampaignDetail | null>(null);
   const [page, setPage] = useState(1);
+  const [view, setView] = useState<'unique' | 'all'>('unique');
   const [err, setErr] = useState<string | null>(null);
   const [retryBusy, setRetryBusy] = useState(false);
   const [retryProgress, setRetryProgress] = useState<Progress | null>(null);
@@ -72,7 +86,7 @@ export default function CommunicatieGeschiedenisDetailPage() {
     try {
       setData(
         await adminFetch<CampaignDetail>(
-          `/admin/comms/campaigns/${id}?page=${page}&take=80`,
+          `/admin/comms/campaigns/${id}?page=${page}&take=80&view=${view}`,
           token,
         ),
       );
@@ -80,14 +94,20 @@ export default function CommunicatieGeschiedenisDetailPage() {
       setErr(e instanceof Error ? e.message : 'Laden mislukt');
       setData(null);
     }
-  }, [token, id, page]);
+  }, [token, id, page, view]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [view]);
+
   const failedTotal = data?.failedCount ?? 0;
   const planned = data?.stats.planned ?? data?.deliveriesTotal ?? 0;
+  const rawLogRows = data?.rawLogRows ?? data?.stats.rawLogRows ?? data?.stats.deliveryRows ?? 0;
+  const totalSms = data?.stats.totalDeliveredAttempts ?? 0;
 
   const retryFailed = async () => {
     if (!token || !id || !can('admin.push.send')) return;
@@ -119,6 +139,7 @@ export default function CommunicatieGeschiedenisDetailPage() {
   if (!data) return <p className="text-sm text-muted">Laden…</p>;
 
   const totalPages = Math.max(1, Math.ceil(data.deliveriesTotal / 80));
+  const isSms = data.channel === 'sms';
 
   return (
     <div className="space-y-4">
@@ -126,40 +147,45 @@ export default function CommunicatieGeschiedenisDetailPage() {
         ← Terug
       </Link>
       {err ? <p className="text-sm text-amber-800">{err}</p> : null}
-      <div className="rounded border border-line bg-white p-4 text-sm space-y-1">
+      <div className="rounded border border-line bg-white p-4 text-sm space-y-2">
         <p>
           <strong>{data.channel.toUpperCase()}</strong> · {new Date(data.createdAt).toLocaleString('nl-BE')}
         </p>
         {data.subject ? <p>Onderwerp: {data.subject}</p> : null}
         {data.list ? <p>Lijst: {data.list.name}</p> : null}
         <p className="leading-relaxed">
-          <strong className="text-emerald-800">{data.stats.sent} gelukt</strong>
+          <strong className="text-emerald-800">
+            {data.stats.sent} ontvanger{data.stats.sent === 1 ? '' : 's'} bereikt
+          </strong>
           {' · '}
-          <strong className="text-red-700">{data.stats.failed ?? data.failedCount} mislukt</strong>
+          <strong className="text-red-700">
+            {data.stats.failed ?? data.failedCount} mislukt
+          </strong>
+          {planned ? (
+            <>
+              {' · '}
+              <span>{planned} gepland</span>
+            </>
+          ) : null}
           {data.channel === 'email' ? (
             <>
               {' · '}
               <span>{data.stats.opened} e-mail geopend</span>
             </>
           ) : null}
-          {planned ? (
-            <>
-              {' · '}
-              <span>{planned} geplande ontvangers</span>
-            </>
-          ) : null}
-          {(data.stats.pending ?? 0) > 0 ? (
-            <>
-              {' · '}
-              <span className="text-amber-800">{data.stats.pending} nog in wachtrij</span>
-            </>
-          ) : null}
         </p>
-        {(data.stats.duplicateAttempts ?? 0) > 0 ? (
+        {isSms && totalSms > 0 ? (
+          <p className="text-xs text-muted">
+            In totaal <strong>{totalSms} SMS</strong> naar de provider gestuurd
+            {totalSms > data.stats.sent
+              ? ` (meerdere keren hetzelfde nummer door een eerdere technische fout — max. ${Math.ceil(totalSms / Math.max(1, data.stats.sent))}× per persoon).`
+              : '.'}
+          </p>
+        ) : null}
+        {rawLogRows > (data.stats.uniqueRecipients ?? data.deliveriesTotal) ? (
           <p className="text-xs text-amber-800">
-            Er staan {data.stats.deliveryRows ?? data.deliveriesTotal} regels in het log waarvan{' '}
-            {data.stats.duplicateAttempts} dubbele pogingen (zelfde nummer/e-mail meerdere keren). Alleen unieke
-            ontvangers tellen mee in gelukt/mislukt.
+            Technisch log: {rawLogRows} regels ({rawLogRows - (data.stats.uniqueRecipients ?? data.deliveriesTotal)}{' '}
+            extra door herhaalde pogingen). Bovenstaande cijfers zijn per <em>unieke</em> ontvanger.
           </p>
         ) : null}
         {data.channel === 'email' && failedTotal > 0 && can('admin.push.send') ? (
@@ -198,17 +224,37 @@ export default function CommunicatieGeschiedenisDetailPage() {
         ) : null}
       </div>
       <div className="rounded border border-line bg-white overflow-x-auto">
-        <p className="border-b border-line px-3 py-2 text-xs text-muted">
-          Ontvangers (pagina {data.deliveriesPage} van {totalPages}, totaal {data.deliveriesTotal})
-        </p>
-        <table className="w-full text-xs min-w-[640px]">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2">
+          <p className="text-xs text-muted">
+            {view === 'unique' ? 'Unieke ontvangers' : 'Technisch log (alle pogingen)'} — pagina{' '}
+            {data.deliveriesPage} van {totalPages}, totaal {data.deliveriesTotal}
+          </p>
+          <div className="flex gap-2 text-xs">
+            <button
+              type="button"
+              className={`rounded border px-2 py-1 ${view === 'unique' ? 'border-burgundy bg-burgundy/5' : 'border-line'}`}
+              onClick={() => setView('unique')}
+            >
+              Per ontvanger
+            </button>
+            <button
+              type="button"
+              className={`rounded border px-2 py-1 ${view === 'all' ? 'border-burgundy bg-burgundy/5' : 'border-line'}`}
+              onClick={() => setView('all')}
+            >
+              Alle logregels ({rawLogRows})
+            </button>
+          </div>
+        </div>
+        <table className="w-full text-xs min-w-[720px]">
           <thead className="bg-zinc-50">
             <tr>
               <th className="p-2 text-left">Ontvanger</th>
               <th className="p-2 text-left">Contact</th>
-              <th className="p-2 text-left">Status</th>
-              <th className="p-2 text-left">Verzonden</th>
-              <th className="p-2 text-left">Geopend</th>
+              <th className="p-2 text-left">Resultaat</th>
+              {view === 'unique' && isSms ? <th className="p-2 text-left">SMS&apos;en</th> : null}
+              <th className="p-2 text-left">{isSms ? 'Eerste verzending' : 'Verzonden'}</th>
+              {data.channel === 'email' ? <th className="p-2 text-left">Geopend</th> : null}
               <th className="p-2 text-left">Fout</th>
             </tr>
           </thead>
@@ -223,21 +269,23 @@ export default function CommunicatieGeschiedenisDetailPage() {
                 <tr key={d.id} className="border-t border-line">
                   <td className="p-2">{name}</td>
                   <td className="p-2 text-muted">{contact || '—'}</td>
-                  <td className="p-2">
-                    {d.status === 'sent'
-                      ? 'Verzonden'
-                      : d.status === 'failed'
-                        ? 'Mislukt'
-                        : d.status === 'pending'
-                          ? 'In wachtrij'
-                          : d.status}
-                  </td>
+                  <td className="p-2">{statusLabel(d.status)}</td>
+                  {view === 'unique' && isSms ? (
+                    <td className="p-2 text-muted">
+                      {(d.deliveredCount ?? (d.status === 'sent' ? 1 : 0)) || '—'}
+                      {(d.attemptCount ?? 1) > 1 ? (
+                        <span className="ml-1 text-[10px] text-amber-800">({d.attemptCount} pogingen)</span>
+                      ) : null}
+                    </td>
+                  ) : null}
                   <td className="p-2 whitespace-nowrap">
                     {d.sentAt ? new Date(d.sentAt).toLocaleString('nl-BE') : '—'}
                   </td>
-                  <td className="p-2 whitespace-nowrap">
-                    {d.openedAt ? new Date(d.openedAt).toLocaleString('nl-BE') : '—'}
-                  </td>
+                  {data.channel === 'email' ? (
+                    <td className="p-2 whitespace-nowrap">
+                      {d.openedAt ? new Date(d.openedAt).toLocaleString('nl-BE') : '—'}
+                    </td>
+                  ) : null}
                   <td className="p-2 max-w-[200px] truncate text-red-700" title={d.errorMessage || ''}>
                     {d.status === 'failed' ? d.errorMessage || '—' : '—'}
                   </td>

@@ -108,10 +108,12 @@ export class AdminBulkCommsController {
     @Param('id') id: string,
     @Query('page') page?: string,
     @Query('take') take?: string,
+    @Query('view') view?: string,
   ) {
     const p = page ? parseInt(page, 10) : 1;
     const t = take ? parseInt(take, 10) : 80;
-    return this.comms.getCampaign(id, Number.isFinite(p) ? p : 1, Number.isFinite(t) ? t : 80);
+    const v = view === 'all' ? 'all' : 'unique';
+    return this.comms.getCampaign(id, Number.isFinite(p) ? p : 1, Number.isFinite(t) ? t : 80, v);
   }
 
   @Post('campaigns/:id/process-batch')

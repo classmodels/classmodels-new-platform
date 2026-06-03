@@ -87,16 +87,17 @@ export class BulkCommsService {
     };
   }
 
-  /** Unieke ontvangers op basis van genormaliseerd e-mail/GSM (voorkomt dubbele tellingen). */
+  /** Unieke ontvangers (userId eerst) + totaal aantal geslaagde verzendpogingen. */
   private async aggregateUniqueDeliveryStats(campaignId: string, channel: string) {
     const rows = await this.prisma.bulkMessageDelivery.findMany({
       where: { campaignId },
       select: { status: true, email: true, phone: true, userId: true },
     });
     const byRecipient = new Map<string, 'sent' | 'failed' | 'pending'>();
+    let totalDeliveredAttempts = 0;
     for (const d of rows) {
-      const key =
-        bulkRecipientKey(channel, d) || (d.userId ? `user:${d.userId}` : null);
+      if (d.status === 'sent') totalDeliveredAttempts += 1;
+      const key = deliveryRecipientKey(channel, d);
       if (!key) continue;
       const prev = byRecipient.get(key);
       if (prev === 'sent') continue;
@@ -112,13 +113,80 @@ export class BulkCommsService {
       else if (s === 'failed') failed += 1;
       else pending += 1;
     }
+    const uniqueRecipients = byRecipient.size;
     return {
       sent,
       failed,
       pending,
       totalRows: rows.length,
-      uniqueRecipients: byRecipient.size,
+      uniqueRecipients,
+      totalDeliveredAttempts,
+      duplicateAttempts: Math.max(0, totalDeliveredAttempts - uniqueRecipients),
+      extraLogRows: Math.max(0, rows.length - uniqueRecipients),
     };
+  }
+
+  /** Eén rij per ontvanger; telt herhaalde pogingen (oude bug of technisch log). */
+  private foldDeliveries(
+    channel: string,
+    rows: Array<{
+      id: string;
+      displayName: string | null;
+      email: string | null;
+      phone: string | null;
+      status: string;
+      sentAt: Date | null;
+      openedAt: Date | null;
+      openCount: number;
+      lastOpenedAt: Date | null;
+      errorMessage: string | null;
+      userId: string | null;
+      user: {
+        id: string;
+        email: string;
+        firstName: string | null;
+        lastName: string | null;
+      } | null;
+    }>,
+  ) {
+    type Folded = (typeof rows)[number] & { attemptCount: number; deliveredCount: number };
+    const groups = new Map<string, Folded>();
+    for (const d of rows) {
+      const key = deliveryRecipientKey(channel, d);
+      if (!key) continue;
+      const prev = groups.get(key);
+      if (!prev) {
+        groups.set(key, {
+          ...d,
+          attemptCount: 1,
+          deliveredCount: d.status === 'sent' ? 1 : 0,
+        });
+        continue;
+      }
+      prev.attemptCount += 1;
+      if (d.status === 'sent') {
+        prev.deliveredCount += 1;
+        prev.status = 'sent';
+        if (d.sentAt && (!prev.sentAt || d.sentAt < prev.sentAt)) prev.sentAt = d.sentAt;
+        prev.errorMessage = null;
+      } else if (prev.status !== 'sent' && d.status === 'failed') {
+        prev.status = 'failed';
+        prev.errorMessage = prev.errorMessage || d.errorMessage;
+      }
+      if (!prev.displayName?.trim() && d.displayName?.trim()) prev.displayName = d.displayName;
+      if (!prev.phone?.trim() && d.phone?.trim()) prev.phone = d.phone;
+      if (!prev.email?.trim() && d.email?.trim()) prev.email = d.email;
+      if (d.openCount > prev.openCount) {
+        prev.openCount = d.openCount;
+        prev.openedAt = d.openedAt;
+        prev.lastOpenedAt = d.lastOpenedAt;
+      }
+    }
+    return [...groups.values()].sort((a, b) => {
+      const na = a.displayName || a.user?.lastName || a.phone || a.email || '';
+      const nb = b.displayName || b.user?.lastName || b.phone || b.email || '';
+      return na.localeCompare(nb, 'nl');
+    });
   }
 
   private async campaignProgress(campaignId: string, extra: Record<string, unknown> = {}) {
@@ -140,7 +208,7 @@ export class BulkCommsService {
     const processed = agg.sent + agg.failed + c.skippedCount;
     const planned = c.targetCount > 0 ? c.targetCount : Math.max(processed, agg.uniqueRecipients);
     const remaining = Math.max(0, planned - processed);
-    const duplicateAttempts = Math.max(0, agg.totalRows - agg.uniqueRecipients);
+    const duplicateAttempts = agg.duplicateAttempts;
     return {
       campaignId,
       status: c.status,
@@ -152,6 +220,7 @@ export class BulkCommsService {
       processed,
       remaining,
       deliveryRows: agg.totalRows,
+      totalDeliveredAttempts: agg.totalDeliveredAttempts,
       duplicateAttempts,
       done: c.status === 'completed' || (planned > 0 && remaining === 0),
       ...extra,
@@ -411,19 +480,14 @@ export class BulkCommsService {
       select: { email: true, phone: true, userId: true },
     });
     const doneKeys = new Set<string>();
-    const doneUserIds = new Set<string>();
     for (const d of existing) {
-      const k = bulkRecipientKey(dto.channel, d);
+      const k = deliveryRecipientKey(dto.channel, d);
       if (k) doneKeys.add(k);
-      if (d.userId) doneUserIds.add(d.userId);
     }
 
     const pending = all.filter((r) => {
-      const k = bulkRecipientKey(dto.channel, r);
-      if (!k) return false;
-      if (doneKeys.has(k)) return false;
-      if (r.userId && doneUserIds.has(r.userId)) return false;
-      return true;
+      const k = deliveryRecipientKey(dto.channel, r);
+      return k && !doneKeys.has(k);
     });
 
     if (!pending.length) {
@@ -667,7 +731,12 @@ export class BulkCommsService {
     return this.processFailedBatch(campaignId, this.dtoFromCampaign(c), BulkCommsService.processBatchSize());
   }
 
-  async getCampaign(id: string, deliveriesPage = 1, deliveriesTake = 80) {
+  async getCampaign(
+    id: string,
+    deliveriesPage = 1,
+    deliveriesTake = 80,
+    view: 'unique' | 'all' = 'unique',
+  ) {
     const page = Math.max(1, deliveriesPage);
     const take = Math.min(Math.max(deliveriesTake, 1), 200);
     const skip = (page - 1) * take;
@@ -681,25 +750,45 @@ export class BulkCommsService {
     });
     if (!c) throw new NotFoundException('Campagne niet gevonden');
 
-    const [deliveries, deliveryTotal, opened] = await Promise.all([
-      this.prisma.bulkMessageDelivery.findMany({
-        where: { campaignId: id },
-        orderBy: [{ openedAt: 'desc' }, { sentAt: 'desc' }],
-        skip,
-        take,
-        include: {
-          user: {
-            select: { id: true, email: true, firstName: true, lastName: true },
-          },
-        },
-      }),
+    const deliveryInclude = {
+      user: {
+        select: { id: true, email: true, firstName: true, lastName: true },
+      },
+    } as const;
+
+    const [rawTotal, opened] = await Promise.all([
       this.prisma.bulkMessageDelivery.count({ where: { campaignId: id } }),
       this.prisma.bulkMessageDelivery.count({
         where: { campaignId: id, openedAt: { not: null } },
       }),
     ]);
 
-    const planned = c.targetCount > 0 ? c.targetCount : deliveryTotal;
+    let deliveries: Awaited<
+      ReturnType<typeof this.prisma.bulkMessageDelivery.findMany<{ include: typeof deliveryInclude }>>
+    > | ReturnType<BulkCommsService['foldDeliveries']>;
+    let deliveriesTotal: number;
+
+    if (view === 'all') {
+      deliveries = await this.prisma.bulkMessageDelivery.findMany({
+        where: { campaignId: id },
+        orderBy: [{ openedAt: 'desc' }, { sentAt: 'desc' }],
+        skip,
+        take,
+        include: deliveryInclude,
+      });
+      deliveriesTotal = rawTotal;
+    } else {
+      const allRows = await this.prisma.bulkMessageDelivery.findMany({
+        where: { campaignId: id },
+        orderBy: [{ sentAt: 'asc' }, { createdAt: 'asc' }],
+        include: deliveryInclude,
+      });
+      const folded = this.foldDeliveries(c.channel, allRows);
+      deliveriesTotal = folded.length;
+      deliveries = folded.slice(skip, skip + take);
+    }
+
+    const planned = c.targetCount > 0 ? c.targetCount : deliveriesTotal;
     const progress = await this.campaignProgress(id);
     const agg = await this.aggregateUniqueDeliveryStats(id, c.channel);
 
@@ -707,17 +796,21 @@ export class BulkCommsService {
       ...c,
       sentCount: agg.sent,
       failedCount: agg.failed,
+      deliveriesView: view,
       deliveries,
       deliveriesPage: page,
       deliveriesTake: take,
-      deliveriesTotal: deliveryTotal,
+      deliveriesTotal,
+      rawLogRows: rawTotal,
       stats: {
         sent: agg.sent,
         failed: agg.failed,
         pending: agg.pending,
         opened,
         deliveryRows: agg.totalRows,
-        duplicateAttempts: Math.max(0, agg.totalRows - agg.uniqueRecipients),
+        rawLogRows: rawTotal,
+        totalDeliveredAttempts: agg.totalDeliveredAttempts,
+        duplicateAttempts: agg.duplicateAttempts,
         uniqueRecipients: agg.uniqueRecipients,
         planned,
         done: progress.done,
@@ -964,6 +1057,25 @@ export class BulkCommsService {
     });
     return { ok: true, emailMasked: maskEmail(email) };
   }
+}
+
+function deliveryRecipientKey(
+  channel: string,
+  row: {
+    userId?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    id?: string;
+  },
+): string | null {
+  if (row.userId) return `user:${row.userId}`;
+  const contact = bulkRecipientKey(channel, row);
+  if (contact) return contact;
+  const rawPhone = row.phone?.replace(/\s/g, '') || '';
+  if (channel === 'sms' && rawPhone) return `rawphone:${rawPhone}`;
+  const e = normalizeBulkEmail(row.email);
+  if (channel === 'email' && e) return `email:${e}`;
+  return row.id ? `row:${row.id}` : null;
 }
 
 function bulkRecipientKey(
