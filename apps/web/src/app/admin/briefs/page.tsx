@@ -1237,58 +1237,60 @@ export default function AdminBriefsPage() {
                   <span className="font-semibold text-ink">{responseStatusLabel(x.status)}</span>
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{x.message}</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    className="rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-semibold text-burgundy hover:bg-burgundy/5"
-                    onClick={() => setSheetModel(x.model)}
-                  >
-                    Modellenfiche
-                  </button>
-                  {can('admin.briefs.write') ? (
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    {can('admin.briefs.write') && x.status === 'submitted' ? (
+                      <>
+                        <button
+                          type="button"
+                          className="rounded bg-emerald-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-800"
+                          onClick={() => patchResponse(x.id, 'accepted')}
+                        >
+                          Gekozen
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded bg-red-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-red-800"
+                          onClick={() => patchResponse(x.id, 'declined')}
+                        >
+                          Niet gekozen
+                        </button>
+                      </>
+                    ) : null}
+                    {can('admin.briefs.write') && x.status === 'accepted' ? (
+                      <button
+                        type="button"
+                        className="border border-ink bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:bg-zinc-100"
+                        onClick={() => downloadContract(x.id)}
+                      >
+                        Contract genereren (HTML)
+                      </button>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2 sm:ml-auto">
                     <button
                       type="button"
-                      className="rounded border border-line bg-white px-2 py-1 text-[11px] text-muted hover:bg-zinc-50 hover:text-ink"
-                      onClick={() =>
-                        void removeResponse(
-                          x.id,
-                          [x.model.firstName, x.model.lastName].filter(Boolean).join(' ') || x.model.email,
-                        )
-                      }
+                      className="rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-semibold text-burgundy hover:bg-burgundy/5"
+                      onClick={() => setSheetModel(x.model)}
                     >
-                      Verwijderen
+                      Modellenfiche
                     </button>
-                  ) : null}
+                    {can('admin.briefs.write') ? (
+                      <button
+                        type="button"
+                        className="rounded border border-line bg-white px-2 py-1 text-[11px] text-muted hover:bg-zinc-50 hover:text-ink"
+                        onClick={() =>
+                          void removeResponse(
+                            x.id,
+                            [x.model.firstName, x.model.lastName].filter(Boolean).join(' ') || x.model.email,
+                          )
+                        }
+                      >
+                        Verwijderen
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-                {can('admin.briefs.write') && x.status === 'submitted' ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      className="rounded bg-emerald-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-800"
-                      onClick={() => patchResponse(x.id, 'accepted')}
-                    >
-                      Gekozen
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded bg-red-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-red-800"
-                      onClick={() => patchResponse(x.id, 'declined')}
-                    >
-                      Niet gekozen
-                    </button>
-                  </div>
-                ) : null}
-                {can('admin.briefs.write') && x.status === 'accepted' ? (
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      className="border border-ink bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:bg-zinc-100"
-                      onClick={() => downloadContract(x.id)}
-                    >
-                      Contract genereren (HTML)
-                    </button>
-                  </div>
-                ) : null}
                   </div>
                 </div>
               </li>
