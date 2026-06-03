@@ -87,6 +87,7 @@ model User {
   favoritesReceived ModelAdminFavorite[] @relation("ModelFavoritedBy")
   /// Laatste succesvolle login (wachtwoord) — getoond in modellenportaal Historiek.
   lastLoginAt     DateTime?
+  loginLogs       UserLoginLog[]
   /// Na inloggen met tijdelijk wachtwoord: verplicht nieuw wachtwoord kiezen.
   mustChangePassword Boolean @default(false)
   passwordResetTokens PasswordResetToken[]
@@ -476,7 +477,18 @@ model Subscription {
   updatedAt            DateTime @updatedAt
 }
 
-/// Extensies / snippets (metadata; uitvoering later sandboxed)
+/// Elke succesvolle wachtwoord-login (voor admin-statistieken).
+model UserLoginLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
+}
+
+/// Extensies / snippets (metadata; sandboxed uitvoering)
 model PluginSnippet {
   id          String   @id @default(uuid())
   slug        String   @unique

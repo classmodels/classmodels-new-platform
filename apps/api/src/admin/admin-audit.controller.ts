@@ -16,7 +16,7 @@ export class AdminAuditController {
     return this.prisma.auditLog.findMany({
       orderBy: { createdAt: 'desc' },
       take,
-      include: { user: { select: { id: true, email: true } } },
+      include: { user: { select: { id: true, email: true, firstName: true, lastName: true } } },
     });
   }
 }

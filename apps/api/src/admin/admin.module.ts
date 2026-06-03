@@ -14,7 +14,6 @@ import { AdminAuditController } from './admin-audit.controller';
 import { AdminSubscriptionsController } from './admin-subscriptions.controller';
 import { AdminPremiumController } from './admin-premium.controller';
 import { AdminPremiumService } from './admin-premium.service';
-import { AdminPluginsController } from './admin-plugins.controller';
 import { AdminBriefsController } from './admin-briefs.controller';
 import { AdminTryoutModeshowController } from './admin-tryout-modeshow.controller';
 import { AdminModelSetCardController } from './admin-model-set-card.controller';
@@ -33,7 +32,6 @@ import { PaymentsModule } from '../payments/payments.module';
     AdminAuditController,
     AdminSubscriptionsController,
     AdminPremiumController,
-    AdminPluginsController,
     AdminBriefsController,
     AdminTryoutModeshowController,
     AdminModelSetCardController,

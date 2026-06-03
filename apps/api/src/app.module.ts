@@ -18,6 +18,7 @@ import { PushModule } from './push/push.module';
 import { PhotographerModule } from './photographer/photographer.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { BulkCommsModule } from './bulk-comms/bulk-comms.module';
+import { PluginsModule } from './plugins/plugins.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { BulkCommsModule } from './bulk-comms/bulk-comms.module';
     PhotographerModule,
     AnalyticsModule,
     BulkCommsModule,
+    PluginsModule,
   ],
 })
 export class AppModule {}

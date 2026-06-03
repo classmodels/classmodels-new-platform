@@ -23,6 +23,7 @@ export const PERMISSION_CATALOG: {
       { id: 'admin.audit.read', label: 'Auditlog bekijken' },
       { id: 'admin.subscriptions.read', label: 'Abonnementen bekijken' },
       { id: 'admin.snippets.read', label: 'Snippets bekijken' },
+      { id: 'admin.snippets.write', label: 'Snippets uploaden en activeren' },
       { id: 'admin.briefs.read', label: 'Casting-aanvragen bekijken' },
       { id: 'admin.briefs.write', label: 'Casting-aanvragen beheren' },
       { id: 'admin.testshoot.read', label: 'Testshoot bekijken' },

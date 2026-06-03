@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { brusselsDayBounds, brusselsRangeFromDaysBack, brusselsYmd } from './brussels-day-range';
+
+const MODEL_ROLE_SLUGS = ['model', 'newface', 'tryout', 'inactief'] as const;
 
 const GUEST_MARKETING_SLUGS = ['gratis-fotoshoot', 'casting', 'intake-gesprek'] as const;
 const DAY_LABELS = ['Zo', 'Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za'];
@@ -256,6 +259,62 @@ export class AnalyticsService {
           uniqueVisitors: todayUniqueVisitors,
         },
       },
+    };
+  }
+
+  private modelRoleFilter() {
+    return { roles: { some: { role: { slug: { in: [...MODEL_ROLE_SLUGS] } } } } };
+  }
+
+  private displayName(u: { firstName: string | null; lastName: string | null; email: string }) {
+    const n = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+    return n || u.email;
+  }
+
+  /** Inloglijst voor modellen (vandaag of laatste N dagen, Brusselse kalenderdag). */
+  async listModelLogins(period: 'today' | '7d' | '30d' = 'today') {
+    const range =
+      period === 'today'
+        ? brusselsDayBounds(brusselsYmd())
+        : brusselsRangeFromDaysBack(period === '7d' ? 7 : 30);
+
+    const logs = await this.prisma.userLoginLog.findMany({
+      where: {
+        createdAt: { gte: range.from, lte: range.to },
+        user: this.modelRoleFilter(),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: period === 'today' ? 500 : 2000,
+      select: {
+        id: true,
+        createdAt: true,
+        user: {
+          select: { id: true, email: true, firstName: true, lastName: true },
+        },
+      },
+    });
+
+    const periodLabel =
+      period === 'today'
+        ? `Vandaag (${brusselsYmd()})`
+        : period === '7d'
+          ? 'Laatste 7 dagen'
+          : 'Laatste 30 dagen';
+
+    return {
+      period,
+      periodLabel,
+      timezone: 'Europe/Brussels',
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+      total: logs.length,
+      rows: logs.map((l) => ({
+        id: l.id,
+        userId: l.user.id,
+        name: this.displayName(l.user),
+        email: l.user.email,
+        loggedAt: l.createdAt.toISOString(),
+      })),
     };
   }
 }

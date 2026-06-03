@@ -14,4 +14,11 @@ export class AdminAnalyticsController {
   dashboard(@Query('from') from?: string, @Query('to') to?: string) {
     return this.analytics.getDashboard(from, to);
   }
+
+  @Get('model-logins')
+  @Permissions('admin.agenda.read')
+  modelLogins(@Query('period') period?: string) {
+    const p = period === '7d' || period === '30d' ? period : 'today';
+    return this.analytics.listModelLogins(p);
+  }
 }

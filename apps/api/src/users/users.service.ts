@@ -136,10 +136,16 @@ export class UsersService {
   }
 
   async recordLastLogin(userId: string) {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { lastLoginAt: new Date() },
-    });
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { lastLoginAt: now },
+      }),
+      this.prisma.userLoginLog.create({
+        data: { userId, createdAt: now },
+      }),
+    ]);
   }
 
   async patchProfile(userId: string, dto: PatchProfileDto) {

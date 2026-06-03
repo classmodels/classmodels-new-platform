@@ -7,12 +7,14 @@ import { ContentProvider } from '@/context/content-context';
 import { I18nProvider } from '@/i18n/context';
 import { PushSwRegister } from '@/components/PushSwRegister';
 import { PageViewTracker } from '@/components/PageViewTracker';
+import { PluginHeadInjector } from '@/components/PluginHeadInjector';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <I18nProvider>
       <LoadingProvider>
         <AuthProvider>
+          <PluginHeadInjector />
           <PageViewTracker />
           <PushSwRegister />
           <ContentProvider>{children}</ContentProvider>

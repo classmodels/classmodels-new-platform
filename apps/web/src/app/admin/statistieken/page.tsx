@@ -20,6 +20,21 @@ import {
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
+type ModelLoginRow = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  loggedAt: string;
+};
+
+type ModelLogins = {
+  period: string;
+  periodLabel: string;
+  total: number;
+  rows: ModelLoginRow[];
+};
+
 type Dashboard = {
   range: { from: string; to: string };
   bookings: {
@@ -88,6 +103,8 @@ export default function AdminStatistiekenPage() {
   const { token } = useAuth();
   const [range, setRange] = useState(defaultRange);
   const [data, setData] = useState<Dashboard | null>(null);
+  const [loginsToday, setLoginsToday] = useState<ModelLogins | null>(null);
+  const [logins7d, setLogins7d] = useState<ModelLogins | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -97,8 +114,14 @@ export default function AdminStatistiekenPage() {
     setErr(null);
     try {
       const q = new URLSearchParams({ from: range.from, to: range.to });
-      const d = await adminFetch<Dashboard>(`/admin/analytics/dashboard?${q}`, token);
+      const [d, today, week] = await Promise.all([
+        adminFetch<Dashboard>(`/admin/analytics/dashboard?${q}`, token),
+        adminFetch<ModelLogins>('/admin/analytics/model-logins?period=today', token),
+        adminFetch<ModelLogins>('/admin/analytics/model-logins?period=7d', token),
+      ]);
       setData(d);
+      setLoginsToday(today);
+      setLogins7d(week);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Laden mislukt');
     } finally {
@@ -202,9 +225,16 @@ export default function AdminStatistiekenPage() {
           <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Kpi label="Marketing-afspraken" value={data.bookings.marketingTotal} sub="fotoshoot + casting + intake" />
             <Kpi label="Paginaweergaven" value={data.traffic.totalPageViews} sub={`${data.traffic.uniqueSessions} sessies`} />
-            <Kpi label="Modellen (totaal)" value={data.users.totalModels} sub={`${data.users.modelsLoggedInInRange} ingelogd in periode`} />
+            <Kpi
+              label="Modellen (totaal)"
+              value={data.users.totalModels}
+              sub={`${loginsToday?.total ?? data.users.modelsLoggedInInRange} ingelogd vandaag · ${logins7d?.total ?? '—'} in 7 dagen`}
+            />
             <Kpi label="Nieuwe accounts" value={data.users.newAccountsInRange} sub={`${data.users.totalClients} klanten totaal`} />
           </section>
+
+          <ModelLoginsSection title="Modellen ingelogd vandaag" data={loginsToday} />
+          <ModelLoginsSection title="Modellen ingelogd — laatste 7 dagen" data={logins7d} />
 
           <section className="rounded-md border border-line bg-white p-4 shadow-sm">
             <h2 className="font-semibold text-ink">Gratis fotoshoot, casting & intake</h2>
@@ -417,6 +447,47 @@ export default function AdminStatistiekenPage() {
         <p className="text-sm text-muted">Statistieken laden…</p>
       ) : null}
     </div>
+  );
+}
+
+function formatLoginWhen(iso: string) {
+  return new Date(iso).toLocaleString('nl-BE', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+}
+
+function ModelLoginsSection({ title, data }: { title: string; data: ModelLogins | null }) {
+  if (!data) return null;
+  return (
+    <section className="rounded-md border border-line bg-white p-4 shadow-sm">
+      <h2 className="font-semibold text-ink">{title}</h2>
+      <p className="text-xs text-muted">
+        {data.periodLabel} · {data.total} login{data.total === 1 ? '' : 's'} (Brusselse tijd)
+      </p>
+      {data.rows.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">Geen inlogmomenten in deze periode.</p>
+      ) : (
+        <table className="mt-4 w-full text-sm">
+          <thead>
+            <tr className="border-b border-line text-left text-xs text-muted">
+              <th className="py-2 pr-4">Naam</th>
+              <th className="py-2 pr-4">E-mail</th>
+              <th className="py-2">Datum en uur</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.rows.map((r) => (
+              <tr key={r.id} className="border-b border-line/60">
+                <td className="py-2 pr-4 font-medium">{r.name}</td>
+                <td className="py-2 pr-4 text-muted">{r.email}</td>
+                <td className="py-2 whitespace-nowrap">{formatLoginWhen(r.loggedAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }
 
