@@ -83,5 +83,6 @@ WAT JE VAN COMBELL MOET WETEN / VRAGEN (kopieer antwoorden hier)
 TEST NA DEPLOY
 --------------------------------------------------------------------------------
 https://api.class-models.be/health  → JSON met status ok (geen api_not_ready, geen 502)
+https://www.class-models.be/__cm_api/boot-status  → diagnose (dbUrlConfigured, nestLive)
 https://www.class-models.be         → gewone site
 Inloggen/admin                      → via www, niet via api.

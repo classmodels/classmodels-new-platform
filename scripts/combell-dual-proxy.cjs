@@ -237,12 +237,57 @@ function hostToNest(hostRaw) {
   );
 }
 
+/** Pad zoals Nest het ziet (`/__cm_api/health` → `/health`). */
+function nestProbePath(urlPath) {
+  const pathOnly = String(urlPath || '').split('?')[0];
+  if (pathOnly.startsWith('/__cm_api/') || pathOnly === '/__cm_api') {
+    return stripCmApiProxyPrefix(pathOnly).split('?')[0];
+  }
+  return pathOnly;
+}
+
+function isHealthProbeRequest(req) {
+  const p = nestProbePath(req.url);
+  return p === '/health' || p.startsWith('/health/');
+}
+
+function isBootStatusRequest(req) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const p = nestProbePath(req.url);
+  return p === '/boot-status';
+}
+
+function bootStatusPayload() {
+  const dbUrl = (process.env.DB_URL || process.env.DATABASE_URL || '').trim();
+  return {
+    proxy: 'combell-dual',
+    proxyReady,
+    nestLive,
+    nestSpawnCount,
+    nestMaxSpawns: NEST_MAX_SPAWNS,
+    nestMain,
+    nestMainExists: fs.existsSync(nestMain),
+    dbUrlConfigured: dbUrl.length > 0,
+    combellHostRouter: process.env.COMBELL_HOST_ROUTER ?? null,
+    strictNest,
+    hint:
+      nestLive
+        ? 'API draait. Probeer opnieuw in te loggen.'
+        : nestSpawnCount >= NEST_MAX_SPAWNS
+          ? 'Nest crasht herhaaldelijk. Controleer DB_URL en runtime-logs in Combell, herstart de app.'
+          : 'Nest start nog of DB_URL ontbreekt. Zet DB_URL in Combell → Environment, herstart classmodels-web.',
+  };
+}
+
 /** API-paden of api.* host → Nest (niet Next, anders 404 op /health). */
 function shouldRouteToNest(req) {
   const pathOnly = String(req.url || '').split('?')[0];
   if (
     (req.method === 'GET' || req.method === 'HEAD') &&
-    (pathOnly === '/health' || pathOnly.startsWith('/health/'))
+    (pathOnly === '/health' ||
+      pathOnly.startsWith('/health/') ||
+      pathOnly === '/__cm_api/health' ||
+      pathOnly.startsWith('/__cm_api/health/'))
   ) {
     return true;
   }
@@ -330,16 +375,29 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const pathOnly = String(req.url || '').split('?')[0];
-  const isHealthProbe = pathOnly === '/health' || pathOnly.startsWith('/health/');
+  if (isBootStatusRequest(req)) {
+    const body = JSON.stringify(bootStatusPayload(), null, 2);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    if (req.method === 'GET') res.end(body);
+    else res.end();
+    return;
+  }
+
+  const isHealthProbe = isHealthProbeRequest(req);
   const toNest = shouldRouteToNest(req);
   /** `/health` altijd doorsturen: zo zie je echte API-response of 502; geen blokkade op `nestLive`. */
   if (toNest && !nestLive && !isHealthProbe) {
+    const atMax = nestSpawnCount >= NEST_MAX_SPAWNS;
     res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
         error: 'api_not_ready',
-        message: 'De API start nog op of kon niet opstarten. Controleer DB_URL en serverlogs.',
+        message: atMax
+          ? 'De API crasht herhaaldelijk. Controleer DB_URL en de runtime-logs in Combell, herstart daarna de app.'
+          : 'De API start nog op of kon niet opstarten. Controleer DB_URL en serverlogs.',
+        bootStatus: '/__cm_api/boot-status',
+        nestSpawnCount,
+        nestMaxSpawns: NEST_MAX_SPAWNS,
       }),
     );
     return;

@@ -22,7 +22,11 @@ export class PluginRuntimeService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.reload();
+    try {
+      await this.reload();
+    } catch (e) {
+      console.error('[PluginRuntime] laden bij start mislukt (API blijft draaien):', e);
+    }
   }
 
   async reload() {
