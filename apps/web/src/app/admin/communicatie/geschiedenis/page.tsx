@@ -65,7 +65,10 @@ export default function CommunicatieGeschiedenisPage() {
               <td className="p-2 uppercase">{c.channel}</td>
               <td className="p-2 max-w-[200px] truncate">{c.subject || '—'}</td>
               <td className="p-2">
-                {c.sentCount} ok · {c.failedCount} mis · {c.skippedCount} overgeslagen
+                <span className="text-emerald-800">{c.sentCount} gelukt</span>
+                {' · '}
+                <span className="text-red-700">{c.failedCount} mislukt</span>
+                {c.skippedCount > 0 ? ` · ${c.skippedCount} overgeslagen` : ''}
                 {c.targetCount ? ` · ${c.targetCount} gepland` : ''}
               </td>
               <td className="p-2 text-muted">{c.list?.name || '—'}</td>

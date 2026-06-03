@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
+import {
+  AgendaNotificationService,
+  normalizeBelgiumMsisdn,
+} from '../agenda/agenda-notifications.service';
 import { appendTrackingPixel, trackingBaseUrl, webPublicBaseUrl, wrapBulkMailHtml } from './bulk-mail-layout';
 import type {
   AddBulkListEntryDto,
@@ -84,30 +87,72 @@ export class BulkCommsService {
     };
   }
 
+  /** Unieke ontvangers op basis van genormaliseerd e-mail/GSM (voorkomt dubbele tellingen). */
+  private async aggregateUniqueDeliveryStats(campaignId: string, channel: string) {
+    const rows = await this.prisma.bulkMessageDelivery.findMany({
+      where: { campaignId },
+      select: { status: true, email: true, phone: true, userId: true },
+    });
+    const byRecipient = new Map<string, 'sent' | 'failed' | 'pending'>();
+    for (const d of rows) {
+      const key =
+        bulkRecipientKey(channel, d) || (d.userId ? `user:${d.userId}` : null);
+      if (!key) continue;
+      const prev = byRecipient.get(key);
+      if (prev === 'sent') continue;
+      if (d.status === 'sent') byRecipient.set(key, 'sent');
+      else if (d.status === 'failed') byRecipient.set(key, 'failed');
+      else if (!prev) byRecipient.set(key, 'pending');
+    }
+    let sent = 0;
+    let failed = 0;
+    let pending = 0;
+    for (const s of byRecipient.values()) {
+      if (s === 'sent') sent += 1;
+      else if (s === 'failed') failed += 1;
+      else pending += 1;
+    }
+    return {
+      sent,
+      failed,
+      pending,
+      totalRows: rows.length,
+      uniqueRecipients: byRecipient.size,
+    };
+  }
+
   private async campaignProgress(campaignId: string, extra: Record<string, unknown> = {}) {
     const c = await this.prisma.bulkMessageCampaign.findUnique({
       where: { id: campaignId },
       select: {
+        channel: true,
         status: true,
-        sentCount: true,
-        failedCount: true,
         skippedCount: true,
         targetCount: true,
       },
     });
     if (!c) throw new NotFoundException('Campagne niet gevonden');
-    const processed = c.sentCount + c.failedCount + c.skippedCount;
-    const planned = c.targetCount > 0 ? c.targetCount : processed;
+    const agg = await this.aggregateUniqueDeliveryStats(campaignId, c.channel);
+    await this.prisma.bulkMessageCampaign.update({
+      where: { id: campaignId },
+      data: { sentCount: agg.sent, failedCount: agg.failed },
+    });
+    const processed = agg.sent + agg.failed + c.skippedCount;
+    const planned = c.targetCount > 0 ? c.targetCount : Math.max(processed, agg.uniqueRecipients);
     const remaining = Math.max(0, planned - processed);
+    const duplicateAttempts = Math.max(0, agg.totalRows - agg.uniqueRecipients);
     return {
       campaignId,
       status: c.status,
-      sentCount: c.sentCount,
-      failedCount: c.failedCount,
+      sentCount: agg.sent,
+      failedCount: agg.failed,
       skippedCount: c.skippedCount,
+      pendingCount: agg.pending,
       planned,
       processed,
       remaining,
+      deliveryRows: agg.totalRows,
+      duplicateAttempts,
       done: c.status === 'completed' || (planned > 0 && remaining === 0),
       ...extra,
     };
@@ -363,20 +408,22 @@ export class BulkCommsService {
 
     const existing = await this.prisma.bulkMessageDelivery.findMany({
       where: { campaignId },
-      select: { email: true, phone: true },
+      select: { email: true, phone: true, userId: true },
     });
-    const doneKeys = new Set(
-      existing
-        .map((d) => normalizeBulkEmail(d.email) || d.phone?.replace(/\s/g, '') || '')
-        .filter(Boolean),
-    );
+    const doneKeys = new Set<string>();
+    const doneUserIds = new Set<string>();
+    for (const d of existing) {
+      const k = bulkRecipientKey(dto.channel, d);
+      if (k) doneKeys.add(k);
+      if (d.userId) doneUserIds.add(d.userId);
+    }
 
     const pending = all.filter((r) => {
-      const k =
-        dto.channel === 'email'
-          ? normalizeBulkEmail(r.email)
-          : r.phone?.replace(/\s/g, '') || '';
-      return k && !doneKeys.has(k);
+      const k = bulkRecipientKey(dto.channel, r);
+      if (!k) return false;
+      if (doneKeys.has(k)) return false;
+      if (r.userId && doneUserIds.has(r.userId)) return false;
+      return true;
     });
 
     if (!pending.length) {
@@ -530,8 +577,15 @@ export class BulkCommsService {
         if ((sent + failed + skipped) % 25 === 0) {
           await this.prisma.bulkMessageCampaign.update({
             where: { id: campaignId },
-            data: { sentCount: sent, failedCount: failed, skippedCount: skipped },
+            data: {
+              sentCount: { increment: sent },
+              failedCount: { increment: failed },
+              skippedCount: { increment: skipped },
+            },
           });
+          sent = 0;
+          failed = 0;
+          skipped = 0;
         }
       }
       this.notifications.resetSmtpPool();
@@ -539,8 +593,8 @@ export class BulkCommsService {
       const text = dto.smsBody?.trim();
       if (!text) throw new BadRequestException('SMS-tekst is verplicht.');
       for (const r of toSend) {
-        const phone = r.phone?.trim();
-        if (!phone) {
+        const msisdn = normalizeBelgiumMsisdn(r.phone);
+        if (!msisdn) {
           skipped += 1;
           continue;
         }
@@ -549,17 +603,21 @@ export class BulkCommsService {
             campaignId,
             userId: r.userId || null,
             email: r.email || null,
-            phone,
+            phone: msisdn,
             displayName: r.displayName || null,
             status: 'pending',
           },
         });
-        const ok = await this.notifications.sendConfiguredSms(phone, text);
+        const ok = await this.notifications.sendConfiguredSms(msisdn, text);
         await this.prisma.bulkMessageDelivery.update({
           where: { id: delivery.id },
           data: ok
             ? { status: 'sent', sentAt: new Date() }
-            : { status: 'failed', errorMessage: 'SMS-verzending mislukt' },
+            : {
+                status: 'failed',
+                errorMessage:
+                  'SMS niet verstuurd (controleer BulkSMS-gebruikersnaam/wachtwoord in Agenda mail/SMS).',
+              },
         });
         if (ok) {
           sent += 1;
@@ -570,7 +628,11 @@ export class BulkCommsService {
 
     await this.prisma.bulkMessageCampaign.update({
       where: { id: campaignId },
-      data: { sentCount: sent, failedCount: failed, skippedCount: skipped },
+      data: {
+        sentCount: { increment: sent },
+        failedCount: { increment: failed },
+        skippedCount: { increment: skipped },
+      },
     });
 
     return { campaignId, sent, failed, skipped, total: toSend.length, background: false as const };
@@ -639,17 +701,24 @@ export class BulkCommsService {
 
     const planned = c.targetCount > 0 ? c.targetCount : deliveryTotal;
     const progress = await this.campaignProgress(id);
+    const agg = await this.aggregateUniqueDeliveryStats(id, c.channel);
 
     return {
       ...c,
+      sentCount: agg.sent,
+      failedCount: agg.failed,
       deliveries,
       deliveriesPage: page,
       deliveriesTake: take,
       deliveriesTotal: deliveryTotal,
       stats: {
-        sent: c.sentCount,
+        sent: agg.sent,
+        failed: agg.failed,
+        pending: agg.pending,
         opened,
-        total: deliveryTotal,
+        deliveryRows: agg.totalRows,
+        duplicateAttempts: Math.max(0, agg.totalRows - agg.uniqueRecipients),
+        uniqueRecipients: agg.uniqueRecipients,
         planned,
         done: progress.done,
       },
@@ -789,8 +858,16 @@ export class BulkCommsService {
   }
 
   private async finalizeRecipients(rows: BulkRecipientRow[], channel: string): Promise<BulkRecipientRow[]> {
-    if (channel !== 'email') {
-      return rows.sort((a, b) => a.displayName.localeCompare(b.displayName, 'nl'));
+    if (channel === 'sms') {
+      const seen = new Set<string>();
+      const out: BulkRecipientRow[] = [];
+      for (const r of rows) {
+        const msisdn = normalizeBelgiumMsisdn(r.phone);
+        if (!msisdn || seen.has(msisdn)) continue;
+        seen.add(msisdn);
+        out.push({ ...r, phone: msisdn, eligible: true });
+      }
+      return out.sort((a, b) => a.displayName.localeCompare(b.displayName, 'nl'));
     }
     const unsub = await this.loadUnsubscribedEmails();
     const seen = new Set<string>();
@@ -887,6 +964,18 @@ export class BulkCommsService {
     });
     return { ok: true, emailMasked: maskEmail(email) };
   }
+}
+
+function bulkRecipientKey(
+  channel: string,
+  row: { email?: string | null; phone?: string | null },
+): string | null {
+  if (channel === 'email') {
+    const e = normalizeBulkEmail(row.email);
+    return e ? `email:${e}` : null;
+  }
+  const p = normalizeBelgiumMsisdn(row.phone);
+  return p ? `phone:${p}` : null;
 }
 
 function normalizeBulkEmail(raw: string | null | undefined): string | null {

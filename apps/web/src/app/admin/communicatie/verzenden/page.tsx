@@ -56,6 +56,8 @@ export default function CommunicatieVerzendenPage() {
     planned: number;
     sent: number;
     failed: number;
+    skipped: number;
+    duplicateAttempts?: number;
   } | null>(null);
 
   const loadMeta = useCallback(async () => {
@@ -160,13 +162,15 @@ export default function CommunicatieVerzendenPage() {
       });
       const campaignId = res.campaignId;
       setLastCampaignId(campaignId);
-      setSendProgress({ processed: 0, planned: 0, sent: 0, failed: 0 });
+      setSendProgress({ processed: 0, planned: 0, sent: 0, failed: 0, skipped: 0 });
 
       type Progress = {
         processed: number;
         planned: number;
         sentCount: number;
         failedCount: number;
+        skippedCount?: number;
+        duplicateAttempts?: number;
         done: boolean;
       };
 
@@ -201,10 +205,16 @@ export default function CommunicatieVerzendenPage() {
           planned: p.planned,
           sent: p.sentCount,
           failed: p.failedCount,
+          skipped: p.skippedCount ?? 0,
+          duplicateAttempts: p.duplicateAttempts,
         });
         if (p.done || (p.planned > 0 && p.processed >= p.planned)) {
+          const dup =
+            p.duplicateAttempts && p.duplicateAttempts > 0
+              ? ` (${p.duplicateAttempts} dubbele pogingen in log — zie geschiedenis)`
+              : '';
           setOk(
-            `Klaar: ${p.sentCount} verzonden, ${p.failedCount} mislukt (${p.processed} van ${p.planned} verwerkt).`,
+            `Klaar: ${p.sentCount} gelukt · ${p.failedCount} mislukt · ${p.skippedCount ?? 0} overgeslagen (${p.processed} van ${p.planned} ontvangers)${dup}.`,
           );
           break;
         }
@@ -464,9 +474,21 @@ export default function CommunicatieVerzendenPage() {
             />
           </div>
           <p className="text-xs text-muted">
-            {sendProgress.processed} / {sendProgress.planned} verwerkt · {sendProgress.sent} verzonden ·{' '}
-            {sendProgress.failed} mislukt
+            {sendProgress.processed} / {sendProgress.planned} ontvangers afgehandeld ·{' '}
+            <span className="text-emerald-800">{sendProgress.sent} gelukt</span> ·{' '}
+            <span className="text-red-700">{sendProgress.failed} mislukt</span>
+            {sendProgress.skipped > 0 ? (
+              <>
+                {' '}
+                · <span className="text-amber-800">{sendProgress.skipped} overgeslagen</span>
+              </>
+            ) : null}
           </p>
+          {sendProgress.duplicateAttempts && sendProgress.duplicateAttempts > 0 ? (
+            <p className="text-xs text-amber-800">
+              Let op: {sendProgress.duplicateAttempts} dubbele verzendpogingen in het log (oud gedrag vóór fix).
+            </p>
+          ) : null}
         </div>
       ) : busy && sendProgress ? (
         <div className="rounded-md border border-line bg-white p-4 text-xs text-muted">

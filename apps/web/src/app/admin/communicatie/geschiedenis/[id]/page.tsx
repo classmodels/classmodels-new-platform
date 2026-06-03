@@ -32,7 +32,17 @@ type CampaignDetail = {
   status?: string;
   createdAt: string;
   list: { name: string } | null;
-  stats: { sent: number; opened: number; total: number; planned?: number; done?: boolean };
+  stats: {
+    sent: number;
+    failed?: number;
+    pending?: number;
+    opened: number;
+    deliveryRows?: number;
+    duplicateAttempts?: number;
+    uniqueRecipients?: number;
+    planned?: number;
+    done?: boolean;
+  };
   deliveries: DeliveryRow[];
   deliveriesPage: number;
   deliveriesTotal: number;
@@ -122,11 +132,36 @@ export default function CommunicatieGeschiedenisDetailPage() {
         </p>
         {data.subject ? <p>Onderwerp: {data.subject}</p> : null}
         {data.list ? <p>Lijst: {data.list.name}</p> : null}
-        <p>
-          Verzonden: {data.sentCount} · Mislukt: {data.failedCount} · Geopend: {data.stats.opened} · Verwerkt:{' '}
-          {data.stats.total}
-          {planned ? ` · Gepland: ${planned}` : ''}
+        <p className="leading-relaxed">
+          <strong className="text-emerald-800">{data.stats.sent} gelukt</strong>
+          {' · '}
+          <strong className="text-red-700">{data.stats.failed ?? data.failedCount} mislukt</strong>
+          {data.channel === 'email' ? (
+            <>
+              {' · '}
+              <span>{data.stats.opened} e-mail geopend</span>
+            </>
+          ) : null}
+          {planned ? (
+            <>
+              {' · '}
+              <span>{planned} geplande ontvangers</span>
+            </>
+          ) : null}
+          {(data.stats.pending ?? 0) > 0 ? (
+            <>
+              {' · '}
+              <span className="text-amber-800">{data.stats.pending} nog in wachtrij</span>
+            </>
+          ) : null}
         </p>
+        {(data.stats.duplicateAttempts ?? 0) > 0 ? (
+          <p className="text-xs text-amber-800">
+            Er staan {data.stats.deliveryRows ?? data.deliveriesTotal} regels in het log waarvan{' '}
+            {data.stats.duplicateAttempts} dubbele pogingen (zelfde nummer/e-mail meerdere keren). Alleen unieke
+            ontvangers tellen mee in gelukt/mislukt.
+          </p>
+        ) : null}
         {data.channel === 'email' && failedTotal > 0 && can('admin.push.send') ? (
           <button
             type="button"
@@ -188,7 +223,15 @@ export default function CommunicatieGeschiedenisDetailPage() {
                 <tr key={d.id} className="border-t border-line">
                   <td className="p-2">{name}</td>
                   <td className="p-2 text-muted">{contact || '—'}</td>
-                  <td className="p-2">{d.status}</td>
+                  <td className="p-2">
+                    {d.status === 'sent'
+                      ? 'Verzonden'
+                      : d.status === 'failed'
+                        ? 'Mislukt'
+                        : d.status === 'pending'
+                          ? 'In wachtrij'
+                          : d.status}
+                  </td>
                   <td className="p-2 whitespace-nowrap">
                     {d.sentAt ? new Date(d.sentAt).toLocaleString('nl-BE') : '—'}
                   </td>
