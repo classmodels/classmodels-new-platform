@@ -87,7 +87,7 @@ export default function CommunicatieGeschiedenisDetailPage() {
   }, [load]);
 
   const failedTotal = data?.failedCount ?? 0;
-  const planned = data?.stats.planned ?? data?.stats.total ?? 0;
+  const planned = data?.stats.planned ?? data?.deliveriesTotal ?? 0;
 
   const retryFailed = async () => {
     if (!token || !id || !can('admin.push.send')) return;
