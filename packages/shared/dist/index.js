@@ -20,3 +20,4 @@ __exportStar(require("./design-tokens"), exports);
 __exportStar(require("./agenda-booking-email-template"), exports);
 __exportStar(require("./agenda-mail-placeholders"), exports);
 __exportStar(require("./bulk-mail-layout"), exports);
+__exportStar(require("./email-layout"), exports);

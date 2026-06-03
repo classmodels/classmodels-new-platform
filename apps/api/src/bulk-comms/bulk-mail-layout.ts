@@ -1,4 +1,4 @@
-import { coerceOutgoingEmailHtml } from '../agenda/agenda-mail-placeholders';
+import { coerceOutgoingEmailHtml } from '../mail/email-layout';
 
 function escHtml(s: string): string {
   return s
@@ -34,13 +34,13 @@ export function wrapBulkMailHtml(
 ): string {
   const name = displayName?.trim();
   const greeting = name
-    ? `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;">Beste ${escHtml(name)},</p>`
-    : `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;">Beste,</p>`;
+    ? `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;text-align:left;">Beste ${escHtml(name)},</p>`
+    : `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;text-align:left;">Beste,</p>`;
   const body = (innerHtml || '').trim() || '<p></p>';
   const unsub = unsubscribeUrl?.trim()
-    ? `<p style="margin:20px 0 0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:12px;line-height:1.5;color:#71717a;"><a href="${escHtml(unsubscribeUrl.trim())}" style="color:#71717a;text-decoration:underline;">Uitschrijven van deze e-mails</a></p>`
+    ? `<p style="margin:20px 0 0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:12px;line-height:1.5;color:#71717a;text-align:left;"><a href="${escHtml(unsubscribeUrl.trim())}" style="color:#71717a;text-decoration:underline;">Uitschrijven van deze e-mails</a></p>`
     : '';
-  return coerceOutgoingEmailHtml(`${greeting}<div style="margin-top:8px">${body}</div>${unsub}${FOOTER}`);
+  return coerceOutgoingEmailHtml(`${greeting}<div style="margin-top:8px;text-align:left">${body}</div>${unsub}${FOOTER}`);
 }
 
 export function appendTrackingPixel(html: string, trackingUrl: string): string {

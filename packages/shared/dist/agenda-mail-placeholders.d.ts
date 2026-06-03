@@ -13,7 +13,4 @@ export declare function buildAgendaMailPlaceholderVars(ctx: AgendaMailPlaceholde
 export declare function buildAgendaMailPreviewDemoVars(): Record<string, string>;
 /** Vaste demowaarden voor SMS-voorbeeld (platte URL’s). */
 export declare function buildAgendaMailPreviewDemoVarsPlain(): Record<string, string>;
-/**
- * Zelfde als API: platte tekst of fragment in een nette HTML-mail zetten.
- */
-export declare function coerceOutgoingEmailHtml(inner: string): string;
+export { coerceOutgoingEmailHtml } from './email-layout';

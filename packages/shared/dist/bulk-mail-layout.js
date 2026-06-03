@@ -25,10 +25,10 @@ const BULK_MAIL_FOOTER_HTML = `
 function wrapBulkMailHtml(innerHtml, displayName) {
     const name = displayName?.trim();
     const greeting = name
-        ? `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;">Beste ${escHtml(name)},</p>`
-        : `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;">Beste,</p>`;
+        ? `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;text-align:left;">Beste ${escHtml(name)},</p>`
+        : `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;text-align:left;">Beste,</p>`;
     const body = (innerHtml || '').trim() || '<p></p>';
-    const inner = `${greeting}<div style="margin-top:8px">${body}</div>${BULK_MAIL_FOOTER_HTML}`;
+    const inner = `${greeting}<div style="margin-top:8px;text-align:left">${body}</div>${BULK_MAIL_FOOTER_HTML}`;
     return (0, agenda_mail_placeholders_1.coerceOutgoingEmailHtml)(inner);
 }
 function appendBulkMailTrackingPixel(html, trackingUrl) {
