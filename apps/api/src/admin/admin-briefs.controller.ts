@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -46,6 +47,12 @@ export class AdminBriefsController {
     @Body() dto: AdminPatchResponseDto,
   ) {
     return this.briefs.adminSetResponseStatus(responseId, dto.status);
+  }
+
+  @Delete('model-responses/:responseId')
+  @Permissions('admin.briefs.write')
+  deleteResponse(@Param('responseId', ParseUUIDPipe) responseId: string) {
+    return this.briefs.adminDeleteResponse(responseId);
   }
 
   @Get(':id/matching-summary')

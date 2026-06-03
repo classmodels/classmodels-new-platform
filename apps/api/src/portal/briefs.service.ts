@@ -450,6 +450,21 @@ export class BriefsService {
     return this.adminUpdate(id, dto);
   }
 
+  async adminDeleteResponse(responseId: string) {
+    const r = await this.prisma.modelBriefResponse.findUnique({
+      where: { id: responseId },
+      include: { brief: { select: { title: true } } },
+    });
+    if (!r) throw new NotFoundException();
+    await this.prisma.modelBriefResponse.delete({ where: { id: responseId } });
+    void this.modelHistory.log(r.modelUserId, 'brief_interest_withdrawn', {
+      briefId: r.briefId,
+      briefTitle: r.brief.title,
+      adminRemoved: true,
+    });
+    return { ok: true, id: responseId };
+  }
+
   async adminSetResponseStatus(responseId: string, status: 'accepted' | 'declined') {
     const r = await this.prisma.modelBriefResponse.findUnique({
       where: { id: responseId },

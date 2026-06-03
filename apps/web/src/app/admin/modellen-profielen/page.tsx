@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ModelSheetDialog } from '@/components/admin/ModelSheetDialog';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -32,64 +33,6 @@ function geslachtLabel(ms: Record<string, unknown> | null | undefined): string {
   if (!ms || !Array.isArray(ms.geslacht)) return '—';
   const arr = ms.geslacht.filter((x): x is string => typeof x === 'string');
   return arr.length ? arr.join(', ') : '—';
-}
-
-const MODEL_SHEET_LABELS: Record<string, string> = {
-  geboortedatum: 'Geboortedatum',
-  nationaliteit: 'Nationaliteit',
-  straat: 'Straat',
-  postcode: 'Postcode',
-  gemeente: 'Gemeente',
-  land: 'Land',
-  gsmModel: 'GSM (model)',
-  gsmMoeder: 'GSM moeder',
-  gsmVader: 'GSM vader',
-  facebook: 'Facebook',
-  instagram: 'Instagram',
-  tiktok: 'TikTok',
-  rekeningnummer: 'Rekeningnummer',
-  lengte: 'Lengte (cm)',
-  maat: 'Maat',
-  schoenmaat: 'Schoenmaat',
-  haarkleur: 'Haarkleur',
-  kleurOgen: 'Kleur ogen',
-  bhMaat: 'BH-maat',
-  borstomtrek: 'Borstomtrek',
-  confectiemaat: 'Confectiemaat',
-  heupomtrek: 'Heupomtrek',
-  jeansmaat: 'Jeansmaat',
-  taille: 'Taille',
-  overMij: 'Over mij',
-  ervaringen: 'Ervaringen',
-  geslacht: 'Geslacht',
-  beschikbaar: 'Beschikbaar voor',
-};
-
-function formatModelSheetRows(ms: Record<string, unknown> | null | undefined): { key: string; label: string; value: string }[] {
-  if (!ms || typeof ms !== 'object') return [];
-  const keys = Object.keys(ms).sort((a, b) => {
-    const la = MODEL_SHEET_LABELS[a] ?? a;
-    const lb = MODEL_SHEET_LABELS[b] ?? b;
-    return la.localeCompare(lb, 'nl');
-  });
-  const out: { key: string; label: string; value: string }[] = [];
-  for (const key of keys) {
-    const raw = ms[key];
-    let value = '—';
-    if (Array.isArray(raw)) {
-      value = raw.filter((x) => typeof x === 'string').join(', ') || '—';
-    } else if (raw != null && typeof raw === 'object') {
-      value = JSON.stringify(raw);
-    } else if (raw != null) {
-      value = String(raw);
-    }
-    out.push({
-      key,
-      label: MODEL_SHEET_LABELS[key] ?? key,
-      value: value.length > 2000 ? `${value.slice(0, 2000)}…` : value,
-    });
-  }
-  return out;
 }
 
 function formatLastLogin(iso?: string | null): string {
@@ -216,52 +159,11 @@ export default function AdminModellenProfielenPage() {
       {!sorted.length ? <p className="text-[11px] text-muted">Geen modellen gevonden.</p> : null}
 
       {sheetUser ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="sheet-title"
-          onClick={() => setSheetUser(null)}
-        >
-          <div
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-line bg-white p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="sheet-title" className="text-sm font-semibold text-ink">
-              Registratie — {[sheetUser.firstName, sheetUser.lastName].filter(Boolean).join(' ') || sheetUser.email}
-            </h2>
-            <p className="mt-0.5 text-[10px] text-muted">{sheetUser.email}</p>
-            <dl className="mt-3 space-y-2 border-t border-line pt-3 text-[11px]">
-              {formatModelSheetRows(sheetUser.modelSheet ?? null).length === 0 ? (
-                <p className="text-muted">Nog geen registratiegegevens (modelSheet leeg).</p>
-              ) : (
-                formatModelSheetRows(sheetUser.modelSheet ?? null).map((row) => (
-                  <div key={row.key} className="grid gap-1 sm:grid-cols-[160px_1fr] sm:gap-3">
-                    <dt className="font-semibold text-muted">{row.label}</dt>
-                    <dd className="break-words text-ink">{row.value}</dd>
-                  </div>
-                ))
-              )}
-            </dl>
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-3">
-              {can('admin.users.write') ? (
-                <Link
-                  className="rounded bg-burgundy px-3 py-1.5 text-[11px] text-white hover:bg-burgundyDeep"
-                  href={`/admin/gebruikers?edit=${sheetUser.id}`}
-                >
-                  Open in Gebruikers
-                </Link>
-              ) : null}
-              <button
-                type="button"
-                className="ml-auto text-[11px] text-muted hover:text-ink"
-                onClick={() => setSheetUser(null)}
-              >
-                Sluiten
-              </button>
-            </div>
-          </div>
-        </div>
+        <ModelSheetDialog
+          user={sheetUser}
+          onClose={() => setSheetUser(null)}
+          canEditUsers={can('admin.users.write')}
+        />
       ) : null}
     </div>
   );

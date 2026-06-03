@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ModelSheetDialog, type ModelSheetDialogUser } from '@/components/admin/ModelSheetDialog';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 
@@ -58,7 +59,14 @@ type BriefDetail = BriefList & {
     id: string;
     message: string;
     status: string;
-    model: { id: string; email: string; firstName?: string | null; lastName?: string | null };
+    model: {
+      id: string;
+      email: string;
+      firstName?: string | null;
+      lastName?: string | null;
+      phone?: string | null;
+      modelSheet?: Record<string, unknown> | null;
+    };
   }[];
 };
 
@@ -277,6 +285,7 @@ export default function AdminBriefsPage() {
   const [selResp, setSelResp] = useState<string[]>([]);
   const [pushCustomTitle, setPushCustomTitle] = useState('');
   const [pushCustomBody, setPushCustomBody] = useState('');
+  const [sheetModel, setSheetModel] = useState<ModelSheetDialogUser | null>(null);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.briefs.read')) return;
@@ -447,6 +456,45 @@ export default function AdminBriefsPage() {
     setMsg('Reactie bijgewerkt; model ontvangt een push.');
     if (detail) await open(detail.id);
     await load();
+  };
+
+  const removeResponse = async (responseId: string, modelName: string) => {
+    if (!token || !can('admin.briefs.write') || !detail) return;
+    if (
+      !window.confirm(
+        `Ingeschrijving van «${modelName}» verwijderen voor deze opdracht? Het model kan zich opnieuw inschrijven.`,
+      )
+    ) {
+      return;
+    }
+    setMsg('');
+    try {
+      await adminFetch(`/admin/briefs/model-responses/${responseId}`, token, { method: 'DELETE' });
+      setMsg('Ingeschrijving verwijderd.');
+      setSelResp((s) => s.filter((id) => {
+        const row = detail.responses.find((r) => r.id === responseId);
+        return row ? id !== row.model.id : true;
+      }));
+      await open(detail.id);
+      await load();
+    } catch (er) {
+      setMsg(er instanceof Error ? er.message : 'Verwijderen mislukt');
+    }
+  };
+
+  const responseStatusLabel = (status: string) => {
+    switch (status) {
+      case 'submitted':
+        return 'Ingeschreven';
+      case 'accepted':
+        return 'Gekozen';
+      case 'declined':
+        return 'Niet gekozen';
+      case 'withdrawn':
+        return 'Ingetrokken';
+      default:
+        return status;
+    }
   };
 
   const downloadContract = async (responseId: string) => {
@@ -1186,9 +1234,32 @@ export default function AdminBriefsPage() {
                   <div className="min-w-0 flex-1">
                 <p className="text-muted">
                   {(x.model.firstName || '') + ' ' + (x.model.lastName || '')} ({x.model.email}) —{' '}
-                  <span className="font-semibold text-ink">{x.status}</span>
+                  <span className="font-semibold text-ink">{responseStatusLabel(x.status)}</span>
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{x.message}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-semibold text-burgundy hover:bg-burgundy/5"
+                    onClick={() => setSheetModel(x.model)}
+                  >
+                    Modellenfiche
+                  </button>
+                  {can('admin.briefs.write') ? (
+                    <button
+                      type="button"
+                      className="rounded border border-line bg-white px-2 py-1 text-[11px] text-muted hover:bg-zinc-50 hover:text-ink"
+                      onClick={() =>
+                        void removeResponse(
+                          x.id,
+                          [x.model.firstName, x.model.lastName].filter(Boolean).join(' ') || x.model.email,
+                        )
+                      }
+                    >
+                      Verwijderen
+                    </button>
+                  ) : null}
+                </div>
                 {can('admin.briefs.write') && x.status === 'submitted' ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <button
@@ -1224,6 +1295,14 @@ export default function AdminBriefsPage() {
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {sheetModel ? (
+        <ModelSheetDialog
+          user={sheetModel}
+          onClose={() => setSheetModel(null)}
+          canEditUsers={can('admin.users.write')}
+        />
       ) : null}
     </div>
   );
