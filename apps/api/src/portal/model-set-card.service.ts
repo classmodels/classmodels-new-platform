@@ -134,6 +134,7 @@ export class ModelSetCardService {
         email: true,
         modelSheet: true,
         setCardFreeOrder: true,
+        setCardAllowReorder: true,
       },
     });
     if (!user) throw new NotFoundException();
@@ -174,6 +175,7 @@ export class ModelSetCardService {
       canSubmitWithoutPayment: canSubmit,
       paymentRequired: !freeOrder && !paid,
       alreadySubmitted: draft.status === ModelSetCardStatus.submitted,
+      setCardAllowReorder: user.setCardAllowReorder,
       profile: {
         displayName,
         ageYears: age,
@@ -192,7 +194,13 @@ export class ModelSetCardService {
     opts?: { allowEditAfterSubmit?: boolean },
   ) {
     const existing = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
-    if (existing?.status === ModelSetCardStatus.submitted && !opts?.allowEditAfterSubmit) {
+    const owner = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { setCardAllowReorder: true },
+    });
+    const mayEdit =
+      opts?.allowEditAfterSubmit || owner?.setCardAllowReorder || existing?.status !== ModelSetCardStatus.submitted;
+    if (existing?.status === ModelSetCardStatus.submitted && !mayEdit) {
       throw new BadRequestException(
         'Uw setkaarten zijn al doorgestuurd. Contacteer Class-Models voor wijzigingen.',
       );
@@ -206,7 +214,8 @@ export class ModelSetCardService {
       if (filled.length) await this.ensureOwnedAssets(userId, filled);
     }
 
-    const keepSubmitted = existing?.status === ModelSetCardStatus.submitted;
+    const keepSubmitted =
+      existing?.status === ModelSetCardStatus.submitted && !owner?.setCardAllowReorder && !opts?.allowEditAfterSubmit;
 
     await this.prisma.modelSetCardDraft.upsert({
       where: { userId },
@@ -344,12 +353,31 @@ export class ModelSetCardService {
     }
   }
 
+  async setAllowReorder(userId: string, allow: boolean) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { setCardAllowReorder: allow },
+    });
+    if (allow) {
+      await this.prisma.modelSetCardDraft.updateMany({
+        where: { userId },
+        data: { status: ModelSetCardStatus.draft, submittedAt: null },
+      });
+    }
+    return this.getDraft(userId);
+  }
+
   async submit(
     userId: string,
     opts?: { allowResubmit?: boolean },
   ): Promise<{ ok: true; mailed: boolean }> {
+    const owner = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { setCardAllowReorder: true },
+    });
     const draftBefore = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
-    if (draftBefore?.status === ModelSetCardStatus.submitted && !opts?.allowResubmit) {
+    const mayResubmit = opts?.allowResubmit || owner?.setCardAllowReorder;
+    if (draftBefore?.status === ModelSetCardStatus.submitted && !mayResubmit) {
       throw new BadRequestException('U heeft deze setkaarten al doorgestuurd naar Class-Models.');
     }
     await this.assertCanSubmit(userId);
@@ -396,6 +424,13 @@ ${note ? `<p><strong>Bericht van het model:</strong><br/>${escapeHtml(note)}</p>
       { filename: `setkaart-achterzijde-${safeName}.pdf`, content: Buffer.from(verso) },
     ]);
     if (!mailed) this.log.warn(`Setkaart kon niet gemaild worden naar ${this.bureauEmail()} (SMTP?).`);
+
+    if (owner?.setCardAllowReorder && !opts?.allowResubmit) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { setCardAllowReorder: false },
+      });
+    }
 
     return { ok: true, mailed };
   }

@@ -6,6 +6,8 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
+  Put,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -14,6 +16,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { ModelSetCardService } from '../portal/model-set-card.service';
+import type { PortalSaveSetCardBody } from '../portal/portal-model-set-card.controller';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Controller('admin/set-card')
@@ -44,6 +47,28 @@ export class AdminModelSetCardController {
       take: 500,
     });
     return rows;
+  }
+
+  @Patch('allow-reorder')
+  @Permissions('admin.users.write')
+  async patchAllowReorder(@Body() body: { userId: string; allow: boolean }) {
+    if (!body?.userId) throw new BadRequestException('userId verplicht');
+    return this.setCard.setAllowReorder(body.userId, !!body.allow);
+  }
+
+  @Post('users/:userId/submit')
+  @Permissions('admin.users.write')
+  async adminSubmit(@Param('userId', ParseUUIDPipe) userId: string) {
+    return this.setCard.submit(userId, { allowResubmit: true });
+  }
+
+  @Put('users/:userId/draft')
+  @Permissions('admin.users.write')
+  async adminSaveDraft(
+    @Param('userId', ParseUUIDPipe) userId: string,
+    @Body() body: PortalSaveSetCardBody,
+  ) {
+    return this.setCard.saveDraft(userId, body, { allowEditAfterSubmit: true });
   }
 
   @Patch('free-order')

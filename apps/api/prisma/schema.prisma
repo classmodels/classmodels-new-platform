@@ -108,6 +108,8 @@ model User {
   setCardDraft            ModelSetCardDraft?
   /// Try-out modeshow: setkaarten gratis bestellen (geen Mollie).
   setCardFreeOrder        Boolean    @default(false)
+  /// Bureau geeft toestemming voor een nieuwe setkaart-bestelling na eerdere inzending.
+  setCardAllowReorder     Boolean    @default(false)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 }

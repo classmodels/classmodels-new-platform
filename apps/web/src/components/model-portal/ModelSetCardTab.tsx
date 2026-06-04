@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { adminDownloadFile } from '@/lib/admin-api';
+import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { apiFetch, publicMediaUrl } from '@/lib/api';
+import { getImpersonationAdminToken } from '@/lib/impersonation';
 import type { ProfileMediaRow } from '@/components/model-portal/ModelPortalProfile';
 
 const VERSO_COUNT = 4;
@@ -26,6 +27,7 @@ type SetCardDraft = {
   canSubmitWithoutPayment?: boolean;
   paymentRequired?: boolean;
   alreadySubmitted?: boolean;
+  setCardAllowReorder?: boolean;
   profile: {
     displayName: string;
     ageYears: number | null;
@@ -37,7 +39,7 @@ type SetCardDraft = {
   };
 };
 
-const VERSO_SLOT_LABELS = ['Foto 1', 'Foto 2', 'Foto 3', 'Foto 4'];
+const VERSO_SLOT_LABELS = ['Klein 1', 'Klein 2', 'Klein 3', 'Groot rechts'];
 
 function draftSnapshot(heroId: string | null, verso: (string | null)[], note: string): string {
   return JSON.stringify({ heroId, verso, note: note.trim() });
@@ -94,6 +96,9 @@ export function ModelSetCardTab({
 }) {
   const { user } = useAuth();
   const isAdmin = user?.roles?.includes('admin') ?? false;
+  const impersonationAdminToken = getImpersonationAdminToken();
+  const actingAsAdmin = isAdmin || !!impersonationAdminToken;
+  const adminApiToken = impersonationAdminToken ?? (isAdmin ? token : null);
   const [draft, setDraft] = useState<SetCardDraft | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -169,15 +174,22 @@ export function ModelSetCardTab({
       return false;
     }
     try {
-      const updated = await apiFetch<SetCardDraft>('/portal/model/set-card', {
-        method: 'PUT',
-        token,
-        body: JSON.stringify({
-          frontHeroAssetId: heroId,
-          versoPhotoAssetIds: versoSlots,
-          noteFromModel: note.trim() || null,
-        }),
+      const body = JSON.stringify({
+        frontHeroAssetId: heroId,
+        versoPhotoAssetIds: versoSlots,
+        noteFromModel: note.trim() || null,
       });
+      const updated =
+        actingAsAdmin && adminApiToken && user?.id
+          ? await adminFetch<SetCardDraft>(`/admin/set-card/users/${user.id}/draft`, adminApiToken, {
+              method: 'PUT',
+              body,
+            })
+          : await apiFetch<SetCardDraft>('/portal/model/set-card', {
+              method: 'PUT',
+              token,
+              body,
+            });
       setDraft(updated);
       setHeroId(updated.frontHeroAssetId);
       const slots = slotsFromDraft(updated.versoPhotoAssetIds);
@@ -193,7 +205,18 @@ export function ModelSetCardTab({
       setBanner({ tone: 'err', text: parseApiErrorMessage(msg) });
       return false;
     }
-  }, [token, canUpload, heroId, versoSlots, note, revokeHeroLocal, reloadMedia]);
+  }, [
+    token,
+    canUpload,
+    heroId,
+    versoSlots,
+    note,
+    revokeHeroLocal,
+    reloadMedia,
+    actingAsAdmin,
+    adminApiToken,
+    user?.id,
+  ]);
 
   const saveLocalToServer = async () => {
     if (!token || !canUpload) return;
@@ -235,13 +258,46 @@ export function ModelSetCardTab({
     }
   };
 
+  const toggleAllowReorder = async (allow: boolean) => {
+    if (!adminApiToken || !user?.id) return;
+    setBusy(true);
+    setBanner(null);
+    try {
+      const updated = await adminFetch<SetCardDraft>('/admin/set-card/allow-reorder', adminApiToken, {
+        method: 'PATCH',
+        body: JSON.stringify({ userId: user.id, allow }),
+      });
+      setDraft(updated);
+      setHeroId(updated.frontHeroAssetId);
+      const slots = slotsFromDraft(updated.versoPhotoAssetIds);
+      setVersoSlots(slots);
+      setNote(updated.noteFromModel ?? '');
+      serverSnapshotRef.current = draftSnapshot(updated.frontHeroAssetId, slots, updated.noteFromModel ?? '');
+      setSavedOnServer(!!updated.frontHeroAssetId && slots.every((x) => !!x));
+      setBanner({
+        tone: 'ok',
+        text: allow
+          ? 'Tweede bestelling toegestaan — het model kan opnieuw opslaan en doorsturen.'
+          : 'Tweede bestelling niet meer actief.',
+      });
+    } catch (e) {
+      setBanner({ tone: 'err', text: e instanceof Error ? parseApiErrorMessage(e.message) : 'Kon niet bijwerken.' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const adminDownloadZip = async () => {
-    if (!token || !isAdmin || !user?.id) return;
+    if (!adminApiToken || !actingAsAdmin || !user?.id) return;
     setBusy(true);
     try {
       const ok = await persistDraft();
       if (!ok) return;
-      await adminDownloadFile(`/admin/set-card/users/${user.id}/preview.zip`, token, 'setkaart-preview.zip');
+      await adminDownloadFile(
+        `/admin/set-card/users/${user.id}/preview.zip`,
+        adminApiToken,
+        'setkaart-preview.zip',
+      );
     } catch (e) {
       setBanner({ tone: 'err', text: e instanceof Error ? e.message : 'Download mislukt.' });
     } finally {
@@ -251,12 +307,12 @@ export function ModelSetCardTab({
 
   const submitToBureau = async () => {
     if (!token || !canUpload) return;
-    if (
-      !window.confirm(
-        'Setkaarten definitief naar Class-Models versturen? Dit kan als model maar één keer. Het bureau ontvangt een e-mail met uw PDF.',
-      )
-    )
-      return;
+    const confirmMsg = actingAsAdmin
+      ? 'Setkaarten opnieuw naar Class-Models versturen (admin)? Het bureau ontvangt opnieuw een e-mail met de PDF.'
+      : draft?.setCardAllowReorder
+        ? 'Setkaarten definitief naar Class-Models versturen? (tweede bestelling toegestaan door het bureau)'
+        : 'Setkaarten definitief naar Class-Models versturen? Dit kan als model maar één keer. Het bureau ontvangt een e-mail met uw PDF.';
+    if (!window.confirm(confirmMsg)) return;
     setBusy(true);
     setBanner(null);
     setSubmitProgress({ pct: 10, label: 'Setkaarten opslaan…' });
@@ -264,10 +320,17 @@ export function ModelSetCardTab({
       const ok = await persistDraft();
       if (!ok) return;
       setSubmitProgress({ pct: 45, label: 'PDF maken…' });
-      const r = await apiFetch<{ ok: true; mailed: boolean }>('/portal/model/set-card/submit', {
-        method: 'POST',
-        token,
-      });
+      const r =
+        actingAsAdmin && adminApiToken && user?.id
+          ? await adminFetch<{ ok: true; mailed: boolean }>(
+              `/admin/set-card/users/${user.id}/submit`,
+              adminApiToken,
+              { method: 'POST' },
+            )
+          : await apiFetch<{ ok: true; mailed: boolean }>('/portal/model/set-card/submit', {
+              method: 'POST',
+              token,
+            });
       setSubmitProgress({ pct: 100, label: 'Verzonden' });
       await load();
       setBanner({
@@ -407,6 +470,8 @@ export function ModelSetCardTab({
   const beschikbaarLine = draft?.profile.beschikbaarLine?.trim() || '— (vul beschikbaarheid in je profiel in)';
   const versoStatRows = draft?.profile.versoStatEntries ?? [];
   const submitted = draft?.status === 'submitted' || draft?.alreadySubmitted === true;
+  const allowReorder = draft?.setCardAllowReorder ?? false;
+  const mayEditAfterSubmit = actingAsAdmin || allowReorder;
   const freeOrder = draft?.setCardFreeOrder ?? false;
   const paymentRequired = draft?.paymentRequired ?? true;
   const canSubmitPay = draft?.canSubmitWithoutPayment ?? false;
@@ -414,7 +479,7 @@ export function ModelSetCardTab({
     savedOnServer &&
     !validationHint &&
     canSubmitPay &&
-    (!submitted || isAdmin);
+    (!submitted || mayEditAfterSubmit);
 
   const heroAsset = heroId ? assetById.get(heroId) : undefined;
   const heroPreviewSrc = heroLocalUrl ?? (heroAsset ? thumbSrc(heroAsset) : null);
@@ -452,14 +517,18 @@ export function ModelSetCardTab({
         <p className="text-xs text-amber-800">{validationHint}</p>
       ) : null}
 
-      {submitted && !isAdmin ? (
+      {submitted && !mayEditAfterSubmit ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           <strong>U heeft deze setkaarten al doorgestuurd</strong>
           {draft?.submittedAt ? ` (${new Date(draft.submittedAt).toLocaleString('nl-BE')})` : ''}. Voor wijzigingen: contacteer Class-Models.
         </p>
-      ) : submitted && isAdmin ? (
+      ) : submitted && allowReorder && !actingAsAdmin ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-950">
+          Class-Models gaf toestemming voor een <strong>tweede bestelling</strong>. Pas uw foto&apos;s aan, sla op en stuur opnieuw door.
+        </p>
+      ) : submitted && actingAsAdmin ? (
         <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
-          Ingediend{draft?.submittedAt ? ` op ${new Date(draft.submittedAt).toLocaleString('nl-BE')}` : ''}. Als admin kunt u opnieuw doorsturen of wijzigingen opslaan.
+          Ingediend{draft?.submittedAt ? ` op ${new Date(draft.submittedAt).toLocaleString('nl-BE')}` : ''}. Als admin (bureau-modus) kunt u opnieuw doorsturen, opslaan of tweede bestelling toestaan.
         </p>
       ) : !savedOnServer && heroId && !versoSlots.some((x) => !x) ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
@@ -482,7 +551,7 @@ export function ModelSetCardTab({
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          disabled={!canUpload || busy || (submitted && !isAdmin)}
+          disabled={!canUpload || busy || (submitted && !mayEditAfterSubmit)}
           onClick={() => void saveLocalToServer()}
           className="rounded-full bg-burgundy px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:bg-burgundyDeep disabled:opacity-50"
         >
@@ -510,7 +579,7 @@ export function ModelSetCardTab({
           title={
             !savedOnServer
               ? 'Sla eerst op'
-              : submitted && !isAdmin
+              : submitted && !mayEditAfterSubmit
                 ? 'Al doorgestuurd'
                 : paymentRequired && !canSubmitPay
                   ? 'Eerst betalen'
@@ -519,17 +588,31 @@ export function ModelSetCardTab({
           onClick={() => void submitToBureau()}
           className="rounded-full border border-burgundy bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-burgundy hover:bg-burgundy/10 disabled:opacity-50"
         >
-          {submitted && isAdmin ? 'Opnieuw doorsturen (admin)' : 'Verstuur naar Class-Models'}
+          {submitted && actingAsAdmin ? 'Opnieuw doorsturen (admin)' : 'Verstuur naar Class-Models'}
         </button>
-        {isAdmin ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void adminDownloadZip()}
-            className="rounded-full border border-zinc-400 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
-          >
-            Admin: download PDF
-          </button>
+        {actingAsAdmin && adminApiToken ? (
+          <>
+            <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-xs text-sky-950">
+              <input
+                type="checkbox"
+                className="rounded border-sky-400"
+                checked={allowReorder}
+                disabled={busy}
+                onChange={(e) => void toggleAllowReorder(e.target.checked)}
+              />
+              <span>
+                <strong>Tweede bestelling toestaan</strong> voor dit model (vink uit na gebruik)
+              </span>
+            </label>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void adminDownloadZip()}
+              className="rounded-full border border-zinc-400 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              Admin: download PDF
+            </button>
+          </>
         ) : null}
       </div>
 
@@ -609,11 +692,16 @@ export function ModelSetCardTab({
             </label>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {Array.from({ length: VERSO_COUNT }, (_, i) => (
-              <div key={i} className="space-y-1.5 rounded-lg border border-zinc-200 bg-zinc-50/80 p-2">
+              <div
+                key={i}
+                className={`space-y-1.5 rounded-lg border border-zinc-200 bg-zinc-50/80 p-2 ${i === 3 ? 'sm:col-span-2' : ''}`}
+              >
                 <p className="text-[10px] font-bold text-zinc-500">{VERSO_SLOT_LABELS[i]}</p>
-                <div className="aspect-[78/118] overflow-hidden rounded bg-white">
+                <div
+                  className={`overflow-hidden rounded bg-white ${i === 3 ? 'aspect-[4/5] max-h-40' : 'aspect-[78/118]'}`}
+                >
                   {versoPreviewSrc(i) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain bg-zinc-100" />
@@ -653,41 +741,55 @@ export function ModelSetCardTab({
                 className="origin-top-left font-serif"
                 style={{ width: '595px', height: '419px', transform: 'scale(0.52)', transformOrigin: 'top left' }}
               >
-                <div className="relative flex h-full flex-col" style={{ padding: '12px 20px' }}>
-                  <div className="min-h-0 flex-1 flex flex-col" style={{ paddingBottom: '130px' }}>
+                <div className="relative flex h-full" style={{ padding: '12px 20px' }}>
+                  <div className="flex w-[44%] min-w-0 flex-col">
                     <p className="text-[10px] font-bold text-[#750f1a]">MODEL INFO</p>
                     <hr className="my-1 border-[#750f1a]" />
-                    <ul className="flex-1 overflow-hidden rounded text-[7px]">
+                    <ul className="flex-1 overflow-hidden rounded text-[6.5px]">
                       {versoStatRows.map((e, idx) => (
                         <li
                           key={e.label}
-                          className={`flex justify-between gap-2 px-2 py-[3px] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdf5f6]'}`}
+                          className={`flex justify-between gap-1 px-1.5 py-[2px] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdf5f6]'}`}
                         >
                           <span className="text-zinc-500">{e.label}:</span>
                           <span className="font-medium text-zinc-800">{e.value}</span>
                         </li>
                       ))}
                     </ul>
+                    <div className="mt-2 flex gap-[5px]">
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="h-[72px] w-[48px] shrink-0 bg-white">
+                          {versoPreviewSrc(i) ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center bg-zinc-100 text-[9px] text-zinc-300">
+                              {i + 1}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div className="absolute bottom-[44px] left-5 flex gap-3">
-                    {Array.from({ length: VERSO_COUNT }, (_, i) => (
-                      <div key={i} className="h-[118px] w-[78px] shrink-0 bg-white">
-                        {versoPreviewSrc(i) ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">
-                            {i + 1}
-                          </div>
-                        )}
+                  <div className="absolute right-5 top-3 bottom-[72px] w-[48%]">
+                    {versoPreviewSrc(3) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={versoPreviewSrc(3)!}
+                        alt=""
+                        className="h-full w-full object-cover object-center"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center rounded bg-zinc-100 text-[10px] text-zinc-300">
+                        Grote foto
                       </div>
-                    ))}
+                    )}
+                    <div className="absolute -bottom-4 left-0 right-0 flex justify-between text-[7px] text-zinc-600">
+                      <span>geboortejaar</span>
+                      <span>{birthYear ?? '—'}</span>
+                    </div>
                   </div>
-                  <div className="absolute bottom-[32px] right-5 flex w-[78px] justify-between text-[7px] text-zinc-600">
-                    <span>geboortejaar</span>
-                    <span>{birthYear ?? '—'}</span>
-                  </div>
-                  <div className="shrink-0 pt-2 text-[7.5px] leading-snug text-[#750f1a]">
+                  <div className="absolute bottom-2 left-5 right-5 text-[7.5px] leading-snug text-[#750f1a]">
                     <p className="font-bold">Beschikbaar voor</p>
                     <hr className="my-0.5 border-[#750f1a]/70" />
                     <p>{beschikbaarLine}</p>

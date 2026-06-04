@@ -14,6 +14,7 @@ export const VERSO_PHOTO_COUNT = 4;
 /** Marges verso (20pt ≈ 20px minder dan 40). */
 const VERSO_MARGIN_L = 20;
 const VERSO_MARGIN_R = 20;
+const VERSO_GAP_THUMB_HERO = 48;
 const VERSO_THUMB_GAP = 12;
 const SHADOW_FILL = rgb(0.88, 0.88, 0.88);
 
@@ -219,11 +220,14 @@ type VersoLayout = {
   thumbH: number;
   thumbW: number;
   thumbXs: number[];
-  statsBoxW: number;
+  heroX: number;
+  heroW: number;
+  leftW: number;
   statsBottom: number;
   statsTop: number;
 };
 
+/** Bijlage 4: MODEL INFO linksboven, 3 gelijke foto’s linksonder, grote foto rechts. */
 function computeVersoLayout(): VersoLayout {
   const padTop = 12;
   const footerH = 40;
@@ -232,21 +236,29 @@ function computeVersoLayout(): VersoLayout {
   const thumbH = 118;
   const thumbW = 78;
 
+  const leftW = 3 * thumbW + 2 * VERSO_THUMB_GAP;
+  const leftEnd = VERSO_MARGIN_L + leftW;
+  const heroX = leftEnd + VERSO_GAP_THUMB_HERO;
+  const heroW = A5_LANDSCAPE_W - VERSO_MARGIN_R - heroX;
+
   const thumbTop = photoBottom + thumbH;
   const headerBlockH = 48;
   const statsBottom = thumbTop + 6;
   const statsTop = contentTop - 4;
-  const statsBoxW = A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R;
 
   return {
     contentTop,
     photoBottom,
     thumbH,
     thumbW,
-    thumbXs: Array.from({ length: VERSO_PHOTO_COUNT }, (_, i) =>
-      VERSO_MARGIN_L + i * (thumbW + VERSO_THUMB_GAP),
-    ),
-    statsBoxW,
+    thumbXs: [
+      VERSO_MARGIN_L,
+      VERSO_MARGIN_L + thumbW + VERSO_THUMB_GAP,
+      VERSO_MARGIN_L + 2 * (thumbW + VERSO_THUMB_GAP),
+    ],
+    heroX,
+    heroW,
+    leftW,
     statsBottom,
     statsTop: Math.max(statsBottom + headerBlockH + 36, statsTop),
   };
@@ -417,24 +429,25 @@ export async function buildSetCardVersoPdf(opts: {
     font,
     fontBold,
     VERSO_MARGIN_L,
-    L.statsBoxW,
+    L.leftW,
     L.statsBottom,
     L.statsTop,
     versoStatEntries,
   );
 
-  for (let i = 0; i < VERSO_PHOTO_COUNT; i++) {
+  for (let i = 0; i < 3; i++) {
     drawImageInSlot(page, thumbs[i]!, L.thumbXs[i]!, L.photoBottom, L.thumbW, L.thumbH);
   }
 
+  const heroH = L.contentTop - L.photoBottom;
+  drawImageInSlot(page, thumbs[3]!, L.heroX, L.photoBottom, L.heroW, heroH);
+
   const gebY = L.photoBottom - 10;
-  const gebX = L.thumbXs[3] ?? VERSO_MARGIN_L;
-  const gebW = L.thumbW;
-  page.drawText('geboortejaar', { x: gebX, y: gebY, size: 6.5, font, color: MUTED });
+  page.drawText('geboortejaar', { x: L.heroX, y: gebY, size: 6.5, font, color: MUTED });
   if (birthYear) {
     const yw = font.widthOfTextAtSize(birthYear, 7);
     page.drawText(birthYear, {
-      x: gebX + gebW - yw,
+      x: L.heroX + L.heroW - yw,
       y: gebY,
       size: 7,
       font,
@@ -447,7 +460,7 @@ export async function buildSetCardVersoPdf(opts: {
     font,
     fontBold,
     VERSO_MARGIN_L,
-    L.statsBoxW,
+    A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R,
     12,
     beschikbaarLine,
   );
