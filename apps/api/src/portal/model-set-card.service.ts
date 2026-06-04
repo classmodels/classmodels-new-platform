@@ -1,11 +1,9 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import * as nodemailer from 'nodemailer';
 import archiver from 'archiver';
 import { ModelSetCardStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { resolveMediaRoot } from '../config/resolve-media-root';
+import { MediaService } from '../media/media.service';
 import { resolveSmtpConfig } from '../mail/mail-smtp-resolve';
 import { ModelPortalHistoryService } from './model-portal-history.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -46,6 +44,7 @@ export class ModelSetCardService {
     private prisma: PrismaService,
     private history: ModelPortalHistoryService,
     private payments: PaymentsService,
+    private media: MediaService,
   ) {}
 
   private bureauEmail(): string {
@@ -76,10 +75,29 @@ export class ModelSetCardService {
     }
   }
 
-  private loadAssetBuffer(storageKey: string): Buffer {
-    const root = resolveMediaRoot();
-    const full = join(root, storageKey);
-    return readFileSync(full);
+  private streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', (c: Buffer) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
+  }
+
+  private async loadAssetBuffer(storageKey: string): Promise<Buffer> {
+    try {
+      const stream = await this.media.openAssetReadStream(storageKey);
+      const buf = await this.streamToBuffer(stream);
+      if (!buf.length) throw new Error('Leeg bestand');
+      return buf;
+    } catch (e) {
+      this.log.warn(
+        `Setkaart foto lezen mislukt (${storageKey}): ${e instanceof Error ? e.message : String(e)}`,
+      );
+      throw new BadRequestException(
+        'Eén van uw foto’s kon niet gelezen worden (opslag). Upload de foto opnieuw of contacteer Class-Models.',
+      );
+    }
   }
 
   private async buffersForPdf(userId: string, heroId: string, versoIds: string[]): Promise<{ hero: Buffer; verso: Buffer[] }> {
@@ -99,10 +117,10 @@ export class ModelSetCardService {
         select: { storageKey: true },
       });
       if (!row) throw new BadRequestException('Eén van de achterzijde-foto’s werd niet gevonden.');
-      versoBuffers.push(this.loadAssetBuffer(row.storageKey));
+      versoBuffers.push(await this.loadAssetBuffer(row.storageKey));
     }
     return {
-      hero: this.loadAssetBuffer(heroRow.storageKey),
+      hero: await this.loadAssetBuffer(heroRow.storageKey),
       verso: versoBuffers,
     };
   }
@@ -316,7 +334,18 @@ export class ModelSetCardService {
 
   async submit(userId: string): Promise<{ ok: true; mailed: boolean }> {
     await this.assertCanSubmit(userId);
-    const { recto, verso, displayName } = await this.buildPdfBytes(userId);
+    let recto: Uint8Array;
+    let verso: Uint8Array;
+    let displayName: string;
+    try {
+      ({ recto, verso, displayName } = await this.buildPdfBytes(userId));
+    } catch (e) {
+      if (e instanceof BadRequestException || e instanceof NotFoundException) throw e;
+      this.log.error(`Setkaart PDF bouwen mislukt: ${e instanceof Error ? e.message : String(e)}`);
+      throw new BadRequestException(
+        'De setkaart-PDF kon niet gemaakt worden. Controleer of alle 5 foto’s geüpload zijn en probeer opnieuw.',
+      );
+    }
 
     const draft = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
     const note = draft?.noteFromModel?.trim();
