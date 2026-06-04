@@ -14,13 +14,14 @@ export const VERSO_PHOTO_COUNT = 4;
 /** Marges verso (20pt ≈ 20px minder dan 40). */
 const VERSO_MARGIN_L = 20;
 const VERSO_MARGIN_R = 20;
-const VERSO_GAP_THUMB_HERO = 60;
 const VERSO_THUMB_GAP = 12;
 const SHADOW_FILL = rgb(0.88, 0.88, 0.88);
 
 const BURGUNDY = rgb(0.46, 0.09, 0.14);
 const INK = rgb(0.12, 0.12, 0.12);
 const MUTED = rgb(0.35, 0.35, 0.35);
+const ROW_BG_WHITE = rgb(1, 1, 1);
+const ROW_BG_TINT = rgb(0.99, 0.96, 0.96);
 
 const FOOTER_LINE_1 = 'Class-Models  ·  Provinciebaan 3, 2235 Hulshout  ·  www.class-models.be';
 const FOOTER_LINE_2 = 'info@class-models.be  ·  gsm +32 (0) 485 322 307';
@@ -218,9 +219,7 @@ type VersoLayout = {
   thumbH: number;
   thumbW: number;
   thumbXs: number[];
-  heroX: number;
-  heroW: number;
-  leftW: number;
+  statsBoxW: number;
   statsBottom: number;
   statsTop: number;
 };
@@ -230,34 +229,26 @@ function computeVersoLayout(): VersoLayout {
   const footerH = 40;
   const contentTop = A5_LANDSCAPE_H - padTop;
   const photoBottom = 12 + footerH;
-  const thumbH = 128;
-
-  const thumbW = 82;
-  const leftW = VERSO_MARGIN_L + 3 * thumbW + 2 * VERSO_THUMB_GAP - VERSO_MARGIN_L;
-  const leftEnd = VERSO_MARGIN_L + leftW;
-  const heroX = leftEnd + VERSO_GAP_THUMB_HERO;
-  const heroW = A5_LANDSCAPE_W - VERSO_MARGIN_R - heroX;
+  const thumbH = 118;
+  const thumbW = 78;
 
   const thumbTop = photoBottom + thumbH;
-  const headerBlockH = 52;
+  const headerBlockH = 48;
   const statsBottom = thumbTop + 6;
   const statsTop = contentTop - 4;
+  const statsBoxW = A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R;
 
   return {
     contentTop,
     photoBottom,
     thumbH,
     thumbW,
-    thumbXs: [
-      VERSO_MARGIN_L,
-      VERSO_MARGIN_L + thumbW + VERSO_THUMB_GAP,
-      VERSO_MARGIN_L + 2 * (thumbW + VERSO_THUMB_GAP),
-    ],
-    heroX,
-    heroW,
-    leftW,
+    thumbXs: Array.from({ length: VERSO_PHOTO_COUNT }, (_, i) =>
+      VERSO_MARGIN_L + i * (thumbW + VERSO_THUMB_GAP),
+    ),
+    statsBoxW,
     statsBottom,
-    statsTop: Math.max(statsBottom + headerBlockH + 40, statsTop),
+    statsTop: Math.max(statsBottom + headerBlockH + 36, statsTop),
   };
 }
 
@@ -272,11 +263,12 @@ function drawModelInfoBlock(
   statsTop: number,
   statRows: StatEntry[],
 ) {
-  const headerSize = 11;
-  const rowSize = 8.5;
-  const textPad = 12;
+  const headerSize = 9.5;
+  const rowSize = 7;
+  const labelSize = 6.5;
+  const textPad = 10;
 
-  let y = statsTop - 8;
+  let y = statsTop - 6;
 
   page.drawText('MODEL INFO', {
     x: boxX,
@@ -285,44 +277,39 @@ function drawModelInfoBlock(
     font: fontBold,
     color: BURGUNDY,
   });
-  y -= headerSize + 5;
-  drawHLine(page, boxX, y, boxW, 0.75, BURGUNDY);
-  y -= 10;
+  y -= headerSize + 4;
+  drawHLine(page, boxX, y, boxW, 0.6, BURGUNDY);
+  y -= 8;
 
-  const railsBottom = statsBottom;
-  const railsTop = y;
+  const tableBottom = statsBottom;
+  const tableTop = y;
+  const rowCount = Math.max(statRows.length, 1);
+  const rowH = (tableTop - tableBottom - 4) / rowCount;
+  let rowTop = tableTop - 2;
 
-  page.drawLine({
-    start: { x: boxX, y: railsBottom },
-    end: { x: boxX, y: railsTop },
-    thickness: 0.9,
-    color: BURGUNDY,
-  });
-  page.drawLine({
-    start: { x: boxX + boxW, y: railsBottom },
-    end: { x: boxX + boxW, y: railsTop },
-    thickness: 0.9,
-    color: BURGUNDY,
-  });
-
-  const rowCount = statRows.length;
-  const rowH = (railsTop - railsBottom - 6) / rowCount;
-  let baseline = railsTop - 5;
-
-  for (const entry of statRows) {
-    baseline -= rowH;
+  for (let i = 0; i < statRows.length; i++) {
+    const entry = statRows[i]!;
+    rowTop -= rowH;
+    page.drawRectangle({
+      x: boxX,
+      y: rowTop,
+      width: boxW,
+      height: rowH,
+      color: i % 2 === 0 ? ROW_BG_WHITE : ROW_BG_TINT,
+    });
+    const baseline = rowTop + (rowH - rowSize) / 2 - 1;
     const label = `${entry.label}:`;
     page.drawText(label, {
       x: boxX + textPad,
       y: baseline,
-      size: rowSize,
+      size: labelSize,
       font,
-      color: INK,
+      color: MUTED,
     });
     const vw = font.widthOfTextAtSize(entry.value, rowSize);
     page.drawText(entry.value, {
       x: boxX + boxW - textPad - vw,
-      y: baseline,
+      y: baseline + 0.5,
       size: rowSize,
       font,
       color: INK,
@@ -333,18 +320,25 @@ function drawModelInfoBlock(
 function drawVersoBottomFooter(
   page: PDFPage,
   font: PDFFont,
+  fontBold: PDFFont,
   x: number,
   w: number,
   yBase: number,
   beschikbaarLine: string,
 ) {
-  const size = 8;
-  page.drawText('Beschikbaar voor', { x: x + 2, y: yBase + 24, size, font, color: INK });
-  drawHLine(page, x, yBase + 18, w);
+  const labelSize = 7.5;
+  page.drawText('Beschikbaar voor', {
+    x: x + 2,
+    y: yBase + 24,
+    size: labelSize,
+    font: fontBold,
+    color: BURGUNDY,
+  });
+  drawHLine(page, x, yBase + 18, w, 0.55, BURGUNDY);
   const line = beschikbaarLine.trim() || '—';
-  const lineSize = fitFontSize(font, line, w - 4, 8);
-  page.drawText(line, { x: x + 2, y: yBase + 6, size: lineSize, font, color: INK });
-  drawHLine(page, x, yBase, w);
+  const lineSize = fitFontSize(font, line, w - 4, 7);
+  page.drawText(line, { x: x + 2, y: yBase + 6, size: lineSize, font, color: BURGUNDY });
+  drawHLine(page, x, yBase, w, 0.55, BURGUNDY);
 }
 
 /**
@@ -417,24 +411,32 @@ export async function buildSetCardVersoPdf(opts: {
   for (const b of versoBytes) thumbs.push(await embedRaster(pdfDoc, b));
 
   const L = computeVersoLayout();
-  const heroH = L.contentTop - L.photoBottom;
 
-  drawModelInfoBlock(page, font, fontBold, VERSO_MARGIN_L, L.leftW, L.statsBottom, L.statsTop, versoStatEntries);
+  drawModelInfoBlock(
+    page,
+    font,
+    fontBold,
+    VERSO_MARGIN_L,
+    L.statsBoxW,
+    L.statsBottom,
+    L.statsTop,
+    versoStatEntries,
+  );
 
-  for (let i = 0; i < 3; i++) {
-    drawImageInSlot(page, thumbs[i], L.thumbXs[i], L.photoBottom, L.thumbW, L.thumbH);
+  for (let i = 0; i < VERSO_PHOTO_COUNT; i++) {
+    drawImageInSlot(page, thumbs[i]!, L.thumbXs[i]!, L.photoBottom, L.thumbW, L.thumbH);
   }
 
-  drawImageInSlot(page, thumbs[3], L.heroX, L.photoBottom, L.heroW, heroH);
-
-  const gebY = L.photoBottom - 11;
-  page.drawText('geboortejaar', { x: L.heroX, y: gebY, size: 7.5, font, color: MUTED });
+  const gebY = L.photoBottom - 10;
+  const gebX = L.thumbXs[3] ?? VERSO_MARGIN_L;
+  const gebW = L.thumbW;
+  page.drawText('geboortejaar', { x: gebX, y: gebY, size: 6.5, font, color: MUTED });
   if (birthYear) {
-    const yw = font.widthOfTextAtSize(birthYear, 8);
+    const yw = font.widthOfTextAtSize(birthYear, 7);
     page.drawText(birthYear, {
-      x: L.heroX + L.heroW - yw,
+      x: gebX + gebW - yw,
       y: gebY,
-      size: 8,
+      size: 7,
       font,
       color: INK,
     });
@@ -443,8 +445,9 @@ export async function buildSetCardVersoPdf(opts: {
   drawVersoBottomFooter(
     page,
     font,
+    fontBold,
     VERSO_MARGIN_L,
-    A5_LANDSCAPE_W - VERSO_MARGIN_L - VERSO_MARGIN_R,
+    L.statsBoxW,
     12,
     beschikbaarLine,
   );

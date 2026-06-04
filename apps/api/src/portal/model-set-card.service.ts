@@ -173,6 +173,7 @@ export class ModelSetCardService {
       setCardPaid: paid,
       canSubmitWithoutPayment: canSubmit,
       paymentRequired: !freeOrder && !paid,
+      alreadySubmitted: draft.status === ModelSetCardStatus.submitted,
       profile: {
         displayName,
         ageYears: age,
@@ -188,7 +189,15 @@ export class ModelSetCardService {
   async saveDraft(
     userId: string,
     body: { frontHeroAssetId?: string | null; versoPhotoAssetIds?: unknown; noteFromModel?: string | null },
+    opts?: { allowEditAfterSubmit?: boolean },
   ) {
+    const existing = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
+    if (existing?.status === ModelSetCardStatus.submitted && !opts?.allowEditAfterSubmit) {
+      throw new BadRequestException(
+        'Uw setkaarten zijn al doorgestuurd. Contacteer Class-Models voor wijzigingen.',
+      );
+    }
+
     const verso =
       body.versoPhotoAssetIds === undefined ? undefined : normalizeVersoBody(body.versoPhotoAssetIds);
     if (body.frontHeroAssetId) await this.ensureOwnedAssets(userId, [body.frontHeroAssetId]);
@@ -196,6 +205,8 @@ export class ModelSetCardService {
       const filled = verso.filter((x): x is string => !!x);
       if (filled.length) await this.ensureOwnedAssets(userId, filled);
     }
+
+    const keepSubmitted = existing?.status === ModelSetCardStatus.submitted;
 
     await this.prisma.modelSetCardDraft.upsert({
       where: { userId },
@@ -210,8 +221,9 @@ export class ModelSetCardService {
         frontHeroAssetId: body.frontHeroAssetId === undefined ? undefined : body.frontHeroAssetId,
         versoPhotoAssetIds: verso === undefined ? undefined : verso,
         noteFromModel: body.noteFromModel === undefined ? undefined : body.noteFromModel?.trim() || null,
-        status: ModelSetCardStatus.draft,
-        submittedAt: null,
+        ...(keepSubmitted
+          ? {}
+          : { status: ModelSetCardStatus.draft, submittedAt: null }),
       },
     });
 
@@ -332,7 +344,14 @@ export class ModelSetCardService {
     }
   }
 
-  async submit(userId: string): Promise<{ ok: true; mailed: boolean }> {
+  async submit(
+    userId: string,
+    opts?: { allowResubmit?: boolean },
+  ): Promise<{ ok: true; mailed: boolean }> {
+    const draftBefore = await this.prisma.modelSetCardDraft.findUnique({ where: { userId } });
+    if (draftBefore?.status === ModelSetCardStatus.submitted && !opts?.allowResubmit) {
+      throw new BadRequestException('U heeft deze setkaarten al doorgestuurd naar Class-Models.');
+    }
     await this.assertCanSubmit(userId);
     let recto: Uint8Array;
     let verso: Uint8Array;

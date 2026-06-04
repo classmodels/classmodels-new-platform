@@ -25,6 +25,7 @@ type SetCardDraft = {
   setCardPaid?: boolean;
   canSubmitWithoutPayment?: boolean;
   paymentRequired?: boolean;
+  alreadySubmitted?: boolean;
   profile: {
     displayName: string;
     ageYears: number | null;
@@ -36,7 +37,11 @@ type SetCardDraft = {
   };
 };
 
-const VERSO_SLOT_LABELS = ['Klein links 1', 'Klein links 2', 'Klein links 3', 'Groot rechts'];
+const VERSO_SLOT_LABELS = ['Foto 1', 'Foto 2', 'Foto 3', 'Foto 4'];
+
+function draftSnapshot(heroId: string | null, verso: (string | null)[], note: string): string {
+  return JSON.stringify({ heroId, verso, note: note.trim() });
+}
 
 function thumbSrc(a: ProfileMediaRow): string {
   const key = a.publicKey ?? a.thumbKey ?? a.webpKey ?? a.storageKey;
@@ -101,8 +106,11 @@ export function ModelSetCardTab({
     Array.from({ length: VERSO_COUNT }, () => null),
   );
   const [note, setNote] = useState('');
+  const [savedOnServer, setSavedOnServer] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState<{ pct: number; label: string } | null>(null);
 
   const heroLocalRef = useRef<string | null>(null);
+  const serverSnapshotRef = useRef('');
 
   const assetById = useMemo(() => new Map(media.map((m) => [m.id, m])), [media]);
 
@@ -121,16 +129,26 @@ export function ModelSetCardTab({
       const d = await apiFetch<SetCardDraft>('/portal/model/set-card', { token });
       setDraft(d);
       setHeroId(d.frontHeroAssetId);
-      setVersoSlots(slotsFromDraft(d.versoPhotoAssetIds));
+      const slots = slotsFromDraft(d.versoPhotoAssetIds);
+      setVersoSlots(slots);
       setNote(d.noteFromModel ?? '');
+      revokeHeroLocal();
+      setVersoLocalUrls(Array.from({ length: VERSO_COUNT }, () => null));
+      serverSnapshotRef.current = draftSnapshot(d.frontHeroAssetId, slots, d.noteFromModel ?? '');
+      setSavedOnServer(!!d.frontHeroAssetId && slots.every((x) => !!x));
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : 'Kon setkaart niet laden.');
     }
-  }, [token, canRead]);
+  }, [token, canRead, revokeHeroLocal]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    const snap = draftSnapshot(heroId, versoSlots, note);
+    setSavedOnServer(snap === serverSnapshotRef.current && !!heroId && !versoSlots.some((x) => !x));
+  }, [heroId, versoSlots, note]);
 
   useEffect(() => () => revokeHeroLocal(), [revokeHeroLocal]);
 
@@ -151,7 +169,7 @@ export function ModelSetCardTab({
       return false;
     }
     try {
-      await apiFetch('/portal/model/set-card', {
+      const updated = await apiFetch<SetCardDraft>('/portal/model/set-card', {
         method: 'PUT',
         token,
         body: JSON.stringify({
@@ -160,7 +178,14 @@ export function ModelSetCardTab({
           noteFromModel: note.trim() || null,
         }),
       });
-      await load();
+      setDraft(updated);
+      setHeroId(updated.frontHeroAssetId);
+      const slots = slotsFromDraft(updated.versoPhotoAssetIds);
+      setVersoSlots(slots);
+      revokeHeroLocal();
+      setVersoLocalUrls(Array.from({ length: VERSO_COUNT }, () => null));
+      serverSnapshotRef.current = draftSnapshot(updated.frontHeroAssetId, slots, note);
+      setSavedOnServer(true);
       await reloadMedia();
       return true;
     } catch (e) {
@@ -168,7 +193,7 @@ export function ModelSetCardTab({
       setBanner({ tone: 'err', text: parseApiErrorMessage(msg) });
       return false;
     }
-  }, [token, canUpload, heroId, versoSlots, note, load, reloadMedia]);
+  }, [token, canUpload, heroId, versoSlots, note, revokeHeroLocal, reloadMedia]);
 
   const saveLocalToServer = async () => {
     if (!token || !canUpload) return;
@@ -176,7 +201,7 @@ export function ModelSetCardTab({
     setBanner(null);
     try {
       const ok = await persistDraft();
-      if (ok) setBanner({ tone: 'ok', text: 'Concept opgeslagen.' });
+      if (ok) setBanner({ tone: 'ok', text: 'Setkaarten opgeslagen.' });
     } finally {
       setBusy(false);
     }
@@ -228,25 +253,28 @@ export function ModelSetCardTab({
     if (!token || !canUpload) return;
     if (
       !window.confirm(
-        'Setkaart bestellen en naar Class-Models versturen? Het bureau ontvangt een e-mail met je PDF.',
+        'Setkaarten definitief naar Class-Models versturen? Dit kan als model maar één keer. Het bureau ontvangt een e-mail met uw PDF.',
       )
     )
       return;
     setBusy(true);
     setBanner(null);
+    setSubmitProgress({ pct: 10, label: 'Setkaarten opslaan…' });
     try {
       const ok = await persistDraft();
       if (!ok) return;
+      setSubmitProgress({ pct: 45, label: 'PDF maken…' });
       const r = await apiFetch<{ ok: true; mailed: boolean }>('/portal/model/set-card/submit', {
         method: 'POST',
         token,
       });
+      setSubmitProgress({ pct: 100, label: 'Verzonden' });
       await load();
       setBanner({
         tone: 'ok',
         text: r.mailed
-          ? 'Ingediend — het bureau heeft een e-mail met je PDF ontvangen.'
-          : 'Ingediend opgeslagen; e-mail naar bureau mislukt (SMTP).',
+          ? 'Setkaarten doorgestuurd — Class-Models heeft een e-mail met uw PDF ontvangen.'
+          : 'Setkaarten doorgestuurd; e-mail naar bureau mislukt (SMTP). Het bureau ziet uw inzending wel in het systeem.',
       });
     } catch (e) {
       setBanner({
@@ -255,6 +283,7 @@ export function ModelSetCardTab({
       });
     } finally {
       setBusy(false);
+      setTimeout(() => setSubmitProgress(null), 1200);
     }
   };
 
@@ -270,7 +299,7 @@ export function ModelSetCardTab({
       const row = await uploadMedia(file, { folderSlug: 'setkaarten' });
       if (row?.id) {
         setHeroId(row.id);
-        setBanner({ tone: 'ok', text: 'Hoofdfoto geüpload. Klik Opslaan concept om te bewaren.' });
+        setBanner({ tone: 'ok', text: 'Hoofdfoto geüpload. Klik «Setkaarten opslaan» om te bewaren.' });
       } else {
         setHeroId(null);
         setBanner({ tone: 'err', text: 'Hoofdfoto uploaden mislukt.' });
@@ -337,7 +366,7 @@ export function ModelSetCardTab({
         tone: 'ok',
         text:
           files.length > VERSO_COUNT
-            ? `${VERSO_COUNT} foto’s geüpload (extra genegeerd). Klik Opslaan concept.`
+            ? `${VERSO_COUNT} foto’s geüpload (extra genegeerd). Klik «Setkaarten opslaan».`
             : `${picked.length} achterzijde-foto’s geüpload.`,
       });
     } finally {
@@ -377,10 +406,15 @@ export function ModelSetCardTab({
   const birthYear = draft?.profile.birthYear ?? null;
   const beschikbaarLine = draft?.profile.beschikbaarLine?.trim() || '— (vul beschikbaarheid in je profiel in)';
   const versoStatRows = draft?.profile.versoStatEntries ?? [];
-  const submitted = draft?.status === 'submitted';
+  const submitted = draft?.status === 'submitted' || draft?.alreadySubmitted === true;
   const freeOrder = draft?.setCardFreeOrder ?? false;
   const paymentRequired = draft?.paymentRequired ?? true;
-  const canSubmit = draft?.canSubmitWithoutPayment ?? false;
+  const canSubmitPay = draft?.canSubmitWithoutPayment ?? false;
+  const canSubmitNow =
+    savedOnServer &&
+    !validationHint &&
+    canSubmitPay &&
+    (!submitted || isAdmin);
 
   const heroAsset = heroId ? assetById.get(heroId) : undefined;
   const heroPreviewSrc = heroLocalUrl ?? (heroAsset ? thumbSrc(heroAsset) : null);
@@ -399,13 +433,13 @@ export function ModelSetCardTab({
         <p className="font-semibold text-burgundy">Setkaart (composit)</p>
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs text-zinc-700">
           <li>
-            <strong>Hoofdfoto</strong> van je computer (staande foto, niets afgekapt op de PDF).
+            <strong>Hoofdfoto</strong> (voorzijde) + <strong>4 foto&apos;s</strong> achterzijde (zelfde formaat).
           </li>
           <li>
-            <strong>4 foto&apos;s achterzijde:</strong> 3 klein links + 1 groot rechts (apart van hoofdfoto).
+            <strong>Setkaarten opslaan</strong> — daarna blijven uw foto&apos;s staan na verversen.
           </li>
           <li>
-            <strong>Opslaan concept</strong>, betalen (€175) indien nodig, daarna versturen naar Class-Models.
+            Indien nodig <strong>betalen (€175)</strong>, daarna <strong>één keer</strong> doorsturen naar Class-Models.
           </li>
         </ol>
       </div>
@@ -418,21 +452,41 @@ export function ModelSetCardTab({
         <p className="text-xs text-amber-800">{validationHint}</p>
       ) : null}
 
-      {submitted ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
-          Laatste versie <strong>ingediend</strong>
-          {draft?.submittedAt ? ` (${new Date(draft.submittedAt).toLocaleString('nl-BE')})` : ''}. Opslaan start een nieuw concept.
+      {submitted && !isAdmin ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          <strong>U heeft deze setkaarten al doorgestuurd</strong>
+          {draft?.submittedAt ? ` (${new Date(draft.submittedAt).toLocaleString('nl-BE')})` : ''}. Voor wijzigingen: contacteer Class-Models.
         </p>
+      ) : submitted && isAdmin ? (
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+          Ingediend{draft?.submittedAt ? ` op ${new Date(draft.submittedAt).toLocaleString('nl-BE')}` : ''}. Als admin kunt u opnieuw doorsturen of wijzigingen opslaan.
+        </p>
+      ) : !savedOnServer && heroId && !versoSlots.some((x) => !x) ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          Klik eerst <strong>Setkaarten opslaan</strong> voordat u kunt doorsturen naar het bureau.
+        </p>
+      ) : null}
+
+      {submitProgress ? (
+        <div className="rounded-lg border border-line bg-white p-3 space-y-2">
+          <p className="text-xs font-medium text-ink">{submitProgress.label}</p>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+            <div
+              className="h-full rounded-full bg-burgundy transition-all duration-500"
+              style={{ width: `${submitProgress.pct}%` }}
+            />
+          </div>
+        </div>
       ) : null}
 
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          disabled={!canUpload || busy}
+          disabled={!canUpload || busy || (submitted && !isAdmin)}
           onClick={() => void saveLocalToServer()}
           className="rounded-full bg-burgundy px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:bg-burgundyDeep disabled:opacity-50"
         >
-          Opslaan concept
+          Setkaarten opslaan
         </button>
         {freeOrder ? (
           <p className="w-full rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
@@ -452,11 +506,20 @@ export function ModelSetCardTab({
         )}
         <button
           type="button"
-          disabled={!canUpload || busy || (paymentRequired && !canSubmit)}
+          disabled={!canUpload || busy || !canSubmitNow}
+          title={
+            !savedOnServer
+              ? 'Sla eerst op'
+              : submitted && !isAdmin
+                ? 'Al doorgestuurd'
+                : paymentRequired && !canSubmitPay
+                  ? 'Eerst betalen'
+                  : undefined
+          }
           onClick={() => void submitToBureau()}
           className="rounded-full border border-burgundy bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-burgundy hover:bg-burgundy/10 disabled:opacity-50"
         >
-          Verstuur naar Class-Models
+          {submitted && isAdmin ? 'Opnieuw doorsturen (admin)' : 'Verstuur naar Class-Models'}
         </button>
         {isAdmin ? (
           <button
@@ -550,7 +613,7 @@ export function ModelSetCardTab({
             {Array.from({ length: VERSO_COUNT }, (_, i) => (
               <div key={i} className="space-y-1.5 rounded-lg border border-zinc-200 bg-zinc-50/80 p-2">
                 <p className="text-[10px] font-bold text-zinc-500">{VERSO_SLOT_LABELS[i]}</p>
-                <div className={`overflow-hidden rounded bg-white ${i === 3 ? 'aspect-[3/4]' : 'aspect-[3/4]'}`}>
+                <div className="aspect-[78/118] overflow-hidden rounded bg-white">
                   {versoPreviewSrc(i) ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain bg-zinc-100" />
@@ -590,54 +653,45 @@ export function ModelSetCardTab({
                 className="origin-top-left font-serif"
                 style={{ width: '595px', height: '419px', transform: 'scale(0.52)', transformOrigin: 'top left' }}
               >
-                <div className="flex h-full flex-col" style={{ padding: '12px 20px' }}>
-                  <div className="relative min-h-0 flex-1">
-                    <div className="absolute left-0 top-0 flex w-[270px] flex-col" style={{ bottom: '52px' }}>
-                      <p className="text-[11px] font-bold text-[#750f1a]">MODEL INFO</p>
-                      <hr className="my-1 border-[#750f1a]" />
-                      <div className="min-h-0 flex-1 border-x border-[#750f1a]/90 px-2 py-1 text-[8.5px]">
-                        <ul className="space-y-[2px]">
-                          {versoStatRows.map((e) => (
-                            <li key={e.label} className="flex justify-between gap-2">
-                              <span>{e.label}:</span>
-                              <span>{e.value}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div className="mt-auto flex gap-2 pt-2">
-                        {[0, 1, 2].map((i) => (
-                          <div key={i} className="h-[128px] w-[82px] shrink-0">
-                            {versoPreviewSrc(i) ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
-                            ) : (
-                              <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">{i + 1}</div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="absolute right-0 top-0 flex flex-col" style={{ width: '231px', bottom: '40px' }}>
-                      <div className="min-h-0 flex-1">
-                        {versoPreviewSrc(3) ? (
+                <div className="relative flex h-full flex-col" style={{ padding: '12px 20px' }}>
+                  <div className="min-h-0 flex-1 flex flex-col" style={{ paddingBottom: '130px' }}>
+                    <p className="text-[10px] font-bold text-[#750f1a]">MODEL INFO</p>
+                    <hr className="my-1 border-[#750f1a]" />
+                    <ul className="flex-1 overflow-hidden rounded text-[7px]">
+                      {versoStatRows.map((e, idx) => (
+                        <li
+                          key={e.label}
+                          className={`flex justify-between gap-2 px-2 py-[3px] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#fdf5f6]'}`}
+                        >
+                          <span className="text-zinc-500">{e.label}:</span>
+                          <span className="font-medium text-zinc-800">{e.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="absolute bottom-[44px] left-5 flex gap-3">
+                    {Array.from({ length: VERSO_COUNT }, (_, i) => (
+                      <div key={i} className="h-[118px] w-[78px] shrink-0 bg-white">
+                        {versoPreviewSrc(i) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain" />
+                          <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
                         ) : (
-                          <div className="flex h-full items-center justify-center bg-zinc-50 text-xs text-zinc-400">Grote foto</div>
+                          <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">
+                            {i + 1}
+                          </div>
                         )}
                       </div>
-                      <div className="flex justify-between pt-1 text-[8px] text-zinc-700">
-                        <span>geboortejaar</span>
-                        <span>{birthYear ?? '—'}</span>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                  <div className="shrink-0 pt-2 text-[8px] leading-snug text-zinc-800">
-                    <p>Beschikbaar voor</p>
-                    <hr className="my-0.5 border-zinc-500" />
+                  <div className="absolute bottom-[32px] right-5 flex w-[78px] justify-between text-[7px] text-zinc-600">
+                    <span>geboortejaar</span>
+                    <span>{birthYear ?? '—'}</span>
+                  </div>
+                  <div className="shrink-0 pt-2 text-[7.5px] leading-snug text-[#750f1a]">
+                    <p className="font-bold">Beschikbaar voor</p>
+                    <hr className="my-0.5 border-[#750f1a]/70" />
                     <p>{beschikbaarLine}</p>
-                    <hr className="mt-0.5 border-zinc-500" />
+                    <hr className="mt-0.5 border-[#750f1a]/70" />
                   </div>
                 </div>
               </div>

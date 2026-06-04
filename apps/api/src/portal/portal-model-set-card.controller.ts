@@ -26,7 +26,8 @@ export class PortalModelSetCardController {
   @Put()
   @Permissions('portal.model.media.upload')
   saveDraft(@Req() req: { user: JwtPayload }, @Body() body: PortalSaveSetCardBody) {
-    return this.setCard.saveDraft(req.user.sub, body);
+    const isAdmin = req.user.roles?.includes('admin') ?? false;
+    return this.setCard.saveDraft(req.user.sub, body, { allowEditAfterSubmit: isAdmin });
   }
 
   @Post('checkout')
@@ -38,6 +39,7 @@ export class PortalModelSetCardController {
   @Post('submit')
   @Permissions('portal.model.media.upload')
   submit(@Req() req: { user: JwtPayload }) {
-    return this.setCard.submit(req.user.sub);
+    const isAdmin = req.user.roles?.includes('admin') ?? false;
+    return this.setCard.submit(req.user.sub, { allowResubmit: isAdmin });
   }
 }
