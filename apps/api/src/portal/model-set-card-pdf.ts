@@ -243,7 +243,8 @@ function computeVersoLayout(): VersoLayout {
 
   const thumbTop = photoBottom + thumbH;
   const headerBlockH = 48;
-  const statsBottom = thumbTop + 6;
+  /** Ruimte tussen matentabel en fotori (voorkomt overlap in PDF). */
+  const statsBottom = thumbTop + 10;
   const statsTop = contentTop - 4;
 
   return {

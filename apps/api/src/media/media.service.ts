@@ -1250,14 +1250,14 @@ export class MediaService implements OnModuleInit {
     });
   }
 
-  /** Alleen portfolio in map `models` — nooit testshoot/site-copies in het modelportaal. */
+  /** Portfolio (`models`), tijdelijke uploads en setkaart-foto’s voor het modelportaal. */
   async listForUploader(userId: string) {
     await this.purgeScheduledAssets();
     const rows = await this.prisma.mediaAsset.findMany({
       where: {
         uploadedById: userId,
         hardDeleted: false,
-        folder: { slug: { in: ['models', 'tijdelijke-uploads'] } },
+        folder: { slug: { in: ['models', 'tijdelijke-uploads', 'setkaarten'] } },
       },
       include: { folder: { select: { slug: true, settings: true } } },
       orderBy: { createdAt: 'desc' },

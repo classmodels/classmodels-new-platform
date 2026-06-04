@@ -300,11 +300,16 @@ function ModelPortalPageInner() {
     loadBriefs();
   }, [loadBriefs]);
 
-  const loadMedia = useCallback(() => {
-    if (!token || !can('portal.model.media.read')) return;
-    apiFetch<ProfileMediaRow[]>('/portal/model/media', { token })
-      .then(setMedia)
-      .catch(() => setMedia([]));
+  const loadMedia = useCallback(async (): Promise<ProfileMediaRow[]> => {
+    if (!token || !can('portal.model.media.read')) return [];
+    try {
+      const rows = await apiFetch<ProfileMediaRow[]>('/portal/model/media', { token });
+      setMedia(rows);
+      return rows;
+    } catch {
+      setMedia([]);
+      return [];
+    }
   }, [token, can]);
 
   useEffect(() => {

@@ -247,7 +247,7 @@ export function ModelPortalProfile({
     },
   ) => void | Promise<void> | Promise<{ id: string } | null>;
   setProfilePhotoFromAsset: (assetId: string) => void | Promise<void>;
-  reloadMedia?: () => void | Promise<void>;
+  reloadMedia?: () => void | Promise<ProfileMediaRow[] | void>;
   premiumSection: ReactNode;
 }) {
   const [profile, setProfile] = useState({

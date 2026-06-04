@@ -88,7 +88,7 @@ export function ModelSetCardTab({
   canUpload: boolean;
   media: ProfileMediaRow[];
   mediaBusy: boolean;
-  reloadMedia: () => void;
+  reloadMedia: () => Promise<ProfileMediaRow[]>;
   uploadMedia: (
     file: File | null,
     opts?: { folderSlug?: 'models' | 'tijdelijke-uploads' | 'setkaarten'; setAsProfilePhoto?: boolean },
@@ -194,11 +194,20 @@ export function ModelSetCardTab({
       setHeroId(updated.frontHeroAssetId);
       const slots = slotsFromDraft(updated.versoPhotoAssetIds);
       setVersoSlots(slots);
-      revokeHeroLocal();
-      setVersoLocalUrls(Array.from({ length: VERSO_COUNT }, () => null));
+      const freshMedia = await reloadMedia();
+      const freshById = new Map(freshMedia.map((m) => [m.id, m]));
+      if (updated.frontHeroAssetId && freshById.has(updated.frontHeroAssetId)) {
+        revokeHeroLocal();
+      }
+      setVersoLocalUrls((prev) =>
+        prev.map((url, i) => {
+          const id = slots[i];
+          if (url && id && freshById.has(id)) URL.revokeObjectURL(url);
+          return id && freshById.has(id) ? null : url;
+        }),
+      );
       serverSnapshotRef.current = draftSnapshot(updated.frontHeroAssetId, slots, note);
       setSavedOnServer(true);
-      await reloadMedia();
       return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Opslaan mislukt.';
@@ -741,11 +750,15 @@ export function ModelSetCardTab({
                 className="origin-top-left font-serif"
                 style={{ width: '595px', height: '419px', transform: 'scale(0.52)', transformOrigin: 'top left' }}
               >
-                <div className="relative flex h-full" style={{ padding: '12px 20px' }}>
-                  <div className="flex w-[44%] min-w-0 flex-col">
+                {/* Zelfde zones als PDF: maten linksboven, 3 foto’s linksonder, grote foto rechts */}
+                <div className="relative box-border" style={{ width: 595, height: 419, padding: '12px 20px' }}>
+                  <div
+                    className="absolute overflow-hidden"
+                    style={{ left: 20, width: 258, top: 12, bottom: 52 + 118 + 6 }}
+                  >
                     <p className="text-[10px] font-bold text-[#750f1a]">MODEL INFO</p>
                     <hr className="my-1 border-[#750f1a]" />
-                    <ul className="flex-1 overflow-hidden rounded text-[6.5px]">
+                    <ul className="rounded text-[6.5px]">
                       {versoStatRows.map((e, idx) => (
                         <li
                           key={e.label}
@@ -756,40 +769,45 @@ export function ModelSetCardTab({
                         </li>
                       ))}
                     </ul>
-                    <div className="mt-2 flex gap-[5px]">
-                      {[0, 1, 2].map((i) => (
-                        <div key={i} className="h-[72px] w-[48px] shrink-0 bg-white">
-                          {versoPreviewSrc(i) ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full items-center justify-center bg-zinc-100 text-[9px] text-zinc-300">
-                              {i + 1}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
                   </div>
-                  <div className="absolute right-5 top-3 bottom-[72px] w-[48%]">
+                  <div className="absolute flex shrink-0" style={{ left: 20, bottom: 52, height: 118, gap: 12 }}>
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="overflow-hidden bg-white" style={{ width: 78, height: 118 }}>
+                        {versoPreviewSrc(i) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">
+                            {i + 1}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    className="absolute overflow-hidden bg-white"
+                    style={{ left: 326, right: 20, top: 12, bottom: 52 }}
+                  >
                     {versoPreviewSrc(3) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={versoPreviewSrc(3)!}
-                        alt=""
-                        className="h-full w-full object-cover object-center"
-                      />
+                      <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-cover object-center" />
                     ) : (
-                      <div className="flex h-full items-center justify-center rounded bg-zinc-100 text-[10px] text-zinc-300">
+                      <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">
                         Grote foto
                       </div>
                     )}
-                    <div className="absolute -bottom-4 left-0 right-0 flex justify-between text-[7px] text-zinc-600">
-                      <span>geboortejaar</span>
-                      <span>{birthYear ?? '—'}</span>
-                    </div>
                   </div>
-                  <div className="absolute bottom-2 left-5 right-5 text-[7.5px] leading-snug text-[#750f1a]">
+                  <div
+                    className="absolute flex justify-between text-[7px] text-zinc-600"
+                    style={{ left: 326, right: 20, bottom: 42 }}
+                  >
+                    <span>geboortejaar</span>
+                    <span>{birthYear ?? '—'}</span>
+                  </div>
+                  <div
+                    className="absolute text-[7.5px] leading-snug text-[#750f1a]"
+                    style={{ left: 20, right: 20, bottom: 12, height: 40 }}
+                  >
                     <p className="font-bold">Beschikbaar voor</p>
                     <hr className="my-0.5 border-[#750f1a]/70" />
                     <p>{beschikbaarLine}</p>
