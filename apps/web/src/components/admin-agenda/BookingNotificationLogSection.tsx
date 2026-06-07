@@ -21,6 +21,7 @@ const TRIGGER_LABELS: Record<string, string> = {
   booking_created: 'Bevestiging bij boeking',
   booking_confirmed: 'Komst bevestigd',
   booking_cancelled: 'Annulatie',
+  booking_updated: 'Afspraak gewijzigd',
   reminder: 'Herinnering',
   followup: 'Opvolging',
 };

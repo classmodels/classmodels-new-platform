@@ -1,4 +1,4 @@
-import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML } from './agenda-booking-email-template';
+import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML, AGENDA_DEFAULT_BOOKING_UPDATED_EMAIL_HTML } from './agenda-booking-email-template';
 import {
   applyAgendaMailPlaceholders,
   buildAgendaMailPlaceholderVars,
@@ -33,6 +33,7 @@ export type AgendaLifecycleTrigger =
   | 'booking_created'
   | 'booking_cancelled'
   | 'booking_confirmed'
+  | 'booking_updated'
   | 'reminder'
   | 'followup';
 
@@ -270,6 +271,26 @@ export class AgendaNotificationService {
           lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
         }
       }
+      if (!emailSent && trigger === 'booking_updated' && ctx.toEmail?.trim() && sendEmail) {
+        const fallbackOk = await this.sendDefaultBookingUpdated(ctx);
+        if (fallbackOk) {
+          emailSent = true;
+          lastEmailError = undefined;
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'email',
+            trigger,
+            templateId: null,
+            templateName: 'Standaard wijzigingsmail',
+            subject: `Afspraak gewijzigd: ${ctx.calendarTitle} — Class Models`,
+            recipient: ctx.toEmail.trim(),
+            bodyPreview: 'Standaard melding bij admin-wijziging',
+            sent: true,
+          });
+        } else if (!lastEmailError) {
+          lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
+        }
+      }
       result.emailSent = emailSent;
       result.emailError = emailSent ? undefined : lastEmailError;
       if (!emailSent && trigger === 'booking_created' && ctx.toEmail?.trim()) {
@@ -322,6 +343,28 @@ export class AgendaNotificationService {
         });
       }
       result.smsSent = smsSent;
+      if (!smsSent && trigger === 'booking_updated' && sendSms) {
+        const msisdn = normalizeBelgiumMsisdn(ctx.phone);
+        if (msisdn) {
+          const text = `Class-Models: uw afspraak "${ctx.calendarTitle}" is gewijzigd naar ${ctx.dateLabel} om ${ctx.timeLabel}.`;
+          const smsResult = await this.trySendBulksms(buUser, buPass, msisdn, text);
+          if (smsResult.ok) {
+            smsSent = true;
+            result.smsSent = true;
+          }
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'sms',
+            trigger,
+            templateId: null,
+            templateName: 'Standaard wijzigings-SMS',
+            recipient: msisdn,
+            bodyPreview: text,
+            sent: smsResult.ok,
+            errorMessage: smsResult.ok ? undefined : smsResult.error ?? 'SMS niet verstuurd.',
+          });
+        }
+      }
       if (!smsSent && trigger === 'booking_created') {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (msisdn) {
@@ -393,6 +436,52 @@ export class AgendaNotificationService {
     } catch (e) {
       this.log.error(
         `Standaard bevestigingsmail kon niet worden opgebouwd: ${e instanceof Error ? e.message : String(e)}`,
+        e instanceof Error ? e.stack : undefined,
+      );
+      return false;
+    }
+  }
+
+  /** Standaard HTML bij admin-wijziging (fallback bij booking_updated). */
+  async sendDefaultBookingUpdated(ctx: DispatchBookingCtx): Promise<boolean> {
+    const to = ctx.toEmail?.trim();
+    if (!to) return false;
+    try {
+      const subject = `Afspraak gewijzigd: ${ctx.calendarTitle} — Class Models`;
+      const html = coerceOutgoingEmailHtml(
+        applyAgendaMailPlaceholders(
+          AGENDA_DEFAULT_BOOKING_UPDATED_EMAIL_HTML,
+          buildAgendaMailPlaceholderVars(
+            {
+              displayName: ctx.displayName,
+              calendarTitle: ctx.calendarTitle,
+              dateLabel: ctx.dateLabel,
+              timeLabel: ctx.timeLabel,
+              cancelUrl: ctx.cancelUrl,
+              confirmUrl: ctx.confirmUrl,
+              officeAddress: ctx.officeAddress ?? CLASS_MODELS_OFFICE.fullAddress,
+              distanceLabel: ctx.distanceLabel ?? '',
+              mapsDirectionsUrl: ctx.mapsDirectionsUrl ?? '',
+              staticMapImageUrl: ctx.staticMapImageUrl ?? '',
+            },
+            'html',
+          ),
+        ),
+      );
+      const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, {
+        smtpFast: false,
+        skipMap: false,
+        reliable: true,
+      });
+      if (!sendResult.ok) {
+        this.log.error(
+          `Standaard wijzigingsmail mislukt → ${to}: ${sendResult.error ?? 'onbekende fout'}`,
+        );
+      }
+      return sendResult.ok;
+    } catch (e) {
+      this.log.error(
+        `Standaard wijzigingsmail kon niet worden opgebouwd: ${e instanceof Error ? e.message : String(e)}`,
         e instanceof Error ? e.stack : undefined,
       );
       return false;
@@ -490,7 +579,7 @@ export class AgendaNotificationService {
     bookingId?: string;
     channel: 'email' | 'sms';
     trigger: AgendaLifecycleTrigger;
-    templateId: string;
+    templateId: string | null;
     templateName: string;
     subject?: string;
     recipient?: string;
@@ -965,5 +1054,22 @@ export class AgendaNotificationService {
 
     const ctx = await this.buildDispatchCtxFromBooking(b, b.slot.calendar.slug);
     return this.dispatchBookingLifecycle('booking_cancelled', ctx, { channels });
+  }
+
+  /** Admin: wijziging melden naar model/bezoeker (optioneel e-mail en/of SMS). */
+  async notifyBookingUpdated(bookingId: string, opts: { email?: boolean; sms?: boolean }) {
+    const channels: Array<'email' | 'sms'> = [];
+    if (opts.email) channels.push('email');
+    if (opts.sms) channels.push('sms');
+    if (!channels.length) return { emailSent: false, smsSent: false };
+
+    const b = await this.prisma.agendaBooking.findUnique({
+      where: { id: bookingId },
+      include: { slot: { include: { calendar: true } } },
+    });
+    if (!b) return { emailSent: false, smsSent: false };
+
+    const ctx = await this.buildDispatchCtxFromBooking(b, b.slot.calendar.slug);
+    return this.dispatchBookingLifecycle('booking_updated', ctx, { channels });
   }
 }

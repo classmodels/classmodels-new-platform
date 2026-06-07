@@ -157,3 +157,107 @@ export function validateBookingDetailForSave(
   }
   return null;
 }
+
+export type AdminBookingDetailSnapshot = {
+  status: string;
+  name: string | null;
+  firstname: string | null;
+  lastname: string | null;
+  email: string | null;
+  phone: string | null;
+  fieldsJson: Record<string, string>;
+  schedCalId: string;
+  schedYmd: string;
+  schedStart: string;
+  schedEnd: string;
+};
+
+export function adminBookingDetailSnapshot(input: {
+  status: string;
+  name: string | null;
+  firstname: string | null;
+  lastname: string | null;
+  email: string | null;
+  phone: string | null;
+  fieldsJson: Record<string, unknown>;
+  schedCalId: string;
+  schedYmd: string;
+  schedStart: string;
+  schedEnd: string;
+}): AdminBookingDetailSnapshot {
+  return {
+    status: input.status,
+    name: input.name,
+    firstname: input.firstname,
+    lastname: input.lastname,
+    email: input.email,
+    phone: input.phone?.replace(/\D/g, '') ?? input.phone,
+    fieldsJson: prepareFieldsJsonForSave(input.fieldsJson),
+    schedCalId: input.schedCalId,
+    schedYmd: input.schedYmd,
+    schedStart: input.schedStart,
+    schedEnd: input.schedEnd,
+  };
+}
+
+function normStr(v: string | null | undefined): string {
+  return (v ?? '').trim();
+}
+
+function fieldsJsonEqual(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const k of keys) {
+    if ((a[k] ?? '').trim() !== (b[k] ?? '').trim()) return false;
+  }
+  return true;
+}
+
+export function adminBookingDetailHasChanges(
+  current: AdminBookingDetailSnapshot,
+  initial: AdminBookingDetailSnapshot,
+): boolean {
+  if (current.status !== initial.status) return true;
+  if (normStr(current.name) !== normStr(initial.name)) return true;
+  if (normStr(current.firstname) !== normStr(initial.firstname)) return true;
+  if (normStr(current.lastname) !== normStr(initial.lastname)) return true;
+  if (normStr(current.email) !== normStr(initial.email)) return true;
+  if (normStr(current.phone) !== normStr(initial.phone)) return true;
+  if (current.schedCalId !== initial.schedCalId) return true;
+  if (current.schedYmd !== initial.schedYmd) return true;
+  if (current.schedStart !== initial.schedStart) return true;
+  if (current.schedEnd !== initial.schedEnd) return true;
+  if (!fieldsJsonEqual(current.fieldsJson, initial.fieldsJson)) return true;
+  return false;
+}
+
+/** Admin: vraag e-mail/SMS bij annulatie of andere wijziging. */
+export function promptAdminBookingSaveNotifications(opts: {
+  becomingCancelled: boolean;
+  hasOtherChanges: boolean;
+}): {
+  notifyCancelEmail: boolean;
+  notifyCancelSms: boolean;
+  notifyUpdateEmail: boolean;
+  notifyUpdateSms: boolean;
+} {
+  const out = {
+    notifyCancelEmail: false,
+    notifyCancelSms: false,
+    notifyUpdateEmail: false,
+    notifyUpdateSms: false,
+  };
+  if (opts.becomingCancelled) {
+    out.notifyCancelEmail = window.confirm(
+      'Wilt u een e-mail sturen naar het model/bezoeker dat Class-Models de afspraak heeft geannuleerd?',
+    );
+    out.notifyCancelSms = window.confirm('Wilt u ook een SMS sturen met deze melding?');
+    return out;
+  }
+  if (opts.hasOtherChanges) {
+    out.notifyUpdateEmail = window.confirm(
+      'Wilt u de aanpassing per e-mail sturen naar het model/bezoeker?',
+    );
+    out.notifyUpdateSms = window.confirm('Wilt u de aanpassing ook per SMS sturen?');
+  }
+  return out;
+}

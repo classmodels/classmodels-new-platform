@@ -60,6 +60,7 @@ const TRIGGERS = [
   ['booking_created', 'Bij nieuwe boeking'],
   ['booking_cancelled', 'Bij annulatie'],
   ['booking_confirmed', 'Bij komst bevestigd'],
+  ['booking_updated', 'Bij admin-wijziging'],
   ['reminder', 'Herinnering (offset in uren; negatief = vóór start)'],
   ['followup', 'Opvolging (offset in uren; positief = na start)'],
 ] as const;

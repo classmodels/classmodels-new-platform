@@ -2310,6 +2310,13 @@ export class AgendaService implements OnModuleInit {
       }
     }
 
+    if (dto.notifyUpdateEmail || dto.notifyUpdateSms) {
+      await this.notifications.notifyBookingUpdated(id, {
+        email: !!dto.notifyUpdateEmail,
+        sms: !!dto.notifyUpdateSms,
+      });
+    }
+
     return updated;
   }
 

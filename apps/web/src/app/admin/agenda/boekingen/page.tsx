@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
-import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave } from '@/lib/agenda-booking-detail';
-import { AGENDA_BOOKING_STATUS_OPTS } from '@/lib/agenda-booking-status';
+import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
+import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 
 type Cal = {
@@ -122,7 +122,7 @@ export default function AdminAgendaBoekingenPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const [detail, setDetail] = useState<BookingDetail | null>(null);
-  const [detailInitialStatus, setDetailInitialStatus] = useState<string | null>(null);
+  const [detailInitialSnapshot, setDetailInitialSnapshot] = useState<AdminBookingDetailSnapshot | null>(null);
   const [schedCalId, setSchedCalId] = useState('');
   const [schedYmd, setSchedYmd] = useState('');
   const [schedStart, setSchedStart] = useState('');
@@ -240,11 +240,29 @@ export default function AdminAgendaBoekingenPage() {
           ? (b.fieldsJson as Record<string, unknown>)
           : {};
       setDetail({ ...b, fieldsJson: fj });
-      setDetailInitialStatus(b.status);
-      setSchedCalId(b.calendar.id);
-      setSchedYmd(b.slot.slotDate.slice(0, 10));
-      setSchedStart(b.slot.startTime.slice(0, 5));
-      setSchedEnd(b.slot.endTime.slice(0, 5));
+      const calId = b.calendar.id;
+      const ymd = b.slot.slotDate.slice(0, 10);
+      const start = b.slot.startTime.slice(0, 5);
+      const end = b.slot.endTime.slice(0, 5);
+      setSchedCalId(calId);
+      setSchedYmd(ymd);
+      setSchedStart(start);
+      setSchedEnd(end);
+      setDetailInitialSnapshot(
+        adminBookingDetailSnapshot({
+          status: b.status,
+          name: b.name,
+          firstname: b.firstname,
+          lastname: b.lastname,
+          email: b.email,
+          phone: b.phone,
+          fieldsJson: fj,
+          schedCalId: calId,
+          schedYmd: ymd,
+          schedStart: start,
+          schedEnd: end,
+        }),
+      );
     } catch (e) {
       setDetailErr(e instanceof Error ? e.message : 'Laden mislukt');
     } finally {
@@ -254,7 +272,7 @@ export default function AdminAgendaBoekingenPage() {
 
   const closeDetail = () => {
     setDetail(null);
-    setDetailInitialStatus(null);
+    setDetailInitialSnapshot(null);
     setDetailErr(null);
   };
 
@@ -285,17 +303,28 @@ export default function AdminAgendaBoekingenPage() {
       }
     }
     const becomingCancelled =
-      !!detailInitialStatus &&
+      !!detailInitialSnapshot &&
       isCancelledAgendaStatus(detail.status) &&
-      !isCancelledAgendaStatus(detailInitialStatus);
-    let notifyCancelEmail = false;
-    let notifyCancelSms = false;
-    if (becomingCancelled) {
-      notifyCancelEmail = window.confirm(
-        'Wilt u een e-mail sturen naar het model/bezoeker dat Class-Models de afspraak heeft geannuleerd?',
-      );
-      notifyCancelSms = window.confirm('Wilt u ook een SMS sturen met deze melding?');
-    }
+      !isCancelledAgendaStatus(detailInitialSnapshot.status);
+    const currentSnapshot = adminBookingDetailSnapshot({
+      status: detail.status,
+      name: detail.name,
+      firstname: detail.firstname,
+      lastname: detail.lastname,
+      email: detail.email,
+      phone: detail.phone,
+      fieldsJson: preparedFj,
+      schedCalId,
+      schedYmd,
+      schedStart,
+      schedEnd,
+    });
+    const hasOtherChanges =
+      !!detailInitialSnapshot &&
+      adminBookingDetailHasChanges(currentSnapshot, detailInitialSnapshot) &&
+      !becomingCancelled;
+    const { notifyCancelEmail, notifyCancelSms, notifyUpdateEmail, notifyUpdateSms } =
+      promptAdminBookingSaveNotifications({ becomingCancelled, hasOtherChanges });
     setSaving(true);
     setDetailErr(null);
     try {
@@ -313,6 +342,8 @@ export default function AdminAgendaBoekingenPage() {
         endTime: schedEnd,
         notifyCancelEmail,
         notifyCancelSms,
+        notifyUpdateEmail,
+        notifyUpdateSms,
       };
       await adminFetch(`/admin/agenda/bookings/${detail.id}`, token, {
         method: 'PATCH',
@@ -553,7 +584,7 @@ export default function AdminAgendaBoekingenPage() {
                       {b.email || '—'}
                       {b.phone ? <div>{b.phone}</div> : null}
                     </td>
-                    <td className="py-2 align-top">{b.status}</td>
+                    <td className="py-2 align-top">{agendaBookingStatusLabel(b.status)}</td>
                     <td className="py-2 align-top">
                       <button
                         type="button"

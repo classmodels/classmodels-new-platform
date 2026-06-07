@@ -461,6 +461,16 @@ export class UpdateAdminBookingDto {
   @IsOptional()
   @IsBoolean()
   notifyCancelSms?: boolean;
+
+  /** Admin: stuur wijziging per e-mail na opslaan. */
+  @IsOptional()
+  @IsBoolean()
+  notifyUpdateEmail?: boolean;
+
+  /** Admin: stuur wijziging per SMS na opslaan. */
+  @IsOptional()
+  @IsBoolean()
+  notifyUpdateSms?: boolean;
 }
 
 export class CreateOpenDayDto {
@@ -534,6 +544,7 @@ const NOTIFICATION_TRIGGERS = [
   'booking_created',
   'booking_cancelled',
   'booking_confirmed',
+  'booking_updated',
   'reminder',
   'followup',
 ] as const;
