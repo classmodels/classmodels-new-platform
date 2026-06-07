@@ -39,6 +39,14 @@ const fetchMedia = path.join(root, 'scripts', 'combell-fetch-shared-media.cjs');
 const syncMedia = path.join(root, 'scripts', 'combell-sync-media-uploads.cjs');
 
 console.error('[combell-pipeline] root =', root);
+try {
+  const rev = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: root, encoding: 'utf8' });
+  if (rev.status === 0 && rev.stdout?.trim()) {
+    console.error('[combell-pipeline] git =', rev.stdout.trim());
+  }
+} catch {
+  /**/
+}
 
 if (fs.existsSync(fetchMedia)) {
   run('0/6 — shared/uploads ophalen (buiten Docker-context)', process.execPath, [fetchMedia], {

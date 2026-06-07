@@ -223,6 +223,39 @@ export class AgendaNotificationService {
       let lastEmailError: string | undefined;
       const emailTemplates = dueNow.filter((x) => x.channel === 'email');
       const sendEmail = !opts?.channels || opts.channels.includes('email');
+
+      // Admin-wijziging: altijd standaardmail met "van … naar …"-blok (betrouwbaarder dan losse sjablonen).
+      if (trigger === 'booking_updated' && sendEmail && ctx.toEmail?.trim()) {
+        const fallbackOk = await this.sendDefaultBookingUpdated(ctx);
+        if (fallbackOk) {
+          emailSent = true;
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'email',
+            trigger,
+            templateId: null,
+            templateName: 'Standaard wijzigingsmail',
+            subject: `Afspraak gewijzigd: ${ctx.calendarTitle} — Class Models`,
+            recipient: ctx.toEmail.trim(),
+            bodyPreview: (ctx.changeSummaryPlain || 'Afspraak gewijzigd').slice(0, 4000),
+            sent: true,
+          });
+        } else {
+          lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'email',
+            trigger,
+            templateId: null,
+            templateName: 'Standaard wijzigingsmail',
+            subject: `Afspraak gewijzigd: ${ctx.calendarTitle} — Class Models`,
+            recipient: ctx.toEmail.trim(),
+            bodyPreview: ctx.changeSummaryPlain ?? 'Afspraak gewijzigd',
+            sent: false,
+            errorMessage: lastEmailError,
+          });
+        }
+      } else {
       for (const t of emailTemplates) {
         if (!sendEmail) break;
         const to = ctx.toEmail?.trim();
@@ -257,6 +290,8 @@ export class AgendaNotificationService {
           errorMessage: sendResult.ok ? undefined : sendResult.error,
         });
       }
+      }
+
       if (!emailSent && trigger === 'booking_created' && ctx.toEmail?.trim()) {
         if (!emailTemplates.length) {
           this.log.warn(
@@ -271,26 +306,6 @@ export class AgendaNotificationService {
         if (fallbackOk) {
           emailSent = true;
           lastEmailError = undefined;
-        } else if (!lastEmailError) {
-          lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
-        }
-      }
-      if (!emailSent && trigger === 'booking_updated' && ctx.toEmail?.trim() && sendEmail) {
-        const fallbackOk = await this.sendDefaultBookingUpdated(ctx);
-        if (fallbackOk) {
-          emailSent = true;
-          lastEmailError = undefined;
-          await this.recordBookingNotificationLog({
-            bookingId: ctx.bookingId,
-            channel: 'email',
-            trigger,
-            templateId: null,
-            templateName: 'Standaard wijzigingsmail',
-            subject: `Afspraak gewijzigd: ${ctx.calendarTitle} — Class Models`,
-            recipient: ctx.toEmail.trim(),
-            bodyPreview: 'Standaard melding bij admin-wijziging',
-            sent: true,
-          });
         } else if (!lastEmailError) {
           lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
         }

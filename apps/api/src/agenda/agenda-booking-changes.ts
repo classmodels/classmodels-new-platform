@@ -1,5 +1,7 @@
 /** Vergelijking vóór/na admin-wijziging voor meldingen naar klant. */
 
+import { slotDateToYmd } from './agenda-brussels-time';
+
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Afspraak',
   confirmed: 'Ingeschreven',
@@ -66,9 +68,7 @@ export function bookingChangeSnapshot(input: {
   status: string;
 }): BookingChangeSnapshot {
   const slotDateYmd =
-    input.slotDate instanceof Date
-      ? input.slotDate.toISOString().slice(0, 10)
-      : String(input.slotDate).slice(0, 10);
+    input.slotDate instanceof Date ? slotDateToYmd(input.slotDate) : String(input.slotDate).slice(0, 10);
   return {
     calendarTitle: input.calendarTitle.trim(),
     slotDateYmd,
