@@ -180,8 +180,10 @@ export function BookingNotificationLogSection({ bookingId, token }: Props) {
                           {r.bodyPreview ? (
                             <p className="mt-2 break-words whitespace-pre-wrap text-muted">{r.bodyPreview}</p>
                           ) : null}
-                          {!r.sent && r.errorMessage ? (
-                            <p className="mt-2 text-red-600">{r.errorMessage}</p>
+                          {!r.sent ? (
+                            <p className="mt-2 font-semibold text-red-600">
+                              {r.errorMessage?.trim() || 'Niet verstuurd — zie details hierboven.'}
+                            </p>
                           ) : null}
                         </td>
                       </tr>

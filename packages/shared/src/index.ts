@@ -5,3 +5,4 @@ export * from './agenda-booking-email-template';
 export * from './agenda-mail-placeholders';
 export * from './bulk-mail-layout';
 export * from './email-layout';
+export * from './agenda-booking-status';

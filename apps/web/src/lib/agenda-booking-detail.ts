@@ -64,6 +64,9 @@ export const RESERVED_FIELDS_JSON_KEYS = new Set([
   'ouder_gsm_vader',
   'ouder_naam_moeder',
   'ouder_gsm_moeder',
+  'gsm_moeder',
+  'gsm_vader',
+  'land',
 ]);
 
 export function isReservedFieldsJsonKey(key: string): boolean {
@@ -112,9 +115,6 @@ export function validateBookingDetailForSave(
   opts?: { adminLoose?: boolean },
 ): string | null {
   if (opts?.adminLoose) {
-    if (isCancelledAgendaStatus(input.status) && !fjString(input.fieldsJson, 'annulatie_reden')) {
-      return 'Reden van annulatie is verplicht wanneer de status geannuleerd is.';
-    }
     return null;
   }
   const t = (s: string | null | undefined) => (typeof s === 'string' ? s.trim() : '');
@@ -124,6 +124,10 @@ export function validateBookingDetailForSave(
   const em = t(input.email);
   if (!em || !em.includes('@')) return 'E-mail is verplicht en moet een geldig adres bevatten.';
   if (!t(input.phone)) return 'GSM is verplicht.';
+  const phoneDigits = t(input.phone).replace(/\D/g, '');
+  if (phoneDigits.length !== 10) {
+    return 'GSM moet exact 10 cijfers bevatten (bv. 0498720371), zonder spaties of tekens.';
+  }
   const fj = input.fieldsJson;
   if (!fjString(fj, 'straat')) return 'Straat is verplicht.';
   if (!fjString(fj, 'nr')) return 'Nr is verplicht.';

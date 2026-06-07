@@ -12,6 +12,7 @@ import {
   prepareFieldsJsonForSave,
   validateBookingDetailForSave,
 } from '@/lib/agenda-booking-detail';
+import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import {
   compareBookingsBySlot,
   formatSlotTimeRange,
@@ -47,19 +48,16 @@ type BookingDetail = {
   email: string | null;
   phone: string | null;
   fieldsJson: Record<string, unknown>;
+  distanceLabel?: string | null;
   calendar: { id: string; slug: string; title: string; color: string; planningTextOnColor?: string | null };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
 };
 
-const STATUS_OPTS = [
-  { v: 'pending', label: 'Actieve afspraken' },
-  { v: 'confirmed', label: 'Ingeschreven' },
-  { v: 'acknowledged', label: 'Komst bevestigd' },
-  { v: 'attended', label: 'Langs geweest' },
-  { v: 'cancelled', label: 'Geannuleerd' },
-  { v: 'cancelled_cm', label: 'Geannuleerd (CM)' },
-  { v: 'no_show', label: 'Niet ingeschreven' },
-] as const;
+const STATUS_OPTS = AGENDA_BOOKING_STATUS_OPTS;
+
+function bookingLabel(status: string): string {
+  return agendaBookingStatusLabel(status);
+}
 
 const GRID_START_H = 7;
 const GRID_END_H = 22;
@@ -131,19 +129,6 @@ function planningBlockStrikeClass(cal: { planningTextOnColor?: string | null }, 
   return cal.planningTextOnColor === 'black' ? 'line-through decoration-zinc-900/55' : 'line-through decoration-white/90';
 }
 
-function bookingLabel(status: string): string {
-  const m: Record<string, string> = {
-    pending: 'Afspraak',
-    confirmed: 'Ingeschreven',
-    acknowledged: 'Komst bevestigd',
-    attended: 'Langs geweest',
-    cancelled: 'Geannuleerd',
-    cancelled_cm: 'Geannuleerd (CM)',
-    no_show: 'Niet ingeschreven',
-  };
-  return m[status] ?? status;
-}
-
 function blockStyleForBooking(b: BookingRow, dayYmd: string): { top: number; height: number } | null {
   if (slotDateKey(b.slot.slotDate) !== dayYmd) return null;
   const startMin = timeStringToMinutes(b.slot.startTime) - GRID_START_H * 60;
@@ -202,6 +187,7 @@ export default function AdminAgendaPlanningPage() {
   const [mailTo, setMailTo] = useState('');
   const [pickerYmd, setPickerYmd] = useState(() => ymd(new Date()));
   const [detail, setDetail] = useState<BookingDetail | null>(null);
+  const [detailInitialStatus, setDetailInitialStatus] = useState<string | null>(null);
   const [schedCalId, setSchedCalId] = useState('');
   const [schedYmd, setSchedYmd] = useState('');
   const [schedStart, setSchedStart] = useState('');
@@ -451,6 +437,7 @@ export default function AdminAgendaPlanningPage() {
           ? (b.fieldsJson as Record<string, unknown>)
           : {};
       setDetail({ ...b, fieldsJson: fj });
+      setDetailInitialStatus(b.status);
       setSchedCalId(b.calendar.id);
       setSchedYmd(b.slot.slotDate.slice(0, 10));
       setSchedStart(b.slot.startTime.slice(0, 5));
@@ -481,6 +468,25 @@ export default function AdminAgendaPlanningPage() {
       setDetailErr(vErr);
       return;
     }
+    if (detail.phone?.trim()) {
+      const digits = detail.phone.replace(/\D/g, '');
+      if (digits.length !== 10) {
+        setDetailErr('GSM moet exact 10 cijfers bevatten (bv. 0498720371), zonder spaties of tekens.');
+        return;
+      }
+    }
+    const becomingCancelled =
+      !!detailInitialStatus &&
+      isCancelledAgendaStatus(detail.status) &&
+      !isCancelledAgendaStatus(detailInitialStatus);
+    let notifyCancelEmail = false;
+    let notifyCancelSms = false;
+    if (becomingCancelled) {
+      notifyCancelEmail = window.confirm(
+        'Wilt u een e-mail sturen naar het model/bezoeker dat Class-Models de afspraak heeft geannuleerd?',
+      );
+      notifyCancelSms = window.confirm('Wilt u ook een SMS sturen met deze melding?');
+    }
     setSaving(true);
     setDetailErr(null);
     try {
@@ -492,15 +498,18 @@ export default function AdminAgendaPlanningPage() {
           firstname: detail.firstname,
           lastname: detail.lastname,
           email: detail.email,
-          phone: detail.phone,
+          phone: detail.phone?.replace(/\D/g, '') ?? detail.phone,
           fieldsJson: preparedFj,
           calendarId: schedCalId,
           slotDate: schedYmd,
           startTime: schedStart,
           endTime: schedEnd,
+          notifyCancelEmail,
+          notifyCancelSms,
         }),
       });
       setDetail(null);
+      setDetailInitialStatus(null);
       await loadBookings();
       router.refresh();
     } catch (e) {

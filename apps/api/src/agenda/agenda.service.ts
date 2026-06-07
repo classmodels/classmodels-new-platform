@@ -46,6 +46,8 @@ import {
 import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl } from './class-models-office';
 import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
 import { AgendaTravelService } from './agenda-travel.service';
+import { assertAgendaMobile10Digits } from './agenda-phone';
+import { bookingFieldsFromModelAccount } from './model-booking-prefill';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
 import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
 import { MediaService } from '../media/media.service';
@@ -972,6 +974,26 @@ export class AgendaService implements OnModuleInit {
     });
 
     const fieldsJson: Record<string, string> = { ...dto.fields, ...uploadedFieldUrls };
+
+    if (userId) {
+      const account = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          modelSheet: true,
+        },
+      });
+      if (account) {
+        const prefill = bookingFieldsFromModelAccount(account);
+        for (const [k, v] of Object.entries(prefill)) {
+          if (!fieldsJson[k]?.trim()) fieldsJson[k] = v;
+        }
+      }
+    }
+
     let firstname = '';
     let lastname = '';
     let email = '';
@@ -1017,12 +1039,33 @@ export class AgendaService implements OnModuleInit {
         select: { firstName: true, lastName: true, email: true, phone: true },
       });
       if (u) {
-        if (!firstname && u.firstName) firstname = u.firstName;
-        if (!lastname && u.lastName) lastname = u.lastName;
-        if (!email && u.email) email = u.email;
-        if (!phone && u.phone) phone = u.phone;
+        if (!firstname && u.firstName) {
+          firstname = u.firstName;
+          fieldsJson.voornaam = u.firstName;
+        }
+        if (!lastname && u.lastName) {
+          lastname = u.lastName;
+          fieldsJson.familienaam = u.lastName;
+          fieldsJson.achternaam = u.lastName;
+        }
+        if (!email && u.email) {
+          email = u.email;
+          fieldsJson.email = u.email;
+        }
+        if (!phone && u.phone) {
+          phone = u.phone;
+          fieldsJson.telefoon = u.phone.replace(/\D/g, '');
+        }
         if (!name) name = [firstname, lastname].filter(Boolean).join(' ').trim();
       }
+    }
+
+    const phoneRaw = (phone || fieldsJson.telefoon || fieldsJson.phone || '').trim();
+    if (phoneRaw) {
+      assertAgendaMobile10Digits(phoneRaw, 'GSM');
+      const digits = phoneRaw.replace(/\D/g, '');
+      phone = digits;
+      fieldsJson.telefoon = digits;
     }
 
     const startNorm = normTime(slot.startTime);
@@ -2154,6 +2197,17 @@ export class AgendaService implements OnModuleInit {
       },
     });
     if (!b) throw new NotFoundException('Boeking niet gevonden');
+    const fj =
+      b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+        ? (b.fieldsJson as Record<string, string>)
+        : {};
+    let distanceLabel: string | null = null;
+    try {
+      const travel = await this.travel.travelInfoForGuestFields(fj);
+      distanceLabel = travel?.distanceLabel ?? null;
+    } catch {
+      distanceLabel = null;
+    }
     return {
       id: b.id,
       startAt: b.startAt.toISOString(),
@@ -2165,6 +2219,7 @@ export class AgendaService implements OnModuleInit {
       email: b.email,
       phone: b.phone,
       fieldsJson: b.fieldsJson as Record<string, unknown>,
+      distanceLabel,
       calendar: b.calendar,
       slot: {
         id: b.slot.id,
@@ -2232,8 +2287,8 @@ export class AgendaService implements OnModuleInit {
     const nextPhone = dto.phone !== undefined ? dto.phone : b.phone;
     const mergedFj = mergeBookingFieldsJson(b.fieldsJson, dto.fieldsJson);
 
-    if (isCancelledStatus(nextStatus) && !fjStr(mergedFj, 'annulatie_reden')) {
-      throw new BadRequestException('Reden van annulatie is verplicht wanneer de status geannuleerd is.');
+    if (dto.phone !== undefined && dto.phone?.trim()) {
+      assertAgendaMobile10Digits(dto.phone, 'GSM');
     }
 
     if (dto.status !== undefined) data.status = dto.status;
@@ -2244,7 +2299,18 @@ export class AgendaService implements OnModuleInit {
     if (dto.phone !== undefined) data.phone = dto.phone;
     data.fieldsJson = mergedFj as object;
 
-    return this.prisma.agendaBooking.update({ where: { id }, data });
+    const updated = await this.prisma.agendaBooking.update({ where: { id }, data });
+
+    if (dto.notifyCancelEmail || dto.notifyCancelSms) {
+      if (isCancelledStatus(nextStatus)) {
+        await this.notifications.notifyBookingCancelled(id, {
+          email: !!dto.notifyCancelEmail,
+          sms: !!dto.notifyCancelSms,
+        });
+      }
+    }
+
+    return updated;
   }
 
   async adminDeleteBooking(id: string) {

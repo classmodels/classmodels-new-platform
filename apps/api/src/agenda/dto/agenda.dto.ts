@@ -451,6 +451,16 @@ export class UpdateAdminBookingDto {
   @IsString()
   @Matches(/^\d{1,2}:\d{2}$/)
   endTime?: string;
+
+  /** Admin: stuur annulatie per e-mail na opslaan (status geannuleerd). */
+  @IsOptional()
+  @IsBoolean()
+  notifyCancelEmail?: boolean;
+
+  /** Admin: stuur annulatie per SMS na opslaan (status geannuleerd). */
+  @IsOptional()
+  @IsBoolean()
+  notifyCancelSms?: boolean;
 }
 
 export class CreateOpenDayDto {

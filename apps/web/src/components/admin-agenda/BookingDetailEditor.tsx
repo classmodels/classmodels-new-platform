@@ -24,6 +24,7 @@ export type BookingDetailEditorModel = {
   email: string | null;
   phone: string | null;
   fieldsJson: Record<string, unknown>;
+  distanceLabel?: string | null;
   calendar: { id: string; slug: string; title: string; color?: string };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
 };
@@ -180,6 +181,11 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
       </div>
 
       <h4 className="mt-6 text-sm font-semibold text-slate-600">Afspraakgegevens</h4>
+      {detail.distanceLabel ? (
+        <p className="mt-2 text-sm font-medium text-ink">
+          Afstand tot kantoor: <span className="text-burgundy">{detail.distanceLabel}</span>
+        </p>
+      ) : null}
       <div className="mt-3 grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-3">
           {fotoStored && photoSrc ? (
@@ -261,6 +267,7 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
               ['nr', 'Nr'],
               ['postcode', 'Postcode'],
               ['gemeente', 'Gemeente'],
+              ['land', 'Land'],
             ] as const
           ).map(([key, lab]) => (
             <label key={key} className="text-xs text-muted">
@@ -273,9 +280,35 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
             </label>
           ))}
 
+          {fjString(fj, 'gsm_moeder') || fjString(fj, 'gsm_vader') ? (
+            <div className="mt-2 space-y-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-xs">
+              <p className="font-semibold text-ink">GSM ouder(s) (uit modellenfiche)</p>
+              {fjString(fj, 'gsm_vader') ? (
+                <label className="block text-xs text-muted">
+                  GSM vader
+                  <input
+                    className="mt-0.5 w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 text-sm"
+                    value={fjString(fj, 'gsm_vader')}
+                    onChange={(e) => setFj(detail, onDetailChange, { gsm_vader: e.target.value.replace(/\D/g, '') })}
+                  />
+                </label>
+              ) : null}
+              {fjString(fj, 'gsm_moeder') ? (
+                <label className="block text-xs text-muted">
+                  GSM moeder
+                  <input
+                    className="mt-0.5 w-full rounded-lg border border-zinc-200 bg-white px-2 py-2 text-sm"
+                    value={fjString(fj, 'gsm_moeder')}
+                    onChange={(e) => setFj(detail, onDetailChange, { gsm_moeder: e.target.value.replace(/\D/g, '') })}
+                  />
+                </label>
+              ) : null}
+            </div>
+          ) : null}
+
           {isCancelledAgendaStatus(detail.status) ? (
             <label className="text-xs text-muted">
-              Reden van annulatie <span className="text-red-600">*</span>
+              Reden van annulatie <span className="text-zinc-400">(optioneel voor admin)</span>
               <textarea
                 rows={3}
                 className="mt-1 w-full resize-y rounded-lg border border-zinc-200 px-2 py-2 text-sm"

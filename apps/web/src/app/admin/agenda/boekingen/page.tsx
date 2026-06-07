@@ -6,6 +6,7 @@ import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
 import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave } from '@/lib/agenda-booking-detail';
+import { AGENDA_BOOKING_STATUS_OPTS } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 
 type Cal = {
@@ -42,19 +43,12 @@ type BookingDetail = {
   email: string | null;
   phone: string | null;
   fieldsJson: Record<string, unknown>;
+  distanceLabel?: string | null;
   calendar: { id: string; slug: string; title: string; color: string };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
 };
 
-const STATUS_OPTS = [
-  { v: 'pending', label: 'Actieve afspraken' },
-  { v: 'confirmed', label: 'Ingeschreven' },
-  { v: 'acknowledged', label: 'Komst bevestigd' },
-  { v: 'attended', label: 'Langs geweest' },
-  { v: 'cancelled', label: 'Geannuleerd' },
-  { v: 'cancelled_cm', label: 'Geannuleerd (CM)' },
-  { v: 'no_show', label: 'Niet ingeschreven' },
-] as const;
+const STATUS_OPTS = AGENDA_BOOKING_STATUS_OPTS;
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -128,6 +122,7 @@ export default function AdminAgendaBoekingenPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const [detail, setDetail] = useState<BookingDetail | null>(null);
+  const [detailInitialStatus, setDetailInitialStatus] = useState<string | null>(null);
   const [schedCalId, setSchedCalId] = useState('');
   const [schedYmd, setSchedYmd] = useState('');
   const [schedStart, setSchedStart] = useState('');
@@ -245,6 +240,7 @@ export default function AdminAgendaBoekingenPage() {
           ? (b.fieldsJson as Record<string, unknown>)
           : {};
       setDetail({ ...b, fieldsJson: fj });
+      setDetailInitialStatus(b.status);
       setSchedCalId(b.calendar.id);
       setSchedYmd(b.slot.slotDate.slice(0, 10));
       setSchedStart(b.slot.startTime.slice(0, 5));
@@ -258,6 +254,7 @@ export default function AdminAgendaBoekingenPage() {
 
   const closeDetail = () => {
     setDetail(null);
+    setDetailInitialStatus(null);
     setDetailErr(null);
   };
 
@@ -280,6 +277,25 @@ export default function AdminAgendaBoekingenPage() {
       setDetailErr(vErr);
       return;
     }
+    if (detail.phone?.trim()) {
+      const digits = detail.phone.replace(/\D/g, '');
+      if (digits.length !== 10) {
+        setDetailErr('GSM moet exact 10 cijfers bevatten (bv. 0498720371), zonder spaties of tekens.');
+        return;
+      }
+    }
+    const becomingCancelled =
+      !!detailInitialStatus &&
+      isCancelledAgendaStatus(detail.status) &&
+      !isCancelledAgendaStatus(detailInitialStatus);
+    let notifyCancelEmail = false;
+    let notifyCancelSms = false;
+    if (becomingCancelled) {
+      notifyCancelEmail = window.confirm(
+        'Wilt u een e-mail sturen naar het model/bezoeker dat Class-Models de afspraak heeft geannuleerd?',
+      );
+      notifyCancelSms = window.confirm('Wilt u ook een SMS sturen met deze melding?');
+    }
     setSaving(true);
     setDetailErr(null);
     try {
@@ -289,12 +305,14 @@ export default function AdminAgendaBoekingenPage() {
         firstname: detail.firstname,
         lastname: detail.lastname,
         email: detail.email,
-        phone: detail.phone,
+        phone: detail.phone?.replace(/\D/g, '') ?? detail.phone,
         fieldsJson: preparedFj,
         calendarId: schedCalId,
         slotDate: schedYmd,
         startTime: schedStart,
         endTime: schedEnd,
+        notifyCancelEmail,
+        notifyCancelSms,
       };
       await adminFetch(`/admin/agenda/bookings/${detail.id}`, token, {
         method: 'PATCH',

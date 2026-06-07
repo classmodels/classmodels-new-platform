@@ -16,6 +16,7 @@ import { embedRouteMapInEmailHtml, type SmtpInlineAttachment } from './agenda-ma
 type SmtpAttachment = SmtpInlineAttachment | { filename: string; content: Buffer; contentType?: string };
 import { AgendaTravelService } from './agenda-travel.service';
 import { isAgendaBookingEnrolled, isGuestIntakeCalendarSlug } from './guest-intake-calendars';
+import { formatBulksmsError } from './agenda-phone';
 
 export type AgendaConfirmationPayload = {
   toEmail: string | null;
@@ -176,6 +177,7 @@ export class AgendaNotificationService {
   async dispatchBookingLifecycle(
     trigger: AgendaLifecycleTrigger,
     ctx: DispatchBookingCtx,
+    opts?: { channels?: Array<'email' | 'sms'> },
   ): Promise<DispatchBookingResult> {
     const result: DispatchBookingResult = { emailSent: false, smsSent: false };
     try {
@@ -215,7 +217,9 @@ export class AgendaNotificationService {
       let emailSent = false;
       let lastEmailError: string | undefined;
       const emailTemplates = dueNow.filter((x) => x.channel === 'email');
+      const sendEmail = !opts?.channels || opts.channels.includes('email');
       for (const t of emailTemplates) {
+        if (!sendEmail) break;
         const to = ctx.toEmail?.trim();
         if (!to) continue;
         const subject =
@@ -280,7 +284,9 @@ export class AgendaNotificationService {
 
       let smsSent = false;
       const smsTemplates = dueNow.filter((x) => x.channel === 'sms');
+      const sendSms = !opts?.channels || opts.channels.includes('sms');
       for (const t of smsTemplates) {
+        if (!sendSms) break;
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (!msisdn) continue;
         const text = applyAgendaMailPlaceholders(
@@ -301,8 +307,8 @@ export class AgendaNotificationService {
             'plain',
           ),
         );
-        const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
-        if (ok) smsSent = true;
+        const smsResult = await this.trySendBulksms(buUser, buPass, msisdn, text);
+        if (smsResult.ok) smsSent = true;
         await this.recordBookingNotificationLog({
           bookingId: ctx.bookingId,
           channel: 'sms',
@@ -311,8 +317,8 @@ export class AgendaNotificationService {
           templateName: t.name,
           recipient: msisdn,
           bodyPreview: text,
-          sent: ok,
-          errorMessage: ok ? undefined : 'SMS niet verstuurd (BulkSMS of credentials).',
+          sent: smsResult.ok,
+          errorMessage: smsResult.ok ? undefined : smsResult.error ?? 'SMS niet verstuurd.',
         });
       }
       result.smsSent = smsSent;
@@ -407,8 +413,10 @@ export class AgendaNotificationService {
     password: string,
     to: string,
     body: string,
-  ): Promise<boolean> {
-    if (!username?.trim() || !password) return false;
+  ): Promise<{ ok: boolean; error?: string }> {
+    if (!username?.trim() || !password) {
+      return { ok: false, error: 'BulkSMS niet geconfigureerd (gebruikersnaam/wachtwoord).' };
+    }
     const auth = Buffer.from(`${username.trim()}:${password}`, 'utf8').toString('base64');
     try {
       const res = await fetch('https://api.bulksms.com/v1/messages', {
@@ -425,14 +433,16 @@ export class AgendaNotificationService {
       });
       if (!res.ok) {
         const t = await res.text().catch(() => '');
-        this.log.warn(`BulkSMS HTTP ${res.status}: ${t}`);
-        return false;
+        const err = formatBulksmsError(res.status, t);
+        this.log.warn(`BulkSMS HTTP ${res.status}: ${err}`);
+        return { ok: false, error: err };
       }
       this.log.log(`BulkSMS verstuurd naar ${to}`);
-      return true;
+      return { ok: true };
     } catch (e) {
-      this.log.warn(`BulkSMS mislukt: ${e instanceof Error ? e.message : String(e)}`);
-      return false;
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log.warn(`BulkSMS mislukt: ${msg}`);
+      return { ok: false, error: msg.slice(0, 200) };
     }
   }
 
@@ -683,7 +693,7 @@ export class AgendaNotificationService {
         if (!templateMatchesEnrollmentFilter(template.enrollmentFilter, b.status)) continue;
 
         const already = await this.prisma.agendaBookingNotificationLog.findFirst({
-          where: { bookingId: b.id, templateId: template.id, sent: true },
+          where: { bookingId: b.id, templateId: template.id },
         });
         if (already) continue;
 
@@ -768,7 +778,7 @@ export class AgendaNotificationService {
     let distanceLabel = '';
     let mapsDirectionsUrl = visitorAddress ? googleMapsDirectionsUrl(visitorAddress) : '';
     let staticMapImageUrl = '';
-    if (isGuestIntakeCalendarSlug(calendarSlug) && visitorAddress) {
+    if (visitorAddress) {
       try {
         const t = await withFetchTimeout(
           this.travel.travelInfoForGuestFields(fj),
@@ -895,7 +905,7 @@ export class AgendaNotificationService {
       const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
       const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
       const text = applyAgendaMailPlaceholders(template.body, varsPlain);
-      const ok = await this.trySendBulksms(buUser, buPass, msisdn, text);
+      const smsResult = await this.trySendBulksms(buUser, buPass, msisdn, text);
       await this.recordBookingNotificationLog({
         bookingId: ctx.bookingId,
         channel: 'sms',
@@ -904,10 +914,10 @@ export class AgendaNotificationService {
         templateName: template.name,
         recipient: msisdn,
         bodyPreview: text,
-        sent: ok,
-        errorMessage: ok ? undefined : 'SMS niet verstuurd (BulkSMS of credentials).',
+        sent: smsResult.ok,
+        errorMessage: smsResult.ok ? undefined : smsResult.error ?? 'SMS niet verstuurd.',
       });
-      return ok;
+      return smsResult.ok;
     }
 
     return false;
@@ -937,6 +947,23 @@ export class AgendaNotificationService {
     const settings = await this.prisma.agendaMessagingSettings.findUnique({ where: { id: 1 } });
     const buUser = settings?.bulksmsUsername?.trim() || process.env.BULKSMS_USERNAME?.trim();
     const buPass = settings?.bulksmsPassword ?? process.env.BULKSMS_PASSWORD ?? '';
-    return this.trySendBulksms(buUser, buPass, msisdn, body.trim());
+    return this.trySendBulksms(buUser, buPass, msisdn, body.trim()).then((r) => r.ok);
+  }
+
+  /** Admin: annulatie melden naar model/bezoeker (optioneel e-mail en/of SMS). */
+  async notifyBookingCancelled(bookingId: string, opts: { email?: boolean; sms?: boolean }) {
+    const channels: Array<'email' | 'sms'> = [];
+    if (opts.email) channels.push('email');
+    if (opts.sms) channels.push('sms');
+    if (!channels.length) return { emailSent: false, smsSent: false };
+
+    const b = await this.prisma.agendaBooking.findUnique({
+      where: { id: bookingId },
+      include: { slot: { include: { calendar: true } } },
+    });
+    if (!b) return { emailSent: false, smsSent: false };
+
+    const ctx = await this.buildDispatchCtxFromBooking(b, b.slot.calendar.slug);
+    return this.dispatchBookingLifecycle('booking_cancelled', ctx, { channels });
   }
 }
