@@ -47,6 +47,8 @@ const PLACEHOLDERS = [
     'maps_route_block_html',
     'Kantoor + afstand + kaartafbeelding + Google Maps-link (volledig blok; leeg zonder adres)',
   ],
+  ['changes_summary', 'Wijzigingen (platte tekst: van … naar …)'],
+  ['changes_block_html', 'Wijzigingstabel HTML (admin-wijziging; leeg zonder wijzigingen)'],
 ] as const;
 
 function offsetMinutesToHoursInput(m: number): string {

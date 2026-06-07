@@ -14,6 +14,10 @@ export type AgendaMailPlaceholderContext = {
   distanceLabel?: string;
   mapsDirectionsUrl?: string;
   staticMapImageUrl?: string;
+  /** Platte tekst: "Datum: van … naar …" (admin-wijziging). */
+  changeSummaryPlain?: string;
+  /** HTML-blok met wijzigingstabel (admin-wijziging). */
+  changeSummaryHtml?: string;
 };
 
 function buildMapsRouteBlockHtml(ctx: AgendaMailPlaceholderContext): string {
@@ -66,6 +70,8 @@ export function buildAgendaMailPlaceholderVars(
   const office = ctx.officeAddress ?? '';
   const dist = ctx.distanceLabel ?? '';
   const mapsDir = ctx.mapsDirectionsUrl ?? '';
+  const changesPlain = ctx.changeSummaryPlain ?? '';
+  const changesHtml = ctx.changeSummaryHtml ?? '';
 
   if (mode === 'plain') {
     return {
@@ -82,6 +88,8 @@ export function buildAgendaMailPlaceholderVars(
       office_address: office,
       distance_label: dist,
       maps_directions_url: mapsDir,
+      changes_summary: changesPlain,
+      changes_block_html: changesPlain,
       maps_route_block_html: office
         ? buildMapsRouteBlockHtml(ctx).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
         : '',
@@ -107,6 +115,8 @@ export function buildAgendaMailPlaceholderVars(
     maps_directions_link_html: mapsDir
       ? `<a href="${esc(mapsDir)}">Route naar ons kantoor in Google Maps</a>`
       : '',
+    changes_summary: esc(changesPlain),
+    changes_block_html: changesHtml || (changesPlain ? `<p style="margin:0 0 16px;text-align:left;">${esc(changesPlain)}</p>` : ''),
     maps_route_block_html: office ? buildMapsRouteBlockHtml(ctx) : '',
   };
 }

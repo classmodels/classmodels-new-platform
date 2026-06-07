@@ -23,7 +23,9 @@ Op de dag <em>vóór</em> uw afspraak kunt u via onderstaande knop laten weten d
 
 /** Standaard HTML wanneer admin een bestaande afspraak wijzigt. */
 export const AGENDA_DEFAULT_BOOKING_UPDATED_EMAIL_HTML = `<p style="margin:0 0 12px;text-align:left;">Beste {{client_name}},</p>
-<p style="margin:0 0 16px;text-align:left;">Uw afspraak bij Class-Models is aangepast. Hieronder vindt u de actuele gegevens.</p>
+<p style="margin:0 0 16px;text-align:left;">Uw afspraak bij Class-Models is aangepast door ons team.</p>
+{{changes_block_html}}
+<p style="margin:0 0 12px;text-align:left;font-size:14px;color:#52525b;"><strong>Huidige afspraakgegevens</strong></p>
 <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #e4e4e7;border-radius:6px;margin-bottom:20px;">
 <tr><td style="padding:14px 16px;text-align:left;">
 <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#71717a;margin-bottom:4px;">Type</div>

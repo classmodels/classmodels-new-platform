@@ -47,6 +47,12 @@ import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirections
 import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
 import { AgendaTravelService } from './agenda-travel.service';
 import { assertAgendaMobile10Digits } from './agenda-phone';
+import {
+  bookingChangeSnapshot,
+  diffBookingSnapshots,
+  formatBookingChangesHtml,
+  formatBookingChangesPlain,
+} from './agenda-booking-changes';
 import { bookingFieldsFromModelAccount } from './model-booking-prefill';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
 import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
@@ -2237,6 +2243,18 @@ export class AgendaService implements OnModuleInit {
     });
     if (!b) throw new NotFoundException('Boeking niet gevonden');
 
+    const oldCal = await this.prisma.agendaCalendar.findUnique({
+      where: { id: b.calendarId },
+      select: { title: true, showEndTimeOnPublic: true },
+    });
+    const beforeSnap = bookingChangeSnapshot({
+      calendarTitle: oldCal?.title ?? '',
+      slotDate: b.slot.slotDate,
+      startTime: b.slot.startTime,
+      endTime: b.slot.endTime,
+      status: b.status,
+    });
+
     const wantsMove =
       dto.calendarId !== undefined ||
       dto.slotDate !== undefined ||
@@ -2311,9 +2329,27 @@ export class AgendaService implements OnModuleInit {
     }
 
     if (dto.notifyUpdateEmail || dto.notifyUpdateSms) {
+      const afterRow = await this.prisma.agendaBooking.findUnique({
+        where: { id },
+        include: { slot: { include: { calendar: { select: { title: true, showEndTimeOnPublic: true } } } } },
+      });
+      const afterSnap = afterRow
+        ? bookingChangeSnapshot({
+            calendarTitle: afterRow.slot.calendar.title,
+            slotDate: afterRow.slot.slotDate,
+            startTime: afterRow.slot.startTime,
+            endTime: afterRow.slot.endTime,
+            status: afterRow.status,
+          })
+        : beforeSnap;
+      const changeLines = diffBookingSnapshots(beforeSnap, afterSnap, {
+        showEndTime: afterRow?.slot.calendar.showEndTimeOnPublic !== false,
+      });
       await this.notifications.notifyBookingUpdated(id, {
         email: !!dto.notifyUpdateEmail,
         sms: !!dto.notifyUpdateSms,
+        changeSummaryPlain: formatBookingChangesPlain(changeLines),
+        changeSummaryHtml: formatBookingChangesHtml(changeLines),
       });
     }
 

@@ -48,6 +48,8 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   staticMapImageUrl?: string;
   mapFrom?: { lat: number; lon: number };
   mapTo?: { lat: number; lon: number };
+  changeSummaryPlain?: string;
+  changeSummaryHtml?: string;
 };
 
 export type DispatchBookingResult = {
@@ -199,6 +201,8 @@ export class AgendaNotificationService {
           distanceLabel: ctx.distanceLabel,
           mapsDirectionsUrl: ctx.mapsDirectionsUrl,
           staticMapImageUrl: ctx.staticMapImageUrl,
+          changeSummaryPlain: ctx.changeSummaryPlain,
+          changeSummaryHtml: ctx.changeSummaryHtml,
         },
         'html',
       );
@@ -324,6 +328,8 @@ export class AgendaNotificationService {
               distanceLabel: ctx.distanceLabel,
               mapsDirectionsUrl: ctx.mapsDirectionsUrl,
               staticMapImageUrl: ctx.staticMapImageUrl,
+              changeSummaryPlain: ctx.changeSummaryPlain,
+              changeSummaryHtml: ctx.changeSummaryHtml,
             },
             'plain',
           ),
@@ -346,7 +352,10 @@ export class AgendaNotificationService {
       if (!smsSent && trigger === 'booking_updated' && sendSms) {
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (msisdn) {
-          const text = `Class-Models: uw afspraak "${ctx.calendarTitle}" is gewijzigd naar ${ctx.dateLabel} om ${ctx.timeLabel}.`;
+          const changePart = ctx.changeSummaryPlain?.trim();
+          const text = changePart
+            ? `Class-Models: uw afspraak "${ctx.calendarTitle}" is gewijzigd. ${changePart}. Nieuwe afspraak: ${ctx.dateLabel} om ${ctx.timeLabel}.`
+            : `Class-Models: uw afspraak "${ctx.calendarTitle}" is gewijzigd naar ${ctx.dateLabel} om ${ctx.timeLabel}.`;
           const smsResult = await this.trySendBulksms(buUser, buPass, msisdn, text);
           if (smsResult.ok) {
             smsSent = true;
@@ -463,6 +472,8 @@ export class AgendaNotificationService {
               distanceLabel: ctx.distanceLabel ?? '',
               mapsDirectionsUrl: ctx.mapsDirectionsUrl ?? '',
               staticMapImageUrl: ctx.staticMapImageUrl ?? '',
+              changeSummaryPlain: ctx.changeSummaryPlain,
+              changeSummaryHtml: ctx.changeSummaryHtml,
             },
             'html',
           ),
@@ -1057,7 +1068,10 @@ export class AgendaNotificationService {
   }
 
   /** Admin: wijziging melden naar model/bezoeker (optioneel e-mail en/of SMS). */
-  async notifyBookingUpdated(bookingId: string, opts: { email?: boolean; sms?: boolean }) {
+  async notifyBookingUpdated(
+    bookingId: string,
+    opts: { email?: boolean; sms?: boolean; changeSummaryPlain?: string; changeSummaryHtml?: string },
+  ) {
     const channels: Array<'email' | 'sms'> = [];
     if (opts.email) channels.push('email');
     if (opts.sms) channels.push('sms');
@@ -1070,6 +1084,8 @@ export class AgendaNotificationService {
     if (!b) return { emailSent: false, smsSent: false };
 
     const ctx = await this.buildDispatchCtxFromBooking(b, b.slot.calendar.slug);
+    ctx.changeSummaryPlain = opts.changeSummaryPlain;
+    ctx.changeSummaryHtml = opts.changeSummaryHtml;
     return this.dispatchBookingLifecycle('booking_updated', ctx, { channels });
   }
 }
