@@ -86,3 +86,43 @@ https://api.class-models.be/health  → JSON met status ok (geen api_not_ready, 
 https://www.class-models.be/__cm_api/boot-status  → diagnose (dbUrlConfigured, nestLive)
 https://www.class-models.be         → gewone site
 Inloggen/admin                      → via www, niet via api.
+
+
+PIPELINE BLIJFT OP “TRIGGERED” / “PENDING” (GEEN BUILD)
+--------------------------------------------------------------------------------
+Dit is géén codefout. GitLab/Combell start wel een pipeline, maar er draait geen build.
+
+Meest voorkomende oorzaken:
+  1. GitLab-runner offline of vol (Combell CI → Runners → groene stip?)
+  2. Code staat op GitHub maar GitLab-spiegel heeft commit nog niet (commit-id “pending”)
+  3. Pipeline-tab in Combell ≠ Node build-command (alleen GitLab-UI zonder runner)
+
+OPLOSSING A — METEEN LIVE (ZONDER PIPELINE)
+  Combell → Node.js → classmodels-web:
+    1. Zorg dat de laatste code op de server staat (pull/sync repo op GitLab of handmatig).
+    2. Build command:  npm run combell:build
+    3. Start command:  npm run serve
+    4. Klik “Build” / “Herstart” / “Deploy” in het Combell-paneel (niet alleen GitLab Retry).
+  In build-log moet staan: [combell-pipeline] git = <commit>, bv. 4ec53af.
+
+OPLOSSING B — GITLAB-SPIEGEL VERNIEUWEN
+  GitLab (Combell) → Project → Settings → Repository → Mirroring:
+    - “Pull from remote” → Update now / Force update
+    - Of: push rechtstreeks naar GitLab i.p.v. alleen GitHub:
+        git remote add gitlab <URL-van-Combell-GitLab-repo>
+        git push gitlab main
+  Daarna in GitLab: CI/CD → Pipelines → Retry op pipeline met echte commit-hash (niet “pending”).
+
+OPLOSSING C — RUNNER / COMBELL-SUPPORT
+  GitLab → Settings → CI/CD → Runners:
+    - Geen actieve runner? → Combell-support: “GitLab CI pipeline blijft Pending, geen runner.”
+  Kopieer pipeline-URL + commit-hash (4ec53af) + screenshot Pending-status.
+
+OPLOSSING D — CONTROLE INSTELLINGEN COMBELL NODE
+  Combell Node-paneel (niet alleen GitLab):
+    Build:  npm run combell:build   (niet apt upgrade / standaard Docker)
+    Start:  npm run serve
+  Zie ook CaasDockerfile-nodeapp in repo als Docker-build verplicht is.
+
+Let op: wij pushen naar GitHub (origin). Als Combell alleen GitLab leest, moet spiegel
+werken of u pusht ook naar gitlab remote — anders blijven pipelines hangen op “pending”.

@@ -1,4 +1,4 @@
-/** Promo: €48 eenmalig (levenslang) t.o.v. €99/jaar — t/m komende zaterdag 12:00 (Brussels). */
+/** Premium: €99/jaar. De eenmalige promo (€48 levenslang) is afgelopen. */
 
 export const PREMIUM_YEARLY_PRICE = 99;
 export const PREMIUM_PROMO_PRICE = 48;
@@ -22,8 +22,9 @@ export function premiumPromoDeadlineMs(fromMs = Date.now()): number {
   return end.getTime();
 }
 
-export function isPremiumPromoActive(nowMs = Date.now()): boolean {
-  return nowMs < premiumPromoDeadlineMs(nowMs);
+export function isPremiumPromoActive(_nowMs = Date.now()): boolean {
+  // Promo is afgelopen: premium kost altijd €99 per jaar.
+  return false;
 }
 
 export function formatPromoCountdown(msLeft: number): string {

@@ -1,14 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import type { AuthUser } from '@/context/auth-context';
-import {
-  isPremiumPromoActive,
-  PREMIUM_PROMO_PRICE,
-  PREMIUM_YEARLY_PRICE,
-} from '@/lib/premium-promo';
-import { PremiumPromoCountdown } from '@/components/model-portal/PremiumPromoCountdown';
+import { PREMIUM_YEARLY_PRICE } from '@/lib/premium-promo';
 import { MODEL_BTN_GOLD } from './model-portal-buttons';
 
 type PremiumInfo = {
@@ -41,11 +35,8 @@ export function ModelPremiumTab({
   canCheckout,
   onStartCheckout,
 }: Props) {
-  const [promoActive] = useState(() => isPremiumPromoActive());
-
-  const promoPrice = premiumInfo?.promoPrice ?? String(PREMIUM_PROMO_PRICE);
   const yearlyPrice = premiumInfo?.yearlyPrice ?? String(PREMIUM_YEARLY_PRICE);
-  const price = promoActive ? (premiumInfo?.amount ?? promoPrice) : yearlyPrice;
+  const price = yearlyPrice;
   const active = user.isPremium;
   const until = user.premiumUntil ? new Date(user.premiumUntil).toLocaleDateString('nl-BE') : null;
 
@@ -74,44 +65,16 @@ export function ModelPremiumTab({
               Volledige toegang tot je modellenportaal: opdrachten, agenda, portfolio en alle communicatie — met{' '}
               <strong className="text-white">pushberichten</strong> bij nieuwe acties en updates, zodat je niets mist.
             </p>
-            <div className="mt-8">
-              {promoActive ? (
-                <p className="text-xs font-bold uppercase tracking-[0.15em] text-amber-200">Eenmalige actie</p>
-              ) : null}
-              <p className={`text-[10px] font-semibold uppercase tracking-wide text-white/60 ${promoActive ? 'mt-2' : ''}`}>
-                Jouw tarief
-              </p>
-              {promoActive ? (
-                <>
-                  <p className="relative mt-2 inline-block font-serif text-lg text-white/90">
-                    <span aria-hidden className="select-none">€{yearlyPrice} / jaar</span>
-                    <span
-                      className="pointer-events-none absolute inset-0 flex items-center justify-center"
-                      aria-hidden
-                    >
-                      <span className="absolute h-[3px] w-[108%] rotate-[-14deg] rounded-sm bg-red-500 shadow-sm" />
-                      <span className="absolute h-[3px] w-[108%] rotate-[14deg] rounded-sm bg-red-500 shadow-sm" />
-                    </span>
-                    <span className="sr-only">Normaal €{yearlyPrice} per jaar</span>
-                  </p>
-                  <p className="mt-2 flex flex-wrap items-baseline gap-2">
-                    <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
-                    <span className="text-sm text-white/90">éénmalig · premium voor het leven</span>
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1 flex flex-wrap items-baseline gap-2">
-                  <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
-                  <span className="text-sm text-white/80">per jaar</span>
-                </p>
-              )}
-            </div>
             {checkoutErr ? <p className="mt-4 text-sm text-amber-200">{checkoutErr}</p> : null}
           </div>
           <div className="flex w-full shrink-0 flex-col items-end gap-3 lg:w-auto lg:pt-2">
-            {promoActive ? (
-              <PremiumPromoCountdown className="text-right" size="md" />
-            ) : null}
+            <div className="text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Jouw tarief</p>
+              <p className="mt-1 flex flex-wrap items-baseline justify-end gap-2">
+                <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
+                <span className="text-sm text-white/80">per jaar</span>
+              </p>
+            </div>
             {active ? (
               <span className="rounded-full bg-emerald-500/20 px-4 py-2 text-xs font-bold uppercase tracking-wide text-emerald-100 ring-1 ring-emerald-400/40">
                 Premium actief
@@ -184,11 +147,7 @@ export function ModelPremiumTab({
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="font-serif text-xl font-semibold text-ink">Klaar om te upgraden?</h2>
-            <p className="mt-1 max-w-xl text-sm text-muted">
-              {promoActive
-                ? 'Alleen vandaag voordeelprijs — daarna €' + yearlyPrice + ' per jaar.'
-                : `Jaarabonnement €${yearlyPrice} per jaar.`}
-            </p>
+            <p className="mt-1 max-w-xl text-sm text-muted">Jaarabonnement €{yearlyPrice} per jaar.</p>
           </div>
           {!active && canCheckout ? (
             <button

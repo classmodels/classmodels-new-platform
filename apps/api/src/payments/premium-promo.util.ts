@@ -20,6 +20,7 @@ export function premiumPromoDeadlineMs(fromMs = Date.now()): number {
   return end.getTime();
 }
 
-export function isPremiumPromoActive(nowMs = Date.now()): boolean {
-  return nowMs < premiumPromoDeadlineMs(nowMs);
+export function isPremiumPromoActive(_nowMs = Date.now()): boolean {
+  // Promo is afgelopen: premium kost altijd €99 per jaar.
+  return false;
 }
