@@ -759,7 +759,12 @@ export function GuestBookingPanel({
   if (!slots.length && !openDates.length) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-zinc-600">Er zijn nog geen vrije momenten voor deze dienst.</p>
+        <p className="text-sm font-medium text-zinc-800">
+          Er zijn momenteel geen beschikbare datums.
+        </p>
+        <p className="text-sm text-zinc-600">
+          Probeer het later opnieuw — zodra er nieuwe datums worden opengezet, kan u hier meteen boeken.
+        </p>
         <button
           type="button"
           onClick={onClose}

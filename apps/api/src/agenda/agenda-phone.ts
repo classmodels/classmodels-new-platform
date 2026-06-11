@@ -25,7 +25,19 @@ export function formatBulksmsError(httpStatus: number, body: string): string {
   if (httpStatus === 401 || httpStatus === 403) {
     return 'BulkSMS-inloggegevens ongeldig.';
   }
-  if (httpStatus === 400 && (lower.includes('invalid') || lower.includes('number') || lower.includes('msisdn'))) {
+  /**
+   * Alleen "verkeerd nummer" melden als BulkSMS écht over de bestemming klaagt.
+   * Vroeger matchte elk foutbericht met het woord "number" (bv. "number of parts"),
+   * waardoor correcte nummers onterecht als fout werden gemeld.
+   */
+  const mentionsRecipient =
+    lower.includes('msisdn') ||
+    lower.includes('recipient') ||
+    lower.includes('destination') ||
+    lower.includes('phone number') ||
+    lower.includes('invalid number') ||
+    (lower.includes('invalid') && lower.includes('to.address'));
+  if (httpStatus === 400 && mentionsRecipient) {
     return 'Verkeerd telefoonnummer voor SMS.';
   }
   const snippet = body.replace(/\s+/g, ' ').trim().slice(0, 180);

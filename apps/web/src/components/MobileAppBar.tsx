@@ -7,62 +7,78 @@ import { useAuth } from '@/context/auth-context';
 
 type Tone = 'burgundy' | 'dark';
 
-/** Vaste links onderaan het uitklapmenu: portalen wisselen + in-/uitloggen. */
-function DrawerFooterLinks({ tone, onNavigate }: { tone: Tone; onNavigate: () => void }) {
+/** Donkerrood portaalblok onderaan het uitklapmenu: portalen wisselen + inloggen. */
+function DrawerFooterLinks({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const linkClass =
-    tone === 'dark'
-      ? 'block py-2 text-[13px] text-zinc-300 hover:text-white'
-      : 'block py-2 text-[13px] text-ink hover:text-burgundy';
+  const linkClass = 'block py-2.5 text-[13.5px] font-semibold text-white hover:text-white/80';
 
   return (
-    <div
-      className={`border-t px-4 py-3 ${
-        tone === 'dark' ? 'border-white/10 bg-[#1e2329]' : 'border-line bg-panel'
-      }`}
-    >
-      <p
-        className={`pb-1 text-[10px] font-bold uppercase tracking-[0.15em] ${
-          tone === 'dark' ? 'text-zinc-500' : 'text-muted'
-        }`}
-      >
-        Class-Models
+    <div className="bg-[#53080f] px-4 pb-4 pt-3">
+      <p className="notranslate border-b border-white/20 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
+        Portaal menu
       </p>
-      <Link href="/portal/guest" className={linkClass}>
-        Gastenportaal
-      </Link>
-      <Link href={user ? '/portal/model' : '/'} className={linkClass}>
-        Modellenportaal
-      </Link>
-      <Link href="/portal/client" className={linkClass}>
-        Klantenportaal
-      </Link>
-      <Link href="/reviews" className={linkClass}>
-        Reviews
-      </Link>
-      <Link href="/portal/guest?p=contact" className={linkClass}>
-        Contact
-      </Link>
-      {user ? (
-        <button
-          type="button"
-          className={`${linkClass} w-full text-left font-semibold`}
-          onClick={() => {
-            onNavigate();
-            logout();
-            router.push('/');
-            router.refresh();
-          }}
-        >
-          Uitloggen
-        </button>
-      ) : (
-        <Link href="/" className={`${linkClass} font-semibold`}>
-          Inloggen
+      <div className="divide-y divide-white/10">
+        <Link href="/portal/guest" className={linkClass}>
+          Gastenportaal
         </Link>
-      )}
+        <Link href={user ? '/portal/model' : '/'} className={linkClass}>
+          Modellenportaal
+        </Link>
+        <Link href="/portal/client" className={linkClass}>
+          Klantenportaal
+        </Link>
+        <Link href="/reviews" className={linkClass}>
+          Reviews
+        </Link>
+        <Link href="/portal/guest?p=contact" className={linkClass}>
+          Contact
+        </Link>
+        {user ? (
+          <button
+            type="button"
+            className={`${linkClass} w-full text-left`}
+            onClick={() => {
+              onNavigate();
+              logout();
+              router.push('/');
+              router.refresh();
+            }}
+          >
+            Uitloggen
+          </button>
+        ) : (
+          <Link href="/" className={linkClass}>
+            Inloggen
+          </Link>
+        )}
+      </div>
     </div>
+  );
+}
+
+/** Uitlogknop rechtsboven in de app-balk (alleen voor ingelogde gebruikers). */
+function AppBarLogout() {
+  const { user, logout } = useAuth();
+  const router = useRouter();
+  if (!user) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        logout();
+        router.push('/');
+        router.refresh();
+      }}
+      className="flex h-9 items-center gap-1.5 border border-white/40 px-2.5 text-[11px] font-semibold text-white hover:bg-white/10"
+      aria-label="Uitloggen"
+    >
+      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      Uitloggen
+    </button>
   );
 }
 
@@ -75,7 +91,7 @@ type Props = {
   menuTitle?: string;
   /** Inhoud van het uitklapmenu (navigatie). Een klik op een link/knop sluit het menu. */
   menuContent: React.ReactNode;
-  /** Optioneel element rechts in de balk (bv. badge of uitlogknop). */
+  /** Optioneel extra element rechts in de balk (vóór de uitlogknop). */
   rightSlot?: React.ReactNode;
   tone?: Tone;
 };
@@ -110,7 +126,8 @@ export function MobileAppBar({
   }, [open, close]);
 
   const barBg = tone === 'dark' ? 'bg-[#1e2329]' : 'bg-burgundy';
-  const drawerBg = tone === 'dark' ? 'bg-[#1e2329] text-white' : 'bg-white text-ink';
+  /** Drawer altijd donkergrijs (app-stijl); admin-nav heeft eigen donkere kleuren. */
+  const drawerBg = tone === 'dark' ? 'bg-[#1e2329] text-zinc-200' : 'cm-drawer-dark bg-[#26262b] text-zinc-300';
   const drawerHead = tone === 'dark' ? 'bg-[#171b20] text-white' : 'bg-burgundy text-white';
 
   return (
@@ -139,7 +156,10 @@ export function MobileAppBar({
               <p className="truncate text-[11px] leading-tight text-white/80">{subtitle}</p>
             ) : null}
           </div>
-          {rightSlot ? <div className="flex shrink-0 items-center pr-1">{rightSlot}</div> : null}
+          {rightSlot ? <div className="flex shrink-0 items-center">{rightSlot}</div> : null}
+          <div className="flex shrink-0 items-center pr-1">
+            <AppBarLogout />
+          </div>
         </div>
       </header>
 
@@ -177,7 +197,7 @@ export function MobileAppBar({
           </div>
         </div>
         <div
-          className="cm-safe-bottom min-h-0 flex-1 overflow-y-auto"
+          className="cm-safe-bottom flex min-h-0 flex-1 flex-col overflow-y-auto"
           onClick={(e) => {
             // Sluit het menu zodra er op een link of knop in het menu wordt geklikt,
             // behalve bij open/dichtklap-knoppen van submenu's (aria-expanded).
@@ -185,8 +205,10 @@ export function MobileAppBar({
             if (el && !el.hasAttribute('aria-expanded')) close();
           }}
         >
-          {menuContent}
-          <DrawerFooterLinks tone={tone} onNavigate={close} />
+          <div className="min-h-0">{menuContent}</div>
+          <div className="mt-auto">
+            <DrawerFooterLinks onNavigate={close} />
+          </div>
         </div>
       </aside>
     </div>

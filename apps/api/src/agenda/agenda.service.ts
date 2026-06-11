@@ -508,24 +508,12 @@ export class AgendaService implements OnModuleInit {
       where: { calendarId: cal.id },
       select: { openDate: true, repeatYearly: true },
     });
-    const set = this.openDayYmdSetInRange(from, to, openRows);
-
-    /** Planning: datums met open sloten tellen mee (ook zonder aparte open-dag-regel). */
-    const slotRows = await this.prisma.agendaSlot.findMany({
-      where: {
-        calendarId: cal.id,
-        status: 'open',
-        slotDate: {
-          gte: parseYmdDayStart(slotDateToYmd(from)),
-          lte: parseYmdDayEnd(slotDateToYmd(to)),
-        },
-      },
-      select: { slotDate: true },
-    });
-    for (const s of slotRows) {
-      set.add(slotDateToYmd(s.slotDate));
-    }
-    return set;
+    /**
+     * Alleen dagen die de admin expliciet heeft opengezet. Sloten op andere dagen
+     * NIET meetellen: boeken zou toch geweigerd worden ("Deze dag staat niet open"),
+     * dus die dagen mogen publiek ook niet als beschikbaar getoond worden.
+     */
+    return this.openDayYmdSetInRange(from, to, openRows);
   }
 
   private async materializeGuestSlotsInRange(
@@ -1529,7 +1517,7 @@ export class AgendaService implements OnModuleInit {
 
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
-      data: { status: 'acknowledged' },
+      data: { status: 'acknowledged', acknowledgedAt: new Date() },
     });
 
     const dateLabel = new Intl.DateTimeFormat('nl-BE', {
@@ -2226,6 +2214,7 @@ export class AgendaService implements OnModuleInit {
       phone: b.phone,
       fieldsJson: b.fieldsJson as Record<string, unknown>,
       distanceLabel,
+      acknowledgedAt: b.acknowledgedAt ? b.acknowledgedAt.toISOString() : null,
       calendar: b.calendar,
       slot: {
         id: b.slot.id,
@@ -2309,7 +2298,12 @@ export class AgendaService implements OnModuleInit {
       assertAgendaMobile10Digits(dto.phone, 'GSM');
     }
 
-    if (dto.status !== undefined) data.status = dto.status;
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+      if (dto.status === 'acknowledged' && b.status !== 'acknowledged' && !b.acknowledgedAt) {
+        data.acknowledgedAt = new Date();
+      }
+    }
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.firstname !== undefined) data.firstname = dto.firstname;
     if (dto.lastname !== undefined) data.lastname = dto.lastname;

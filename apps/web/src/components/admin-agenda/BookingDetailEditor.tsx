@@ -25,9 +25,29 @@ export type BookingDetailEditorModel = {
   phone: string | null;
   fieldsJson: Record<string, unknown>;
   distanceLabel?: string | null;
+  /** Moment waarop de gast zijn komst bevestigde (ISO), null = nog niet bevestigd. */
+  acknowledgedAt?: string | null;
   calendar: { id: string; slug: string; title: string; color?: string };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
 };
+
+function acknowledgedAtLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const datePart = new Intl.DateTimeFormat('nl-BE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Europe/Brussels',
+  }).format(d);
+  const timePart = new Intl.DateTimeFormat('nl-BE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Brussels',
+  }).format(d);
+  return `${datePart} om ${timePart}`;
+}
 
 type CalChoice = { id: string; title: string };
 
@@ -181,6 +201,11 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
       </div>
 
       <h4 className="mt-6 text-sm font-semibold text-slate-600">Afspraakgegevens</h4>
+      {detail.acknowledgedAt ? (
+        <p className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          <span className="font-semibold">Komst bevestigd</span> op {acknowledgedAtLabel(detail.acknowledgedAt)}.
+        </p>
+      ) : null}
       {detail.distanceLabel ? (
         <p className="mt-2 text-sm font-medium text-ink">
           Afstand tot kantoor: <span className="text-burgundy">{detail.distanceLabel}</span>

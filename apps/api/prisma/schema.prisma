@@ -652,6 +652,8 @@ model AgendaBooking {
   source      String           @default("web")
   /// Uniek token voor annuleren via link in bevestigingsmail
   cancelToken String?          @unique
+  /// Moment waarop de gast zijn komst bevestigde (status `acknowledged`).
+  acknowledgedAt DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   notificationLogs AgendaBookingNotificationLog[]
