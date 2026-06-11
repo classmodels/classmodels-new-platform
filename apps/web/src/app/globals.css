@@ -73,7 +73,7 @@ body {
 }
 
 /* Donker app-menu (drawer op gsm): witte portaalmenu's worden donkergrijs,
-   subtiele lijntjes, lichtgrijze tekst. Desktopzijbalk blijft wit. */
+   duidelijke maar subtiele lijntjes, lichtgrijze tekst. Desktopzijbalk blijft wit. */
 .cm-drawer-dark nav,
 .cm-drawer-dark nav > div {
   background-color: transparent !important;
@@ -83,24 +83,33 @@ body {
 .cm-drawer-dark nav .border-t,
 .cm-drawer-dark nav .border-line {
   background-color: transparent !important;
-  border-color: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
 }
 .cm-drawer-dark nav button:hover,
 .cm-drawer-dark nav a:hover {
-  background-color: rgba(255, 255, 255, 0.06) !important;
+  background-color: rgba(255, 255, 255, 0.07) !important;
 }
 .cm-drawer-dark nav .text-ink {
-  color: #c9c9cf !important;
+  color: #d4d4d8 !important;
 }
 .cm-drawer-dark nav .text-muted {
   color: #87878f !important;
 }
 .cm-drawer-dark nav .bg-panel {
-  background-color: rgba(255, 255, 255, 0.09) !important;
+  background-color: rgba(255, 255, 255, 0.11) !important;
+}
+/* Menu-items iets hoger en iets grotere tekst in de app. */
+.cm-drawer-dark nav .py-2,
+.cm-drawer-dark nav .py-3 {
+  padding-top: 13px !important;
+  padding-bottom: 13px !important;
+}
+.cm-drawer-dark nav [class*='text-[11px]'] {
+  font-size: 13.5px !important;
 }
 
-/* Rode titelbalk op gsm: knoppen (bv. "Afspraak maken") netjes laten meeschalen
-   in plaats van uit de balk te steken. */
+/* Rode titelbalk op gsm: titel bovenaan, daaronder de actieknoppen op één rij,
+   allemaal even breed (4 knoppen → 2 per rij). */
 @media (max-width: 1023.98px) {
   .cm-red-titlebar {
     height: auto;
@@ -112,7 +121,45 @@ body {
     flex-wrap: wrap;
     padding-top: 8px;
     padding-bottom: 8px;
-    row-gap: 6px;
+    row-gap: 8px;
+  }
+  /* Titel op eigen regel zodra er knoppen rechts staan */
+  .cm-red-titlebar-inner > h2 {
+    flex-basis: 100%;
+  }
+  .cm-red-titlebar-inner > h2:only-child {
+    flex-basis: auto;
+  }
+  /* Wrapper van de actieknoppen: volledige breedte */
+  .cm-red-titlebar-inner > h2 ~ div {
+    width: 100%;
+    flex-basis: 100%;
+    justify-content: stretch;
+  }
+  /* Knoppenrij: raster met gelijke kolommen — standaard 2 per rij */
+  .cm-red-titlebar-inner > h2 ~ div > div {
+    display: grid !important;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  /* Bij precies 3 knoppen: alle drie op één rij */
+  .cm-red-titlebar-inner > h2 ~ div > div:has(> :nth-child(3):last-child) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  /* Bij één knop: volledige breedte */
+  .cm-red-titlebar-inner > h2 ~ div > div:has(> :first-child:last-child) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cm-red-titlebar-inner > h2 ~ div > div > button,
+  .cm-red-titlebar-inner > h2 ~ div > div > a {
+    width: 100%;
+    min-width: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 10.5px;
+    line-height: 1.2;
+    white-space: normal;
   }
 }
 

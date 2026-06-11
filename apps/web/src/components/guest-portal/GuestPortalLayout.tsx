@@ -1165,7 +1165,7 @@ export function GuestPortalLayout() {
         <ModelWordenHeroInner onNav={goMenu} />
       </div>
 
-      <div className="mx-auto w-full max-w-page px-3 pb-6 pt-3 md:px-6 md:pb-10 lg:pt-8">
+      <div className="mx-auto w-full max-w-page px-0 pb-6 pt-0 lg:px-6 lg:pb-10 lg:pt-8">
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
           <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm lg:sticky lg:top-4 lg:flex">
             <div className="cm-red-titlebar shrink-0 border-b border-line">
@@ -1181,7 +1181,7 @@ export function GuestPortalLayout() {
             {guestNavContent}
           </aside>
 
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm">
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border-y border-line bg-white shadow-sm lg:border">
             <div
               className={`cm-red-titlebar shrink-0 border-b border-line ${showGuestOfficeInBar ? 'cm-red-titlebar--stacked' : ''}`}
             >
@@ -1201,7 +1201,7 @@ export function GuestPortalLayout() {
                 ) : null}
               </div>
             </div>
-            <div className="min-h-0 flex-1 p-4 md:p-6">
+            <div className="min-h-0 flex-1 px-3 py-3 lg:p-6">
               {bookingFlow ? (
                 <GuestBookingPanel
                   calendarSlug={bookingFlow.calendarSlug}

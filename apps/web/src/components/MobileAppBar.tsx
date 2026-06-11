@@ -7,52 +7,54 @@ import { useAuth } from '@/context/auth-context';
 
 type Tone = 'burgundy' | 'dark';
 
-/** Donkerrood portaalblok onderaan het uitklapmenu: portalen wisselen + inloggen. */
-function DrawerFooterLinks({ onNavigate }: { onNavigate: () => void }) {
+/**
+ * Onderste deel van hetzelfde menu: de drie portalen in dezelfde grijze stijl,
+ * met daaronder "Uitloggen" in het rood. Geen aparte sectie of titel.
+ */
+function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const linkClass = 'block py-2.5 text-[13.5px] font-semibold text-white hover:text-white/80';
+  const rowClass =
+    'flex w-full items-center justify-between gap-2 border-t border-white/[0.14] py-3.5 pl-3 pr-3 text-left text-[13.5px] font-medium text-[#d4d4d8] hover:bg-white/[0.07]';
 
   return (
-    <div className="bg-[#53080f] px-4 pb-4 pt-3">
-      <p className="notranslate border-b border-white/20 pb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-white">
-        Portaal menu
-      </p>
-      <div className="divide-y divide-white/10">
-        <Link href="/portal/guest" className={linkClass}>
-          Gastenportaal
+    <div>
+      <Link href="/portal/guest" className={rowClass}>
+        <span>Gastenportaal</span>
+        <span className="text-[#87878f]" aria-hidden>
+          ›
+        </span>
+      </Link>
+      <Link href={user ? '/portal/model' : '/'} className={rowClass}>
+        <span>Modellenportaal</span>
+        <span className="text-[#87878f]" aria-hidden>
+          ›
+        </span>
+      </Link>
+      <Link href="/portal/client" className={rowClass}>
+        <span>Klantenportaal</span>
+        <span className="text-[#87878f]" aria-hidden>
+          ›
+        </span>
+      </Link>
+      {user ? (
+        <button
+          type="button"
+          className={`${rowClass} !text-red-400 font-semibold`}
+          onClick={() => {
+            onNavigate();
+            logout();
+            router.push('/');
+            router.refresh();
+          }}
+        >
+          <span>Uitloggen</span>
+        </button>
+      ) : (
+        <Link href="/" className={`${rowClass} !text-red-400 font-semibold`}>
+          <span>Inloggen</span>
         </Link>
-        <Link href={user ? '/portal/model' : '/'} className={linkClass}>
-          Modellenportaal
-        </Link>
-        <Link href="/portal/client" className={linkClass}>
-          Klantenportaal
-        </Link>
-        <Link href="/reviews" className={linkClass}>
-          Reviews
-        </Link>
-        <Link href="/portal/guest?p=contact" className={linkClass}>
-          Contact
-        </Link>
-        {user ? (
-          <button
-            type="button"
-            className={`${linkClass} w-full text-left`}
-            onClick={() => {
-              onNavigate();
-              logout();
-              router.push('/');
-              router.refresh();
-            }}
-          >
-            Uitloggen
-          </button>
-        ) : (
-          <Link href="/" className={linkClass}>
-            Inloggen
-          </Link>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -97,8 +99,8 @@ type Props = {
 };
 
 /**
- * Mobiele app-balk (alleen zichtbaar onder lg): compacte gekleurde balk met
- * hamburger die een menu van links laat openklappen, zoals in een native app.
+ * Mobiele app-balk (alleen zichtbaar onder lg): vaste gekleurde balk bovenaan
+ * (scrolt niet mee) met hamburger die een menu van links laat openklappen.
  */
 export function MobileAppBar({
   title,
@@ -127,13 +129,13 @@ export function MobileAppBar({
 
   const barBg = tone === 'dark' ? 'bg-[#1e2329]' : 'bg-burgundy';
   /** Drawer altijd donkergrijs (app-stijl); admin-nav heeft eigen donkere kleuren. */
-  const drawerBg = tone === 'dark' ? 'bg-[#1e2329] text-zinc-200' : 'cm-drawer-dark bg-[#26262b] text-zinc-300';
+  const drawerBg = tone === 'dark' ? 'bg-[#1e2329] text-zinc-200' : 'cm-drawer-dark bg-[#1c1c20] text-[#d4d4d8]';
   const drawerHead = tone === 'dark' ? 'bg-[#171b20] text-white' : 'bg-burgundy text-white';
 
   return (
     <div className="lg:hidden">
-      {/* Vaste app-balk bovenaan */}
-      <header className={`cm-appbar-safe sticky top-0 z-40 ${barBg} text-white shadow-md`}>
+      {/* Vaste app-balk bovenaan — scrolt niet mee */}
+      <header className={`cm-appbar-safe fixed inset-x-0 top-0 z-40 ${barBg} text-white shadow-md`}>
         <div className="flex h-12 items-center gap-2 px-2">
           <button
             type="button"
@@ -162,6 +164,10 @@ export function MobileAppBar({
           </div>
         </div>
       </header>
+      {/* Spacer: houdt de inhoud onder de vaste balk (zelfde hoogte + notch). */}
+      <div aria-hidden className="cm-appbar-safe">
+        <div className="h-12" />
+      </div>
 
       {/* Overlay */}
       <div
@@ -197,7 +203,7 @@ export function MobileAppBar({
           </div>
         </div>
         <div
-          className="cm-safe-bottom flex min-h-0 flex-1 flex-col overflow-y-auto"
+          className="cm-safe-bottom min-h-0 flex-1 overflow-y-auto"
           onClick={(e) => {
             // Sluit het menu zodra er op een link of knop in het menu wordt geklikt,
             // behalve bij open/dichtklap-knoppen van submenu's (aria-expanded).
@@ -205,10 +211,8 @@ export function MobileAppBar({
             if (el && !el.hasAttribute('aria-expanded')) close();
           }}
         >
-          <div className="min-h-0">{menuContent}</div>
-          <div className="mt-auto">
-            <DrawerFooterLinks onNavigate={close} />
-          </div>
+          {menuContent}
+          <DrawerPortalRows onNavigate={close} />
         </div>
       </aside>
     </div>

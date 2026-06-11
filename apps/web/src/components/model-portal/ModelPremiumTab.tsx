@@ -55,7 +55,7 @@ export function ModelPremiumTab({
         </div>
       ) : null}
 
-      <header className="relative overflow-hidden rounded-2xl border border-zinc-200 bg-gradient-to-br from-zinc-900 via-[#2a1219] to-burgundyDeep px-6 py-10 text-white shadow-xl md:px-10">
+      <header className="relative -mx-3 overflow-hidden border-y border-zinc-200 bg-gradient-to-br from-zinc-900 via-[#2a1219] to-burgundyDeep px-4 py-8 text-white shadow-xl lg:mx-0 lg:rounded-2xl lg:border lg:px-10 lg:py-10">
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
         <div className="relative flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 max-w-xl">
