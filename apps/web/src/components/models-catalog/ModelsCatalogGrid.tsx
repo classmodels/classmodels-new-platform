@@ -8,6 +8,7 @@ import {
   useState,
   type MouseEvent,
   type ReactNode,
+  type TouchEvent,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { getApiBase, apiFetch, publicMediaUrl, parseApiErrorBody } from '@/lib/api';
@@ -312,6 +313,23 @@ function ModelDetailDialog({
   const thumbNavDisabled = photoKeys.length <= 1;
   const title = ficheDisplayName(active, isAdmin);
 
+  /** Swipen door de foto's van dit model (links/rechts vegen op de foto). */
+  const touchStartX = useRef<number | null>(null);
+  const goPrevPhoto = () => setSlideIndex((i) => (i <= 0 ? photoKeys.length - 1 : i - 1));
+  const goNextPhoto = () => setSlideIndex((i) => (i >= photoKeys.length - 1 ? 0 : i + 1));
+  const onPhotoTouchStart = (e: TouchEvent) => {
+    touchStartX.current = e.touches[0]?.clientX ?? null;
+  };
+  const onPhotoTouchEnd = (e: TouchEvent) => {
+    const startX = touchStartX.current;
+    touchStartX.current = null;
+    if (startX == null || photoKeys.length <= 1) return;
+    const dx = (e.changedTouches[0]?.clientX ?? startX) - startX;
+    if (Math.abs(dx) < 40) return;
+    if (dx < 0) goNextPhoto();
+    else goPrevPhoto();
+  };
+
   return (
     <div
       className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-3 sm:p-4"
@@ -349,8 +367,14 @@ function ModelDetailDialog({
           <div className="min-w-0">
             {photoSrc ? (
               <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-sm">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photoSrc} alt="" className="mx-auto block w-full object-contain" style={{ aspectRatio: '3 / 4', maxHeight: 'min(70vh, 520px)' }} />
+                <div
+                  className="touch-pan-y select-none"
+                  onTouchStart={onPhotoTouchStart}
+                  onTouchEnd={onPhotoTouchEnd}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoSrc} alt="" className="mx-auto block w-full object-contain" style={{ aspectRatio: '3 / 4', maxHeight: 'min(70vh, 520px)' }} />
+                </div>
                 {photoKeys.length > 0 ? (
                   <div className="flex items-center justify-between border-t border-zinc-300 bg-zinc-800 px-2 py-1.5 text-white">
                     <button
@@ -358,19 +382,20 @@ function ModelDetailDialog({
                       disabled={thumbNavDisabled}
                       className={`px-2 py-0.5 text-lg font-semibold ${thumbNavDisabled ? 'opacity-40' : 'hover:bg-white/10'}`}
                       aria-label="Vorige foto"
-                      onClick={() => setSlideIndex((i) => (i <= 0 ? photoKeys.length - 1 : i - 1))}
+                      onClick={goPrevPhoto}
                     >
                       ‹
                     </button>
                     <span className="text-xs tabular-nums">
                       {slideIndex + 1} / {photoKeys.length}
+                      {photoKeys.length > 1 ? <span className="ml-2 text-[10px] text-zinc-400">swipe of pijltjes</span> : null}
                     </span>
                     <button
                       type="button"
                       disabled={thumbNavDisabled}
                       className={`px-2 py-0.5 text-lg font-semibold ${thumbNavDisabled ? 'opacity-40' : 'hover:bg-white/10'}`}
                       aria-label="Volgende foto"
-                      onClick={() => setSlideIndex((i) => (i >= photoKeys.length - 1 ? 0 : i + 1))}
+                      onClick={goNextPhoto}
                     >
                       ›
                     </button>
@@ -928,7 +953,7 @@ export function ModelsCatalogGrid({
         </p>
       ) : shown.length ? (
         <div
-          className={`grid grid-cols-2 gap-3 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`}
+          className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`}
         >
           {shown.map((m, idx) => (
             <div key={m.id} className="min-w-0">

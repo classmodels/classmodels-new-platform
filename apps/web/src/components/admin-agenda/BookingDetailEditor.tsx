@@ -27,11 +27,15 @@ export type BookingDetailEditorModel = {
   distanceLabel?: string | null;
   /** Moment waarop de gast zijn komst bevestigde (ISO), null = nog niet bevestigd. */
   acknowledgedAt?: string | null;
+  /** Moment waarop de afspraak werd geannuleerd (ISO). */
+  cancelledAt?: string | null;
+  /** Moment waarop de afspraak werd geboekt (ISO). */
+  bookingCreatedAt?: string | null;
   calendar: { id: string; slug: string; title: string; color?: string };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
 };
 
-function acknowledgedAtLabel(iso: string): string {
+function momentLabel(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const datePart = new Intl.DateTimeFormat('nl-BE', {
@@ -201,9 +205,19 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
       </div>
 
       <h4 className="mt-6 text-sm font-semibold text-slate-600">Afspraakgegevens</h4>
+      {detail.bookingCreatedAt ? (
+        <p className="mt-2 text-xs text-muted">
+          Geboekt op {momentLabel(detail.bookingCreatedAt)}.
+        </p>
+      ) : null}
       {detail.acknowledgedAt ? (
         <p className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-          <span className="font-semibold">Komst bevestigd</span> op {acknowledgedAtLabel(detail.acknowledgedAt)}.
+          <span className="font-semibold">Komst bevestigd</span> op {momentLabel(detail.acknowledgedAt)}.
+        </p>
+      ) : null}
+      {detail.cancelledAt ? (
+        <p className="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+          <span className="font-semibold">Geannuleerd</span> op {momentLabel(detail.cancelledAt)}.
         </p>
       ) : null}
       {detail.distanceLabel ? (

@@ -55,24 +55,26 @@ export function ModelPremiumTab({
         </div>
       ) : null}
 
-      <header className="relative -mx-3 overflow-hidden border-y border-zinc-200 bg-gradient-to-br from-zinc-900 via-[#2a1219] to-burgundyDeep px-4 py-8 text-white shadow-xl lg:mx-0 lg:rounded-2xl lg:border lg:px-10 lg:py-10">
+      <header className="relative -mx-3 overflow-hidden border-y border-zinc-200 bg-gradient-to-br from-zinc-900 via-[#2a1219] to-burgundyDeep px-4 py-5 text-white shadow-xl lg:mx-0 lg:rounded-2xl lg:border lg:px-10 lg:py-10">
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
-        <div className="relative flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
           <div className="min-w-0 max-w-xl">
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">Class Models</p>
-            <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight md:text-4xl">Premium modelaccount</h1>
-            <p className="mt-4 text-sm leading-relaxed text-white/90">
+            <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight md:text-4xl">
+              Premium <span className="block lg:inline">modelaccount</span>
+            </h1>
+            <p className="mt-3 text-sm leading-relaxed text-white/90 lg:mt-4">
               Volledige toegang tot je modellenportaal: opdrachten, agenda, portfolio en alle communicatie — met{' '}
               <strong className="text-white">pushberichten</strong> bij nieuwe acties en updates, zodat je niets mist.
             </p>
             {checkoutErr ? <p className="mt-4 text-sm text-amber-200">{checkoutErr}</p> : null}
           </div>
           <div className="flex w-full shrink-0 flex-col items-end gap-3 lg:w-auto lg:pt-2">
-            <div className="text-right">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">Jouw tarief</p>
-              <p className="mt-1 flex flex-wrap items-baseline justify-end gap-2">
-                <span className="font-serif text-4xl font-bold tabular-nums md:text-5xl">€{price}</span>
-                <span className="text-sm text-white/80">per jaar</span>
+            {/* Prijs: op gsm rechtsboven in de hoek van de kader, op desktop in de rechterkolom */}
+            <div className="absolute right-0 top-0 text-right lg:static">
+              <p className="flex flex-wrap items-baseline justify-end gap-1.5 lg:gap-2">
+                <span className="font-serif text-2xl font-bold tabular-nums lg:text-5xl">€{price}</span>
+                <span className="text-xs text-white/80 lg:text-sm">per jaar</span>
               </p>
             </div>
             {active ? (
@@ -84,7 +86,7 @@ export function ModelPremiumTab({
                 type="button"
                 disabled={checkoutBusy}
                 onClick={onStartCheckout}
-                className={MODEL_BTN_GOLD}
+                className={`${MODEL_BTN_GOLD} !px-4 !py-2 !text-xs lg:!px-6 lg:!py-2.5 lg:!text-sm`}
               >
                 {checkoutBusy ? 'Even geduld…' : 'Premium worden'}
               </button>

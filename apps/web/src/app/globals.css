@@ -107,6 +107,21 @@ body {
 .cm-drawer-dark nav [class*='text-[11px]'] {
   font-size: 13.5px !important;
 }
+/* Badges ("vereist premium", push-teller) leesbaar houden op donkere achtergrond. */
+.cm-drawer-dark nav .bg-amber-50 {
+  background-color: #78350f !important;
+  border-color: rgba(245, 158, 11, 0.55) !important;
+  color: #fde68a !important;
+}
+.cm-drawer-dark nav .bg-zinc-100 {
+  background-color: #3f3f46 !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #e4e4e7 !important;
+}
+.cm-drawer-dark nav .bg-burgundy {
+  background-color: #6f121b !important;
+  color: #ffffff !important;
+}
 
 /* Rode titelbalk op gsm: titel bovenaan, daaronder de actieknoppen op één rij,
    allemaal even breed (4 knoppen → 2 per rij). */

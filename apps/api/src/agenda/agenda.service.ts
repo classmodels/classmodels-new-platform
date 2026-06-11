@@ -1072,7 +1072,7 @@ export class AgendaService implements OnModuleInit {
       if (userId) {
         await tx.agendaBooking.updateMany({
           where: { userId, calendarId: cal.id, ...activeBookingFilter },
-          data: { status: 'cancelled' },
+          data: { status: 'cancelled', cancelledAt: new Date() },
         });
       }
       const bookedAfter = await tx.agendaBooking.count({
@@ -1286,7 +1286,7 @@ export class AgendaService implements OnModuleInit {
     if (!booking) throw new NotFoundException('Geen actieve afspraak.');
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
-      data: { status: 'cancelled' },
+      data: { status: 'cancelled', cancelledAt: new Date() },
     });
     const dateLabel = new Intl.DateTimeFormat('nl-BE', {
       weekday: 'long',
@@ -1379,7 +1379,7 @@ export class AgendaService implements OnModuleInit {
 
     await this.prisma.agendaBooking.update({
       where: { id: booking.id },
-      data: { status: 'cancelled', fieldsJson: merged },
+      data: { status: 'cancelled', cancelledAt: new Date(), fieldsJson: merged },
     });
 
     const dateLabel = new Intl.DateTimeFormat('nl-BE', {
@@ -2215,6 +2215,8 @@ export class AgendaService implements OnModuleInit {
       fieldsJson: b.fieldsJson as Record<string, unknown>,
       distanceLabel,
       acknowledgedAt: b.acknowledgedAt ? b.acknowledgedAt.toISOString() : null,
+      cancelledAt: b.cancelledAt ? b.cancelledAt.toISOString() : null,
+      bookingCreatedAt: b.createdAt.toISOString(),
       calendar: b.calendar,
       slot: {
         id: b.slot.id,
@@ -2302,6 +2304,10 @@ export class AgendaService implements OnModuleInit {
       data.status = dto.status;
       if (dto.status === 'acknowledged' && b.status !== 'acknowledged' && !b.acknowledgedAt) {
         data.acknowledgedAt = new Date();
+      }
+      const cancelledStatuses = ['cancelled', 'cancelled_cm', 'geannuleerd'];
+      if (cancelledStatuses.includes(dto.status) && !cancelledStatuses.includes(b.status)) {
+        data.cancelledAt = new Date();
       }
     }
     if (dto.name !== undefined) data.name = dto.name;

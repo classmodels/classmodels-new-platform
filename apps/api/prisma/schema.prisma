@@ -654,6 +654,8 @@ model AgendaBooking {
   cancelToken String?          @unique
   /// Moment waarop de gast zijn komst bevestigde (status `acknowledged`).
   acknowledgedAt DateTime?
+  /// Moment waarop de afspraak werd geannuleerd (door gast, model of admin).
+  cancelledAt DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   notificationLogs AgendaBookingNotificationLog[]

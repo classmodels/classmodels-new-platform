@@ -14,33 +14,36 @@ type Tone = 'burgundy' | 'dark';
 function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const rowClass =
-    'flex w-full items-center justify-between gap-2 border-t border-white/[0.14] py-3.5 pl-3 pr-3 text-left text-[13.5px] font-medium text-[#d4d4d8] hover:bg-white/[0.07]';
+  /** De drie portalen: rode achtergrond, witte tekst. */
+  const portalRowClass =
+    'flex w-full items-center justify-between gap-2 border-t border-white/20 bg-burgundy py-3.5 pl-3 pr-3 text-left text-[13.5px] font-semibold text-white hover:bg-burgundyDeep';
+  const logoutRowClass =
+    'flex w-full items-center justify-between gap-2 border-t border-white/[0.14] py-3.5 pl-3 pr-3 text-left text-[13.5px] font-semibold text-red-400 hover:bg-white/[0.07]';
 
   return (
     <div>
-      <Link href="/portal/guest" className={rowClass}>
+      <Link href="/portal/guest" className={portalRowClass}>
         <span>Gastenportaal</span>
-        <span className="text-[#87878f]" aria-hidden>
+        <span className="text-white/70" aria-hidden>
           ›
         </span>
       </Link>
-      <Link href={user ? '/portal/model' : '/'} className={rowClass}>
+      <Link href={user ? '/portal/model' : '/'} className={portalRowClass}>
         <span>Modellenportaal</span>
-        <span className="text-[#87878f]" aria-hidden>
+        <span className="text-white/70" aria-hidden>
           ›
         </span>
       </Link>
-      <Link href="/portal/client" className={rowClass}>
+      <Link href="/portal/client" className={portalRowClass}>
         <span>Klantenportaal</span>
-        <span className="text-[#87878f]" aria-hidden>
+        <span className="text-white/70" aria-hidden>
           ›
         </span>
       </Link>
       {user ? (
         <button
           type="button"
-          className={`${rowClass} !text-red-400 font-semibold`}
+          className={logoutRowClass}
           onClick={() => {
             onNavigate();
             logout();
@@ -51,7 +54,7 @@ function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
           <span>Uitloggen</span>
         </button>
       ) : (
-        <Link href="/" className={`${rowClass} !text-red-400 font-semibold`}>
+        <Link href="/" className={logoutRowClass}>
           <span>Inloggen</span>
         </Link>
       )}
