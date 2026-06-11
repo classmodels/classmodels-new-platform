@@ -145,11 +145,11 @@ body {
   .cm-red-titlebar-inner > h2:only-child {
     flex-basis: auto;
   }
-  /* Wrapper van de actieknoppen: volledige breedte */
+  /* Wrapper van de actieknoppen: volledige breedte; losse knop rechts uitlijnen */
   .cm-red-titlebar-inner > h2 ~ div {
     width: 100%;
     flex-basis: 100%;
-    justify-content: stretch;
+    justify-content: flex-end;
   }
   /* Knoppenrij: raster met gelijke kolommen — standaard 2 per rij */
   .cm-red-titlebar-inner > h2 ~ div > div {

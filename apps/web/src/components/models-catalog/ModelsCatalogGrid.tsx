@@ -368,12 +368,16 @@ function ModelDetailDialog({
             {photoSrc ? (
               <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100 shadow-sm">
                 <div
-                  className="touch-pan-y select-none"
+                  className="flex w-full touch-pan-y select-none justify-center bg-zinc-100"
                   onTouchStart={onPhotoTouchStart}
                   onTouchEnd={onPhotoTouchEnd}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={photoSrc} alt="" className="mx-auto block w-full object-contain" style={{ aspectRatio: '3 / 4', maxHeight: 'min(70vh, 520px)' }} />
+                  <img
+                    src={photoSrc}
+                    alt=""
+                    className="mx-auto block h-auto max-h-[min(92vh,960px)] w-full object-contain"
+                  />
                 </div>
                 {photoKeys.length > 0 ? (
                   <div className="flex items-center justify-between border-t border-zinc-300 bg-zinc-800 px-2 py-1.5 text-white">
