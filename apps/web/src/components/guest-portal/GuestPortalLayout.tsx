@@ -29,6 +29,7 @@ import {
 } from '@/components/guest-portal/guest-portal-data';
 import { GuestTestshootSection } from '@/components/guest-portal/GuestTestshootSection';
 import { GuestSignatureTagline } from '@/components/guest-portal/GuestSignatureTagline';
+import { MobileAppBar } from '@/components/MobileAppBar';
 import { guestPortalPublicMediaUrl, guestPortalStaticPublicUrl } from '@/lib/guest-portal-media';
 
 const GUEST_MENU_IDS = GUEST_MENU.map((m) => m.id) as readonly GuestMenuId[];
@@ -250,6 +251,16 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
   const [playSrc, setPlaySrc] = useState<string>(staticFallback);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  /** Video alleen laden op desktopbreedte — op gsm is de hero verborgen (app-balk). */
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
   useEffect(() => {
     const api = guestPortalPublicMediaUrl(basename);
     setPlaySrc(api ?? staticFallback);
@@ -324,6 +335,7 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
       </div>
 
       <div className="pointer-events-none relative z-[5] mt-6 flex justify-center px-4 sm:absolute sm:bottom-[50px] sm:right-[50px] sm:top-[50px] sm:mt-0 sm:flex sm:justify-end sm:px-0">
+        {isDesktop ? (
         <video
           key={playSrc}
           ref={videoRef}
@@ -337,6 +349,7 @@ function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
           controls={false}
           aria-label="Class-Models promotiefilm"
         />
+        ) : null}
       </div>
     </div>
   );
@@ -1078,29 +1091,10 @@ export function GuestPortalLayout() {
     }
   };
 
-  return (
-    <div className="min-h-[100dvh] bg-panel text-ink">
-      {/* Rode hero — op elke pagina van het gastenportaal */}
-      <div className="w-full overflow-hidden bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
-        <ModelWordenHeroInner onNav={goMenu} />
-      </div>
-
-      <div className="mx-auto w-full max-w-page px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-8">
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
-          <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm lg:sticky lg:top-4">
-            <div className="cm-red-titlebar shrink-0 border-b border-line">
-              <div className="cm-red-titlebar-inner">
-                <CmText
-                  contentKey="portal.guest.sidebar.title"
-                  as="p"
-                  className="text-xs font-semibold uppercase tracking-wide text-white"
-                  fallback="Gast menu"
-                />
-              </div>
-            </div>
-            <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Gastenmenu">
-              <div className="shrink-0">
-                {GUEST_SIDEBAR_MENU.map((item, index) => {
+  const guestNavContent = (
+    <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Gastenmenu">
+      <div className="shrink-0">
+        {GUEST_SIDEBAR_MENU.map((item, index) => {
                   const isActive = isBuiltInRowActive(item.id);
                   return (
                     <button
@@ -1150,12 +1144,41 @@ export function GuestPortalLayout() {
                       <span className="text-muted" aria-hidden>
                         ›
                       </span>
-                    </Link>
-                  );
-                })}
+            </Link>
+          );
+        })}
+      </div>
+      <div className="min-h-8 flex-1 bg-white" aria-hidden />
+    </nav>
+  );
+
+  return (
+    <div className="min-h-[100dvh] bg-panel text-ink">
+      <MobileAppBar
+        title="Gastenportaal"
+        subtitle={rightPanelTitle}
+        menuTitle="Gast menu"
+        menuContent={guestNavContent}
+      />
+      {/* Rode hero — vanaf desktopbreedte; op gsm telt enkel de compacte app-balk */}
+      <div className="hidden w-full overflow-hidden bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)] lg:block">
+        <ModelWordenHeroInner onNav={goMenu} />
+      </div>
+
+      <div className="mx-auto w-full max-w-page px-3 pb-6 pt-3 md:px-6 md:pb-10 lg:pt-8">
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
+          <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm lg:sticky lg:top-4 lg:flex">
+            <div className="cm-red-titlebar shrink-0 border-b border-line">
+              <div className="cm-red-titlebar-inner">
+                <CmText
+                  contentKey="portal.guest.sidebar.title"
+                  as="p"
+                  className="text-xs font-semibold uppercase tracking-wide text-white"
+                  fallback="Gast menu"
+                />
               </div>
-              <div className="min-h-8 flex-1 bg-white" aria-hidden />
-            </nav>
+            </div>
+            {guestNavContent}
           </aside>
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm">

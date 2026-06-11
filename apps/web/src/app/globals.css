@@ -6,8 +6,20 @@
   color-scheme: light;
 }
 
+html {
+  /* App-gevoel: inhoud kan nooit horizontaal verschuiven, geen zoom op tekst. */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   @apply bg-white text-ink antialiased;
+  overflow-x: hidden;
+  width: 100%;
+  overscroll-behavior-x: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 @layer base {
@@ -49,6 +61,14 @@ body {
   .push-pill-badge,
   .push-menu-badge {
     border-radius: 9999px !important;
+  }
+
+  /* Mobiele app-balk: respecteert de iOS/Android notch (safe area). */
+  .cm-appbar-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .cm-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { CmText } from '@/components/CmText';
+import { MobileAppBar } from '@/components/MobileAppBar';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 
@@ -133,9 +134,79 @@ export default function ClientPortalPage() {
 
   if (loading || !user) return <div className="p-8 text-sm text-muted">Laden…</div>;
 
+  const clientNavContent = (
+    <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Klantenportaal">
+      <button
+        type="button"
+        onClick={() => setTab('overzicht')}
+        className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+          tab === 'overzicht'
+            ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+            : 'text-ink hover:bg-panel/70'
+        }`}
+      >
+        <CmText contentKey="portal.client.nav.overzicht" as="span" className="text-ink" fallback="Overzicht" />
+      </button>
+      <button
+        type="button"
+        onClick={() => setTab('profiel')}
+        className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+          tab === 'profiel'
+            ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+            : 'text-ink hover:bg-panel/70'
+        }`}
+      >
+        <CmText
+          contentKey="portal.client.nav.profiel"
+          as="span"
+          className="text-ink"
+          fallback="Bedrijf & contact"
+        />
+      </button>
+      {can('portal.client.briefs.write') ? (
+        <button
+          type="button"
+          onClick={() => setTab('nieuw')}
+          className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+            tab === 'nieuw'
+              ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+              : 'text-ink hover:bg-panel/70'
+          }`}
+        >
+          <CmText
+            contentKey="portal.client.nav.nieuw"
+            as="span"
+            className="text-ink"
+            fallback="Nieuwe aanvraag"
+          />
+        </button>
+      ) : null}
+      {can('portal.client.briefs.read') ? (
+        <button
+          type="button"
+          onClick={() => setTab('aanvragen')}
+          className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
+            tab === 'aanvragen'
+              ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
+              : 'text-ink hover:bg-panel/70'
+          }`}
+        >
+          <CmText
+            contentKey="portal.client.nav.aanvragen"
+            as="span"
+            className="text-ink"
+            fallback="Mijn aanvragen"
+          />
+        </button>
+      ) : null}
+      <div className="min-h-8 flex-1 bg-white" aria-hidden />
+    </nav>
+  );
+
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
-      <div className="w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+      <MobileAppBar title="Klantenportaal" menuTitle="Menu" menuContent={clientNavContent} />
+      <div className="hidden w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)] lg:block">
         <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
           <CmText
             contentKey="portal.client.hero.kicker"
@@ -156,9 +227,9 @@ export default function ClientPortalPage() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-page px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-8">
+      <div className="mx-auto w-full max-w-page px-3 pb-6 pt-3 md:px-6 md:pb-10 lg:pt-8">
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
-          <aside className="flex h-full min-h-0 flex-col overflow-hidden border border-line bg-white shadow-sm lg:sticky lg:top-4">
+          <aside className="hidden h-full min-h-0 flex-col overflow-hidden border border-line bg-white shadow-sm lg:sticky lg:top-4 lg:flex">
             <div className="cm-red-titlebar shrink-0 border-b border-line">
               <div className="cm-red-titlebar-inner">
                 <CmText
@@ -169,72 +240,7 @@ export default function ClientPortalPage() {
                 />
               </div>
             </div>
-            <nav className="flex min-h-0 flex-1 flex-col bg-white" aria-label="Klantenportaal">
-              <button
-                type="button"
-                onClick={() => setTab('overzicht')}
-                className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
-                  tab === 'overzicht'
-                    ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
-                    : 'text-ink hover:bg-panel/70'
-                }`}
-              >
-                <CmText contentKey="portal.client.nav.overzicht" as="span" className="text-ink" fallback="Overzicht" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab('profiel')}
-                className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
-                  tab === 'profiel'
-                    ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
-                    : 'text-ink hover:bg-panel/70'
-                }`}
-              >
-                <CmText
-                  contentKey="portal.client.nav.profiel"
-                  as="span"
-                  className="text-ink"
-                  fallback="Bedrijf & contact"
-                />
-              </button>
-              {can('portal.client.briefs.write') ? (
-                <button
-                  type="button"
-                  onClick={() => setTab('nieuw')}
-                  className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
-                    tab === 'nieuw'
-                      ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
-                      : 'text-ink hover:bg-panel/70'
-                  }`}
-                >
-                  <CmText
-                    contentKey="portal.client.nav.nieuw"
-                    as="span"
-                    className="text-ink"
-                    fallback="Nieuwe aanvraag"
-                  />
-                </button>
-              ) : null}
-              {can('portal.client.briefs.read') ? (
-                <button
-                  type="button"
-                  onClick={() => setTab('aanvragen')}
-                  className={`border-t border-line px-4 py-3 text-left text-sm font-medium ${
-                    tab === 'aanvragen'
-                      ? 'bg-panel text-ink [box-shadow:inset_3px_0_0_0_#6f121b]'
-                      : 'text-ink hover:bg-panel/70'
-                  }`}
-                >
-                  <CmText
-                    contentKey="portal.client.nav.aanvragen"
-                    as="span"
-                    className="text-ink"
-                    fallback="Mijn aanvragen"
-                  />
-                </button>
-              ) : null}
-              <div className="min-h-8 flex-1 bg-white" aria-hidden />
-            </nav>
+            {clientNavContent}
           </aside>
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border border-line bg-white shadow-sm">

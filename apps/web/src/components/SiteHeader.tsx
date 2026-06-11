@@ -11,15 +11,19 @@ export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const onAdmin = pathname?.startsWith('/admin');
+  const onPortal = pathname?.startsWith('/portal');
 
   if (onAdmin) return null;
 
   return (
-    <header className="border-b border-white/10 bg-ink text-white">
+    <header
+      className={`border-b border-white/10 bg-ink text-white ${onPortal ? 'hidden lg:block' : ''}`}
+    >
       {/*
         Zelfde horizontale inset als de gast-hero-video (50px): logo links, nav + talen rechts uitgelijnd.
+        Op gsm: kleinere inset zodat alles op volle breedte past.
       */}
-      <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2.5 px-[50px] py-2.5 text-sm md:flex-nowrap md:gap-x-8">
+      <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2.5 px-4 py-2.5 text-sm md:flex-nowrap md:gap-x-8 lg:px-[50px]">
         <div className="min-w-0 shrink-0">
           <Link href="/" className="notranslate block">
             <CmText

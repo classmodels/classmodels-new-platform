@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { CmText } from '@/components/CmText';
+import { MobileAppBar } from '@/components/MobileAppBar';
 
 function ModelPortalHeroInner({
   userDisplayName,
@@ -105,33 +106,12 @@ export function ModelPortalShell({
     onTabChange(id);
   };
 
-  return (
-    <div className="min-h-[100dvh] bg-panel text-ink">
-      <ImpersonationBanner />
-      <div className="w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)]">
-        <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
-          <ModelPortalHeroInner userDisplayName={userDisplayName} premiumButton={premiumButton} />
-        </div>
-      </div>
-
-      <div className="mx-auto w-full max-w-page px-4 pb-8 pt-6 md:px-6 md:pb-10 md:pt-8">
-        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
-          <aside className="flex min-h-0 flex-col overflow-hidden border border-line bg-white shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start">
-            <div className="cm-red-titlebar shrink-0 border-b border-line">
-              <div className="cm-red-titlebar-inner">
-                <CmText
-                  contentKey="portal.model.sidebar.title"
-                  as="p"
-                  className="text-xs font-semibold uppercase tracking-wide text-white"
-                  fallback="Menu"
-                />
-              </div>
-            </div>
-            <nav
-              className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white"
-              aria-label="Model menu"
-            >
-              {portalTabs.map((t, index) => {
+  const navContent = (
+    <nav
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white"
+      aria-label="Model menu"
+    >
+      {portalTabs.map((t, index) => {
                 const isActive = activeTab === t.id;
                 const showPremiumBadge = !isPremium && MODEL_PORTAL_PREMIUM_TAB_IDS.has(t.id);
                 const rowClass = `flex w-full items-center gap-2 py-2 pl-3 pr-2 text-left text-[11px] font-medium transition ${
@@ -180,10 +160,41 @@ export function ModelPortalShell({
                         ›
                       </span>
                     )}
-                  </div>
-                );
-              })}
-            </nav>
+          </div>
+        );
+      })}
+    </nav>
+  );
+
+  return (
+    <div className="min-h-[100dvh] bg-panel text-ink">
+      <MobileAppBar
+        title="Modellenportaal"
+        subtitle={sectionTitle}
+        menuTitle="Menu"
+        menuContent={navContent}
+      />
+      <ImpersonationBanner />
+      <div className="hidden w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)] lg:block">
+        <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
+          <ModelPortalHeroInner userDisplayName={userDisplayName} premiumButton={premiumButton} />
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-page px-3 pb-6 pt-3 md:px-6 md:pb-10 lg:pt-8">
+        <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-start">
+          <aside className="hidden min-h-0 flex-col overflow-hidden border border-line bg-white shadow-sm lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100dvh-2rem)] lg:self-start">
+            <div className="cm-red-titlebar shrink-0 border-b border-line">
+              <div className="cm-red-titlebar-inner">
+                <CmText
+                  contentKey="portal.model.sidebar.title"
+                  as="p"
+                  className="text-xs font-semibold uppercase tracking-wide text-white"
+                  fallback="Menu"
+                />
+              </div>
+            </div>
+            {navContent}
           </aside>
 
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border border-line bg-white shadow-sm">
