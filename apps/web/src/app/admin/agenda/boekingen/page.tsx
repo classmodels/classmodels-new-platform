@@ -30,6 +30,8 @@ type BookingRow = {
   calendar: { id: string; slug: string; title: string };
   slot: { id: string; slotDate: string; startTime: string; endTime: string };
   fieldsJson?: Record<string, unknown>;
+  acknowledgedAt?: string | null;
+  cancelledAt?: string | null;
 };
 
 type BookingDetail = {
@@ -52,6 +54,20 @@ const STATUS_OPTS = AGENDA_BOOKING_STATUS_OPTS;
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
+}
+
+/** Klein datum + uur, bv. "12 jun 2026, 14:05". */
+function smallMomentLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('nl-BE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Brussels',
+  }).format(d);
 }
 
 function ymd(d: Date): string {
@@ -109,9 +125,11 @@ export default function AdminAgendaBoekingenPage() {
   const [calsReady, setCalsReady] = useState(false);
 
   const [refYmd, setRefYmd] = useState(() => ymd(new Date()));
-  const [datePreset, setDatePreset] = useState<DatePreset>('week');
+  // Standaard de boekingen van vandaag tonen.
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const [nameQuery, setNameQuery] = useState('');
 
   const [statusSel, setStatusSel] = useState<Set<string>>(() => new Set(STATUS_OPTS.map((x) => x.v)));
 
@@ -173,10 +191,18 @@ export default function AdminAgendaBoekingenPage() {
     loadBookings().catch(() => setBookings([]));
   }, [loadBookings]);
 
-  const visibleBookings = useMemo(
-    () => (showPastBookings ? bookings : bookings.filter((b) => !isAgendaBookingPast(b))),
-    [bookings, showPastBookings],
-  );
+  const visibleBookings = useMemo(() => {
+    let rows = showPastBookings ? bookings : bookings.filter((b) => !isAgendaBookingPast(b));
+    const q = nameQuery.trim().toLowerCase();
+    if (q) {
+      const terms = q.split(/\s+/).filter(Boolean);
+      rows = rows.filter((b) => {
+        const hay = [b.name, b.firstname, b.lastname].filter(Boolean).join(' ').toLowerCase();
+        return terms.every((t) => hay.includes(t));
+      });
+    }
+    return rows;
+  }, [bookings, showPastBookings, nameQuery]);
 
   const df = useMemo(() => new Intl.DateTimeFormat('nl-BE', { dateStyle: 'medium', timeStyle: 'short' }), []);
 
@@ -458,6 +484,22 @@ export default function AdminAgendaBoekingenPage() {
           Periode: <strong className="text-ink">{range.from}</strong> t/m <strong className="text-ink">{range.to}</strong>
         </p>
 
+        <div className="mt-3 border-t border-line pt-3">
+          <label className="flex max-w-md flex-col gap-1 text-xs text-muted">
+            Zoek op voornaam en/of achternaam
+            <input
+              type="search"
+              className="rounded border border-line px-2 py-1.5 text-sm text-ink"
+              placeholder="bv. Glenn of Dierickx"
+              value={nameQuery}
+              onChange={(e) => setNameQuery(e.target.value)}
+            />
+          </label>
+          <p className="mt-1 text-[10px] text-muted">
+            Zoekt binnen de gekozen periode — kies «Alles» om in alle afspraken te zoeken.
+          </p>
+        </div>
+
         <div className="mt-4 border-t border-line pt-3">
           <p className="text-xs font-medium text-ink">Agenda&apos;s</p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -556,9 +598,10 @@ export default function AdminAgendaBoekingenPage() {
                 const slotD = b.slot?.slotDate?.slice(0, 10);
                 const nm =
                   b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                const struck = isCancelledAgendaStatus(b.status);
+                const cancelled = isCancelledAgendaStatus(b.status);
+                const acknowledged = b.status === 'acknowledged';
                 return (
-                  <tr key={b.id} className={`border-b border-line/80 ${struck ? 'line-through opacity-80' : ''}`}>
+                  <tr key={b.id} className="border-b border-line/80">
                     <td className="py-2 pr-2 align-top">
                       <input type="checkbox" checked={selectedIds.has(b.id)} onChange={() => toggleRowSel(b.id)} />
                     </td>
@@ -584,7 +627,33 @@ export default function AdminAgendaBoekingenPage() {
                       {b.email || '—'}
                       {b.phone ? <div>{b.phone}</div> : null}
                     </td>
-                    <td className="py-2 align-top">{agendaBookingStatusLabel(b.status)}</td>
+                    <td className="py-2 pr-3 align-top">
+                      {acknowledged ? (
+                        <>
+                          <span className="inline-block rounded bg-green-600 px-2 py-1 text-[11px] font-semibold text-white">
+                            Bevestigd
+                          </span>
+                          {b.acknowledgedAt ? (
+                            <div className="mt-0.5 text-[9px] leading-tight text-muted">
+                              {smallMomentLabel(b.acknowledgedAt)}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : cancelled ? (
+                        <>
+                          <span className="inline-block rounded bg-red-600 px-2 py-1 text-[11px] font-semibold text-white">
+                            Geannuleerd
+                          </span>
+                          {b.cancelledAt ? (
+                            <div className="mt-0.5 text-[9px] leading-tight text-muted">
+                              {smallMomentLabel(b.cancelledAt)}
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        agendaBookingStatusLabel(b.status)
+                      )}
+                    </td>
                     <td className="py-2 align-top">
                       <button
                         type="button"

@@ -37,6 +37,8 @@ import {
   ReorderAgendaNotificationTemplatesDto,
   UpdateAgendaMessagingSettingsDto,
   BulkDeleteAgendaBookingsDto,
+  SendTestNotificationTemplatesDto,
+  SendNotificationTemplateToBookingDto,
 } from './dto/agenda.dto';
 
 @Controller('admin/agenda')
@@ -189,6 +191,23 @@ export class AdminAgendaController {
   @Permissions('admin.agenda.write')
   duplicateNotificationTemplate(@Param('id', ParseUUIDPipe) id: string) {
     return this.agenda.adminDuplicateNotificationTemplate(id);
+  }
+
+  /** Geselecteerde sjablonen als testmail (voorbeeldgegevens) naar één e-mailadres. */
+  @Post('notification-templates/test-send')
+  @Permissions('admin.agenda.write')
+  testSendNotificationTemplates(@Body() dto: SendTestNotificationTemplatesDto) {
+    return this.agenda.adminSendTestNotificationTemplates(dto.templateIds, dto.to);
+  }
+
+  /** Sjabloon handmatig versturen naar een afspraak (optioneel ander e-mailadres). */
+  @Post('bookings/:id/send-template')
+  @Permissions('admin.agenda.write')
+  sendTemplateToBooking(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SendNotificationTemplateToBookingDto,
+  ) {
+    return this.agenda.adminSendNotificationTemplateToBooking(id, dto.templateId, dto.to);
   }
 
   @Get('messaging-settings')

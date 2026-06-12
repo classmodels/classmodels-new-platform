@@ -2,9 +2,10 @@ import { AGENDA_DEFAULT_BOOKING_EMAIL_HTML, AGENDA_DEFAULT_BOOKING_UPDATED_EMAIL
 import {
   applyAgendaMailPlaceholders,
   buildAgendaMailPlaceholderVars,
+  buildCancelReasonBlockHtml,
   coerceOutgoingEmailHtml,
 } from './agenda-mail-placeholders';
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig, smtpTransportOptions } from '../mail/mail-smtp-resolve';
 import { sendHtmlMailDetailed } from '../mail/send-html-mail';
@@ -50,6 +51,8 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   mapTo?: { lat: number; lon: number };
   changeSummaryPlain?: string;
   changeSummaryHtml?: string;
+  /** Reden van annulatie — komt in de annulatiemail/SMS terecht. */
+  cancelReason?: string;
 };
 
 export type DispatchBookingResult = {
@@ -203,6 +206,7 @@ export class AgendaNotificationService {
           staticMapImageUrl: ctx.staticMapImageUrl,
           changeSummaryPlain: ctx.changeSummaryPlain,
           changeSummaryHtml: ctx.changeSummaryHtml,
+          cancelReason: ctx.cancelReason,
         },
         'html',
       );
@@ -263,7 +267,16 @@ export class AgendaNotificationService {
         const subject =
           applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
           `Melding: ${ctx.calendarTitle}`;
-        const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(t.body, vars));
+        let bodyTemplate = t.body;
+        // Annulatiemail: reden altijd meesturen, ook als het sjabloon de placeholder niet kent.
+        if (
+          trigger === 'booking_cancelled' &&
+          ctx.cancelReason?.trim() &&
+          !t.body.includes('cancel_reason')
+        ) {
+          bodyTemplate = `${t.body}\n${buildCancelReasonBlockHtml(ctx.cancelReason)}`;
+        }
+        const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(bodyTemplate, vars));
         const smtpFast = trigger === 'booking_created';
         const sendResult = await this.sendAgendaEmail(to, subject, html, ctx, {
           smtpFast,
@@ -329,7 +342,7 @@ export class AgendaNotificationService {
         if (!sendSms) break;
         const msisdn = normalizeBelgiumMsisdn(ctx.phone);
         if (!msisdn) continue;
-        const text = applyAgendaMailPlaceholders(
+        let text = applyAgendaMailPlaceholders(
           t.body,
           buildAgendaMailPlaceholderVars(
             {
@@ -345,10 +358,18 @@ export class AgendaNotificationService {
               staticMapImageUrl: ctx.staticMapImageUrl,
               changeSummaryPlain: ctx.changeSummaryPlain,
               changeSummaryHtml: ctx.changeSummaryHtml,
+              cancelReason: ctx.cancelReason,
             },
             'plain',
           ),
         );
+        if (
+          trigger === 'booking_cancelled' &&
+          ctx.cancelReason?.trim() &&
+          !t.body.includes('cancel_reason')
+        ) {
+          text = `${text} Reden: ${ctx.cancelReason.trim()}`;
+        }
         const smsResult = await this.trySendBulksms(buUser, buPass, msisdn, text);
         if (smsResult.ok) smsSent = true;
         await this.recordBookingNotificationLog({
@@ -889,6 +910,7 @@ export class AgendaNotificationService {
       b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
         ? (b.fieldsJson as Record<string, string>)
         : {};
+    const cancelReason = (fj.annulatie_reden ?? '').toString().trim() || undefined;
     const visitorAddress = formatGuestAddressFromFields(fj);
     let distanceLabel = '';
     let mapsDirectionsUrl = visitorAddress ? googleMapsDirectionsUrl(visitorAddress) : '';
@@ -922,6 +944,7 @@ export class AgendaNotificationService {
             staticMapImageUrl,
             mapFrom: t.mapFrom,
             mapTo: t.mapTo,
+            cancelReason,
           };
         }
       } catch {
@@ -945,6 +968,7 @@ export class AgendaNotificationService {
       distanceLabel,
       mapsDirectionsUrl,
       staticMapImageUrl,
+      cancelReason,
     };
   }
 
@@ -971,6 +995,7 @@ export class AgendaNotificationService {
         distanceLabel: ctx.distanceLabel,
         mapsDirectionsUrl: ctx.mapsDirectionsUrl,
         staticMapImageUrl: ctx.staticMapImageUrl,
+        cancelReason: ctx.cancelReason,
       },
       'html',
     );
@@ -986,6 +1011,7 @@ export class AgendaNotificationService {
         distanceLabel: ctx.distanceLabel,
         mapsDirectionsUrl: ctx.mapsDirectionsUrl,
         staticMapImageUrl: ctx.staticMapImageUrl,
+        cancelReason: ctx.cancelReason,
       },
       'plain',
     );
@@ -1102,5 +1128,143 @@ export class AgendaNotificationService {
     ctx.changeSummaryPlain = opts.changeSummaryPlain;
     ctx.changeSummaryHtml = opts.changeSummaryHtml;
     return this.dispatchBookingLifecycle('booking_updated', ctx, { channels });
+  }
+
+  /** Demo-context voor testmails (zelfde voorbeeldwaarden als de preview). */
+  private buildDemoDispatchCtx(): DispatchBookingCtx {
+    return {
+      toEmail: null,
+      phone: '+32 470 00 00 00',
+      displayName: 'Jan Janssens (TEST)',
+      calendarTitle: 'Portfolio afspraak',
+      calendarSlug: 'test',
+      dateLabel: 'dinsdag 13 mei 2026',
+      timeLabel: '10:00 – 10:30',
+      cancelUrl: 'https://www.class-models.be/portal/guest/annuleer?token=demo-token',
+      confirmUrl: 'https://www.class-models.be/portal/guest/bevestig?token=demo-token',
+      officeAddress: CLASS_MODELS_OFFICE.fullAddress,
+      distanceLabel: 'ca. 12 km',
+      cancelReason: 'Voorbeeldreden van annulatie (testmail)',
+    };
+  }
+
+  /** Render één sjabloon naar onderwerp + HTML (testmail; SMS-sjabloon als platte tekst). */
+  private renderTemplateForTest(
+    template: { channel: string; name: string; subject: string | null; body: string },
+    ctx: DispatchBookingCtx,
+  ): { subject: string; html: string } {
+    const varsHtml = buildAgendaMailPlaceholderVars(
+      {
+        displayName: ctx.displayName,
+        calendarTitle: ctx.calendarTitle,
+        dateLabel: ctx.dateLabel,
+        timeLabel: ctx.timeLabel,
+        cancelUrl: ctx.cancelUrl,
+        confirmUrl: ctx.confirmUrl,
+        officeAddress: ctx.officeAddress,
+        distanceLabel: ctx.distanceLabel,
+        mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+        staticMapImageUrl: ctx.staticMapImageUrl,
+        cancelReason: ctx.cancelReason,
+      },
+      'html',
+    );
+    if (template.channel === 'sms') {
+      const varsPlain = buildAgendaMailPlaceholderVars(
+        {
+          displayName: ctx.displayName,
+          calendarTitle: ctx.calendarTitle,
+          dateLabel: ctx.dateLabel,
+          timeLabel: ctx.timeLabel,
+          cancelUrl: ctx.cancelUrl,
+          confirmUrl: ctx.confirmUrl,
+          officeAddress: ctx.officeAddress,
+          distanceLabel: ctx.distanceLabel,
+          mapsDirectionsUrl: ctx.mapsDirectionsUrl,
+          staticMapImageUrl: ctx.staticMapImageUrl,
+          cancelReason: ctx.cancelReason,
+        },
+        'plain',
+      );
+      const text = applyAgendaMailPlaceholders(template.body, varsPlain);
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return {
+        subject: `[TEST – SMS-sjabloon] ${template.name}`,
+        html: coerceOutgoingEmailHtml(
+          `<p style="margin:0 0 12px;">Inhoud van het SMS-sjabloon «${esc(template.name)}» (als test per e-mail):</p><pre style="white-space:pre-wrap;font-family:inherit;background:#f4f4f5;border:1px solid #e4e4e7;border-radius:6px;padding:12px;">${esc(text)}</pre>`,
+        ),
+      };
+    }
+    const subject =
+      applyAgendaMailPlaceholders(template.subject?.trim() || `Melding: ${ctx.calendarTitle}`, varsHtml) ||
+      `Melding: ${ctx.calendarTitle}`;
+    return {
+      subject: `[TEST] ${subject}`,
+      html: coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(template.body, varsHtml)),
+    };
+  }
+
+  /** Admin: verstuur geselecteerde sjablonen als testmail (voorbeeldgegevens) naar één adres. */
+  async adminSendTestTemplates(
+    templateIds: string[],
+    to: string,
+  ): Promise<{ results: { templateId: string; name: string; sent: boolean; error?: string }[] }> {
+    const addr = to.trim();
+    if (!addr || !addr.includes('@')) throw new BadRequestException('Geef een geldig e-mailadres op.');
+    if (!templateIds.length) throw new BadRequestException('Selecteer minstens één sjabloon.');
+    const rows = await this.prisma.agendaNotificationTemplate.findMany({
+      where: { id: { in: templateIds } },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+    if (!rows.length) throw new NotFoundException('Geen sjablonen gevonden.');
+    const ctx = this.buildDemoDispatchCtx();
+    const results: { templateId: string; name: string; sent: boolean; error?: string }[] = [];
+    for (const t of rows) {
+      const { subject, html } = this.renderTemplateForTest(t, ctx);
+      const r = await this.trySendSmtpDetailed(addr, subject, html);
+      results.push({ templateId: t.id, name: t.name, sent: r.ok, error: r.ok ? undefined : r.error });
+    }
+    return { results };
+  }
+
+  /** Admin: verstuur een sjabloon naar (het e-mailadres van) een specifieke afspraak. */
+  async adminSendTemplateToBooking(
+    bookingId: string,
+    templateId: string,
+    toOverride?: string,
+  ): Promise<{ sent: boolean; to: string; error?: string }> {
+    const template = await this.prisma.agendaNotificationTemplate.findUnique({
+      where: { id: templateId },
+    });
+    if (!template) throw new NotFoundException('Sjabloon niet gevonden.');
+    const b = await this.prisma.agendaBooking.findUnique({
+      where: { id: bookingId },
+      include: { slot: { include: { calendar: true } } },
+    });
+    if (!b) throw new NotFoundException('Afspraak niet gevonden.');
+    const to = (toOverride?.trim() || b.email?.trim()) ?? '';
+    if (!to || !to.includes('@')) {
+      throw new BadRequestException('Geen geldig e-mailadres (afspraak heeft geen e-mail; geef zelf een adres op).');
+    }
+    const ctx = await this.buildDispatchCtxFromBooking(b, b.slot.calendar.slug);
+    const { subject, html } = this.renderTemplateForTest(template, ctx);
+    // Geen [TEST]-prefix bij verzending naar een echte afspraak met sjabloon-onderwerp.
+    const realSubject =
+      template.channel === 'sms' ? subject : subject.replace(/^\[TEST\] /, '');
+    const r = await this.sendAgendaEmail(to, realSubject, html, ctx, { reliable: true });
+    await this.recordBookingNotificationLog({
+      bookingId: b.id,
+      channel: 'email',
+      trigger: (template.trigger as AgendaLifecycleTrigger) ?? 'booking_created',
+      templateId: template.id,
+      templateName: `${template.name} (handmatig verstuurd)`,
+      subject: realSubject,
+      recipient: to,
+      bodyPreview: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+      sent: r.ok,
+      errorMessage: r.ok ? undefined : r.error,
+    });
+    return { sent: r.ok, to, error: r.ok ? undefined : r.error };
   }
 }

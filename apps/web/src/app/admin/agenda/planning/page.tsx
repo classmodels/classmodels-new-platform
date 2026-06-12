@@ -128,10 +128,8 @@ function planningBlockTextClass(cal: { planningTextOnColor?: string | null }, gr
   return cal.planningTextOnColor === 'black' ? 'text-zinc-950' : 'text-white';
 }
 
-function planningBlockStrikeClass(cal: { planningTextOnColor?: string | null }, grey: boolean): string {
-  if (grey) return 'line-through decoration-white/90';
-  return cal.planningTextOnColor === 'black' ? 'line-through decoration-zinc-900/55' : 'line-through decoration-white/90';
-}
+/** Geannuleerd: donkerrode achtergrond met witte tekst (geen doorstreping). */
+const CANCELLED_BLOCK_CLASS = 'bg-red-900 text-white';
 
 function blockStyleForBooking(b: BookingRow, dayYmd: string): { top: number; height: number } | null {
   if (slotDateKey(b.slot.slotDate) !== dayYmd) return null;
@@ -924,15 +922,15 @@ export default function AdminAgendaPlanningPage() {
                             <div className="mt-1 max-h-[200px] space-y-0.5 overflow-y-auto pr-0.5">
                               {list.map((b) => {
                                 const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                                const struck = isCancelledAgendaStatus(b.status);
-                                const grey = struck || b.status === 'no_show';
+                                const cancelled = isCancelledAgendaStatus(b.status);
+                                const grey = !cancelled && b.status === 'no_show';
                                 return (
                                   <button
                                     key={b.id}
                                     type="button"
                                     onClick={() => openDetail(b.id)}
-                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400 opacity-55' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
-                                    style={grey ? undefined : { backgroundColor: b.calendar.color, opacity: struck ? 0.55 : 1 }}
+                                    className={`block w-full rounded px-1 py-0.5 text-left text-[9px] leading-tight ${cancelled ? CANCELLED_BLOCK_CLASS : planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400 opacity-55' : ''}`}
+                                    style={cancelled || grey ? undefined : { backgroundColor: b.calendar.color }}
                                   >
                                     <div>
                                       {b.slot.startTime.slice(0, 5)} – {b.slot.endTime.slice(0, 5)}
@@ -1007,16 +1005,16 @@ export default function AdminAgendaPlanningPage() {
                                   >
                                     {cluster.map((b) => {
                                       const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                                      const struck = isCancelledAgendaStatus(b.status);
-                                      const grey = struck || b.status === 'no_show';
+                                      const cancelled = isCancelledAgendaStatus(b.status);
+                                      const grey = !cancelled && b.status === 'no_show';
                                       return (
                                         <button
                                           key={b.id}
                                           type="button"
                                           onClick={() => openDetail(b.id)}
                                           title={`${nm} — ${bookingLabel(b.status)}`}
-                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight shadow-sm sm:text-[9px] ${planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400 opacity-55' : ''} ${struck ? planningBlockStrikeClass(b.calendar, grey) : ''}`}
-                                          style={grey ? undefined : { backgroundColor: b.calendar.color, opacity: struck ? 0.55 : 1 }}
+                                          className={`min-h-0 min-w-0 flex-1 overflow-hidden rounded px-0.5 py-0.5 text-left text-[8px] leading-tight shadow-sm sm:text-[9px] ${cancelled ? CANCELLED_BLOCK_CLASS : planningBlockTextClass(b.calendar, grey)} ${grey ? 'bg-zinc-400 opacity-55' : ''}`}
+                                          style={cancelled || grey ? undefined : { backgroundColor: b.calendar.color }}
                                         >
                                           <div className="font-semibold">
                                             {formatSlotTimeRange(b.slot.startTime, b.slot.endTime)}
@@ -1060,21 +1058,24 @@ export default function AdminAgendaPlanningPage() {
                         <div className="mt-2 space-y-2">
                           {(byDay.get(dayKey) ?? []).map((b) => {
                             const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                            const struck = isCancelledAgendaStatus(b.status);
-                            const grey = struck || b.status === 'no_show';
+                            const cancelled = isCancelledAgendaStatus(b.status);
+                            const grey = !cancelled && b.status === 'no_show';
+                            const textCls = cancelled ? 'text-white' : 'text-ink';
                             return (
                               <button
                                 key={b.id}
                                 type="button"
                                 onClick={() => openDetail(b.id)}
-                                className={`flex w-full items-start gap-3 rounded-md border-l-4 border-black px-3 py-2 text-left text-sm shadow-sm ${grey ? 'bg-zinc-200 opacity-60' : 'bg-emerald-100'} ${struck ? 'line-through decoration-zinc-600' : ''}`}
+                                className={`flex w-full items-start gap-3 rounded-md border-l-4 border-black px-3 py-2 text-left text-sm shadow-sm ${
+                                  cancelled ? 'bg-red-900 text-white' : grey ? 'bg-zinc-200 opacity-60' : 'bg-emerald-100'
+                                }`}
                               >
-                                <span className="shrink-0 font-medium text-ink">
+                                <span className={`shrink-0 font-medium ${textCls}`}>
                                   {b.slot.startTime.slice(0, 5)} – {b.slot.endTime.slice(0, 5)}
                                 </span>
-                                <span className="font-medium text-ink">{b.calendar.title}</span>
-                                <span className="ml-auto italic text-ink">{nm}</span>
-                                <span className="text-xs text-muted">{bookingLabel(b.status)}</span>
+                                <span className={`font-medium ${textCls}`}>{b.calendar.title}</span>
+                                <span className={`ml-auto italic ${textCls}`}>{nm}</span>
+                                <span className={`text-xs ${cancelled ? 'text-white/85' : 'text-muted'}`}>{bookingLabel(b.status)}</span>
                               </button>
                             );
                           })}

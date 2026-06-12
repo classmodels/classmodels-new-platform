@@ -23,8 +23,11 @@ function applyAgendaMailPlaceholders(template, vars) {
     return out;
 }
 function buildAgendaMailPlaceholderVars(ctx, mode) {
+    const cancelReason = (ctx.cancelReason ?? '').trim();
     if (mode === 'plain') {
         return {
+            cancel_reason: cancelReason,
+            cancel_reason_block_html: cancelReason ? `Reden van annulatie: ${cancelReason}` : '',
             client_name: ctx.displayName || 'klant',
             calendar_title: ctx.calendarTitle,
             appointment_date: ctx.dateLabel,
@@ -41,6 +44,10 @@ function buildAgendaMailPlaceholderVars(ctx, mode) {
     const cancelU = esc(ctx.cancelUrl);
     const confirmU = esc(ctx.confirmUrl);
     return {
+        cancel_reason: esc(cancelReason),
+        cancel_reason_block_html: cancelReason
+            ? `<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #fecaca;border-radius:6px;margin:16px 0;background:#fef2f2;"><tr><td style="padding:12px 16px;"><p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#991b1b;">Reden van annulatie</p><p style="margin:6px 0 0;font-size:14px;color:#18181b;white-space:pre-wrap;">${esc(cancelReason)}</p></td></tr></table>`
+            : '',
         client_name: esc(ctx.displayName || 'klant'),
         calendar_title: esc(ctx.calendarTitle),
         appointment_date: esc(ctx.dateLabel),

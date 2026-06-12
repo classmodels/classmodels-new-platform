@@ -49,6 +49,8 @@ const PLACEHOLDERS = [
   ],
   ['changes_summary', 'Wijzigingen (platte tekst: van … naar …)'],
   ['changes_block_html', 'Wijzigingstabel HTML (admin-wijziging; leeg zonder wijzigingen)'],
+  ['cancel_reason', 'Reden van annulatie (platte tekst; leeg zonder reden)'],
+  ['cancel_reason_block_html', 'Blok met reden van annulatie (HTML; leeg zonder reden)'],
 ] as const;
 
 function offsetMinutesToHoursInput(m: number): string {
@@ -67,6 +69,24 @@ const TRIGGERS = [
   ['followup', 'Opvolging (offset in uren; positief = na start)'],
 ] as const;
 
+type BookingPick = {
+  id: string;
+  status: string;
+  name: string | null;
+  firstname: string | null;
+  lastname: string | null;
+  email: string | null;
+  calendar: { id: string; title: string };
+  slot: { slotDate: string; startTime: string; endTime: string };
+};
+
+function ymdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export default function AdminAgendaMailSmsPage() {
   const { token } = useAuth();
   const router = useRouter();
@@ -83,6 +103,19 @@ export default function AdminAgendaMailSmsPage() {
   const [bulksmsUser, setBulksmsUser] = useState('');
   const [bulksmsPass, setBulksmsPass] = useState('');
   const [hasPass, setHasPass] = useState(false);
+
+  // Testmail: selectie van sjablonen + ontvangstadres.
+  const [testSel, setTestSel] = useState<Set<string>>(() => new Set());
+  const [testMailTo, setTestMailTo] = useState('');
+  const [testBusy, setTestBusy] = useState(false);
+
+  // Sjabloon versturen naar een afspraak.
+  const [sendBookings, setSendBookings] = useState<BookingPick[]>([]);
+  const [sendBookingsLoading, setSendBookingsLoading] = useState(false);
+  const [sendTemplateId, setSendTemplateId] = useState('');
+  const [sendBookingId, setSendBookingId] = useState('');
+  const [sendMailTo, setSendMailTo] = useState('');
+  const [sendBusy, setSendBusy] = useState(false);
 
   const loadPreview = useCallback(async () => {
     if (!token) return;
@@ -125,6 +158,115 @@ export default function AdminAgendaMailSmsPage() {
     setHasPass(s.hasBulksmsPassword);
     setBulksmsPass('');
   }, [token]);
+
+  const loadSendBookings = useCallback(async () => {
+    if (!token) return;
+    setSendBookingsLoading(true);
+    try {
+      const cals = await adminFetch<{ id: string }[]>('/admin/agenda/calendars', token);
+      const ids = cals.map((c) => c.id).join(',');
+      if (!ids) {
+        setSendBookings([]);
+        return;
+      }
+      const from = ymdLocal(new Date(Date.now() - 30 * 24 * 3600 * 1000));
+      const to = ymdLocal(new Date(Date.now() + 120 * 24 * 3600 * 1000));
+      const statuses = 'pending,confirmed,acknowledged,attended,cancelled,cancelled_cm,no_show';
+      const rows = await adminFetch<BookingPick[]>(
+        `/admin/agenda/bookings-range?from=${from}&to=${to}&calendarIds=${encodeURIComponent(ids)}&statuses=${encodeURIComponent(statuses)}`,
+        token,
+      );
+      setSendBookings(rows);
+    } catch {
+      setSendBookings([]);
+    } finally {
+      setSendBookingsLoading(false);
+    }
+  }, [token]);
+
+  const toggleTestSel = (id: string) => {
+    setTestSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
+
+  const sendTestMails = async () => {
+    if (!token) return;
+    const to = testMailTo.trim();
+    if (!to || !to.includes('@')) {
+      setErr('Vul een geldig e-mailadres in voor de testmail.');
+      return;
+    }
+    if (!testSel.size) {
+      setErr('Vink minstens één sjabloon aan om als test te versturen.');
+      return;
+    }
+    setErr(null);
+    setOk(null);
+    setTestBusy(true);
+    try {
+      const r = await adminFetch<{ results: { name: string; sent: boolean; error?: string }[] }>(
+        '/admin/agenda/notification-templates/test-send',
+        token,
+        {
+          method: 'POST',
+          body: JSON.stringify({ templateIds: [...testSel], to }),
+        },
+      );
+      const okCount = r.results.filter((x) => x.sent).length;
+      const failed = r.results.filter((x) => !x.sent);
+      if (failed.length) {
+        setErr(
+          `${okCount} testmail(s) verstuurd, ${failed.length} mislukt: ${failed
+            .map((f) => `«${f.name}» (${f.error ?? 'onbekend'})`)
+            .join(', ')}`,
+        );
+      } else {
+        setOk(`${okCount} testmail(s) verstuurd naar ${to}.`);
+      }
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Testmail versturen mislukt');
+    } finally {
+      setTestBusy(false);
+    }
+  };
+
+  const sendToBooking = async () => {
+    if (!token) return;
+    if (!sendTemplateId) {
+      setErr('Kies een sjabloon om te versturen.');
+      return;
+    }
+    if (!sendBookingId) {
+      setErr('Kies een afspraak.');
+      return;
+    }
+    setErr(null);
+    setOk(null);
+    setSendBusy(true);
+    try {
+      const r = await adminFetch<{ sent: boolean; to: string; error?: string }>(
+        `/admin/agenda/bookings/${sendBookingId}/send-template`,
+        token,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            templateId: sendTemplateId,
+            to: sendMailTo.trim() || undefined,
+          }),
+        },
+      );
+      if (r.sent) setOk(`Mail verstuurd naar ${r.to}.`);
+      else setErr(`Versturen mislukt: ${r.error ?? 'onbekend'}`);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Versturen mislukt');
+    } finally {
+      setSendBusy(false);
+    }
+  };
 
   const sortedTemplates = useMemo(
     () => [...templates].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
@@ -175,9 +317,10 @@ export default function AdminAgendaMailSmsPage() {
     if (tab === 'templates') {
       loadTemplates().catch(() => {});
       loadCals().catch(() => {});
+      loadSendBookings().catch(() => {});
     }
     if (tab === 'sms') loadSmsSettings().catch(() => {});
-  }, [tab, loadTemplates, loadCals, loadSmsSettings]);
+  }, [tab, loadTemplates, loadCals, loadSmsSettings, loadSendBookings]);
 
   const openNew = async () => {
     if (!token) return;
@@ -362,6 +505,9 @@ export default function AdminAgendaMailSmsPage() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-line bg-panel text-muted">
                 <tr>
+                  <th className="p-2" title="Selecteer voor testmail">
+                    Test
+                  </th>
                   <th className="p-2">Naam</th>
                   <th className="p-2">Kanaal</th>
                   <th className="p-2">Trigger</th>
@@ -375,6 +521,15 @@ export default function AdminAgendaMailSmsPage() {
               <tbody>
                 {sortedTemplates.map((t, ti) => (
                   <tr key={t.id} className="border-b border-line/70">
+                    <td className="p-2">
+                      <input
+                        type="checkbox"
+                        checked={testSel.has(t.id)}
+                        onChange={() => toggleTestSel(t.id)}
+                        aria-label={`Selecteer voor testmail: ${t.name}`}
+                        className="h-4 w-4 rounded border-line"
+                      />
+                    </td>
                     <td className="p-2 font-medium text-ink">{t.name}</td>
                     <td className="p-2">{t.channel}</td>
                     <td className="p-2">{t.trigger}</td>
@@ -431,6 +586,116 @@ export default function AdminAgendaMailSmsPage() {
                 Nog geen sjablonen — voeg er een toe en zet <strong>Actief</strong> aan om mail of SMS te versturen.
               </p>
             ) : null}
+          </div>
+
+          <div className="rounded-md border border-line bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-ink">Testmail versturen</h3>
+            <p className="mt-1 max-w-3xl text-xs text-muted">
+              Vink hierboven in de kolom <strong>Test</strong> de sjablonen aan die u wilt testen (één, meerdere of
+              allemaal) en vul het e-mailadres in. De mails worden met voorbeeldgegevens verstuurd; een SMS-sjabloon
+              wordt als platte tekst per e-mail bezorgd.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-2">
+              <button
+                type="button"
+                className="rounded border border-line bg-panel px-2 py-1.5 text-xs font-medium text-ink"
+                onClick={() => setTestSel(new Set(sortedTemplates.map((t) => t.id)))}
+              >
+                Alles selecteren
+              </button>
+              <button
+                type="button"
+                className="rounded border border-line bg-panel px-2 py-1.5 text-xs font-medium text-ink"
+                onClick={() => setTestSel(new Set())}
+              >
+                Selectie wissen
+              </button>
+              <label className="text-xs text-muted">
+                Testmail naar
+                <input
+                  type="email"
+                  className="ml-1 w-56 rounded border border-line px-2 py-1.5 text-sm"
+                  placeholder="uw e-mailadres"
+                  value={testMailTo}
+                  onChange={(e) => setTestMailTo(e.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={testBusy || !testSel.size}
+                className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                onClick={() => void sendTestMails()}
+              >
+                {testBusy ? 'Bezig…' : `Verstuur testmail (${testSel.size})`}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-md border border-line bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-ink">Mail versturen naar een afspraak</h3>
+            <p className="mt-1 max-w-3xl text-xs text-muted">
+              Kies welk sjabloon u wilt versturen en naar welke afspraak. Standaard gaat de mail naar het e-mailadres
+              van de afspraak; u kunt ook zelf een ander adres ingeven. De gegevens van de afspraak (naam, datum, uur,
+              agenda) worden in de mail ingevuld.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-muted">
+                Sjabloon
+                <select
+                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                  value={sendTemplateId}
+                  onChange={(e) => setSendTemplateId(e.target.value)}
+                >
+                  <option value="">— kies sjabloon —</option>
+                  {sortedTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.channel} · {t.trigger})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-muted">
+                Afspraak {sendBookingsLoading ? '(laden…)' : `(${sendBookings.length})`}
+                <select
+                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                  value={sendBookingId}
+                  onChange={(e) => setSendBookingId(e.target.value)}
+                >
+                  <option value="">— kies afspraak —</option>
+                  {sendBookings.map((b) => {
+                    const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.slot.slotDate} {b.slot.startTime.slice(0, 5)} — {nm} ({b.calendar.title})
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              <label className="text-xs text-muted sm:col-span-2">
+                E-mailadres (leeg = adres van de afspraak{(() => {
+                  const b = sendBookings.find((x) => x.id === sendBookingId);
+                  return b?.email ? `: ${b.email}` : '';
+                })()})
+                <input
+                  type="email"
+                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm sm:max-w-md"
+                  placeholder="optioneel ander e-mailadres"
+                  value={sendMailTo}
+                  onChange={(e) => setSendMailTo(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="mt-3">
+              <button
+                type="button"
+                disabled={sendBusy || !sendTemplateId || !sendBookingId}
+                className="rounded bg-[#000b2b] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                onClick={() => void sendToBooking()}
+              >
+                {sendBusy ? 'Bezig…' : 'Verstuur naar afspraak'}
+              </button>
+            </div>
           </div>
 
           <div className="rounded-md border border-line bg-panel p-4">

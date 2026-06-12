@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
-import { getApiBase, parseApiErrorBody } from '@/lib/api';
+import { getApiBase } from '@/lib/api';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
 
 type Snip = {
   id: string;
@@ -20,6 +22,7 @@ export default function AdminSnippetsPage() {
   const [rows, setRows] = useState<Snip[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ percent: number; sublabel: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const canWrite = can('admin.snippets.write');
 
@@ -36,20 +39,26 @@ export default function AdminSnippetsPage() {
     if (!token || !canWrite) return;
     setBusy(true);
     setErr(null);
+    setUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open.' });
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${getApiBase()}/admin/snippets/upload`, {
-        method: 'POST',
+      await uploadWithProgress(`${getApiBase()}/admin/snippets/upload`, {
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
+        onProgress: (p) => {
+          setUploadProgress({
+            percent: p.percent,
+            sublabel: `Dit kan even duren — nog ${formatEtaSeconds(p.etaSeconds)}.`,
+          });
+        },
       });
-      if (!res.ok) throw new Error(parseApiErrorBody(await res.text()));
       await load();
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Upload mislukt');
     } finally {
       setBusy(false);
+      setUploadProgress(null);
       if (fileRef.current) fileRef.current.value = '';
     }
   };
@@ -90,6 +99,13 @@ export default function AdminSnippetsPage() {
 
   return (
     <div className="space-y-6">
+      {uploadProgress ? (
+        <CmProgressOverlay
+          label="Snippet uploaden…"
+          sublabel={uploadProgress.sublabel}
+          percent={uploadProgress.percent}
+        />
+      ) : null}
       <div>
         <h1 className="text-xl font-semibold text-ink">Snippets / plugins</h1>
         <p className="mt-2 max-w-3xl text-sm text-muted">

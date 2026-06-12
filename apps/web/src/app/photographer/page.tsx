@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
 
 type BookingRow = {
   id: string;
@@ -22,6 +24,7 @@ export default function PhotographerPage() {
   const [modelUserId, setModelUserId] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<{ percent: number; sublabel: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -45,6 +48,7 @@ export default function PhotographerPage() {
     if (!file || !token) return;
     setBusy(true);
     setMsg('');
+    setUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open.' });
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -53,23 +57,42 @@ export default function PhotographerPage() {
       if (folderSlug === 'portfolio-fotograaf' && modelUserId.trim()) {
         params.set('modelUserId', modelUserId.trim());
       }
-      const res = await fetch(`${getApiBase()}/photographer/upload?${params.toString()}`, {
-        method: 'POST',
+      const text = await uploadWithProgress(`${getApiBase()}/photographer/upload?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
+        onProgress: (p) => {
+          setUploadProgress({
+            percent: p.percent,
+            sublabel: `Dit kan even duren — nog ${formatEtaSeconds(p.etaSeconds)}.`,
+          });
+        },
+        onUploadBytesComplete: () => {
+          setUploadProgress({
+            percent: 100,
+            sublabel: 'Bestand ontvangen — de server verwerkt de foto nog. Dit kan even duren.',
+          });
+        },
       });
-      const body = (await res.json()) as { error?: string; id?: string };
-      if (!res.ok || body?.error) throw new Error(body?.error || (await res.text()));
+      const body = JSON.parse(text) as { error?: string; id?: string };
+      if (body?.error) throw new Error(body.error);
       setMsg(`Geüpload: ${file.name}`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Upload mislukt');
     } finally {
       setBusy(false);
+      setUploadProgress(null);
     }
   };
 
   return (
     <div className="space-y-6">
+      {uploadProgress ? (
+        <CmProgressOverlay
+          label="Foto uploaden…"
+          sublabel={uploadProgress.sublabel}
+          percent={uploadProgress.percent}
+        />
+      ) : null}
       <p className="text-sm leading-relaxed text-muted">
         Upload alleen portfoliofoto&apos;s. Kies de map <strong className="text-ink">Portfolio (→ model)</strong> en het
         model-account (UUID) om bestanden aan dat model te koppelen voor download in het modellenportaal. Map{' '}

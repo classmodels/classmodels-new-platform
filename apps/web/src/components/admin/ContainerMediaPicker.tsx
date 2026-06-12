@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { adminFetch } from '@/lib/admin-api';
 import { getApiBase, publicMediaUrl } from '@/lib/api';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
 
 type MediaFolder = {
   id: string;
@@ -53,6 +55,7 @@ export function ContainerMediaPicker({ open, onClose, onPick, token, canRead, ca
   const [lib, setLib] = useState<MediaFolder[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
+  const [uploadProgress, setUploadProgress] = useState<{ percent: number; sublabel: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!token || !canRead) return;
@@ -88,25 +91,32 @@ export function ContainerMediaPicker({ open, onClose, onPick, token, canRead, ca
     if (!file || !token || !canWrite) return;
     setBusy(true);
     setErr('');
+    setUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open.' });
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${getApiBase()}/media/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-      if (!res.ok) {
-        setErr(await res.text());
-        return;
+      let text: string;
+      try {
+        text = await uploadWithProgress(`${getApiBase()}/media/upload`, {
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+          onProgress: (p) => {
+            setUploadProgress({
+              percent: p.percent,
+              sublabel: `Dit kan even duren — nog ${formatEtaSeconds(p.etaSeconds)}.`,
+            });
+          },
+        });
+      } finally {
+        setUploadProgress(null);
       }
-      const created = (await res.json()) as { storageKey?: string; webpKey?: string | null };
+      const created = JSON.parse(text) as { storageKey?: string; webpKey?: string | null };
       const key = created.webpKey || created.storageKey;
       if (key) onPick(publicUrl(key));
       await load();
       onClose();
-    } catch {
-      setErr('Upload mislukt.');
+    } catch (e: unknown) {
+      setErr(e instanceof Error && e.message ? e.message : 'Upload mislukt.');
     } finally {
       setBusy(false);
     }
@@ -127,6 +137,13 @@ export function ContainerMediaPicker({ open, onClose, onPick, token, canRead, ca
         if (e.target === e.currentTarget) onClose();
       }}
     >
+      {uploadProgress ? (
+        <CmProgressOverlay
+          label="Bestand uploaden…"
+          sublabel={uploadProgress.sublabel}
+          percent={uploadProgress.percent}
+        />
+      ) : null}
       <div className="flex max-h-[85vh] w-full max-w-2xl flex-col border border-line bg-white text-sm shadow-lg">
         <div className="flex items-center justify-between border-b border-line px-3 py-2">
           <p className="font-medium text-ink">{mode === 'video' ? 'Video of afbeelding kiezen' : 'Afbeelding kiezen'}</p>

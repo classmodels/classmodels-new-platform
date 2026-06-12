@@ -34,6 +34,8 @@ import { portalTitlebarPillClass } from '@/components/model-portal/portal-titleb
 import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { PremiumUpsellBanner, PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
 import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalReviewTab';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
 
 type PremiumInfo = {
   currency: string;
@@ -211,6 +213,7 @@ function ModelPortalPageInner() {
 
   const [media, setMedia] = useState<ProfileMediaRow[]>([]);
   const [mediaBusy, setMediaBusy] = useState(false);
+  const [mediaUploadProgress, setMediaUploadProgress] = useState<{ percent: number; sublabel: string } | null>(null);
 
   const [messageSubject, setMessageSubject] = useState('');
   const [messageBody, setMessageBody] = useState('');
@@ -383,17 +386,36 @@ function ModelPortalPageInner() {
   ): Promise<{ id: string } | null> => {
     if (!file || !token || !can('portal.model.media.upload')) return null;
     setMediaBusy(true);
+    setMediaUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open.' });
     try {
       const fd = new FormData();
       fd.append('file', file);
       const folderSlug = opts?.setAsProfilePhoto ? 'models' : (opts?.folderSlug ?? 'models');
-      const res = await fetch(`${getApiBase()}/portal/model/media/upload?folderSlug=${encodeURIComponent(folderSlug)}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const row = (await res.json()) as { id?: string; error?: string };
+      let text: string;
+      try {
+        text = await uploadWithProgress(
+          `${getApiBase()}/portal/model/media/upload?folderSlug=${encodeURIComponent(folderSlug)}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd,
+            onProgress: (p) => {
+              setMediaUploadProgress({
+                percent: p.percent,
+                sublabel: `Dit kan even duren — nog ${formatEtaSeconds(p.etaSeconds)}.`,
+              });
+            },
+            onUploadBytesComplete: () => {
+              setMediaUploadProgress({
+                percent: 100,
+                sublabel: 'Bestand ontvangen — de server verwerkt de foto nog. Dit kan even duren.',
+              });
+            },
+          },
+        );
+      } finally {
+        setMediaUploadProgress(null);
+      }
+      const row = JSON.parse(text) as { id?: string; error?: string };
       if (row?.error) throw new Error(row.error);
       await loadMedia();
       if (opts?.setAsProfilePhoto && row?.id) {
@@ -978,6 +1000,13 @@ function ModelPortalPageInner() {
       userDisplayName={displayName}
       premiumButton={premiumButton}
     >
+      {mediaUploadProgress ? (
+        <CmProgressOverlay
+          label="Foto uploaden…"
+          sublabel={mediaUploadProgress.sublabel}
+          percent={mediaUploadProgress.percent}
+        />
+      ) : null}
       {main}
       <div className="mt-8 border-t border-zinc-100 pt-4">
         <Link href="/portal/model?tab=home" className="text-sm text-burgundy hover:underline">

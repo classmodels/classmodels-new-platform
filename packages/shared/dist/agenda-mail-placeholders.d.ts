@@ -5,6 +5,8 @@ export type AgendaMailPlaceholderContext = {
     timeLabel: string;
     cancelUrl: string;
     confirmUrl: string;
+    /** Reden van annulatie (meegestuurd in annulatiemail). */
+    cancelReason?: string;
 };
 /** Vervangt `{{key}}` en daarna `{key}` (langere sleutels eerst bij enkele accolades). */
 export declare function applyAgendaMailPlaceholders(template: string | null | undefined, vars: Record<string, string>): string;

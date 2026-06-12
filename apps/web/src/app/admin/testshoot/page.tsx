@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch, getApiBase, parseApiErrorBody } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
+import { downloadWithProgress, downloadProgressSublabel, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 
 type ModelRow = {
   id: string;
@@ -52,6 +55,8 @@ export default function AdminTestshootPage() {
   const [mailTo, setMailTo] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ percent: number; sublabel: string } | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressUpdate | null>(null);
 
   const loadModels = useCallback(
     async (preferSelectId?: string | null) => {
@@ -218,6 +223,21 @@ export default function AdminTestshootPage() {
 
   return (
     <div className="space-y-6">
+      {uploadProgress ? (
+        <CmProgressOverlay
+          label="Foto’s uploaden…"
+          sublabel={uploadProgress.sublabel}
+          percent={uploadProgress.percent}
+        />
+      ) : null}
+      {downloadProgress ? (
+        <CmProgressOverlay
+          label="Zip downloaden…"
+          sublabel={`Dit kan even duren — ${downloadProgressSublabel(downloadProgress)}`}
+          percent={downloadProgress.percent ?? undefined}
+          indeterminate={downloadProgress.indeterminate}
+        />
+      ) : null}
       <div>
         <h1 className="font-serif text-2xl font-semibold text-ink">Testshoot — backstage</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
@@ -397,16 +417,31 @@ export default function AdminTestshootPage() {
                     onChange={(e) => {
                       const files = e.target.files;
                       if (!files?.length || !token) return;
+                      const count = files.length;
                       void doAction(async () => {
                         const fd = new FormData();
                         for (let i = 0; i < files.length; i++) fd.append('files', files[i]);
-                        const res = await fetch(`${getApiBase()}/admin/testshoot/models/${selected.id}/photos`, {
-                          method: 'POST',
-                          headers: { Authorization: `Bearer ${token}` },
-                          body: fd,
-                        });
-                        const text = await res.text();
-                        if (!res.ok) throw new Error(parseApiErrorBody(text));
+                        setUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open.' });
+                        try {
+                          await uploadWithProgress(`${getApiBase()}/admin/testshoot/models/${selected.id}/photos`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                            body: fd,
+                            onProgress: (p) => {
+                              setUploadProgress({
+                                percent: p.percent,
+                                sublabel: `Dit kan even duren — ${count} foto${count !== 1 ? '’s' : ''}, nog ${formatEtaSeconds(p.etaSeconds)}.`,
+                              });
+                            },
+                            onUploadBytesComplete: () => {
+                              setUploadProgress({
+                                percent: 100,
+                                sublabel: 'Bestanden ontvangen — de server verwerkt de foto’s nog. Dit kan even duren.',
+                              });
+                            },
+                          });
+                        } finally {
+                          setUploadProgress(null);
+                        }
                         e.target.value = '';
                       });
                     }}
@@ -467,24 +502,18 @@ export default function AdminTestshootPage() {
                       void (async () => {
                         setBusy(true);
                         setErr(null);
+                        setDownloadProgress({ percent: null, loaded: 0, total: null, indeterminate: true, phase: 'connecting' });
                         try {
-                          const res = await fetch(`${getApiBase()}/admin/testshoot/models/${selected.id}/zip`, {
-                            headers: { Authorization: `Bearer ${token}` },
+                          await downloadWithProgress(`${getApiBase()}/admin/testshoot/models/${selected.id}/zip`, {
+                            token,
+                            fallbackName: `${selected.name.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot'}-fotos.zip`,
+                            onProgress: setDownloadProgress,
                           });
-                          if (!res.ok) {
-                            const text = await res.text();
-                            throw new Error(parseApiErrorBody(text));
-                          }
-                          const blob = await res.blob();
-                          const a = document.createElement('a');
-                          a.href = URL.createObjectURL(blob);
-                          a.download = `${selected.name.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot'}-fotos.zip`;
-                          a.click();
-                          URL.revokeObjectURL(a.href);
                         } catch (e: unknown) {
                           setErr(formatClientError(e, 'Zip-download mislukt'));
                         } finally {
                           setBusy(false);
+                          setDownloadProgress(null);
                         }
                       })();
                     }}

@@ -13,6 +13,8 @@ import {
 } from '@/lib/agenda-guest-intake';
 import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
 import { CLASS_MODELS_OFFICE, GUEST_APPOINTMENT_OFFICE_LINE } from '@/lib/class-models-office';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
 
 function ymdLocal(d: Date): string {
   return ymdEuropeBrussels(d);
@@ -133,6 +135,7 @@ export function GuestBookingPanel({
   const [form, setForm] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ percent: number; sublabel: string } | null>(null);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
   const [travelInfo, setTravelInfo] = useState<TravelInfo | null>(null);
   const [bookNotifications, setBookNotifications] = useState<BookNotifications | null>(null);
@@ -433,30 +436,43 @@ export function GuestBookingPanel({
       const fd = new FormData();
       fd.append('slotId', slotId);
       fd.append('fields', JSON.stringify(textPayload));
+      let hasFiles = false;
       for (const k of fileKeys) {
         const fl = files[k];
-        if (fl) fd.append(k, fl);
+        if (fl) {
+          fd.append(k, fl);
+          hasFiles = true;
+        }
       }
       const path = bookUrl ?? '/agenda/book-form';
       const url = `${getApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
-      const headers: HeadersInit = {};
+      const headers: Record<string, string> = {};
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: fd,
-      });
-      const text = await res.text();
-      if (!res.ok) {
-        let msg = text || res.statusText;
-        try {
-          const j = JSON.parse(text) as { message?: string | string[] };
-          if (Array.isArray(j.message)) msg = j.message.join(', ');
-          else if (j.message) msg = String(j.message);
-        } catch {
-          /**/
-        }
-        throw new Error(msg);
+      if (hasFiles) {
+        setUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open.' });
+      }
+      let text: string;
+      try {
+        text = await uploadWithProgress(url, {
+          headers,
+          body: fd,
+          onProgress: (p) => {
+            if (!hasFiles) return;
+            setUploadProgress({
+              percent: p.percent,
+              sublabel: `Dit kan even duren — nog ${formatEtaSeconds(p.etaSeconds)}.`,
+            });
+          },
+          onUploadBytesComplete: () => {
+            if (!hasFiles) return;
+            setUploadProgress({
+              percent: 100,
+              sublabel: 'Foto ontvangen — de afspraak wordt nu vastgelegd. Dit kan even duren.',
+            });
+          },
+        });
+      } finally {
+        setUploadProgress(null);
       }
       const parsed = parseBookResponse(text);
       setCancelUrl(parsed.cancelUrl ?? null);
@@ -934,6 +950,13 @@ export function GuestBookingPanel({
 
   return (
     <div className="flex min-h-[min(520px,62vh)] flex-col gap-4">
+      {uploadProgress ? (
+        <CmProgressOverlay
+          label="Afspraak versturen…"
+          sublabel={uploadProgress.sublabel}
+          percent={uploadProgress.percent}
+        />
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 pb-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{heading}</p>

@@ -1404,6 +1404,7 @@ export class AgendaService implements OnModuleInit {
       timeLabel,
       cancelUrl,
       confirmUrl,
+      cancelReason: reason,
     });
 
     if (booking.userId && booking.slot) {
@@ -2179,6 +2180,8 @@ export class AgendaService implements OnModuleInit {
         endTime: b.slot.endTime,
       },
       fieldsJson: b.fieldsJson as Record<string, unknown>,
+      acknowledgedAt: b.acknowledgedAt ? b.acknowledgedAt.toISOString() : null,
+      cancelledAt: b.cancelledAt ? b.cancelledAt.toISOString() : null,
     }));
   }
 
@@ -2479,6 +2482,16 @@ export class AgendaService implements OnModuleInit {
         sortOrder: src.sortOrder + 1,
       },
     });
+  }
+
+  /** Admin: geselecteerde sjablonen als testmail naar één adres (voorbeeldgegevens). */
+  adminSendTestNotificationTemplates(templateIds: string[], to: string) {
+    return this.notifications.adminSendTestTemplates(templateIds, to);
+  }
+
+  /** Admin: sjabloon handmatig versturen naar (het e-mailadres van) een afspraak. */
+  adminSendNotificationTemplateToBooking(bookingId: string, templateId: string, to?: string) {
+    return this.notifications.adminSendTemplateToBooking(bookingId, templateId, to);
   }
 
   async adminGetMessagingSettings() {

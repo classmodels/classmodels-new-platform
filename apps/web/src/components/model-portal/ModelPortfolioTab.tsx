@@ -5,6 +5,8 @@ import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { CmText } from '@/components/CmText';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { downloadWithProgress, downloadProgressSublabel, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 
 const PORTFOLIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
 
@@ -26,6 +28,7 @@ export function ModelPortfolioTab({
   const [booking, setBooking] = useState<BookingRow | null | undefined>(undefined);
   const [deliveryCount, setDeliveryCount] = useState<number | null>(null);
   const [deliveryBusy, setDeliveryBusy] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressUpdate | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [panel, setPanel] = useState<'summary' | 'book' | 'info'>('summary');
@@ -71,30 +74,19 @@ export function ModelPortfolioTab({
   const downloadPortfolioZip = useCallback(async () => {
     if (!token) return;
     setDeliveryBusy(true);
+    setDownloadProgress({ percent: null, loaded: 0, total: null, indeterminate: true, phase: 'connecting' });
     try {
-      const res = await fetch(`${getApiBase()}/portal/model/media/portfolio-delivery/zip`, {
-        headers: { Authorization: `Bearer ${token}` },
+      await downloadWithProgress(`${getApiBase()}/portal/model/media/portfolio-delivery/zip`, {
+        token,
+        fallbackName: 'portfolio.zip',
+        onProgress: setDownloadProgress,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'Download mislukt');
-      }
-      const blob = await res.blob();
-      const cd = res.headers.get('Content-Disposition');
-      let name = 'portfolio.zip';
-      const m = cd?.match(/filename\*=UTF-8''([^;]+)/);
-      if (m?.[1]) name = decodeURIComponent(m[1]);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      a.click();
-      URL.revokeObjectURL(url);
       await loadDeliveryCount();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Download mislukt');
     } finally {
       setDeliveryBusy(false);
+      setDownloadProgress(null);
     }
   }, [token, loadDeliveryCount]);
 
@@ -168,6 +160,14 @@ export function ModelPortfolioTab({
 
   return (
     <div className="space-y-3">
+      {downloadProgress ? (
+        <CmProgressOverlay
+          label="Portfolio downloaden…"
+          sublabel={`Dit kan even duren — ${downloadProgressSublabel(downloadProgress)}`}
+          percent={downloadProgress.percent ?? undefined}
+          indeterminate={downloadProgress.indeterminate}
+        />
+      ) : null}
       {showDelivery ? (
         <div className="border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-[13px] leading-snug text-zinc-900">
           <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Portfolio van je shoot</p>

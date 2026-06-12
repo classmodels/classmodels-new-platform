@@ -6,7 +6,7 @@ export function isCancelledAgendaStatus(status: string): boolean {
   return CANCELLED_AGENDA_STATUSES.has(status);
 }
 
-/** Geannuleerde boekingen altijd tonen in planning (met vervaging + doorstreep). */
+/** Geannuleerde boekingen altijd tonen in planning (donkerrood met witte tekst). */
 export function planningHideCancelledBooking(_calendarSlug: string, _status: string): boolean {
   return false;
 }

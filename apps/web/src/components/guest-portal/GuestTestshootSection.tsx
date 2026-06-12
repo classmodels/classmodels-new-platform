@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
 import { CmText } from '@/components/CmText';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { downloadWithProgress, downloadProgressSublabel, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 import { TESTSHOOT_PAGE } from '@/components/guest-portal/guest-portal-data';
 
 type PublicPhoto = { id: string; thumbFile: string; fullFile: string };
@@ -116,16 +118,18 @@ async function postDownloadIntent(modelId: string): Promise<{ exp: number; sig: 
   return res.json() as Promise<{ exp: number; sig: string }>;
 }
 
-async function downloadZipFile(modelId: string, exp: number, sig: string, filenameBase: string) {
+async function downloadZipFile(
+  modelId: string,
+  exp: number,
+  sig: string,
+  filenameBase: string,
+  onProgress?: (p: DownloadProgressUpdate) => void,
+) {
   const url = `${getApiBase()}/guest/testshoot/models/${modelId}/zip?e=${exp}&s=${encodeURIComponent(sig)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('Download mislukt');
-  const blob = await res.blob();
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${filenameBase.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot'}-fotos.zip`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  await downloadWithProgress(url, {
+    fallbackName: `${filenameBase.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot'}-fotos.zip`,
+    onProgress,
+  });
 }
 
 export function GuestTestshootSection() {
@@ -135,6 +139,7 @@ export function GuestTestshootSection() {
   const [form, setForm] = useState<FeedbackForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressUpdate | null>(null);
 
   const load = useCallback(() => {
     setLoadError(null);
@@ -150,7 +155,12 @@ export function GuestTestshootSection() {
   const runDownload = async (m: PublicModel) => {
     try {
       const { exp, sig } = await postDownloadIntent(m.id);
-      await downloadZipFile(m.id, exp, sig, m.name);
+      setDownloadProgress({ percent: null, loaded: 0, total: null, indeterminate: true, phase: 'connecting' });
+      try {
+        await downloadZipFile(m.id, exp, sig, m.name, setDownloadProgress);
+      } finally {
+        setDownloadProgress(null);
+      }
       void load();
     } catch (e: unknown) {
       const err = e as { code?: string; message?: string };
@@ -181,7 +191,12 @@ export function GuestTestshootSection() {
         body: JSON.stringify(form),
       });
       setModalModel(null);
-      await downloadZipFile(modelId, exp, sig, modalModel.name);
+      setDownloadProgress({ percent: null, loaded: 0, total: null, indeterminate: true, phase: 'connecting' });
+      try {
+        await downloadZipFile(modelId, exp, sig, modalModel.name, setDownloadProgress);
+      } finally {
+        setDownloadProgress(null);
+      }
       void load();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Versturen mislukt');
@@ -204,6 +219,14 @@ export function GuestTestshootSection() {
         } as React.CSSProperties
       }
     >
+      {downloadProgress ? (
+        <CmProgressOverlay
+          label="Foto’s downloaden…"
+          sublabel={`Dit kan even duren — ${downloadProgressSublabel(downloadProgress)}`}
+          percent={downloadProgress.percent ?? undefined}
+          indeterminate={downloadProgress.indeterminate}
+        />
+      ) : null}
       <div className="space-y-2">
         <CmText
           contentKey="portal.guest.testshoot.kicker"

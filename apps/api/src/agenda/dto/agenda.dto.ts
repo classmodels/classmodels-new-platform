@@ -540,6 +540,25 @@ export class BulkDeleteAgendaBookingsDto {
   ids!: string[];
 }
 
+export class SendTestNotificationTemplatesDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  templateIds!: string[];
+
+  @IsString()
+  to!: string;
+}
+
+export class SendNotificationTemplateToBookingDto {
+  @IsUUID('4')
+  templateId!: string;
+
+  @IsOptional()
+  @IsString()
+  to?: string;
+}
+
 const NOTIFICATION_TRIGGERS = [
   'booking_created',
   'booking_cancelled',
