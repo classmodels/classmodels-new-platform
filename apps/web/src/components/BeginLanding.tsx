@@ -37,11 +37,9 @@ function DoorButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="group absolute cursor-pointer outline-none"
+      className="absolute cursor-pointer bg-transparent outline-none"
       style={style}
-    >
-      <span className="block h-full w-full rounded-[10px] bg-transparent shadow-none transition duration-300 ease-out group-hover:bg-[radial-gradient(ellipse_at_center,_rgba(255,210,170,0.16),_transparent_70%)] group-hover:shadow-[inset_0_0_30px_rgba(255,205,160,0.18)] group-focus-visible:bg-[radial-gradient(ellipse_at_center,_rgba(255,210,170,0.16),_transparent_70%)]" />
-    </button>
+    />
   );
 }
 
@@ -236,19 +234,28 @@ export function BeginLanding() {
               draggable={false}
             />
             <DoorButton
-              label="Klantenportaal"
-              onClick={() => openPortalDoor('client')}
-              style={{ left: '54.8%', top: '20%', width: '10.5%', height: '70%' }}
-            />
-            <DoorButton
               label="Modellenportaal"
               onClick={() => openPortalDoor('model')}
-              style={{ left: '68%', top: '20%', width: '9.8%', height: '70%' }}
+              style={{ left: '55.3%', top: '15%', width: '37.8%', height: '13.5%' }}
             />
             <DoorButton
               label="Gastenportaal"
               onClick={goGuest}
-              style={{ left: '80%', top: '19%', width: '11.8%', height: '71%' }}
+              style={{ left: '55.3%', top: '31.5%', width: '37.8%', height: '13.5%' }}
+            />
+            <DoorButton
+              label="Klantenportaal"
+              onClick={() => openPortalDoor('client')}
+              style={{ left: '55.3%', top: '48.5%', width: '37.8%', height: '13.5%' }}
+            />
+            <DoorButton
+              label="Fotograaf portaal"
+              onClick={() => {
+                setTab('photographer');
+                setSubMode('login');
+                setErr(null);
+              }}
+              style={{ left: '55.3%', top: '65.5%', width: '37.8%', height: '13.5%' }}
             />
           </div>
         </div>
@@ -272,14 +279,14 @@ export function BeginLanding() {
                   draggable={false}
                 />
 
-                {/* Eén volledig login-paneel, in het perspectief van de muur gekanteld. */}
+                {/* Eén volledig, echt login-paneel dat het getekende paneel volledig afdekt. */}
                 <div
-                  className="absolute [perspective:1100px]"
-                  style={{ left: '55.3%', top: '14%', width: '39%', height: '62%' }}
+                  className="absolute"
+                  style={{ left: '53.5%', top: '23%', width: '37.5%', height: '48%' }}
                 >
                 <form
                   onSubmit={onModelLogin}
-                  className="absolute inset-0 flex flex-col justify-center rounded-2xl border border-amber-200/15 bg-[linear-gradient(160deg,_rgba(28,18,24,0.97),_rgba(18,11,16,0.98))] px-[5%] py-[4%] text-white shadow-[0_0_50px_rgba(255,170,130,0.16),inset_0_0_30px_rgba(255,170,130,0.05)] [transform:rotateY(-14deg)] [transform-origin:center]"
+                  className="absolute inset-0 flex flex-col justify-center rounded-2xl border border-amber-200/15 bg-[linear-gradient(160deg,_rgba(26,17,22,0.98),_rgba(15,10,14,0.99))] px-[4.5%] py-[3.5%] text-white shadow-[0_0_40px_rgba(255,170,130,0.12)]"
                 >
                   <h2 className="font-serif text-[clamp(13px,2.1vw,26px)] font-semibold tracking-tight text-white">
                     <CmText contentKey="begin.modelLoginTitle" as="span" fallback={t('begin.modelLoginTitle')} />
@@ -716,17 +723,6 @@ export function BeginLanding() {
           </div>
         </div>
       ) : null}
-
-      <button
-        type="button"
-        onClick={() => {
-          setTab('photographer');
-          setErr(null);
-        }}
-        className="fixed bottom-3 right-4 z-40 text-[11px] text-white/55 underline underline-offset-2 hover:text-white/90"
-      >
-        Fotograaf login
-      </button>
     </div>
   );
 }
