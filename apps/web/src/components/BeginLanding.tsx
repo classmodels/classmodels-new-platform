@@ -37,11 +37,10 @@ function DoorButton({
       type="button"
       onClick={onClick}
       aria-label={label}
-      title={label}
-      className="group absolute cursor-pointer"
+      className="group absolute cursor-pointer outline-none"
       style={style}
     >
-      <span className="block h-full w-full rounded-md transition duration-200 group-hover:bg-white/10 group-hover:shadow-[0_0_45px_rgba(255,205,160,0.5)] group-hover:ring-2 group-hover:ring-amber-200/70 group-focus-visible:ring-2 group-focus-visible:ring-amber-200/80" />
+      <span className="block h-full w-full rounded-[10px] bg-transparent shadow-none transition duration-300 ease-out group-hover:bg-[radial-gradient(ellipse_at_center,_rgba(255,210,170,0.16),_transparent_70%)] group-hover:shadow-[inset_0_0_30px_rgba(255,205,160,0.18)] group-focus-visible:bg-[radial-gradient(ellipse_at_center,_rgba(255,210,170,0.16),_transparent_70%)]" />
     </button>
   );
 }
@@ -65,6 +64,18 @@ export function BeginLanding() {
   const [subMode, setSubMode] = useState<SubMode>('login');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // Geïntegreerd modellen-login-scherm (afbeelding 4) dat zachtjes invloeit.
+  const showModelScene = tab === 'model' && subMode === 'login';
+  const [sceneShown, setSceneShown] = useState(false);
+  useEffect(() => {
+    if (!showModelScene) {
+      setSceneShown(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setSceneShown(true));
+    return () => cancelAnimationFrame(id);
+  }, [showModelScene]);
 
   const [mEmail, setMEmail] = useState('');
   const [mPass, setMPass] = useState('');
@@ -243,8 +254,118 @@ export function BeginLanding() {
         </div>
       </div>
 
-      {/* De login verschijnt pas als je op de modellen- of klantendeur klikt. */}
-      {tab && tab !== 'guest' ? (
+      {/* Modellen-login: vloeit zacht over naar de lobby met het login-paneel (afbeelding 4). */}
+      {showModelScene ? (
+        <div
+          className={`fixed inset-0 z-50 bg-ink transition-opacity duration-500 ease-out ${
+            sceneShown ? 'opacity-100' : 'opacity-0'
+          }`}
+        >
+          <div className="flex min-h-[100dvh] items-center justify-center">
+            <div className="relative w-full max-w-[1500px]">
+              <div className="relative aspect-[1024/576] w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/begin-login-model.png"
+                  alt="Inloggen als model bij Class-Models"
+                  className="absolute inset-0 h-full w-full select-none object-contain"
+                  draggable={false}
+                />
+
+                <form onSubmit={onModelLogin} className="contents">
+                  <input
+                    type="text"
+                    autoComplete="username"
+                    aria-label={t('auth.identifier')}
+                    placeholder="E-mail of telefoonnummer"
+                    value={mEmail}
+                    onChange={(e) => setMEmail(e.target.value)}
+                    required
+                    className="absolute rounded-[6px] border border-white/15 bg-[rgba(16,11,15,0.92)] px-3 text-[clamp(9px,1.25vw,15px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/50"
+                    style={{ left: '59.9%', top: '38.5%', width: '28.5%', height: '6.3%' }}
+                  />
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    aria-label={t('auth.password')}
+                    placeholder="Wachtwoord"
+                    value={mPass}
+                    onChange={(e) => setMPass(e.target.value)}
+                    required
+                    minLength={6}
+                    className="absolute rounded-[6px] border border-white/15 bg-[rgba(16,11,15,0.92)] px-3 text-[clamp(9px,1.25vw,15px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/50"
+                    style={{ left: '59.9%', top: '45.7%', width: '28.5%', height: '6%' }}
+                  />
+                  {/* Onthouden-vinkje: klikbaar; donker vlak verschijnt als het uit staat. */}
+                  <button
+                    type="button"
+                    onClick={() => setRememberMe((v) => !v)}
+                    aria-label={t('auth.rememberMe')}
+                    aria-pressed={rememberMe}
+                    className="absolute cursor-pointer"
+                    style={{ left: '59.5%', top: '51.3%', width: '22%', height: '4.2%' }}
+                  >
+                    {!rememberMe ? (
+                      <span
+                        className="absolute rounded-[3px] border border-white/45 bg-[rgba(16,11,15,0.97)]"
+                        style={{ left: '1.2%', top: '16%', width: '3.6%', height: '64%' }}
+                      />
+                    ) : null}
+                  </button>
+                  {/* Wachtwoord vergeten? */}
+                  <a
+                    href="/wachtwoord-vergeten"
+                    aria-label={t('auth.forgotPassword')}
+                    className="absolute cursor-pointer rounded-sm transition hover:bg-white/5"
+                    style={{ left: '59.5%', top: '55.1%', width: '16%', height: '4%' }}
+                  />
+                  {/* Inloggen-knop: transparante klikzone over de getekende knop. */}
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    aria-label={t('begin.modelLoginBtn')}
+                    className="absolute cursor-pointer rounded-md transition hover:bg-white/10 disabled:cursor-default disabled:opacity-60"
+                    style={{ left: '59.9%', top: '60.7%', width: '28.5%', height: '7.5%' }}
+                  />
+                </form>
+
+                {/* Nog geen account? → registratie (klikzone over de getekende tekst). */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubMode('register');
+                    setErr(null);
+                  }}
+                  aria-label={t('begin.noAccount')}
+                  className="absolute cursor-pointer rounded-sm transition hover:bg-white/5"
+                  style={{ left: '59.5%', top: '68.1%', width: '27%', height: '4.4%' }}
+                />
+
+                {/* Terug naar de lobby. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab(null);
+                    setErr(null);
+                  }}
+                  className="absolute left-[2.5%] top-[5%] rounded-full bg-black/45 px-3 py-1 text-[clamp(9px,1.2vw,13px)] text-white/85 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
+                >
+                  ← Terug
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {err ? (
+            <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
+              <p className="rounded-full bg-red-600/90 px-4 py-1.5 text-xs font-medium text-white shadow-lg">{err}</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Centrale login-kaart: klanten-/fotograaf-login, en modellen-registratie. */}
+      {tab && tab !== 'guest' && !showModelScene ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-md">
             <button
