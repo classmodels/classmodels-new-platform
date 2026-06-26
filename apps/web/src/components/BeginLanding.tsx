@@ -272,11 +272,14 @@ export function BeginLanding() {
                   draggable={false}
                 />
 
-                {/* Eén volledig login-paneel op de muur — dekt het getekende paneel volledig af. */}
+                {/* Eén volledig login-paneel, in het perspectief van de muur gekanteld. */}
+                <div
+                  className="absolute [perspective:1100px]"
+                  style={{ left: '55.3%', top: '14%', width: '39%', height: '62%' }}
+                >
                 <form
                   onSubmit={onModelLogin}
-                  className="absolute flex flex-col justify-center rounded-2xl border border-amber-200/15 bg-[linear-gradient(160deg,_rgba(28,18,24,0.97),_rgba(18,11,16,0.98))] px-[5%] py-[4%] text-white shadow-[0_0_50px_rgba(255,170,130,0.16),inset_0_0_30px_rgba(255,170,130,0.05)]"
-                  style={{ left: '55.3%', top: '14%', width: '39%', height: '62%' }}
+                  className="absolute inset-0 flex flex-col justify-center rounded-2xl border border-amber-200/15 bg-[linear-gradient(160deg,_rgba(28,18,24,0.97),_rgba(18,11,16,0.98))] px-[5%] py-[4%] text-white shadow-[0_0_50px_rgba(255,170,130,0.16),inset_0_0_30px_rgba(255,170,130,0.05)] [transform:rotateY(-14deg)] [transform-origin:center]"
                 >
                   <h2 className="font-serif text-[clamp(13px,2.1vw,26px)] font-semibold tracking-tight text-white">
                     <CmText contentKey="begin.modelLoginTitle" as="span" fallback={t('begin.modelLoginTitle')} />
@@ -346,6 +349,7 @@ export function BeginLanding() {
                     <CmText contentKey="begin.noAccount" as="span" fallback={t('begin.noAccount')} />
                   </button>
                 </form>
+                </div>
 
                 {/* Terug naar de lobby. */}
                 <button
