@@ -22,14 +22,38 @@ function parseApiError(err: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Donkere enterpagina: inloggen / registreren (eerste scherm van het platform). */
+/** Onzichtbare klikzone over een deur in de lobby-afbeelding (met subtiele hover-gloed). */
+function DoorButton({
+  label,
+  onClick,
+  style,
+}: {
+  label: string;
+  onClick: () => void;
+  style: React.CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="group absolute cursor-pointer"
+      style={style}
+    >
+      <span className="block h-full w-full rounded-md transition duration-200 group-hover:bg-white/10 group-hover:shadow-[0_0_45px_rgba(255,205,160,0.5)] group-hover:ring-2 group-hover:ring-amber-200/70 group-focus-visible:ring-2 group-focus-visible:ring-amber-200/80" />
+    </button>
+  );
+}
+
+/** Donkere enterpagina: lobby-afbeelding met klikbare deuren naar de portalen. */
 export function BeginLanding() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextAfterLogin = searchParams.get('next');
   const { t } = useI18n();
-  const { login, register: registerUser } = useAuth();
-  const [tab, setTab] = useState<Tab>('model');
+  const { user, login, register: registerUser } = useAuth();
+  const [tab, setTab] = useState<Tab | null>(null);
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
@@ -66,6 +90,22 @@ export function BeginLanding() {
   const goGuest = useCallback(() => {
     router.push('/portal/guest');
   }, [router]);
+
+  /** Deur model/klant: al ingelogd met die rol → meteen portaal; anders login tonen. */
+  const openPortalDoor = useCallback(
+    (role: 'model' | 'client') => {
+      const isAdmin =
+        user?.permissions?.includes('*') || user?.permissions?.some((x) => x.startsWith('admin.'));
+      if (user && (user.roles.includes(role) || isAdmin)) {
+        router.push(role === 'model' ? '/portal/model' : '/portal/client');
+        return;
+      }
+      setTab(role);
+      setSubMode('login');
+      setErr(null);
+    },
+    [user, router],
+  );
 
   const onPhotographerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,81 +208,56 @@ export function BeginLanding() {
     }
   };
 
-  const tabBtn = (id: Tab, contentKey: string, fallback: string) => {
-    const active = tab === id;
-    return (
-      <button
-        type="button"
-        onClick={() => {
-          if (id === 'guest') {
-            goGuest();
-            return;
-          }
-          setTab(id);
-          setSubMode('login');
-          setErr(null);
-        }}
-        className={`w-full rounded-2xl border px-4 py-3.5 text-left text-sm font-medium transition ${
-          active
-            ? 'border-white/25 bg-white/15 text-white shadow-inner'
-            : 'border-white/45 bg-white/5 text-white/95 hover:border-white/60 hover:bg-white/10'
-        }`}
-      >
-        <CmText contentKey={contentKey} as="span" fallback={fallback} />
-      </button>
-    );
-  };
-
   const inputClass =
     'w-full rounded-xl border border-white/25 bg-black/25 px-3.5 py-2.5 text-sm text-white placeholder:text-white/45 outline-none ring-0 focus:border-white/50';
 
   return (
     <div className="relative min-h-[100dvh] overflow-hidden bg-ink text-white">
-      <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-burgundy/40 via-burgundy/12 to-ink"
-        aria-hidden
-      />
+      {/* Lobby-afbeelding met klikbare deuren — de afbeelding zelf blijft exact dezelfde. */}
+      <div className="flex min-h-[100dvh] items-center justify-center">
+        <div className="relative w-full max-w-[1500px]">
+          <div className="relative aspect-[1024/576] w-full">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/begin-lobby.png"
+              alt="Class-Models receptie met deuren naar het klanten-, modellen- en gastenportaal"
+              className="absolute inset-0 h-full w-full select-none object-contain"
+              draggable={false}
+            />
+            <DoorButton
+              label="Klantenportaal"
+              onClick={() => openPortalDoor('client')}
+              style={{ left: '54.8%', top: '20%', width: '10.5%', height: '70%' }}
+            />
+            <DoorButton
+              label="Modellenportaal"
+              onClick={() => openPortalDoor('model')}
+              style={{ left: '68%', top: '20%', width: '9.8%', height: '70%' }}
+            />
+            <DoorButton
+              label="Gastenportaal"
+              onClick={goGuest}
+              style={{ left: '80%', top: '19%', width: '11.8%', height: '71%' }}
+            />
+          </div>
+        </div>
+      </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-page flex-col gap-10 px-5 py-12 md:flex-row md:items-stretch md:gap-14 md:px-8 md:py-16 lg:gap-20">
-        <div className="flex flex-1 flex-col justify-center md:max-w-md lg:max-w-lg">
-          <CmText
-            contentKey="begin.title"
-            as="h1"
-            className="font-serif text-4xl font-semibold tracking-tight text-white md:text-5xl"
-            fallback={t('begin.title')}
-          />
-          <CmText
-            contentKey="begin.subtitle"
-            as="p"
-            className="mt-2 text-xs font-semibold uppercase tracking-[0.28em] text-white/70"
-            fallback={t('begin.subtitle')}
-          />
-          <CmText
-            contentKey="begin.body"
-            as="p"
-            className="mt-8 text-sm leading-relaxed text-white/85"
-            fallback={t('begin.body')}
-          />
-          <p className="mt-6 text-xs text-white/60">
-            <CmText contentKey="begin.moreInfo" as="span" fallback={t('begin.moreInfo')} />{' '}
+      {/* De login verschijnt pas als je op de modellen- of klantendeur klikt. */}
+      {tab && tab !== 'guest' ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md">
             <button
               type="button"
-              onClick={() => router.push('/portal/guest')}
-              className="text-white underline underline-offset-2 hover:text-white/90"
+              onClick={() => {
+                setTab(null);
+                setErr(null);
+              }}
+              aria-label="Sluiten"
+              className="absolute -top-3 -right-2 z-10 rounded-full bg-black/60 px-2.5 py-1 text-sm text-white/85 hover:text-white"
             >
-              <CmText contentKey="begin.viewGuestPortal" as="span" fallback={t('begin.viewGuestPortal')} />
+              ✕
             </button>
-            .
-          </p>
-        </div>
-
-        <div className="flex flex-1 flex-col justify-center md:max-w-md">
-          <div className="flex flex-col gap-2.5">
-            {tabBtn('model', 'begin.tabModel', t('begin.tabModel'))}
-            {tabBtn('guest', 'begin.tabGuest', t('begin.tabGuest'))}
-            {tabBtn('client', 'begin.tabClient', t('begin.tabClient'))}
-            {tabBtn('photographer', 'begin.tabPhotographer', t('begin.tabPhotographer'))}
-          </div>
 
           {tab === 'model' ? (
             <div className="mt-5 rounded-2xl border border-white/15 bg-black/35 p-6 shadow-2xl backdrop-blur-md">
@@ -573,8 +588,20 @@ export function BeginLanding() {
               </form>
             </div>
           ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={() => {
+          setTab('photographer');
+          setErr(null);
+        }}
+        className="fixed bottom-3 right-4 z-40 text-[11px] text-white/55 underline underline-offset-2 hover:text-white/90"
+      >
+        Fotograaf login
+      </button>
     </div>
   );
 }
