@@ -272,74 +272,80 @@ export function BeginLanding() {
                   draggable={false}
                 />
 
-                <form onSubmit={onModelLogin} className="contents">
+                {/* Eén volledig login-paneel op de muur — dekt het getekende paneel volledig af. */}
+                <form
+                  onSubmit={onModelLogin}
+                  className="absolute flex flex-col justify-center rounded-2xl border border-amber-200/15 bg-[linear-gradient(160deg,_rgba(28,18,24,0.97),_rgba(18,11,16,0.98))] px-[5%] py-[4%] text-white shadow-[0_0_50px_rgba(255,170,130,0.16),inset_0_0_30px_rgba(255,170,130,0.05)]"
+                  style={{ left: '55.3%', top: '14%', width: '39%', height: '62%' }}
+                >
+                  <h2 className="font-serif text-[clamp(13px,2.1vw,26px)] font-semibold tracking-tight text-white">
+                    <CmText contentKey="begin.modelLoginTitle" as="span" fallback={t('begin.modelLoginTitle')} />
+                  </h2>
+                  <CmText
+                    contentKey="begin.modelLoginHint"
+                    as="p"
+                    className="mt-[1.5%] text-[clamp(8px,1.05vw,13px)] leading-snug text-white/60"
+                    fallback={t('begin.modelLoginHint')}
+                  />
+                  {err ? (
+                    <p className="mt-[2.5%] text-[clamp(8px,1vw,12px)] text-red-300">{err}</p>
+                  ) : null}
                   <input
                     type="text"
                     autoComplete="username"
                     aria-label={t('auth.identifier')}
-                    placeholder="E-mail of telefoonnummer"
+                    placeholder={t('auth.identifier')}
                     value={mEmail}
                     onChange={(e) => setMEmail(e.target.value)}
                     required
-                    className="absolute rounded-[6px] border border-white/15 bg-[rgba(16,11,15,0.92)] px-3 text-[clamp(9px,1.25vw,15px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/50"
-                    style={{ left: '59.9%', top: '38.5%', width: '28.5%', height: '6.3%' }}
+                    className="mt-[3.4%] h-[clamp(26px,5.6%,46px)] w-full rounded-lg border border-white/15 bg-black/35 px-[3.5%] text-[clamp(9px,1.15vw,14px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
                   />
                   <input
                     type="password"
                     autoComplete="current-password"
                     aria-label={t('auth.password')}
-                    placeholder="Wachtwoord"
+                    placeholder={t('auth.password')}
                     value={mPass}
                     onChange={(e) => setMPass(e.target.value)}
                     required
                     minLength={6}
-                    className="absolute rounded-[6px] border border-white/15 bg-[rgba(16,11,15,0.92)] px-3 text-[clamp(9px,1.25vw,15px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/50"
-                    style={{ left: '59.9%', top: '45.7%', width: '28.5%', height: '6%' }}
+                    className="mt-[2.6%] h-[clamp(26px,5.6%,46px)] w-full rounded-lg border border-white/15 bg-black/35 px-[3.5%] text-[clamp(9px,1.15vw,14px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
                   />
-                  {/* Onthouden-vinkje: klikbaar; donker vlak verschijnt als het uit staat. */}
-                  <button
-                    type="button"
-                    onClick={() => setRememberMe((v) => !v)}
-                    aria-label={t('auth.rememberMe')}
-                    aria-pressed={rememberMe}
-                    className="absolute cursor-pointer"
-                    style={{ left: '59.5%', top: '51.3%', width: '22%', height: '4.2%' }}
-                  >
-                    {!rememberMe ? (
-                      <span
-                        className="absolute rounded-[3px] border border-white/45 bg-[rgba(16,11,15,0.97)]"
-                        style={{ left: '1.2%', top: '16%', width: '3.6%', height: '64%' }}
+                  <div className="mt-[3%] flex items-center justify-between text-[clamp(8px,1vw,12.5px)] text-white/80">
+                    <label className="flex cursor-pointer items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="h-3 w-3 rounded border-white/40 accent-amber-300"
                       />
-                    ) : null}
-                  </button>
-                  {/* Wachtwoord vergeten? */}
-                  <a
-                    href="/wachtwoord-vergeten"
-                    aria-label={t('auth.forgotPassword')}
-                    className="absolute cursor-pointer rounded-sm transition hover:bg-white/5"
-                    style={{ left: '59.5%', top: '55.1%', width: '16%', height: '4%' }}
-                  />
-                  {/* Inloggen-knop: transparante klikzone over de getekende knop. */}
+                      {t('auth.rememberMe')}
+                    </label>
+                    <a
+                      href="/wachtwoord-vergeten"
+                      className="text-white underline underline-offset-2 hover:text-white/90"
+                    >
+                      {t('auth.forgotPassword')}
+                    </a>
+                  </div>
                   <button
                     type="submit"
                     disabled={busy}
-                    aria-label={t('begin.modelLoginBtn')}
-                    className="absolute cursor-pointer rounded-md transition hover:bg-white/10 disabled:cursor-default disabled:opacity-60"
-                    style={{ left: '59.9%', top: '60.7%', width: '28.5%', height: '7.5%' }}
-                  />
+                    className="mt-[4%] h-[clamp(28px,6.4%,50px)] w-full rounded-lg bg-black text-[clamp(10px,1.25vw,15px)] font-semibold text-white transition hover:bg-zinc-900 disabled:opacity-60"
+                  >
+                    <CmText contentKey="begin.modelLoginBtn" as="span" fallback={t('begin.modelLoginBtn')} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubMode('register');
+                      setErr(null);
+                    }}
+                    className="mt-[3.2%] text-left text-[clamp(8px,1.05vw,13px)] text-white/85 underline underline-offset-2 hover:text-white"
+                  >
+                    <CmText contentKey="begin.noAccount" as="span" fallback={t('begin.noAccount')} />
+                  </button>
                 </form>
-
-                {/* Nog geen account? → registratie (klikzone over de getekende tekst). */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSubMode('register');
-                    setErr(null);
-                  }}
-                  aria-label={t('begin.noAccount')}
-                  className="absolute cursor-pointer rounded-sm transition hover:bg-white/5"
-                  style={{ left: '59.5%', top: '68.1%', width: '27%', height: '4.4%' }}
-                />
 
                 {/* Terug naar de lobby. */}
                 <button
@@ -355,12 +361,6 @@ export function BeginLanding() {
               </div>
             </div>
           </div>
-
-          {err ? (
-            <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex justify-center px-4">
-              <p className="rounded-full bg-red-600/90 px-4 py-1.5 text-xs font-medium text-white shadow-lg">{err}</p>
-            </div>
-          ) : null}
         </div>
       ) : null}
 
