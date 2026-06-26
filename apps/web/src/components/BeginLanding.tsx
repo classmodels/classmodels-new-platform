@@ -224,7 +224,7 @@ export function BeginLanding() {
     <div className="relative min-h-[100dvh] overflow-hidden bg-ink text-white">
       {/* Lobby-afbeelding met klikbare deuren — de afbeelding zelf blijft exact dezelfde. */}
       <div className="flex min-h-[100dvh] items-center justify-center">
-        <div className="relative w-full max-w-[1024px]">
+        <div className="relative w-full">
           <div className="relative aspect-[1024/576] w-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -269,8 +269,8 @@ export function BeginLanding() {
           }`}
         >
           <div className="flex min-h-[100dvh] items-center justify-center">
-            <div className="relative w-full max-w-[1024px]">
-              <div className="relative aspect-[1024/576] w-full [container-type:inline-size]">
+            <div className="relative w-full">
+              <div className="relative aspect-[1024/576] w-full">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/begin-login-model.png"
@@ -279,22 +279,22 @@ export function BeginLanding() {
                   draggable={false}
                 />
 
-                {/* Echt login-paneel: past exact in het kader, kleur-gematcht, schaalt mee (cqw). */}
+                {/* Echt login-paneel: past exact in het kader, kleur-gematcht, schaalt mee (vw). */}
                 <form
                   onSubmit={onModelLogin}
-                  className="absolute flex flex-col justify-center overflow-hidden rounded-[1cqw] border border-amber-200/[0.08] bg-[linear-gradient(160deg,_rgb(31,19,21),_rgb(17,11,14))] px-[3.2cqw] py-[2cqw] text-white"
+                  className="absolute flex flex-col justify-center overflow-hidden rounded-[1vw] border border-amber-200/[0.08] bg-[linear-gradient(160deg,_rgb(31,19,21),_rgb(17,11,14))] px-[3.2vw] py-[2vw] text-white"
                   style={{ left: '51.7%', top: '22.6%', width: '40.6%', height: '51.5%' }}
                 >
-                  <h2 className="font-serif text-[2.05cqw] font-semibold leading-tight text-white">
+                  <h2 className="font-serif text-[2.05vw] font-semibold leading-tight text-white">
                     <CmText contentKey="begin.modelLoginTitle" as="span" fallback={t('begin.modelLoginTitle')} />
                   </h2>
                   <CmText
                     contentKey="begin.modelLoginHint"
                     as="p"
-                    className="mt-[1cqw] text-[1.08cqw] leading-snug text-white/60"
+                    className="mt-[1vw] text-[1.08vw] leading-snug text-white/60"
                     fallback={t('begin.modelLoginHint')}
                   />
-                  {err ? <p className="mt-[1cqw] text-[1cqw] text-red-300">{err}</p> : null}
+                  {err ? <p className="mt-[1vw] text-[1vw] text-red-300">{err}</p> : null}
                   <input
                     type="text"
                     autoComplete="username"
@@ -303,7 +303,7 @@ export function BeginLanding() {
                     value={mEmail}
                     onChange={(e) => setMEmail(e.target.value)}
                     required
-                    className="mt-[1.4cqw] h-[3.5cqw] w-full rounded-[0.7cqw] border border-white/15 bg-black/40 px-[1.5cqw] text-[1.2cqw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
+                    className="mt-[1.4vw] h-[3.5vw] w-full rounded-[0.7vw] border border-white/15 bg-black/40 px-[1.5vw] text-[1.2vw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
                   />
                   <input
                     type="password"
@@ -314,15 +314,15 @@ export function BeginLanding() {
                     onChange={(e) => setMPass(e.target.value)}
                     required
                     minLength={6}
-                    className="mt-[1.2cqw] h-[3.5cqw] w-full rounded-[0.7cqw] border border-white/15 bg-black/40 px-[1.5cqw] text-[1.2cqw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
+                    className="mt-[1.2vw] h-[3.5vw] w-full rounded-[0.7vw] border border-white/15 bg-black/40 px-[1.5vw] text-[1.2vw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
                   />
-                  <div className="mt-[1.3cqw] flex items-center justify-between text-[1.05cqw] text-white/80">
-                    <label className="flex cursor-pointer items-center gap-[0.6cqw]">
+                  <div className="mt-[1.3vw] flex items-center justify-between text-[1.05vw] text-white/80">
+                    <label className="flex cursor-pointer items-center gap-[0.6vw]">
                       <input
                         type="checkbox"
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-[1.1cqw] w-[1.1cqw] rounded border-white/40 accent-amber-300"
+                        className="h-[1.1vw] w-[1.1vw] rounded border-white/40 accent-amber-300"
                       />
                       {t('auth.rememberMe')}
                     </label>
@@ -336,7 +336,7 @@ export function BeginLanding() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="mt-[1.7cqw] h-[3.9cqw] w-full rounded-[0.7cqw] bg-black text-[1.3cqw] font-semibold text-white transition hover:bg-zinc-900 disabled:opacity-60"
+                    className="mt-[1.7vw] h-[3.9vw] w-full rounded-[0.7vw] bg-black text-[1.3vw] font-semibold text-white transition hover:bg-zinc-900 disabled:opacity-60"
                   >
                     <CmText contentKey="begin.modelLoginBtn" as="span" fallback={t('begin.modelLoginBtn')} />
                   </button>
@@ -346,7 +346,7 @@ export function BeginLanding() {
                       setSubMode('register');
                       setErr(null);
                     }}
-                    className="mt-[1.3cqw] text-left text-[1.08cqw] text-white/85 underline underline-offset-2 hover:text-white"
+                    className="mt-[1.3vw] text-left text-[1.08vw] text-white/85 underline underline-offset-2 hover:text-white"
                   >
                     <CmText contentKey="begin.noAccount" as="span" fallback={t('begin.noAccount')} />
                   </button>
