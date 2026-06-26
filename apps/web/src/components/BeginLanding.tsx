@@ -224,7 +224,7 @@ export function BeginLanding() {
     <div className="relative min-h-[100dvh] overflow-hidden bg-ink text-white">
       {/* Lobby-afbeelding met klikbare deuren — de afbeelding zelf blijft exact dezelfde. */}
       <div className="flex min-h-[100dvh] items-center justify-center">
-        <div className="relative w-full max-w-[1500px]">
+        <div className="relative w-full max-w-[1024px]">
           <div className="relative aspect-[1024/576] w-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -269,8 +269,8 @@ export function BeginLanding() {
           }`}
         >
           <div className="flex min-h-[100dvh] items-center justify-center">
-            <div className="relative w-full max-w-[1500px]">
-              <div className="relative aspect-[1024/576] w-full">
+            <div className="relative w-full max-w-[1024px]">
+              <div className="relative aspect-[1024/576] w-full [container-type:inline-size]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/begin-login-model.png"
@@ -279,27 +279,22 @@ export function BeginLanding() {
                   draggable={false}
                 />
 
-                {/* Eén volledig, echt login-paneel dat het getekende paneel volledig afdekt. */}
-                <div
-                  className="absolute"
-                  style={{ left: '53.5%', top: '23%', width: '37.5%', height: '48%' }}
-                >
+                {/* Echt login-paneel: past exact in het kader, kleur-gematcht, schaalt mee (cqw). */}
                 <form
                   onSubmit={onModelLogin}
-                  className="absolute inset-0 flex flex-col justify-center rounded-2xl border border-amber-200/15 bg-[linear-gradient(160deg,_rgba(26,17,22,0.98),_rgba(15,10,14,0.99))] px-[4.5%] py-[3.5%] text-white shadow-[0_0_40px_rgba(255,170,130,0.12)]"
+                  className="absolute flex flex-col justify-center overflow-hidden rounded-[1cqw] border border-amber-200/[0.08] bg-[linear-gradient(160deg,_rgb(31,19,21),_rgb(17,11,14))] px-[3.2cqw] py-[2cqw] text-white"
+                  style={{ left: '51.7%', top: '22.6%', width: '40.6%', height: '51.5%' }}
                 >
-                  <h2 className="font-serif text-[clamp(13px,2.1vw,26px)] font-semibold tracking-tight text-white">
+                  <h2 className="font-serif text-[2.05cqw] font-semibold leading-tight text-white">
                     <CmText contentKey="begin.modelLoginTitle" as="span" fallback={t('begin.modelLoginTitle')} />
                   </h2>
                   <CmText
                     contentKey="begin.modelLoginHint"
                     as="p"
-                    className="mt-[1.5%] text-[clamp(8px,1.05vw,13px)] leading-snug text-white/60"
+                    className="mt-[1cqw] text-[1.08cqw] leading-snug text-white/60"
                     fallback={t('begin.modelLoginHint')}
                   />
-                  {err ? (
-                    <p className="mt-[2.5%] text-[clamp(8px,1vw,12px)] text-red-300">{err}</p>
-                  ) : null}
+                  {err ? <p className="mt-[1cqw] text-[1cqw] text-red-300">{err}</p> : null}
                   <input
                     type="text"
                     autoComplete="username"
@@ -308,7 +303,7 @@ export function BeginLanding() {
                     value={mEmail}
                     onChange={(e) => setMEmail(e.target.value)}
                     required
-                    className="mt-[3.4%] h-[clamp(26px,5.6%,46px)] w-full rounded-lg border border-white/15 bg-black/35 px-[3.5%] text-[clamp(9px,1.15vw,14px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
+                    className="mt-[1.4cqw] h-[3.5cqw] w-full rounded-[0.7cqw] border border-white/15 bg-black/40 px-[1.5cqw] text-[1.2cqw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
                   />
                   <input
                     type="password"
@@ -319,15 +314,15 @@ export function BeginLanding() {
                     onChange={(e) => setMPass(e.target.value)}
                     required
                     minLength={6}
-                    className="mt-[2.6%] h-[clamp(26px,5.6%,46px)] w-full rounded-lg border border-white/15 bg-black/35 px-[3.5%] text-[clamp(9px,1.15vw,14px)] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
+                    className="mt-[1.2cqw] h-[3.5cqw] w-full rounded-[0.7cqw] border border-white/15 bg-black/40 px-[1.5cqw] text-[1.2cqw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
                   />
-                  <div className="mt-[3%] flex items-center justify-between text-[clamp(8px,1vw,12.5px)] text-white/80">
-                    <label className="flex cursor-pointer items-center gap-1.5">
+                  <div className="mt-[1.3cqw] flex items-center justify-between text-[1.05cqw] text-white/80">
+                    <label className="flex cursor-pointer items-center gap-[0.6cqw]">
                       <input
                         type="checkbox"
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-3 w-3 rounded border-white/40 accent-amber-300"
+                        className="h-[1.1cqw] w-[1.1cqw] rounded border-white/40 accent-amber-300"
                       />
                       {t('auth.rememberMe')}
                     </label>
@@ -341,7 +336,7 @@ export function BeginLanding() {
                   <button
                     type="submit"
                     disabled={busy}
-                    className="mt-[4%] h-[clamp(28px,6.4%,50px)] w-full rounded-lg bg-black text-[clamp(10px,1.25vw,15px)] font-semibold text-white transition hover:bg-zinc-900 disabled:opacity-60"
+                    className="mt-[1.7cqw] h-[3.9cqw] w-full rounded-[0.7cqw] bg-black text-[1.3cqw] font-semibold text-white transition hover:bg-zinc-900 disabled:opacity-60"
                   >
                     <CmText contentKey="begin.modelLoginBtn" as="span" fallback={t('begin.modelLoginBtn')} />
                   </button>
@@ -351,12 +346,11 @@ export function BeginLanding() {
                       setSubMode('register');
                       setErr(null);
                     }}
-                    className="mt-[3.2%] text-left text-[clamp(8px,1.05vw,13px)] text-white/85 underline underline-offset-2 hover:text-white"
+                    className="mt-[1.3cqw] text-left text-[1.08cqw] text-white/85 underline underline-offset-2 hover:text-white"
                   >
                     <CmText contentKey="begin.noAccount" as="span" fallback={t('begin.noAccount')} />
                   </button>
                 </form>
-                </div>
 
                 {/* Terug naar de lobby. */}
                 <button
