@@ -5,7 +5,7 @@ import type { CatalogToolbarState } from '@/components/models-catalog/ModelsCata
 
 function MenuIcon({ d }: { d: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-[1.15vw] w-[1.15vw] shrink-0 stroke-white/90" fill="none" strokeWidth="1.4">
+    <svg viewBox="0 0 24 24" className="h-[0.95vw] w-[0.95vw] shrink-0 stroke-white/90" fill="none" strokeWidth="1.4">
       <path d={d} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -39,32 +39,34 @@ function GlassMenuPanel({
   active,
   onClick,
   icon,
+  depth = 0,
   children,
 }: {
   active?: boolean;
   onClick: () => void;
   icon: keyof typeof ICONS;
+  depth?: number;
   children: ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group relative w-full overflow-hidden backdrop-blur-[6px] transition duration-200 ${
+      className={`group relative w-full overflow-hidden backdrop-blur-[8px] transition duration-200 ${
         active
-          ? 'border-amber-300/75 bg-white/[0.08] shadow-[0_0_22px_rgba(255,130,70,0.42),inset_0_0_18px_rgba(255,100,50,0.08)]'
-          : 'border-amber-200/40 bg-white/[0.04] shadow-[0_0_14px_rgba(255,120,60,0.22)] hover:border-amber-200/60 hover:bg-white/[0.06]'
+          ? 'border-amber-300/75 bg-white/[0.08] shadow-[0_0_20px_rgba(255,130,70,0.4),0_0.35vw_0.7vw_rgba(0,0,0,0.45),inset_0_0_16px_rgba(255,100,50,0.08)]'
+          : 'border-amber-200/40 bg-white/[0.04] shadow-[0_0_12px_rgba(255,120,60,0.22),0_0.25vw_0.55vw_rgba(0,0,0,0.4)] hover:border-amber-200/60 hover:bg-white/[0.06]'
       } border`}
-      style={{ transform: 'translateZ(12px)' }}
+      style={{ transform: `translateZ(${4 + depth * 2}px)` }}
     >
-      <Standoff className="left-[0.35vw] top-[0.35vw]" />
-      <Standoff className="right-[0.35vw] top-[0.35vw]" />
-      <Standoff className="bottom-[0.35vw] left-[0.35vw]" />
-      <Standoff className="bottom-[0.35vw] right-[0.35vw]" />
-      <div className="flex items-center gap-[0.75vw] px-[1.05vw] py-[0.72vw]">
+      <Standoff className="left-[0.28vw] top-[0.28vw]" />
+      <Standoff className="right-[0.28vw] top-[0.28vw]" />
+      <Standoff className="bottom-[0.28vw] left-[0.28vw]" />
+      <Standoff className="bottom-[0.28vw] right-[0.28vw]" />
+      <div className="flex items-center gap-[0.55vw] px-[0.75vw] py-[0.58vw]">
         <MenuIcon d={ICONS[icon]} />
         <span
-          className={`min-w-0 flex-1 font-sans text-[0.62vw] font-medium uppercase leading-tight tracking-[0.11em] ${
+          className={`min-w-0 flex-1 font-sans text-[0.54vw] font-medium uppercase leading-tight tracking-[0.1em] ${
             active ? 'text-white' : 'text-white/88 group-hover:text-white'
           }`}
         >
@@ -106,16 +108,17 @@ export function ModelGalleryNeonSidebar({ state }: { state: CatalogToolbarState 
   ];
 
   return (
-    <nav className="flex flex-col gap-[0.65vw]" aria-label="Modellen filters">
-      <GlassMenuPanel active={filtersOpen} onClick={() => setFiltersOpen((v) => !v)} icon="filter">
+    <nav className="flex flex-col gap-[0.5vw] [transform-style:preserve-3d]" aria-label="Modellen filters">
+      <GlassMenuPanel active={filtersOpen} onClick={() => setFiltersOpen((v) => !v)} icon="filter" depth={0}>
         {filtersOpen ? 'Filter sluiten' : 'Filter modellen'}
       </GlassMenuPanel>
-      {tabs.map((t) => (
+      {tabs.map((t, i) => (
         <GlassMenuPanel
           key={t.id}
           active={tab === t.id && !filtersOpen}
           onClick={() => setTab(t.id)}
           icon={t.icon}
+          depth={i + 1}
         >
           {t.label} ({t.count})
         </GlassMenuPanel>

@@ -7,6 +7,7 @@ import {
   type CatalogToolbarState,
 } from '@/components/models-catalog/ModelsCatalogGrid';
 import { ModelGalleryNeonSidebar } from '@/components/model-portal/ModelGalleryNeonSidebar';
+import { GalleryBackWall, GalleryWallMount } from '@/components/model-portal/GalleryCanvasFrame';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { MobileAppBar } from '@/components/MobileAppBar';
 
@@ -24,7 +25,6 @@ export function ModelPortalModellenGallery() {
       <MobileAppBar title="Modellenportaal" subtitle="Modellen" menuTitle="Filters" menuContent={mobileMenu} />
       <ImpersonationBanner />
 
-      {/* Volledige schermbreedte — achtergrond vult 100vw × 100vh */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/model-gallery-bg.jpg"
@@ -33,49 +33,39 @@ export function ModelPortalModellenGallery() {
         draggable={false}
       />
 
-      {/* 3D-scène: linkermuur + achterwand in perspectief */}
-      <div className="absolute inset-0 [perspective:1600px]">
+      <div className="absolute inset-0 [perspective:1800px]">
         <div className="relative h-full w-full" style={{ transformStyle: 'preserve-3d' }}>
-          {/* Linkermuur — menu in perspectief */}
+          {/* Linkermuur — smaller, naast de plant, in muurperspectief */}
           <aside
-            className="absolute bottom-[8vh] left-[2.5vw] top-[14vh] hidden w-[22vw] lg:block"
+            className="absolute bottom-[14vh] left-[13.5vw] top-[17vh] hidden w-[10.5vw] lg:block"
             style={{ transformStyle: 'preserve-3d' }}
           >
-            <div
-              className="h-full w-full overflow-y-auto pr-[0.6vw] [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]"
-              style={{
-                transform: 'rotateY(18deg) rotateX(1.5deg)',
-                transformOrigin: 'right center',
-              }}
-            >
-              <ModelGalleryNeonSidebar state={toolbar} />
-            </div>
+            <GalleryWallMount className="h-full w-full">
+              <div className="h-full w-full overflow-y-auto [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]">
+                <ModelGalleryNeonSidebar state={toolbar} />
+              </div>
+            </GalleryWallMount>
           </aside>
 
-          {/* Achterwand — galerij met subtiel perspectief */}
-          <main
-            className="absolute bottom-[7vh] left-[24vw] right-[3vw] top-[10vh] flex min-w-0 flex-col overflow-hidden"
-            style={{
-              transform: 'rotateY(-2.5deg) rotateX(0.5deg)',
-              transformOrigin: 'left center',
-              transformStyle: 'preserve-3d',
-            }}
-          >
-            <div className="shrink-0 text-center" style={{ transform: 'translateZ(20px)' }}>
-              <h1 className="font-sans text-[1.85vw] font-light uppercase tracking-[0.28em] text-white drop-shadow-[0_0_16px_rgba(255,200,150,0.35)]">
-                Model Gallery
-              </h1>
-            </div>
-            <div
-              className="mt-[1.6vw] min-h-0 flex-1 overflow-y-auto pr-[0.5vw] [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]"
-              style={{ transform: 'translateZ(14px)' }}
-            >
-              <ModelsCatalogGrid
-                layout="gallery-wall"
-                toolbarPlacement="external"
-                onToolbarState={onToolbarState}
-              />
-            </div>
+          {/* Achterwand — galerij */}
+          <main className="absolute bottom-[9vh] left-[25.5vw] right-[3.5vw] top-[11vh] flex min-w-0 flex-col overflow-hidden">
+            <GalleryBackWall className="flex h-full min-h-0 flex-col">
+              <div className="shrink-0 text-center" style={{ transform: 'translateZ(18px)' }}>
+                <h1 className="font-sans text-[1.75vw] font-light uppercase tracking-[0.28em] text-white drop-shadow-[0_0_16px_rgba(255,200,150,0.35)]">
+                  Model Gallery
+                </h1>
+              </div>
+              <div
+                className="mt-[1.5vw] min-h-0 flex-1 overflow-y-auto pr-[0.4vw] [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]"
+                style={{ transform: 'translateZ(12px)' }}
+              >
+                <ModelsCatalogGrid
+                  layout="gallery-wall"
+                  toolbarPlacement="external"
+                  onToolbarState={onToolbarState}
+                />
+              </div>
+            </GalleryBackWall>
           </main>
         </div>
       </div>
