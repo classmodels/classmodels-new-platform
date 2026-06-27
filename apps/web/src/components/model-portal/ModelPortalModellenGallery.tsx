@@ -33,32 +33,29 @@ export function ModelPortalModellenGallery() {
         draggable={false}
       />
 
-      <div className="absolute inset-0 [perspective:1800px]">
+      <div className="absolute inset-0 [perspective:2200px]">
         <div className="relative h-full w-full" style={{ transformStyle: 'preserve-3d' }}>
-          {/* Linkermuur — smaller, naast de plant, in muurperspectief */}
+          {/* Linkermuur — gemeten op achtergrond 99.jpg */}
           <aside
-            className="absolute bottom-[14vh] left-[13.5vw] top-[17vh] hidden w-[10.5vw] lg:block"
+            className="absolute bottom-[18vh] left-[15.8vw] top-[17vh] hidden w-[9.8vw] lg:block"
             style={{ transformStyle: 'preserve-3d' }}
           >
             <GalleryWallMount className="h-full w-full">
-              <div className="h-full w-full overflow-y-auto [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]">
+              <div className="h-full w-full overflow-y-auto pr-[0.25vw] [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]">
                 <ModelGalleryNeonSidebar state={toolbar} />
               </div>
             </GalleryWallMount>
           </aside>
 
-          {/* Achterwand — galerij */}
-          <main className="absolute bottom-[9vh] left-[25.5vw] right-[3.5vw] top-[11vh] flex min-w-0 flex-col overflow-hidden">
+          {/* Achterwand — galerijraster */}
+          <main className="absolute bottom-[10vh] left-[26.5vw] right-[3.5vw] top-[11vh] flex min-w-0 flex-col overflow-hidden">
             <GalleryBackWall className="flex h-full min-h-0 flex-col">
-              <div className="shrink-0 text-center" style={{ transform: 'translateZ(18px)' }}>
-                <h1 className="font-sans text-[1.75vw] font-light uppercase tracking-[0.28em] text-white drop-shadow-[0_0_16px_rgba(255,200,150,0.35)]">
+              <div className="shrink-0 text-center">
+                <h1 className="font-sans text-[1.65vw] font-light uppercase tracking-[0.3em] text-white drop-shadow-[0_0_18px_rgba(255,200,150,0.32)]">
                   Model Gallery
                 </h1>
               </div>
-              <div
-                className="mt-[1.5vw] min-h-0 flex-1 overflow-y-auto pr-[0.4vw] [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]"
-                style={{ transform: 'translateZ(12px)' }}
-              >
+              <div className="mt-[1.35vw] min-h-0 flex-1 overflow-y-auto pr-[0.35vw] [scrollbar-color:rgba(255,180,120,0.25)_transparent] [scrollbar-width:thin]">
                 <ModelsCatalogGrid
                   layout="gallery-wall"
                   toolbarPlacement="external"

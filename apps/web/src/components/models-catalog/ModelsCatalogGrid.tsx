@@ -18,7 +18,7 @@ import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
-import { GalleryCanvasFrame } from '@/components/model-portal/GalleryCanvasFrame';
+import { GalleryPortraitFrame } from '@/components/model-portal/GalleryCanvasFrame';
 
 export type CatalogModel = {
   id: string;
@@ -30,6 +30,7 @@ export type CatalogModel = {
   gender: '' | 'man' | 'vrouw';
   beschikbaar: string[];
   beschikbaarSlugs: string[];
+  gemeente?: string;
   profileThumbKey: string | null;
   isNewface: boolean;
   isTryout: boolean;
@@ -604,6 +605,12 @@ function CatalogToolbarControls({
   );
 }
 
+export type GalleryVestiging = {
+  label: string;
+  slug: string;
+  count: number;
+};
+
 export type CatalogToolbarState = {
   tab: TabId;
   setTab: (t: TabId) => void;
@@ -611,7 +618,14 @@ export type CatalogToolbarState = {
   setFiltersOpen: (v: boolean | ((p: boolean) => boolean)) => void;
   isAdmin: boolean;
   tabCounts: Record<TabId, number>;
+  vestigingen: GalleryVestiging[];
+  vestigingSel: Set<string>;
+  toggleVestiging: (slug: string) => void;
 };
+
+function gemeenteSlug(g: string): string {
+  return g.toLowerCase().trim().replace(/\s+/g, '-');
+}
 
 export type ModelsCatalogGridProps = {
   toolbarPlacement?: 'inline' | 'titlebar' | 'external';
@@ -637,6 +651,7 @@ export function ModelsCatalogGrid({
   const [tab, setTab] = useState<TabId>('alle');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [avSel, setAvSel] = useState<Set<string>>(() => new Set());
+  const [vestigingSel, setVestigingSel] = useState<Set<string>>(() => new Set());
   const [genderSel, setGenderSel] = useState<Set<string>>(() => new Set());
   const [ageMin, setAgeMin] = useState('');
   const [ageMax, setAgeMax] = useState('');
@@ -682,6 +697,31 @@ export function ModelsCatalogGrid({
     return () => setSlot(null);
   }, [toolbarPlacement, tab, filtersOpen, isAdmin, tabCounts]);
 
+  const vestigingen = useMemo((): GalleryVestiging[] => {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const m of rows) {
+      const g = (m.gemeente ?? '').trim();
+      if (!g) continue;
+      const slug = gemeenteSlug(g);
+      const prev = counts.get(slug);
+      if (prev) prev.count++;
+      else counts.set(slug, { label: g, count: 1 });
+    }
+    return [...counts.entries()]
+      .map(([slug, { label, count }]) => ({ slug, label, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'nl'))
+      .slice(0, 4);
+  }, [rows]);
+
+  const toggleVestiging = useCallback((slug: string) => {
+    setVestigingSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(slug)) n.delete(slug);
+      else n.add(slug);
+      return n;
+    });
+  }, []);
+
   useEffect(() => {
     if (toolbarPlacement !== 'external' || !onToolbarState) return;
     onToolbarState({
@@ -691,8 +731,21 @@ export function ModelsCatalogGrid({
       setFiltersOpen,
       isAdmin,
       tabCounts,
+      vestigingen,
+      vestigingSel,
+      toggleVestiging,
     });
-  }, [toolbarPlacement, onToolbarState, tab, filtersOpen, isAdmin, tabCounts]);
+  }, [
+    toolbarPlacement,
+    onToolbarState,
+    tab,
+    filtersOpen,
+    isAdmin,
+    tabCounts,
+    vestigingen,
+    vestigingSel,
+    toggleVestiging,
+  ]);
 
   const loadAbortRef = useRef<AbortController | null>(null);
 
@@ -770,6 +823,10 @@ export function ModelsCatalogGrid({
   };
 
   const matchesFilters = (m: CatalogModel): boolean => {
+    if (vestigingSel.size) {
+      const g = gemeenteSlug(m.gemeente ?? '');
+      if (!g || !vestigingSel.has(g)) return false;
+    }
     if (avSel.size) {
       const has = m.beschikbaarSlugs.some((x) => avSel.has(x));
       if (!has) return false;
@@ -792,7 +849,7 @@ export function ModelsCatalogGrid({
 
   const shown = useMemo(
     () => rows.filter((m) => visibleForTab(m) && matchesFilters(m)),
-    [rows, tab, avSel, genderSel, ageMin, ageMax, q],
+    [rows, tab, vestigingSel, avSel, genderSel, ageMin, ageMax, q],
   );
 
   const imgUrl = (key: string | null) =>
@@ -862,7 +919,7 @@ export function ModelsCatalogGrid({
     : 'rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6';
 
   const gridClass = isGallery
-    ? `grid grid-cols-3 gap-[1.15vw] sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 ${loading ? 'pointer-events-none opacity-60' : ''}`
+    ? `grid grid-cols-3 gap-x-[0.95vw] gap-y-[1.25vw] sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 ${loading ? 'pointer-events-none opacity-60' : ''}`
     : `grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`;
 
   return (
@@ -1015,13 +1072,13 @@ export function ModelsCatalogGrid({
               >
                 {m.profileThumbKey ? (
                   isGallery ? (
-                    <GalleryCanvasFrame>
+                    <GalleryPortraitFrame>
                       <CatalogModelThumb
                         src={imgUrl(m.profileThumbKey)}
                         priority={idx < 12}
                         className="rounded-none"
                       />
-                    </GalleryCanvasFrame>
+                    </GalleryPortraitFrame>
                   ) : (
                     <CatalogModelThumb src={imgUrl(m.profileThumbKey)} priority={idx < 12} />
                   )

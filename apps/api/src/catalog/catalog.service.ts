@@ -233,6 +233,7 @@ export class CatalogService {
           .trim()
           .replace(/\s+/g, '-'),
       ),
+      gemeente: String(ms?.gemeente ?? '').trim() || undefined,
       profileThumbKey: thumbKey,
       isNewface: newface,
       isTryout: tryout,
