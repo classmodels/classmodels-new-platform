@@ -6,9 +6,10 @@ import { CmText } from '@/components/CmText';
 import { useAuth } from '@/context/auth-context';
 import { useI18n } from '@/i18n/context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
+import { apiFetch } from '@/lib/api';
 
 type Tab = 'model' | 'guest' | 'client' | 'photographer';
-type SubMode = 'login' | 'register';
+type SubMode = 'login' | 'register' | 'forgot';
 
 function parseApiError(err: unknown, fallback: string): string {
   if (!(err instanceof Error)) return fallback;
@@ -63,8 +64,8 @@ export function BeginLanding() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Geïntegreerd modellen-login-scherm (afbeelding 4) dat zachtjes invloeit.
-  const showModelScene = tab === 'model' && subMode === 'login';
+  // Geïntegreerd modellen-scherm op de muur (login, registratie, wachtwoord vergeten).
+  const showModelScene = tab === 'model';
   const [sceneShown, setSceneShown] = useState(false);
   useEffect(() => {
     if (!showModelScene) {
@@ -83,6 +84,9 @@ export function BeginLanding() {
   const [mFirst, setMFirst] = useState('');
   const [mLast, setMLast] = useState('');
   const [mPhone, setMPhone] = useState('');
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+  const [forgotSent, setForgotSent] = useState(false);
 
   const [cEmail, setCEmail] = useState('');
   const [cPass, setCPass] = useState('');
@@ -172,6 +176,43 @@ export function BeginLanding() {
       setBusy(false);
     }
   };
+
+  const onModelForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setForgotMsg(null);
+    setForgotSent(false);
+    setBusy(true);
+    try {
+      const res = await apiFetch<{ message?: string; emailSent?: boolean }>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ identifier: forgotIdentifier.trim() }),
+      });
+      setForgotMsg(
+        res.message ??
+          'Als er een account is, ontvang je een e-mail met instructies. Controleer ook je spamfolder.',
+      );
+      setForgotSent(res.emailSent === true);
+    } catch (er) {
+      setErr(parseApiError(er, t('common.errorGeneric')));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const switchModelPanel = (mode: SubMode) => {
+    setSubMode(mode);
+    setErr(null);
+    setForgotMsg(null);
+    setForgotSent(false);
+  };
+
+  const wallInputClass =
+    'mt-[1vw] h-[3vw] w-full shrink-0 rounded-[0.5vw] border border-white/15 bg-black/35 px-[1.2vw] text-[1.02vw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45';
+  const wallBtnClass =
+    'mt-[1.3vw] h-[3.3vw] w-full shrink-0 rounded-[0.5vw] bg-black text-[1.1vw] font-semibold text-white transition hover:bg-zinc-900 disabled:opacity-60';
+  const wallLinkClass =
+    'mt-[1vw] shrink-0 text-left text-[0.92vw] text-white/85 underline underline-offset-2 hover:text-white';
 
   const onClientLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,85 +320,210 @@ export function BeginLanding() {
                   draggable={false}
                 />
 
-                {/* Login rechtstreeks op het lege, verlichte paneel: transparante achtergrond = identieke kleur. */}
-                <form
-                  onSubmit={onModelLogin}
-                  className="absolute flex flex-col justify-center overflow-hidden bg-transparent px-[2.2vw] py-[1.6vw] text-white"
+                {/* Modellenformulier op het verlichte paneel — scrollbaar, uniform tot ingelogd. */}
+                <div
+                  className="absolute overflow-x-hidden overflow-y-auto bg-transparent px-[2.2vw] py-[1.6vw] text-white [scrollbar-color:rgba(255,255,255,0.22)_transparent] [scrollbar-width:thin]"
                   style={{ left: '57.5%', top: '22%', width: '33%', height: '48.5%' }}
                 >
-                  <h2 className="font-serif text-[1.7vw] font-semibold leading-tight text-white">
-                    <CmText contentKey="begin.modelLoginTitle" as="span" fallback={t('begin.modelLoginTitle')} />
-                  </h2>
-                  <CmText
-                    contentKey="begin.modelLoginHint"
-                    as="p"
-                    className="mt-[0.8vw] text-[0.92vw] leading-snug text-white/60"
-                    fallback={t('begin.modelLoginHint')}
-                  />
-                  {err ? <p className="mt-[0.8vw] text-[0.9vw] text-red-300">{err}</p> : null}
-                  <input
-                    type="text"
-                    autoComplete="username"
-                    aria-label={t('auth.identifier')}
-                    placeholder={t('auth.identifier')}
-                    value={mEmail}
-                    onChange={(e) => setMEmail(e.target.value)}
-                    required
-                    className="mt-[1.1vw] h-[3vw] w-full rounded-[0.5vw] border border-white/15 bg-black/35 px-[1.2vw] text-[1.02vw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
-                  />
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    aria-label={t('auth.password')}
-                    placeholder={t('auth.password')}
-                    value={mPass}
-                    onChange={(e) => setMPass(e.target.value)}
-                    required
-                    minLength={6}
-                    className="mt-[1vw] h-[3vw] w-full rounded-[0.5vw] border border-white/15 bg-black/35 px-[1.2vw] text-[1.02vw] text-white outline-none placeholder:text-white/40 focus:border-amber-200/45"
-                  />
-                  <div className="mt-[1vw] flex items-center justify-between text-[0.9vw] text-white/80">
-                    <label className="flex cursor-pointer items-center gap-[0.5vw]">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="h-[0.95vw] w-[0.95vw] rounded border-white/40 accent-amber-300"
-                      />
-                      {t('auth.rememberMe')}
-                    </label>
-                    <a
-                      href="/wachtwoord-vergeten"
-                      className="text-white underline underline-offset-2 hover:text-white/90"
+                  {subMode === 'login' ? (
+                    <form
+                      onSubmit={onModelLogin}
+                      className="flex min-h-full flex-col justify-center"
                     >
-                      {t('auth.forgotPassword')}
-                    </a>
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="mt-[1.3vw] h-[3.3vw] w-full rounded-[0.5vw] bg-black text-[1.1vw] font-semibold text-white transition hover:bg-zinc-900 disabled:opacity-60"
-                  >
-                    <CmText contentKey="begin.modelLoginBtn" as="span" fallback={t('begin.modelLoginBtn')} />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSubMode('register');
-                      setErr(null);
-                    }}
-                    className="mt-[1vw] text-left text-[0.92vw] text-white/85 underline underline-offset-2 hover:text-white"
-                  >
-                    <CmText contentKey="begin.noAccount" as="span" fallback={t('begin.noAccount')} />
-                  </button>
-                </form>
+                      <h2 className="font-serif text-[1.7vw] font-semibold leading-tight text-white">
+                        <CmText contentKey="begin.modelLoginTitle" as="span" fallback={t('begin.modelLoginTitle')} />
+                      </h2>
+                      <CmText
+                        contentKey="begin.modelLoginHint"
+                        as="p"
+                        className="mt-[0.8vw] text-[0.92vw] leading-snug text-white/60"
+                        fallback={t('begin.modelLoginHint')}
+                      />
+                      {err ? <p className="mt-[0.8vw] text-[0.9vw] text-red-300">{err}</p> : null}
+                      <input
+                        type="text"
+                        autoComplete="username"
+                        aria-label={t('auth.identifier')}
+                        placeholder={t('auth.identifier')}
+                        value={mEmail}
+                        onChange={(e) => setMEmail(e.target.value)}
+                        required
+                        className={`${wallInputClass} mt-[1.1vw]`}
+                      />
+                      <input
+                        type="password"
+                        autoComplete="current-password"
+                        aria-label={t('auth.password')}
+                        placeholder={t('auth.password')}
+                        value={mPass}
+                        onChange={(e) => setMPass(e.target.value)}
+                        required
+                        minLength={6}
+                        className={wallInputClass}
+                      />
+                      <div className="mt-[1vw] flex shrink-0 items-center justify-between text-[0.9vw] text-white/80">
+                        <label className="flex cursor-pointer items-center gap-[0.5vw]">
+                          <input
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="h-[0.95vw] w-[0.95vw] rounded border-white/40 accent-amber-300"
+                          />
+                          {t('auth.rememberMe')}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => switchModelPanel('forgot')}
+                          className="text-white underline underline-offset-2 hover:text-white/90"
+                        >
+                          {t('auth.forgotPassword')}
+                        </button>
+                      </div>
+                      <button type="submit" disabled={busy} className={wallBtnClass}>
+                        <CmText contentKey="begin.modelLoginBtn" as="span" fallback={t('begin.modelLoginBtn')} />
+                      </button>
+                      <button type="button" onClick={() => switchModelPanel('register')} className={wallLinkClass}>
+                        <CmText contentKey="begin.noAccount" as="span" fallback={t('begin.noAccount')} />
+                      </button>
+                    </form>
+                  ) : null}
+
+                  {subMode === 'register' ? (
+                    <form onSubmit={onModelRegister} className="flex flex-col pb-[1vw]">
+                      <h2 className="font-serif text-[1.7vw] font-semibold leading-tight text-white">
+                        <CmText
+                          contentKey="begin.modelRegisterTitle"
+                          as="span"
+                          fallback={t('begin.modelRegisterTitle')}
+                        />
+                      </h2>
+                      <CmText
+                        contentKey="begin.modelLoginHint"
+                        as="p"
+                        className="mt-[0.8vw] text-[0.92vw] leading-snug text-white/60"
+                        fallback={t('begin.modelLoginHint')}
+                      />
+                      {err ? <p className="mt-[0.8vw] text-[0.9vw] text-red-300">{err}</p> : null}
+                      <input
+                        className={`${wallInputClass} mt-[1.1vw]`}
+                        placeholder={t('begin.firstName')}
+                        value={mFirst}
+                        onChange={(e) => setMFirst(e.target.value)}
+                        required
+                      />
+                      <input
+                        className={wallInputClass}
+                        placeholder={t('begin.lastName')}
+                        value={mLast}
+                        onChange={(e) => setMLast(e.target.value)}
+                        required
+                      />
+                      <input
+                        className={wallInputClass}
+                        type="email"
+                        autoComplete="email"
+                        placeholder={t('begin.email')}
+                        value={mEmail}
+                        onChange={(e) => setMEmail(e.target.value)}
+                        required
+                      />
+                      <input
+                        className={wallInputClass}
+                        type="email"
+                        autoComplete="email"
+                        placeholder={t('begin.emailRepeat')}
+                        value={mEmail2}
+                        onChange={(e) => setMEmail2(e.target.value)}
+                        required
+                      />
+                      <input
+                        className={wallInputClass}
+                        type="tel"
+                        autoComplete="tel"
+                        placeholder={t('begin.phoneOptional')}
+                        value={mPhone}
+                        onChange={(e) => setMPhone(e.target.value)}
+                      />
+                      <input
+                        className={wallInputClass}
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder={t('auth.password')}
+                        value={mPass}
+                        onChange={(e) => setMPass(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <input
+                        className={wallInputClass}
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder={t('begin.passwordRepeat')}
+                        value={mPass2}
+                        onChange={(e) => setMPass2(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                      <button type="submit" disabled={busy} className={wallBtnClass}>
+                        <CmText contentKey="begin.modelRegisterBtn" as="span" fallback={t('begin.modelRegisterBtn')} />
+                      </button>
+                      <button type="button" onClick={() => switchModelPanel('login')} className={wallLinkClass}>
+                        <CmText contentKey="begin.hasAccount" as="span" fallback={t('begin.hasAccount')} />
+                      </button>
+                    </form>
+                  ) : null}
+
+                  {subMode === 'forgot' ? (
+                    <div className="flex min-h-full flex-col justify-center">
+                      <h2 className="font-serif text-[1.7vw] font-semibold leading-tight text-white">
+                        {t('password.forgotTitle')}
+                      </h2>
+                      <p className="mt-[0.8vw] text-[0.92vw] leading-snug text-white/60">{t('password.forgotHint')}</p>
+                      {forgotMsg ? (
+                        <div
+                          className={`mt-[1vw] rounded-[0.5vw] border px-[1.2vw] py-[1vw] text-[0.9vw] ${
+                            forgotSent
+                              ? 'border-green-400/40 bg-green-950/40 text-green-200'
+                              : 'border-white/20 bg-black/35 text-white/85'
+                          }`}
+                          role="status"
+                        >
+                          {forgotMsg}
+                        </div>
+                      ) : null}
+                      {err ? <p className="mt-[0.8vw] text-[0.9vw] text-red-300">{err}</p> : null}
+                      {!forgotMsg ? (
+                        <form onSubmit={onModelForgotPassword}>
+                          <input
+                            type="text"
+                            autoComplete="username"
+                            aria-label={t('auth.identifier')}
+                            placeholder={t('auth.identifier')}
+                            value={forgotIdentifier}
+                            onChange={(e) => setForgotIdentifier(e.target.value)}
+                            required
+                            className={`${wallInputClass} mt-[1.1vw]`}
+                          />
+                          <button type="submit" disabled={busy} className={wallBtnClass}>
+                            {busy ? t('common.loading') : t('password.send')}
+                          </button>
+                        </form>
+                      ) : null}
+                      <button type="button" onClick={() => switchModelPanel('login')} className={wallLinkClass}>
+                        <CmText contentKey="begin.hasAccount" as="span" fallback={t('begin.hasAccount')} />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
 
                 {/* Terug naar de lobby. */}
                 <button
                   type="button"
                   onClick={() => {
                     setTab(null);
+                    setSubMode('login');
                     setErr(null);
+                    setForgotMsg(null);
                   }}
                   className="absolute left-[2.5%] top-[5%] rounded-full bg-black/45 px-3 py-1 text-[clamp(9px,1.2vw,13px)] text-white/85 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
                 >
@@ -385,154 +551,7 @@ export function BeginLanding() {
               ✕
             </button>
 
-          {tab === 'model' ? (
-            <div className="mt-5 rounded-2xl border border-white/15 bg-black/35 p-6 shadow-2xl backdrop-blur-md">
-              <CmText
-                contentKey={subMode === 'login' ? 'begin.modelLoginTitle' : 'begin.modelRegisterTitle'}
-                as="h2"
-                className="font-serif text-xl text-white"
-                fallback={subMode === 'login' ? t('begin.modelLoginTitle') : t('begin.modelRegisterTitle')}
-              />
-              <CmText
-                contentKey="begin.modelLoginHint"
-                as="p"
-                className="mt-2 text-xs leading-relaxed text-white/75"
-                fallback={t('begin.modelLoginHint')}
-              />
-              {err ? <p className="mt-3 text-xs text-red-200">{err}</p> : null}
-
-              {subMode === 'login' ? (
-                <form className="mt-5 space-y-3" onSubmit={onModelLogin}>
-                  <input
-                    className={inputClass}
-                    type="text"
-                    autoComplete="username"
-                    placeholder={t('auth.identifier')}
-                    value={mEmail}
-                    onChange={(e) => setMEmail(e.target.value)}
-                    required
-                  />
-                  <input
-                    className={inputClass}
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder={t('auth.password')}
-                    value={mPass}
-                    onChange={(e) => setMPass(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <label className="flex items-center gap-2 text-xs text-white/85">
-                    <input
-                      type="checkbox"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.target.checked)}
-                      className="rounded border-white/40"
-                    />
-                    {t('auth.rememberMe')}
-                  </label>
-                  <a
-                    href="/wachtwoord-vergeten"
-                    className="block text-left text-xs text-white/90 underline underline-offset-2 hover:text-white"
-                  >
-                    {t('auth.forgotPassword')}
-                  </a>
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="mt-2 w-full rounded-xl bg-black py-3 text-sm font-semibold text-white hover:bg-zinc-900 disabled:opacity-60"
-                  >
-                    <CmText contentKey="begin.modelLoginBtn" as="span" fallback={t('begin.modelLoginBtn')} />
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full pt-1 text-left text-xs text-white/90 underline underline-offset-2 hover:text-white"
-                    onClick={() => {
-                      setSubMode('register');
-                      setErr(null);
-                    }}
-                  >
-                    <CmText contentKey="begin.noAccount" as="span" fallback={t('begin.noAccount')} />
-                  </button>
-                </form>
-              ) : (
-                <form className="mt-5 space-y-3" onSubmit={onModelRegister}>
-                  <input
-                    className={inputClass}
-                    placeholder={t('begin.firstName')}
-                    value={mFirst}
-                    onChange={(e) => setMFirst(e.target.value)}
-                    required
-                  />
-                  <input
-                    className={inputClass}
-                    placeholder={t('begin.lastName')}
-                    value={mLast}
-                    onChange={(e) => setMLast(e.target.value)}
-                    required
-                  />
-                  <input
-                    className={inputClass}
-                    type="email"
-                    placeholder={t('begin.email')}
-                    value={mEmail}
-                    onChange={(e) => setMEmail(e.target.value)}
-                    required
-                  />
-                  <input
-                    className={inputClass}
-                    type="email"
-                    placeholder={t('begin.emailRepeat')}
-                    value={mEmail2}
-                    onChange={(e) => setMEmail2(e.target.value)}
-                    required
-                  />
-                  <input
-                    className={inputClass}
-                    type="tel"
-                    placeholder={t('begin.phoneOptional')}
-                    value={mPhone}
-                    onChange={(e) => setMPhone(e.target.value)}
-                  />
-                  <input
-                    className={inputClass}
-                    type="password"
-                    placeholder={t('auth.password')}
-                    value={mPass}
-                    onChange={(e) => setMPass(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <input
-                    className={inputClass}
-                    type="password"
-                    placeholder={t('begin.passwordRepeat')}
-                    value={mPass2}
-                    onChange={(e) => setMPass2(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="mt-2 w-full rounded-xl bg-black py-3 text-sm font-semibold text-white hover:bg-zinc-900 disabled:opacity-60"
-                  >
-                    <CmText contentKey="begin.modelRegisterBtn" as="span" fallback={t('begin.modelRegisterBtn')} />
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full pt-1 text-left text-xs text-white/90 underline underline-offset-2"
-                    onClick={() => {
-                      setSubMode('login');
-                      setErr(null);
-                    }}
-                  >
-                    <CmText contentKey="begin.hasAccount" as="span" fallback={t('begin.hasAccount')} />
-                  </button>
-                </form>
-              )}
-            </div>
-          ) : tab === 'client' ? (
+          {tab === 'client' ? (
             <div className="mt-5 rounded-2xl border border-white/15 bg-black/35 p-6 shadow-2xl backdrop-blur-md">
               <CmText
                 contentKey={subMode === 'login' ? 'begin.clientLoginTitle' : 'begin.clientRegisterTitle'}

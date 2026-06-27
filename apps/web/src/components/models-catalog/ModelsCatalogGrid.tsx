@@ -603,14 +603,27 @@ function CatalogToolbarControls({
   );
 }
 
+export type CatalogToolbarState = {
+  tab: TabId;
+  setTab: (t: TabId) => void;
+  filtersOpen: boolean;
+  setFiltersOpen: (v: boolean | ((p: boolean) => boolean)) => void;
+  isAdmin: boolean;
+  tabCounts: Record<TabId, number>;
+};
+
 export type ModelsCatalogGridProps = {
-  toolbarPlacement?: 'inline' | 'titlebar';
+  toolbarPlacement?: 'inline' | 'titlebar' | 'external';
+  layout?: 'default' | 'gallery-wall';
   onTitlebarContent?: (node: ReactNode | null) => void;
+  onToolbarState?: (state: CatalogToolbarState) => void;
 };
 
 export function ModelsCatalogGrid({
   toolbarPlacement = 'inline',
+  layout = 'default',
   onTitlebarContent,
+  onToolbarState,
 }: ModelsCatalogGridProps = {}) {
   const router = useRouter();
   const { token, user, can, applySessionToken } = useAuth();
@@ -667,6 +680,18 @@ export function ModelsCatalogGrid({
     );
     return () => setSlot(null);
   }, [toolbarPlacement, tab, filtersOpen, isAdmin, tabCounts]);
+
+  useEffect(() => {
+    if (toolbarPlacement !== 'external' || !onToolbarState) return;
+    onToolbarState({
+      tab,
+      setTab,
+      filtersOpen,
+      setFiltersOpen,
+      isAdmin,
+      tabCounts,
+    });
+  }, [toolbarPlacement, onToolbarState, tab, filtersOpen, isAdmin, tabCounts]);
 
   const loadAbortRef = useRef<AbortController | null>(null);
 
@@ -829,9 +854,18 @@ export function ModelsCatalogGrid({
   };
 
   const modalPhoto = modal?.profileThumbKey ? imgUrl(modal.profileThumbKey) : '';
+  const isGallery = layout === 'gallery-wall';
+
+  const outerClass = isGallery
+    ? 'min-h-0 text-white'
+    : 'rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6';
+
+  const gridClass = isGallery
+    ? `grid grid-cols-2 gap-[1.1vw] sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 ${loading ? 'pointer-events-none opacity-60' : ''}`
+    : `grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`;
 
   return (
-    <div className="rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6">
+    <div className={outerClass}>
       {loading ? (
         <div className={shown.length === 0 ? 'py-10' : 'mb-4'}>
           <CmProgressBar
@@ -843,11 +877,15 @@ export function ModelsCatalogGrid({
         <p className="mb-3 text-center text-xs text-zinc-500">Foto&apos;s worden geladen…</p>
       ) : null}
       {loadErr ? (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-red-300">{loadErr}</p>
+        <div className={`mb-3 flex flex-wrap items-center justify-between gap-2 ${isGallery ? 'px-[0.5vw]' : ''}`}>
+          <p className={`text-sm ${isGallery ? 'text-red-200' : 'text-red-300'}`}>{loadErr}</p>
           <button
             type="button"
-            className="rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800"
+            className={
+              isGallery
+                ? 'rounded-[0.35vw] border border-amber-200/35 bg-black/40 px-[1vw] py-[0.45vw] text-[0.85vw] font-semibold text-white hover:bg-black/55'
+                : 'rounded-lg border border-zinc-600 bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-zinc-100 hover:bg-zinc-800'
+            }
             onClick={() => void load()}
           >
             Opnieuw proberen
@@ -868,7 +906,13 @@ export function ModelsCatalogGrid({
       ) : null}
 
       {filtersOpen ? (
-        <div className="mb-6 space-y-2 rounded-lg border border-zinc-600 bg-zinc-900 p-2.5 text-[11px] leading-tight md:p-3">
+        <div
+          className={
+            isGallery
+              ? 'mb-[1.2vw] space-y-2 rounded-[0.35vw] border border-amber-200/25 bg-black/45 p-[1vw] text-[0.78vw] leading-tight backdrop-blur-sm'
+              : 'mb-6 space-y-2 rounded-lg border border-zinc-600 bg-zinc-900 p-2.5 text-[11px] leading-tight md:p-3'
+          }
+        >
           {/* Rij 1: label + alle tags op één lijn (scroll bij smalle viewport) */}
           <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
             <span className="shrink-0 font-bold text-zinc-200">Beschikbaar voor</span>
@@ -952,33 +996,57 @@ export function ModelsCatalogGrid({
       ) : null}
 
       {loading && !shown.length ? null : !shown.length && !loading ? (
-        <p className="py-8 text-center text-sm text-zinc-400">
+        <p className={`py-8 text-center ${isGallery ? 'text-[0.95vw] text-white/55' : 'text-sm text-zinc-400'}`}>
           {loadErr ? 'Geen modellen geladen.' : 'Geen modellen voor deze filters.'}
         </p>
       ) : shown.length ? (
-        <div
-          className={`grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`}
-        >
+        <div className={gridClass}>
           {shown.map((m, idx) => (
             <div key={m.id} className="min-w-0">
               <button
                 type="button"
-                className="w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 text-left shadow-sm outline-none transition hover:border-zinc-500 focus-visible:ring-2 focus-visible:ring-lime-300/50"
+                className={
+                  isGallery
+                    ? 'group w-full cursor-pointer text-left outline-none transition focus-visible:ring-2 focus-visible:ring-amber-200/50'
+                    : 'w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 text-left shadow-sm outline-none transition hover:border-zinc-500 focus-visible:ring-2 focus-visible:ring-lime-300/50'
+                }
                 onClick={() => setModal(m)}
               >
                 {m.profileThumbKey ? (
-                  <CatalogModelThumb
-                    src={imgUrl(m.profileThumbKey)}
-                    priority={idx < 12}
-                  />
+                  <div
+                    className={
+                      isGallery
+                        ? 'overflow-hidden rounded-[0.25vw] shadow-[0_0.45vw_1.2vw_rgba(0,0,0,0.55)] ring-1 ring-black/40 transition group-hover:shadow-[0_0.6vw_1.6vw_rgba(0,0,0,0.65)]'
+                        : undefined
+                    }
+                  >
+                    <CatalogModelThumb src={imgUrl(m.profileThumbKey)} priority={idx < 12} />
+                  </div>
                 ) : (
-                  <div className="flex aspect-[3/4] items-center justify-center rounded-md bg-zinc-800 px-2 text-center text-[10px] text-zinc-500">
+                  <div
+                    className={
+                      isGallery
+                        ? 'flex aspect-[3/4] items-center justify-center rounded-[0.25vw] bg-black/40 text-[0.75vw] text-white/45'
+                        : 'flex aspect-[3/4] items-center justify-center rounded-md bg-zinc-800 px-2 text-center text-[10px] text-zinc-500'
+                    }
+                  >
                     Geen foto
                   </div>
                 )}
-                <p className="mt-1.5 truncate px-0.5 text-xs font-semibold text-white">
+                <p
+                  className={
+                    isGallery
+                      ? 'mt-[0.55vw] truncate text-center font-serif text-[0.82vw] text-white/92'
+                      : 'mt-1.5 truncate px-0.5 text-xs font-semibold text-white'
+                  }
+                >
                   {m.displayName}
-                  {m.age != null ? <span className="font-normal text-zinc-400"> ({m.age})</span> : null}
+                  {m.age != null ? (
+                    <span className={isGallery ? 'text-white/72' : 'font-normal text-zinc-400'}>
+                      {' '}
+                      ({m.age})
+                    </span>
+                  ) : null}
                 </p>
               </button>
               {isAdmin ? (
