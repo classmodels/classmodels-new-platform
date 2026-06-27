@@ -7,9 +7,10 @@ type Props = {
   alt?: string;
   /** Eerste rijen: meteen laden */
   priority?: boolean;
+  className?: string;
 };
 
-export function CatalogModelThumb({ src, alt = '', priority = false }: Props) {
+export function CatalogModelThumb({ src, alt = '', priority = false, className = '' }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(priority);
   const [loaded, setLoaded] = useState(false);
@@ -32,7 +33,7 @@ export function CatalogModelThumb({ src, alt = '', priority = false }: Props) {
   }, [priority, active]);
 
   return (
-    <div ref={wrapRef} className="relative aspect-[3/4] w-full overflow-hidden rounded-md bg-zinc-800">
+    <div ref={wrapRef} className={`relative aspect-[3/4] w-full overflow-hidden bg-zinc-800 ${className || 'rounded-md'}`}>
       {!loaded ? (
         <div className="absolute inset-0 animate-pulse bg-zinc-700/80" aria-hidden />
       ) : null}

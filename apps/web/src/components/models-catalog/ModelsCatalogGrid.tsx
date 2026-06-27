@@ -18,6 +18,7 @@ import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
+import { GalleryCanvasFrame } from '@/components/model-portal/GalleryCanvasFrame';
 
 export type CatalogModel = {
   id: string;
@@ -861,7 +862,7 @@ export function ModelsCatalogGrid({
     : 'rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6';
 
   const gridClass = isGallery
-    ? `grid grid-cols-2 gap-[1.1vw] sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 ${loading ? 'pointer-events-none opacity-60' : ''}`
+    ? `grid grid-cols-3 gap-[1.15vw] sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 ${loading ? 'pointer-events-none opacity-60' : ''}`
     : `grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`;
 
   return (
@@ -1013,15 +1014,17 @@ export function ModelsCatalogGrid({
                 onClick={() => setModal(m)}
               >
                 {m.profileThumbKey ? (
-                  <div
-                    className={
-                      isGallery
-                        ? 'overflow-hidden rounded-[0.25vw] shadow-[0_0.45vw_1.2vw_rgba(0,0,0,0.55)] ring-1 ring-black/40 transition group-hover:shadow-[0_0.6vw_1.6vw_rgba(0,0,0,0.65)]'
-                        : undefined
-                    }
-                  >
+                  isGallery ? (
+                    <GalleryCanvasFrame>
+                      <CatalogModelThumb
+                        src={imgUrl(m.profileThumbKey)}
+                        priority={idx < 12}
+                        className="rounded-none"
+                      />
+                    </GalleryCanvasFrame>
+                  ) : (
                     <CatalogModelThumb src={imgUrl(m.profileThumbKey)} priority={idx < 12} />
-                  </div>
+                  )
                 ) : (
                   <div
                     className={
@@ -1036,7 +1039,7 @@ export function ModelsCatalogGrid({
                 <p
                   className={
                     isGallery
-                      ? 'mt-[0.55vw] truncate text-center font-serif text-[0.82vw] text-white/92'
+                      ? 'mt-[0.75vw] truncate text-center font-sans text-[0.72vw] font-light tracking-[0.04em] text-white/90'
                       : 'mt-1.5 truncate px-0.5 text-xs font-semibold text-white'
                   }
                 >
