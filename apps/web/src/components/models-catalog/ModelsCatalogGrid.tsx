@@ -18,7 +18,7 @@ import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
-import { GalleryPortraitFrame } from '@/components/model-portal/GalleryCanvasFrame';
+import { GalleryCanvasFrame } from '@/components/model-portal/GalleryCanvasFrame';
 
 export type CatalogModel = {
   id: string;
@@ -627,6 +627,22 @@ function gemeenteSlug(g: string): string {
   return g.toLowerCase().trim().replace(/\s+/g, '-');
 }
 
+const GALLERY_VESTIGING_FALLBACK: GalleryVestiging[] = [
+  { slug: 'hulshout', label: 'Hulshout', count: 0 },
+  { slug: 'antwerpen', label: 'Antwerpen', count: 0 },
+  { slug: 'gent', label: 'Gent', count: 0 },
+  { slug: 'brussel', label: 'Brussel', count: 0 },
+];
+
+function mergeVestigingen(fromData: GalleryVestiging[]): GalleryVestiging[] {
+  const out = [...fromData];
+  for (const fb of GALLERY_VESTIGING_FALLBACK) {
+    if (out.length >= 4) break;
+    if (!out.some((v) => v.slug === fb.slug)) out.push(fb);
+  }
+  return out.slice(0, 4);
+}
+
 export type ModelsCatalogGridProps = {
   toolbarPlacement?: 'inline' | 'titlebar' | 'external';
   layout?: 'default' | 'gallery-wall';
@@ -707,10 +723,11 @@ export function ModelsCatalogGrid({
       if (prev) prev.count++;
       else counts.set(slug, { label: g, count: 1 });
     }
-    return [...counts.entries()]
-      .map(([slug, { label, count }]) => ({ slug, label, count }))
-      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'nl'))
-      .slice(0, 4);
+    return mergeVestigingen(
+      [...counts.entries()]
+        .map(([slug, { label, count }]) => ({ slug, label, count }))
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'nl')),
+    );
   }, [rows]);
 
   const toggleVestiging = useCallback((slug: string) => {
@@ -824,8 +841,10 @@ export function ModelsCatalogGrid({
 
   const matchesFilters = (m: CatalogModel): boolean => {
     if (vestigingSel.size) {
-      const g = gemeenteSlug(m.gemeente ?? '');
-      if (!g || !vestigingSel.has(g)) return false;
+      const raw = (m.gemeente ?? '').toLowerCase().trim();
+      const slug = gemeenteSlug(m.gemeente ?? '');
+      const match = [...vestigingSel].some((sel) => slug === sel || raw.includes(sel.replace(/-/g, ' ')));
+      if (!match) return false;
     }
     if (avSel.size) {
       const has = m.beschikbaarSlugs.some((x) => avSel.has(x));
@@ -919,7 +938,7 @@ export function ModelsCatalogGrid({
     : 'rounded-cm border border-zinc-800 bg-zinc-950 p-4 text-zinc-100 md:p-6';
 
   const gridClass = isGallery
-    ? `grid grid-cols-3 gap-x-[0.95vw] gap-y-[1.25vw] sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 ${loading ? 'pointer-events-none opacity-60' : ''}`
+    ? `grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 ${loading ? 'pointer-events-none opacity-60' : ''}`
     : `grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 ${loading ? 'pointer-events-none opacity-60' : ''}`;
 
   return (
@@ -1072,13 +1091,13 @@ export function ModelsCatalogGrid({
               >
                 {m.profileThumbKey ? (
                   isGallery ? (
-                    <GalleryPortraitFrame>
+                    <GalleryCanvasFrame>
                       <CatalogModelThumb
                         src={imgUrl(m.profileThumbKey)}
                         priority={idx < 12}
-                        className="rounded-none"
+                        className="h-full w-full rounded-none object-cover"
                       />
-                    </GalleryPortraitFrame>
+                    </GalleryCanvasFrame>
                   ) : (
                     <CatalogModelThumb src={imgUrl(m.profileThumbKey)} priority={idx < 12} />
                   )
@@ -1086,7 +1105,7 @@ export function ModelsCatalogGrid({
                   <div
                     className={
                       isGallery
-                        ? 'flex aspect-[3/4] items-center justify-center rounded-[0.25vw] bg-black/40 text-[0.75vw] text-white/45'
+                        ? 'flex aspect-[3/4] items-center justify-center bg-black/40 text-xs text-white/45'
                         : 'flex aspect-[3/4] items-center justify-center rounded-md bg-zinc-800 px-2 text-center text-[10px] text-zinc-500'
                     }
                   >
@@ -1096,7 +1115,7 @@ export function ModelsCatalogGrid({
                 <p
                   className={
                     isGallery
-                      ? 'mt-[0.75vw] truncate text-center font-sans text-[0.72vw] font-light tracking-[0.04em] text-white/90'
+                      ? 'mt-2.5 truncate text-center text-xs font-light tracking-wide text-white/90'
                       : 'mt-1.5 truncate px-0.5 text-xs font-semibold text-white'
                   }
                 >

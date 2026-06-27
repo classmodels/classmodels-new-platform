@@ -5,13 +5,7 @@ import type { CatalogToolbarState } from '@/components/models-catalog/ModelsCata
 
 function MenuIcon({ d }: { d: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[1.05vw] w-[1.05vw] shrink-0 stroke-white/92"
-      fill="none"
-      strokeWidth="1.35"
-      aria-hidden
-    >
+    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 stroke-white/90" fill="none" strokeWidth="1.4" aria-hidden>
       <path d={d} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -31,7 +25,7 @@ const ICONS = {
 function Standoff({ className }: { className: string }) {
   return (
     <span
-      className={`pointer-events-none absolute z-10 h-[0.38vw] w-[0.38vw] rounded-full bg-gradient-to-br from-zinc-100 via-zinc-400 to-zinc-700 shadow-[0_0.04vw_0.1vw_rgba(0,0,0,0.65)] ${className}`}
+      className={`pointer-events-none absolute z-10 h-2 w-2 rounded-full bg-gradient-to-br from-zinc-100 via-zinc-400 to-zinc-600 shadow-[0_1px_2px_rgba(0,0,0,0.6)] ${className}`}
       aria-hidden
     />
   );
@@ -52,23 +46,22 @@ function GlassMenuPanel({
     <button
       type="button"
       onClick={onClick}
-      className={`group relative min-h-[3.35vw] w-full overflow-hidden backdrop-blur-[10px] transition duration-200 ${
+      className={`group relative w-full overflow-hidden border backdrop-blur-md transition duration-200 ${
         active
-          ? 'border-amber-300/80 bg-white/[0.09] shadow-[0_0_22px_rgba(255,120,50,0.38),0_0.4vw_0.85vw_rgba(0,0,0,0.48),inset_0_0_20px_rgba(255,90,40,0.07)]'
-          : 'border-amber-200/45 bg-white/[0.035] shadow-[0_0_14px_rgba(255,110,55,0.2),0_0.3vw_0.65vw_rgba(0,0,0,0.42)] hover:border-amber-200/65 hover:bg-white/[0.055]'
-      } border`}
-      style={{ transform: 'translateZ(8px)' }}
+          ? 'border-[#ff9a5c]/80 bg-white/[0.1] shadow-[0_0_20px_rgba(255,120,60,0.35),0_4px_12px_rgba(0,0,0,0.45),inset_0_0_18px_rgba(255,90,40,0.06)]'
+          : 'border-[#ff9a5c]/35 bg-white/[0.04] shadow-[0_0_10px_rgba(255,110,55,0.15),0_3px_10px_rgba(0,0,0,0.35)] hover:border-[#ff9a5c]/55 hover:bg-white/[0.07]'
+      }`}
     >
-      <Standoff className="left-[0.32vw] top-[0.32vw]" />
-      <Standoff className="right-[0.32vw] top-[0.32vw]" />
-      <Standoff className="bottom-[0.32vw] left-[0.32vw]" />
-      <Standoff className="bottom-[0.32vw] right-[0.32vw]" />
-      <div className="flex min-h-[3.35vw] items-center gap-[0.65vw] px-[0.85vw] py-[0.7vw]">
+      <Standoff className="left-2 top-2" />
+      <Standoff className="right-2 top-2" />
+      <Standoff className="bottom-2 left-2" />
+      <Standoff className="bottom-2 right-2" />
+      <div className="flex min-h-[52px] items-center gap-3 px-3.5 py-3">
         <MenuIcon d={ICONS[icon]} />
-        <span className="h-[1.35vw] w-px shrink-0 bg-white/25" aria-hidden />
+        <span className="h-5 w-px shrink-0 bg-white/20" aria-hidden />
         <span
-          className={`min-w-0 flex-1 font-sans text-[0.58vw] font-medium uppercase leading-snug tracking-[0.11em] ${
-            active ? 'text-white' : 'text-white/90 group-hover:text-white'
+          className={`min-w-0 flex-1 text-left text-[10px] font-medium uppercase leading-snug tracking-[0.14em] md:text-[11px] ${
+            active ? 'text-white' : 'text-white/88 group-hover:text-white'
           }`}
         >
           {children}
@@ -78,14 +71,17 @@ function GlassMenuPanel({
   );
 }
 
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#ffb380]/80">{children}</p>
+  );
+}
+
 function SidebarSkeleton() {
   return (
-    <div className="flex flex-col gap-[1.05vw]">
+    <div className="flex flex-col gap-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-[3.35vw] animate-pulse border border-amber-200/20 bg-white/[0.03] backdrop-blur-sm"
-        />
+        <div key={i} className="h-[52px] animate-pulse border border-[#ff9a5c]/20 bg-white/[0.03]" />
       ))}
     </div>
   );
@@ -121,36 +117,24 @@ export function ModelGalleryNeonSidebar({ state }: { state: CatalogToolbarState 
   ];
 
   return (
-    <nav className="flex flex-col [transform-style:preserve-3d]" aria-label="Modellen filters">
-      {vestigingen.length ? (
-        <div className="mb-[1.35vw]">
-          <p className="mb-[0.75vw] pl-[0.15vw] font-sans text-[0.48vw] font-semibold uppercase tracking-[0.2em] text-amber-200/75">
-            Vestigingen
-          </p>
-          <div className="flex flex-col gap-[1.05vw]">
-            {vestigingen.map((v) => (
-              <GlassMenuPanel
-                key={v.slug}
-                active={vestigingSel.has(v.slug)}
-                onClick={() => toggleVestiging(v.slug)}
-                icon="vestiging"
-              >
-                {v.label} ({v.count})
-              </GlassMenuPanel>
-            ))}
-          </div>
-        </div>
-      ) : null}
+    <nav className="flex flex-col" aria-label="Modellen filters">
+      <SectionLabel>Vestigingen</SectionLabel>
+      <div className="mb-6 flex flex-col gap-4">
+        {vestigingen.map((v) => (
+          <GlassMenuPanel
+            key={v.slug}
+            active={vestigingSel.has(v.slug)}
+            onClick={() => toggleVestiging(v.slug)}
+            icon="vestiging"
+          >
+            {v.label} ({v.count})
+          </GlassMenuPanel>
+        ))}
+      </div>
 
-      <p className="mb-[0.75vw] pl-[0.15vw] font-sans text-[0.48vw] font-semibold uppercase tracking-[0.2em] text-amber-200/75">
-        Modellen
-      </p>
-      <div className="flex flex-col gap-[1.05vw]">
-        <GlassMenuPanel
-          active={filtersOpen}
-          onClick={() => setFiltersOpen((v) => !v)}
-          icon="filter"
-        >
+      <SectionLabel>Modellen</SectionLabel>
+      <div className="flex flex-col gap-4">
+        <GlassMenuPanel active={filtersOpen} onClick={() => setFiltersOpen((v) => !v)} icon="filter">
           {filtersOpen ? 'Filter sluiten' : 'Filter modellen'}
         </GlassMenuPanel>
         {tabs.map((t) => (

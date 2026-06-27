@@ -2,73 +2,37 @@
 
 import type { ReactNode } from 'react';
 
-/** Portret op de galerijmuur — subtiele diepte zonder kapotte 3D-CSS. */
-export function GalleryPortraitFrame({ children }: { children: ReactNode }) {
+/** Canvas aan de muur — zichtbare rand + schaduw (frontaal, geen kapotte 3D). */
+export function GalleryCanvasFrame({ children }: { children: ReactNode }) {
   return (
-    <div className="relative w-full">
+    <div className="group relative w-full">
+      {/* Schaduw op de muur */}
       <div
-        className="pointer-events-none absolute left-[6%] right-[6%] top-[99%] h-[0.55vw] rounded-full bg-black/55 blur-[0.32vw]"
+        className="pointer-events-none absolute left-[8%] right-[8%] top-[calc(100%+2px)] h-2 rounded-full bg-black/50 blur-[3px] transition group-hover:blur-[4px]"
         aria-hidden
       />
-      <div
-        className="relative overflow-hidden bg-neutral-950 shadow-[0_0.28vw_0.75vw_rgba(0,0,0,0.62),0_0.06vw_0.18vw_rgba(0,0,0,0.45)] ring-1 ring-black/80"
-        style={{ aspectRatio: '3/4' }}
-      >
+      <div className="relative transition duration-300 group-hover:-translate-y-0.5">
+        {/* Canvas-dikte — rechterrand */}
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 h-[32%] bg-gradient-to-b from-white/[0.09] to-transparent"
+          className="pointer-events-none absolute -right-[5px] top-[6px] bottom-[6px] w-[5px] rounded-r-sm bg-gradient-to-l from-zinc-600 to-zinc-800"
           aria-hidden
         />
-        {children}
+        {/* Canvas-dikte — onderrand */}
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[0.12vw] bg-gradient-to-b from-neutral-600/80 to-neutral-900"
+          className="pointer-events-none absolute -bottom-[5px] left-[6px] right-[6px] h-[5px] rounded-b-sm bg-gradient-to-b from-zinc-600 to-zinc-900"
           aria-hidden
         />
+        {/* Voorzijde */}
+        <div className="relative overflow-hidden bg-zinc-950 shadow-[0_4px_14px_rgba(0,0,0,0.55),0_1px_3px_rgba(0,0,0,0.4)] ring-1 ring-black/70">
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[28%] bg-gradient-to-b from-white/[0.08] to-transparent"
+            aria-hidden
+          />
+          <div className="relative aspect-[3/4] w-full">{children}</div>
+        </div>
       </div>
     </div>
   );
 }
 
-/** Linkermenu op de schuine muur (rechts hoger dan links). */
-export function GalleryWallMount({
-  children,
-  className = '',
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`[transform-style:preserve-3d] ${className}`}
-      style={{
-        transform: 'rotateY(26deg) rotateX(-1.2deg)',
-        transformOrigin: 'right center',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** @deprecated Use GalleryPortraitFrame */
-export const GalleryCanvasFrame = GalleryPortraitFrame;
-
-/** Achterwand — licht perspectief. */
-export function GalleryBackWall({
-  children,
-  className = '',
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`[transform-style:preserve-3d] ${className}`}
-      style={{
-        transform: 'rotateY(-0.8deg)',
-        transformOrigin: 'left center',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+export const GalleryPortraitFrame = GalleryCanvasFrame;
