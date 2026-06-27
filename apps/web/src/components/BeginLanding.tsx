@@ -228,7 +228,7 @@ export function BeginLanding() {
           <div className="relative aspect-[1024/576] w-full">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/begin-lobby.png"
+              src="/begin-lobby.jpg"
               alt="Class-Models receptie met deuren naar het klanten-, modellen- en gastenportaal"
               className="absolute inset-0 h-full w-full select-none object-contain"
               draggable={false}
