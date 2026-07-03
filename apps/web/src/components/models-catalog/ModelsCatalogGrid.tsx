@@ -19,6 +19,8 @@ import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 import { GalleryCanvasFrame } from '@/components/model-portal/GalleryCanvasFrame';
+import { ModelGallerySheet } from '@/components/model-portal/ModelGallerySheet';
+import { SHOWROOM_MODEL_SESSION_KEY } from '@/components/model-portal/model-gallery-3d/useShowroomGallery';
 
 export type CatalogModel = {
   id: string;
@@ -674,6 +676,21 @@ export function ModelsCatalogGrid({
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<CatalogModel | null>(null);
 
+  const openGalleryShowroom = useCallback(
+    (m: CatalogModel) => {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(SHOWROOM_MODEL_SESSION_KEY, m.id);
+      }
+      const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
+      router.push(`${base}/portal/model/gallery-3d?model=${encodeURIComponent(m.id)}`);
+    },
+    [router],
+  );
+
+  const openModelSheet = useCallback((m: CatalogModel) => {
+    setModal(m);
+  }, []);
+
   const titlebarSlotRef = useRef(onTitlebarContent);
   titlebarSlotRef.current = onTitlebarContent;
 
@@ -1087,7 +1104,7 @@ export function ModelsCatalogGrid({
                     ? 'group w-full cursor-pointer text-left outline-none transition focus-visible:ring-2 focus-visible:ring-amber-200/50'
                     : 'w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 text-left shadow-sm outline-none transition hover:border-zinc-500 focus-visible:ring-2 focus-visible:ring-lime-300/50'
                 }
-                onClick={() => setModal(m)}
+                onClick={() => openGalleryShowroom(m)}
               >
                 {m.profileThumbKey ? (
                   isGallery ? (
@@ -1133,7 +1150,7 @@ export function ModelsCatalogGrid({
                   <button
                     type="button"
                     className="rounded border border-zinc-600 px-1.5 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-800"
-                    onClick={() => setModal(m)}
+                    onClick={() => openModelSheet(m)}
                   >
                     Info
                   </button>
@@ -1191,13 +1208,24 @@ export function ModelsCatalogGrid({
       ) : null}
 
       {modal ? (
-        <ModelDetailDialog
-          m={modal}
-          initialPhotoSrc={modalPhoto}
-          isAdmin={isAdmin}
-          token={token}
-          onClose={() => setModal(null)}
-        />
+        isGallery ? (
+          <ModelGallerySheet
+            m={modal}
+            initialPhotoSrc={modalPhoto}
+            isAdmin={isAdmin}
+            token={token}
+            onClose={() => setModal(null)}
+            onPrint={(model, photoSrc) => printModelSheet(model, photoSrc, isAdmin)}
+          />
+        ) : (
+          <ModelDetailDialog
+            m={modal}
+            initialPhotoSrc={modalPhoto}
+            isAdmin={isAdmin}
+            token={token}
+            onClose={() => setModal(null)}
+          />
+        )
       ) : null}
     </div>
   );

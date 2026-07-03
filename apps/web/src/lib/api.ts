@@ -191,10 +191,22 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (!headers.has('Content-Type') && rest.body && typeof rest.body === 'string') {
       headers.set('Content-Type', 'application/json');
     }
-    const res = await fetch(`${API}${path.startsWith('/') ? path : `/${path}`}`, {
-      ...rest,
-      headers,
-    });
+    let res: Response;
+    try {
+      res = await fetch(`${API}${path.startsWith('/') ? path : `/${path}`}`, {
+        ...rest,
+        headers,
+      });
+    } catch {
+      const local =
+        typeof window !== 'undefined' &&
+        /localhost|127\.0\.0\.1|\[::1\]/i.test(window.location.hostname);
+      throw new Error(
+        local
+          ? `Geen verbinding met de API (${API}). Start Docker Desktop → npm run docker:up → npm run dev. Demo: admin@class-models.local / Demo123!`
+          : 'Geen verbinding met de server. Probeer later opnieuw.',
+      );
+    }
     if (!res.ok) {
       const text = await res.text();
       if (text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
@@ -202,7 +214,13 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
           'Server gaf een webpagina i.p.v. API-data. Wacht op deploy of controleer /__cm_api (zie Combell pipeline).',
         );
       }
-      throw new Error(parseApiErrorBody(text || res.statusText));
+      const msg = parseApiErrorBody(text || res.statusText);
+      if (/database|Can't reach database|ECONNREFUSED|3307/i.test(text + msg)) {
+        throw new Error(
+          'Database niet bereikbaar. Start Docker Desktop en voer uit: npm run docker:up (MySQL poort 3307).',
+        );
+      }
+      throw new Error(msg);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;

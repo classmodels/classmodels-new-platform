@@ -16,13 +16,14 @@ export function AppChrome({ children }: { children: ReactNode }) {
     pathname === '/' ||
     pathname === '' ||
     (!!basePath && (pathname === basePath || pathname === `${basePath}/`));
+  const isFullBleedGallery = pathname?.includes('/portal/model/gallery-3d');
   const showBar = !!user && (hasBackofficeAccess || can('content.strings.write'));
 
   return (
     <>
       <AdminBar />
       {showBar ? <div className="h-10 shrink-0" aria-hidden /> : null}
-      {!onAdmin && !onBeginPage ? <SiteHeader /> : null}
+      {!onAdmin && !onBeginPage && !isFullBleedGallery ? <SiteHeader /> : null}
       {!onAdmin && onBeginPage ? (
         <div className="pointer-events-none fixed right-4 top-4 z-50 md:right-6 md:top-6">
           <div className="pointer-events-auto">
