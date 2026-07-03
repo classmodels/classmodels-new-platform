@@ -20,7 +20,7 @@ import { useShowroomGallery } from '@/components/model-portal/model-gallery-3d/u
 import layout from '@/components/model-portal/showroom-room-layout.json';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
-const BG = `${SHEET_BASE}/images/showroom-room-bg-wide.png`;
+const BG = `${SHEET_BASE}/images/showroom-room-bg-v2.jpg`;
 
 const BASE_W = layout.base.width;
 const BASE_H = layout.base.height;
@@ -36,6 +36,12 @@ const NAME_QUAD = layout.nameWall as Quad;
 const LABEL_QUAD = layout.galleryLabel as Quad;
 /** Zwarte verhoging (balk) onderaan — beschikbaarheden. */
 const BALK_QUAD = layout.balk as Quad;
+
+/** Max. crop links (naam/foto's beginnen op ±170px) en rechts (na de hero is alleen muur/plant). */
+const CROP_L_MAX = 160;
+const CROP_R_MAX = 495;
+/** Breedte die altijd zichtbaar moet blijven; smaller schalen we niet (dan liever randen boven/onder). */
+const SAFE_MIN_W = 2560 - CROP_L_MAX - CROP_R_MAX;
 
 const HERO_SRC = quadSourceSize(HERO_QUAD);
 const STATS_SRC = quadSourceSize(STATS_QUAD);
@@ -185,6 +191,7 @@ export function ModelShowroomReference({
   const gallery = useShowroomGallery(token, demo ? null : modelId ?? null);
   const shellRef = useRef<HTMLDivElement>(null);
   const [coverScale, setCoverScale] = useState(1);
+  const [coverShiftX, setCoverShiftX] = useState(0);
   /** Vastgeklikte foto — blijft staan na klik. */
   const [pinnedIndex, setPinnedIndex] = useState(0);
   /** Tijdelijke hover-preview — valt terug op pinned bij mouse-leave. */
@@ -207,10 +214,17 @@ export function ModelShowroomReference({
     const el = shellRef.current;
     if (!el) return;
     const update = () => {
-      // "cover": schermvullend; de achtergrond heeft veilige randen (200px
-      // links/rechts, 130px boven/onder) zodat de kamer zelf nooit wordt afgesneden.
-      const s = Math.max(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
+      // Schermvullend (cover), maar de zijwaartse crop is begrensd zodat de
+      // foto's en teksten nooit buiten beeld vallen; op smallere schermen
+      // ontstaat dan een subtiele donkere rand boven/onder.
+      const cover = Math.max(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
+      const s = Math.min(cover, el.clientWidth / SAFE_MIN_W);
       setCoverScale(s > 0 ? s : 1);
+      // Verdeel de crop: links zit de naam/foto's dicht bij de rand, rechts
+      // is na de hero vooral lege muur — dus rechts mag meer wegvallen.
+      const crop = Math.max(0, BASE_W * s - el.clientWidth);
+      const cropL = crop * (CROP_L_MAX / (CROP_L_MAX + CROP_R_MAX));
+      setCoverShiftX(crop / 2 - cropL);
     };
     update();
     const ro = new ResizeObserver(update);
@@ -242,7 +256,7 @@ export function ModelShowroomReference({
   const onLeaveWall = useCallback(() => setHoverIndex(null), []);
   const ready = photoUrls.length > 0;
 
-  const nameFontSize = fitFontSize(nameLine, NAME_SRC.w, 40);
+  const nameFontSize = fitFontSize(nameLine, NAME_SRC.w, 56);
 
   return (
     <div ref={shellRef} className="absolute inset-0 overflow-hidden bg-[#120608]">
@@ -266,7 +280,7 @@ export function ModelShowroomReference({
           style={{
             width: BASE_W,
             height: BASE_H,
-            transform: `translate(-50%, -50%) scale(${coverScale})`,
+            transform: `translate(calc(-50% + ${coverShiftX}px), -50%) scale(${coverScale})`,
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -320,7 +334,7 @@ export function ModelShowroomReference({
             <QuadWallText quad={LABEL_QUAD} srcW={LABEL_SRC.w} srcH={LABEL_SRC.h}>
               <PaintedWallLabel
                 text="Modellen Gallerij"
-                fontSize={fitFontSize('Modellen Gallerij', LABEL_SRC.w, 30)}
+                fontSize={fitFontSize('Modellen Gallerij', LABEL_SRC.w, 42)}
               />
             </QuadWallText>
           </div>
@@ -351,7 +365,7 @@ export function ModelShowroomReference({
                 <p
                   className="m-0 whitespace-nowrap font-sans font-normal uppercase leading-none"
                   style={{
-                    fontSize: 18,
+                    fontSize: 26,
                     letterSpacing: '0.18em',
                     color: COPPER_BRIGHT,
                     textShadow: STATS_GLOW,
@@ -362,28 +376,28 @@ export function ModelShowroomReference({
                 <span
                   aria-hidden
                   style={{
-                    marginTop: 12,
-                    height: 1,
+                    marginTop: 16,
+                    height: 1.5,
                     width: '82%',
                     background:
                       'linear-gradient(to right, rgba(232,184,138,0.65), rgba(232,184,138,0.05))',
                   }}
                 />
 
-                <dl className="m-0 p-0" style={{ marginTop: 20 }}>
+                <dl className="m-0 p-0" style={{ marginTop: 26 }}>
                   {stats.map(([label, value]) => (
                     <div
                       key={label}
                       className="flex items-baseline justify-between"
-                      style={{ marginBottom: 17 }}
+                      style={{ marginBottom: 22 }}
                     >
                       <dt
                         className="whitespace-nowrap font-sans font-normal uppercase"
                         style={{
-                          fontSize: 13.5,
+                          fontSize: 19,
                           letterSpacing: '0.13em',
                           color: COPPER_DIM,
-                          textShadow: '0 0 8px rgba(232,184,138,0.35)',
+                          textShadow: '0 0 10px rgba(232,184,138,0.35)',
                         }}
                       >
                         {label}
@@ -391,10 +405,10 @@ export function ModelShowroomReference({
                       <dd
                         className="m-0 whitespace-nowrap font-sans font-light uppercase"
                         style={{
-                          fontSize: 13.5,
+                          fontSize: 19,
                           letterSpacing: '0.09em',
                           color: TEXT_WHITE,
-                          textShadow: '0 0 8px rgba(255,255,255,0.22)',
+                          textShadow: '0 0 10px rgba(255,255,255,0.22)',
                         }}
                       >
                         {value}
@@ -414,10 +428,10 @@ export function ModelShowroomReference({
                   <p
                     className="m-0 whitespace-nowrap font-sans font-normal uppercase leading-none"
                     style={{
-                      fontSize: 15,
+                      fontSize: 21,
                       letterSpacing: '0.22em',
                       color: COPPER_DIM,
-                      textShadow: '0 0 10px rgba(232,184,138,0.4)',
+                      textShadow: '0 0 12px rgba(232,184,138,0.4)',
                     }}
                   >
                     Beschikbaar voor
@@ -425,11 +439,11 @@ export function ModelShowroomReference({
                   <p
                     className="m-0 whitespace-nowrap font-sans font-light uppercase"
                     style={{
-                      marginTop: 11,
-                      fontSize: 13.5,
+                      marginTop: 14,
+                      fontSize: 19,
                       letterSpacing: '0.1em',
                       color: TEXT_WHITE,
-                      textShadow: '0 0 8px rgba(255,255,255,0.2)',
+                      textShadow: '0 0 10px rgba(255,255,255,0.2)',
                     }}
                   >
                     {availInline}
