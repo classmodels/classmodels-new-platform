@@ -20,7 +20,7 @@ import { useShowroomGallery } from '@/components/model-portal/model-gallery-3d/u
 import layout from '@/components/model-portal/showroom-room-layout.json';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
-const BG = `${SHEET_BASE}/images/showroom-room-bg.png`;
+const BG = `${SHEET_BASE}/images/showroom-room-bg-wide.png`;
 
 const BASE_W = layout.base.width;
 const BASE_H = layout.base.height;
@@ -207,8 +207,9 @@ export function ModelShowroomReference({
     const el = shellRef.current;
     if (!el) return;
     const update = () => {
-      // "contain": hele kamer altijd zichtbaar (niets boven/onder afgesneden)
-      const s = Math.min(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
+      // "cover": schermvullend; de achtergrond heeft veilige randen (200px
+      // links/rechts, 130px boven/onder) zodat de kamer zelf nooit wordt afgesneden.
+      const s = Math.max(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
       setCoverScale(s > 0 ? s : 1);
     };
     update();
