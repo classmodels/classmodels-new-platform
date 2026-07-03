@@ -9,7 +9,6 @@ import { useDemoPhotoUrls } from '@/components/model-portal/model-gallery-3d/dem
 import {
   SHOWCASE_MODEL,
   SHOWCASE_PHOTO_URLS,
-  showcaseAvailLines,
 } from '@/components/model-portal/model-gallery-3d/showcaseDemoData';
 import type { Quad } from '@/components/model-portal/model-gallery-3d/quadTransform';
 import { quadSourceSize } from '@/components/model-portal/model-gallery-3d/quadTransform';
@@ -208,7 +207,8 @@ export function ModelShowroomReference({
     const el = shellRef.current;
     if (!el) return;
     const update = () => {
-      const s = Math.max(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
+      // "contain": hele kamer altijd zichtbaar (niets boven/onder afgesneden)
+      const s = Math.min(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
       setCoverScale(s > 0 ? s : 1);
     };
     update();
@@ -227,9 +227,14 @@ export function ModelShowroomReference({
     ? showroomDisplayName(activeModel, isAdmin).toUpperCase()
     : '';
   const stats = activeModel ? showroomStats(activeModel) : [];
-  const availLines = activeModel?.beschikbaar?.length
-    ? showcaseAvailLines(activeModel.beschikbaar)
-    : [];
+  /** Alle beschikbaarheden op één regel. */
+  const availInline = activeModel?.beschikbaar?.length
+    ? activeModel.beschikbaar
+        .map((b) => b.trim())
+        .filter(Boolean)
+        .join('  -  ')
+        .toUpperCase()
+    : '';
 
   const onPinWall = useCallback((idx: number) => setPinnedIndex(idx), []);
   const onHoverWall = useCallback((idx: number) => setHoverIndex(idx), []);
@@ -319,9 +324,9 @@ export function ModelShowroomReference({
             </QuadWallText>
           </div>
 
-          {/* Voormuur — hoofdfoto als dik canvas */}
+          {/* Voormuur — hoofdfoto als dik canvas (pointer-events uit: hover op zijmuur blijft werken) */}
           {heroSrc ? (
-            <div className="absolute inset-0 z-[12] overflow-visible">
+            <div className="absolute inset-0 z-[12] overflow-visible pointer-events-none">
               <QuadPhotoPin
                 src={heroSrc}
                 quad={HERO_QUAD}
@@ -339,7 +344,7 @@ export function ModelShowroomReference({
           ) : null}
 
           {/* Achtermuur — Model Stats, groter en in het muurvlak gedraaid */}
-          <div className="absolute inset-0 z-20 overflow-visible">
+          <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
             <QuadWallText quad={STATS_QUAD} srcW={STATS_SRC.w} srcH={STATS_SRC.h}>
               <div className="flex h-full w-full flex-col px-[12px] pt-[14px]">
                 <p
@@ -400,11 +405,11 @@ export function ModelShowroomReference({
             </QuadWallText>
           </div>
 
-          {/* Zwarte verhoging (balk) — beschikbaarheden */}
-          {availLines.length ? (
-            <div className="absolute inset-0 z-20 overflow-visible">
+          {/* Zwarte verhoging (balk) — beschikbaar voor links, alles op één regel */}
+          {availInline ? (
+            <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
               <QuadWallText quad={BALK_QUAD} srcW={BALK_SRC.w} srcH={BALK_SRC.h}>
-                <div className="flex h-full w-full flex-col justify-center px-[10px]">
+                <div className="flex h-full w-full flex-col justify-center px-[6px]">
                   <p
                     className="m-0 whitespace-nowrap font-sans font-normal uppercase leading-none"
                     style={{
@@ -416,21 +421,18 @@ export function ModelShowroomReference({
                   >
                     Beschikbaar voor
                   </p>
-                  {availLines.map((line) => (
-                    <p
-                      key={line}
-                      className="m-0 whitespace-nowrap font-sans font-light uppercase"
-                      style={{
-                        marginTop: 9,
-                        fontSize: 13.5,
-                        letterSpacing: '0.1em',
-                        color: TEXT_WHITE,
-                        textShadow: '0 0 8px rgba(255,255,255,0.2)',
-                      }}
-                    >
-                      {line.toUpperCase()}
-                    </p>
-                  ))}
+                  <p
+                    className="m-0 whitespace-nowrap font-sans font-light uppercase"
+                    style={{
+                      marginTop: 11,
+                      fontSize: 13.5,
+                      letterSpacing: '0.1em',
+                      color: TEXT_WHITE,
+                      textShadow: '0 0 8px rgba(255,255,255,0.2)',
+                    }}
+                  >
+                    {availInline}
+                  </p>
                 </div>
               </QuadWallText>
             </div>

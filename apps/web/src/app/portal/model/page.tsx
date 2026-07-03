@@ -29,7 +29,7 @@ import { ModelModeshowDownloadsTab } from '@/components/model-portal/ModelModesh
 import { ModelSetCardTab } from '@/components/model-portal/ModelSetCardTab';
 import { MODEL_BTN_GOLD } from '@/components/model-portal/model-portal-buttons';
 import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data';
-import { ModelPortalModellenGallery } from '@/components/model-portal/ModelPortalModellenGallery';
+import { ModelsCatalogGrid } from '@/components/models-catalog/ModelsCatalogGrid';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 import { useModelPortalTabLabels } from '@/i18n/portal-labels';
 import { PremiumUpsellBanner, PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
@@ -219,9 +219,14 @@ function ModelPortalPageInner() {
   const [messageBody, setMessageBody] = useState('');
   const [opleidingHeaderRight, setOpleidingHeaderRight] = useState<ReactNode | null>(null);
   const [portfolioHeaderRight, setPortfolioHeaderRight] = useState<ReactNode | null>(null);
+  const [modellenTitlebar, setModellenTitlebar] = useState<ReactNode | null>(null);
   const [historiekHeaderSlot, setHistoriekHeaderSlot] = useState<ReactNode | null>(null);
   const [pushTitleSlot, setPushTitleSlot] = useState<ReactNode | null>(null);
   const [tryoutHeaderRight, setTryoutHeaderRight] = useState<ReactNode | null>(null);
+
+  const setModellenTitlebarSlot = useCallback((node: ReactNode | null) => {
+    setModellenTitlebar(node);
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -239,6 +244,10 @@ function ModelPortalPageInner() {
 
   useEffect(() => {
     if (tab !== 'profiel') setProfileEditing(false);
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'modellen') setModellenTitlebar(null);
   }, [tab]);
 
   useEffect(() => {
@@ -486,10 +495,6 @@ function ModelPortalPageInner() {
   };
 
   if (loading || !portalUser) return <div className="p-8 text-sm text-muted">Laden…</div>;
-
-  if (tab === 'modellen') {
-    return <ModelPortalModellenGallery />;
-  }
 
   const premiumReturn = searchParams.get('premium') === 'return';
   const displayName = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ').trim();
@@ -859,6 +864,16 @@ function ModelPortalPageInner() {
   } else if (tab === 'opleiding') {
     sectionHeaderRight = opleidingHeaderRight ?? undefined;
     main = <ModelOpleidingTab onHeaderRightChange={setOpleidingHeaderRight} />;
+  } else if (tab === 'modellen') {
+    sectionHeaderRight = modellenTitlebar ?? undefined;
+    main = (
+      <div className="min-w-0 space-y-3">
+        <p className="text-sm leading-relaxed text-muted">
+          Modellenoverzicht voor iedereen met een modelaccount. Zelfde menu als de rest van je account.
+        </p>
+        <ModelsCatalogGrid toolbarPlacement="titlebar" onTitlebarContent={setModellenTitlebarSlot} />
+      </div>
+    );
   } else if (tab === 'historiek' && can('portal.model.history.read')) {
     sectionTitle = 'Historiek';
     sectionHeaderRight = isPremium ? historiekHeaderSlot ?? undefined : undefined;
