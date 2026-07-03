@@ -344,7 +344,14 @@ function resolveWallCell(
 
   if (rowIndex === 0) {
     if (!cell?.width || !cell.height || cell.topAngle == null || cell.bottomAngle == null) return null;
-    return cell;
+    return {
+      topAngle: cell.topAngle,
+      bottomAngle: cell.bottomAngle,
+      width: cell.width,
+      height: cell.height,
+      yOffset: cell.yOffset,
+      xOffset: cell.xOffset,
+    };
   }
 
   return {
