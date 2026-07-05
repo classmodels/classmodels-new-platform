@@ -19,6 +19,8 @@ import {
   WAAROM_CHECKLIST,
   WAAROM_PARAGRAPHS,
 } from '@/components/guest-portal/guest-portal-data';
+import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
+import { GuestContactSection } from '@/components/guest-portal/GuestContactSection';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 const VIDEO_INTRO = `${SHEET_BASE}/videos/intro-lift.mp4`;
@@ -53,15 +55,23 @@ const LIFT_BUTTONS: { label: string; x: number; y: number; w: number; h: number;
   { label: 'Gasten portaal', x: 50, y: 408, w: 100, h: 118, action: 'guest' },
 ];
 
-/** Tv op de muur in de receptie (eindbeeld film 100) — daar speelt de promofilm in loop. */
+/**
+ * Tv op de muur in de receptie (eindbeeld film 100) — daar speelt de promofilm in loop.
+ * De quad dekt het volledige toestel; eromheen tekenen we een zwart kader (bezel)
+ * met onderaan in het midden een klein stand-by lampje.
+ */
 const TV_QUAD: Quad = {
-  tl: [346, 196],
-  tr: [525, 219],
-  br: [525, 342],
-  bl: [346, 334],
+  tl: [339, 189],
+  tr: [531, 214],
+  br: [531, 349],
+  bl: [339, 338],
 };
 const TV_SRC_W = 320;
-const TV_SRC_H = 180;
+const TV_SRC_H = 196;
+/** Bezel-diktes in bronpixels: zijkanten/boven smal, onderaan iets breder voor het lampje. */
+const TV_BEZEL_X = 10;
+const TV_BEZEL_TOP = 8;
+const TV_BEZEL_BOTTOM = 14;
 
 /** Menu-items op de desk (eindbeeld film 100) — klikzones over de geschilderde knoppen. */
 const DESK_MENU: { id: MenuId; label: string; x: number; y: number; w: number; h: number }[] = [
@@ -137,25 +147,26 @@ function WallBullets({ items }: { items: readonly string[] }) {
   );
 }
 
-/** Boekingsknop (agenda) — opent de online afspraak in het gastenportaal. */
-function WallCta({ href, label }: { href: string; label: string }) {
+/** Actieknop op de muur — opent bv. de online agenda direct op ditzelfde paneel. */
+function WallCta({ onClick, label }: { onClick: () => void; label: string }) {
   return (
-    <Link
-      href={href}
-      className="mt-5 block w-full rounded-md py-3 text-center font-sans font-semibold text-white transition hover:opacity-90"
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-5 block w-full cursor-pointer rounded-md py-3 text-center font-sans font-semibold text-white transition hover:opacity-90"
       style={{ fontSize: 14.5, background: '#6f121b' }}
     >
       {label}
-    </Link>
+    </button>
   );
 }
 
-/** Kleine link naar de volledige pagina in het gastenportaal. */
-function WallPortalLink({ href, label }: { href: string; label?: string }) {
+/** Kleine link naar het gastenportaal (alleen waar inloggen nodig is). */
+function WallPortalLink({ href, label }: { href: string; label: string }) {
   return (
     <p className="m-0 mt-3 text-center font-sans" style={{ fontSize: 12.5, color: '#6b5c48' }}>
       <Link href={href} className="underline underline-offset-2 hover:opacity-80" style={{ color: GOLD }}>
-        {label ?? 'Bekijk de volledige pagina in het gastenportaal'}
+        {label}
       </Link>
     </p>
   );
@@ -178,8 +189,60 @@ function WallStats() {
   );
 }
 
+/** Welkomsttekst op de muur zolang er nog geen menu-item gekozen is. */
+function WallWelcome() {
+  return (
+    <div className="flex h-full flex-col justify-center text-center">
+      <p
+        className="m-0 font-sans uppercase"
+        style={{ fontSize: 14, letterSpacing: '0.28em', color: GOLD }}
+      >
+        Class-Models
+      </p>
+      <h2
+        className="m-0 mt-4 font-serif font-semibold leading-tight"
+        style={{ fontSize: 44, color: INK }}
+      >
+        Welkom in het
+        <br />
+        gastenportaal
+      </h2>
+      <span
+        aria-hidden
+        className="mx-auto mt-6 block h-px w-40"
+        style={{ background: `linear-gradient(to right, transparent, ${GOLD}, transparent)` }}
+      />
+      <p
+        className="mx-auto mt-7 max-w-[400px] font-serif leading-relaxed"
+        style={{ fontSize: 21, color: '#3d3428' }}
+      >
+        Hier vind je alle informatie over model worden en boek je meteen een afspraak voor een
+        gratis fotoshoot, een casting of een vrijblijvend intakegesprek.
+      </p>
+      <p
+        className="mx-auto mt-8 max-w-[380px] font-sans leading-relaxed"
+        style={{ fontSize: 16, color: '#6b5c48' }}
+      >
+        Kies links op de balie een onderwerp uit het menubord — de inhoud verschijnt hier op de
+        muur.
+      </p>
+      <span aria-hidden className="mx-auto mt-8 text-2xl" style={{ color: GOLD }}>
+        ◆
+      </span>
+    </div>
+  );
+}
+
+type WallContentProps = {
+  menu: MenuId;
+  /** Opent de online agenda (boeken) op ditzelfde muurpaneel. */
+  onBook: (calendarSlug: string, title: string) => void;
+  /** Opent de contactpagina op ditzelfde muurpaneel. */
+  onContact: () => void;
+};
+
 /** Inhoud per menu-item, gerenderd op het muurpaneel. */
-function WallContent({ menu }: { menu: MenuId }) {
+function WallContent({ menu, onBook, onContact }: WallContentProps) {
   switch (menu) {
     case 'model-worden':
       return (
@@ -210,8 +273,10 @@ function WallContent({ menu }: { menu: MenuId }) {
           </div>
           <WallBullets items={WAAROM_CHECKLIST} />
           <WallStats />
-          <WallCta href="/portal/guest?p=gratis-fotoshoot&book=gratis-fotoshoot" label="Plan je gratis fotoshoot" />
-          <WallPortalLink href="/portal/guest" />
+          <WallCta
+            onClick={() => onBook('gratis-fotoshoot', 'Plan je gratis fotoshoot')}
+            label="Plan je gratis fotoshoot"
+          />
         </div>
       );
     case 'gratis-fotoshoot':
@@ -229,10 +294,9 @@ function WallContent({ menu }: { menu: MenuId }) {
             {GRATIS_FOTOSHOOT_PAGE.whyParagraph}
           </p>
           <WallCta
-            href="/portal/guest?p=gratis-fotoshoot&book=gratis-fotoshoot"
+            onClick={() => onBook('gratis-fotoshoot', GRATIS_FOTOSHOOT_PAGE.ctaButton)}
             label={GRATIS_FOTOSHOOT_PAGE.ctaButton}
           />
-          <WallPortalLink href="/portal/guest?p=gratis-fotoshoot" />
         </div>
       );
     case 'casting':
@@ -249,8 +313,7 @@ function WallContent({ menu }: { menu: MenuId }) {
           <p className="m-0 mt-2 font-sans leading-relaxed" style={{ fontSize: 14, color: '#3d3428' }}>
             {CASTING_PAGE.whyParagraph}
           </p>
-          <WallCta href="/portal/guest?p=casting&book=casting" label={CASTING_PAGE.ctaButton} />
-          <WallPortalLink href="/portal/guest?p=casting" />
+          <WallCta onClick={() => onBook('casting', CASTING_PAGE.ctaButton)} label={CASTING_PAGE.ctaButton} />
         </div>
       );
     case 'intake-gesprek':
@@ -278,10 +341,9 @@ function WallContent({ menu }: { menu: MenuId }) {
           </h3>
           <WallBullets items={WAAROM_CHECKLIST} />
           <WallCta
-            href="/portal/guest?p=intake-gesprek&book=intake-gesprek"
+            onClick={() => onBook('intake-gesprek', INTAKE_GESPREK_PAGE.ctaButton)}
             label={INTAKE_GESPREK_PAGE.ctaButton}
           />
-          <WallPortalLink href="/portal/guest?p=intake-gesprek" />
         </div>
       );
     case 'doelgroepen':
@@ -303,8 +365,10 @@ function WallContent({ menu }: { menu: MenuId }) {
               </div>
             ))}
           </div>
-          <WallCta href="/portal/guest?p=gratis-fotoshoot&book=gratis-fotoshoot" label="Plan je gratis fotoshoot" />
-          <WallPortalLink href="/portal/guest?p=doelgroepen" />
+          <WallCta
+            onClick={() => onBook('gratis-fotoshoot', 'Plan je gratis fotoshoot')}
+            label="Plan je gratis fotoshoot"
+          />
         </div>
       );
     case 'veelgestelde-vragen':
@@ -323,8 +387,7 @@ function WallContent({ menu }: { menu: MenuId }) {
               </section>
             ))}
           </div>
-          <WallCta href="/portal/guest?p=contact" label="Stel je vraag via contact" />
-          <WallPortalLink href="/portal/guest?p=veelgestelde-vragen" />
+          <WallCta onClick={onContact} label="Stel je vraag via contact" />
         </div>
       );
     case 'testshoot':
@@ -338,7 +401,13 @@ function WallContent({ menu }: { menu: MenuId }) {
           <p className="m-0 mt-3 font-sans leading-relaxed" style={{ fontSize: 14, color: '#3d3428' }}>
             Log in via het gastenportaal om jouw testshoot te bekijken.
           </p>
-          <WallCta href="/portal/guest?p=testshoot" label="Bekijk jouw testshoot" />
+          <Link
+            href="/portal/guest?p=testshoot"
+            className="mt-5 block w-full rounded-md py-3 text-center font-sans font-semibold text-white transition hover:opacity-90"
+            style={{ fontSize: 14.5, background: '#6f121b' }}
+          >
+            Bekijk jouw testshoot
+          </Link>
           <WallPortalLink href="/portal/guest" label="Naar het gastenportaal" />
         </div>
       );
@@ -358,6 +427,17 @@ export function BeginLiftExperience() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [scale, setScale] = useState(1);
   const [activeMenu, setActiveMenu] = useState<MenuId | null>(null);
+  /** Extra weergave bovenop het gekozen menu-item: agenda (boeken) of contact — op de muur zelf. */
+  const [wallOverlay, setWallOverlay] = useState<
+    | { kind: 'booking'; slug: string; title: string }
+    | { kind: 'contact' }
+    | null
+  >(null);
+
+  const openMenu = useCallback((id: MenuId) => {
+    setActiveMenu(id);
+    setWallOverlay(null);
+  }, []);
 
   /** 90% van de sitebreedte, gecentreerd — zo valt er boven/onder niets van de film weg. */
   useEffect(() => {
@@ -461,19 +541,10 @@ export function BeginLiftExperience() {
             ))
           : null}
 
-        {/* Tv in de receptie — promofilm in loop op het eindbeeld van film 100. */}
+        {/* Tv in de receptie — zwart kader met stand-by lampje, promofilm in loop. */}
         {phase === 'desk' ? (
           <div className="pointer-events-none absolute inset-0 z-10">
-            <video
-              src={VIDEO_TV}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-              disablePictureInPicture
-              onContextMenu={(e) => e.preventDefault()}
-              className="select-none object-fill"
+            <div
               style={{
                 position: 'absolute',
                 left: 0,
@@ -482,8 +553,48 @@ export function BeginLiftExperience() {
                 height: TV_SRC_H,
                 transform: quadMatrix3d(TV_SRC_W, TV_SRC_H, TV_QUAD),
                 transformOrigin: '0 0',
+                background: '#0a0a0c',
+                borderRadius: 5,
+                boxShadow: 'inset 0 0 6px rgba(255,255,255,0.06)',
               }}
-            />
+            >
+              <video
+                src={VIDEO_TV}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+                disablePictureInPicture
+                onContextMenu={(e) => e.preventDefault()}
+                className="select-none object-fill"
+                style={{
+                  position: 'absolute',
+                  left: TV_BEZEL_X,
+                  right: TV_BEZEL_X,
+                  top: TV_BEZEL_TOP,
+                  bottom: TV_BEZEL_BOTTOM,
+                  width: TV_SRC_W - 2 * TV_BEZEL_X,
+                  height: TV_SRC_H - TV_BEZEL_TOP - TV_BEZEL_BOTTOM,
+                  borderRadius: 2,
+                }}
+              />
+              {/* Stand-by lampje onderaan in het midden van de bezel. */}
+              <span
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  bottom: 5,
+                  width: 4,
+                  height: 4,
+                  marginLeft: -2,
+                  borderRadius: '50%',
+                  background: '#7fffb0',
+                  boxShadow: '0 0 6px 2px rgba(127,255,176,0.75)',
+                }}
+              />
+            </div>
           </div>
         ) : null}
 
@@ -494,7 +605,7 @@ export function BeginLiftExperience() {
                 key={m.id}
                 type="button"
                 aria-label={m.label}
-                onClick={() => setActiveMenu(m.id)}
+                onClick={() => openMenu(m.id)}
                 className={`absolute cursor-pointer rounded-sm bg-transparent outline-none transition duration-300 ${
                   activeMenu === m.id
                     ? 'shadow-[0_0_22px_6px_rgba(255,214,150,0.30)]'
@@ -506,7 +617,7 @@ export function BeginLiftExperience() {
           : null}
 
         {/* Inhoud op de rechtermuur — zelfde hoeken als de muur (homografie). */}
-        {phase === 'desk' && activeMenu ? (
+        {phase === 'desk' ? (
           <div className="pointer-events-none absolute inset-0 z-10">
             <div
               style={{
@@ -520,11 +631,40 @@ export function BeginLiftExperience() {
               }}
             >
               <div
-                key={activeMenu}
+                key={wallOverlay ? wallOverlay.kind : (activeMenu ?? 'welkom')}
                 className="pointer-events-auto h-full w-full overflow-y-auto overflow-x-hidden px-7 py-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 style={{ animation: 'beginWallFade 480ms ease-out' }}
               >
-                <WallContent menu={activeMenu} />
+                {wallOverlay ? (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setWallOverlay(null)}
+                      className="mb-4 cursor-pointer rounded-full px-3.5 py-1.5 font-sans transition hover:opacity-80"
+                      style={{ fontSize: 13, color: GOLD, border: `1px solid ${GOLD}55`, background: 'transparent' }}
+                    >
+                      ← Terug naar het overzicht
+                    </button>
+                    {wallOverlay.kind === 'booking' ? (
+                      <GuestBookingPanel
+                        calendarSlug={wallOverlay.slug}
+                        heading={wallOverlay.title}
+                        variant="default"
+                        onClose={() => setWallOverlay(null)}
+                      />
+                    ) : (
+                      <GuestContactSection />
+                    )}
+                  </div>
+                ) : activeMenu ? (
+                  <WallContent
+                    menu={activeMenu}
+                    onBook={(slug, title) => setWallOverlay({ kind: 'booking', slug, title })}
+                    onContact={() => setWallOverlay({ kind: 'contact' })}
+                  />
+                ) : (
+                  <WallWelcome />
+                )}
               </div>
             </div>
           </div>
