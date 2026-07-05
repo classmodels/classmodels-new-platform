@@ -19,26 +19,28 @@ export function SiteHeader() {
     <header
       className={`border-b border-white/10 bg-ink text-white ${onPortal ? 'hidden lg:block' : ''}`}
     >
-      {/*
-        Zelfde horizontale inset als de gast-hero-video (50px): logo links, nav + talen rechts uitgelijnd.
-        Op gsm: kleinere inset zodat alles op volle breedte past.
-      */}
-      <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-2.5 px-4 py-2.5 text-sm md:flex-nowrap md:gap-x-8 lg:px-[50px]">
-        <div className="min-w-0 shrink-0">
+      {/* Fijne zwarte menubalk: back-knop + logo links, menuknoppen + talen rechts. */}
+      <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-4 py-1.5 text-sm md:flex-nowrap md:gap-x-8 lg:px-[50px]">
+        <div className="flex min-w-0 shrink-0 items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+              else router.push('/');
+            }}
+            className="shrink-0 rounded-full border border-white/25 px-3 py-1 text-xs text-white/85 transition hover:border-white/50 hover:text-white"
+            aria-label="Terug"
+          >
+            ← <CmText contentKey="site.header.nav.back" as="span" fallback="Terug" />
+          </button>
           <Link href="/" className="notranslate block">
             <CmText
               contentKey="site.header.logo"
               as="span"
-              className="block font-serif text-2xl font-semibold leading-none tracking-tight text-burgundy md:text-[1.7rem]"
+              className="block font-serif text-lg font-semibold leading-none tracking-tight text-burgundy md:text-xl"
               fallback="Class-Models"
             />
           </Link>
-          <CmText
-            contentKey="site.header.tagline"
-            as="p"
-            className="mt-0.5 text-[11px] leading-tight text-white/70"
-            fallback="Modeling Agency"
-          />
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-5 gap-y-2 md:flex-nowrap md:gap-x-7">
           <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 md:flex-nowrap md:gap-x-6">

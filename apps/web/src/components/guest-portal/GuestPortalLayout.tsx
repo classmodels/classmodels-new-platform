@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
@@ -28,9 +28,8 @@ import {
   type GuestMenuId,
 } from '@/components/guest-portal/guest-portal-data';
 import { GuestTestshootSection } from '@/components/guest-portal/GuestTestshootSection';
-import { GuestSignatureTagline } from '@/components/guest-portal/GuestSignatureTagline';
 import { MobileAppBar } from '@/components/MobileAppBar';
-import { guestPortalPublicMediaUrl, guestPortalStaticPublicUrl } from '@/lib/guest-portal-media';
+import { guestPortalPublicMediaUrl } from '@/lib/guest-portal-media';
 
 const GUEST_MENU_IDS = GUEST_MENU.map((m) => m.id) as readonly GuestMenuId[];
 
@@ -239,119 +238,6 @@ function ModelWordenColumnCard({
         <CmText contentKey={`${p}.cta`} as="span" fallback={cta} />
       </button>
     </article>
-  );
-}
-
-/** Alleen het onderste deel van de rode zone (Model worden). */
-function ModelWordenHeroInner({ onNav }: { onNav: (id: GuestMenuId) => void }) {
-  const basename = GUEST_PORTAL_PUBLIC_MEDIA.heroVideoBasename?.trim() || null;
-  const staticFallback = guestPortalStaticPublicUrl('/guest/film22.mp4');
-
-  /** Zelfde URL op server en eerste client-paint → geen hydration mismatch; daarna API als die er is. */
-  const [playSrc, setPlaySrc] = useState<string>(staticFallback);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  /** Video alleen laden op desktopbreedte — op gsm is de hero verborgen (app-balk). */
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1024px)');
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-
-  useEffect(() => {
-    const api = guestPortalPublicMediaUrl(basename);
-    setPlaySrc(api ?? staticFallback);
-  }, [basename, staticFallback]);
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    const tryPlay = () => void el.play().catch(() => {});
-    tryPlay();
-    el.addEventListener('loadeddata', tryPlay);
-    return () => el.removeEventListener('loadeddata', tryPlay);
-  }, [playSrc]);
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    const onErr = () => {
-      setPlaySrc((cur) => (cur !== staticFallback ? staticFallback : cur));
-    };
-    el.addEventListener('error', onErr);
-    return () => el.removeEventListener('error', onErr);
-  }, [playSrc, staticFallback]);
-
-  return (
-    <div className="relative w-full overflow-hidden">
-      <div className="relative z-10 w-full px-[50px] py-8 md:py-10">
-        <div className="max-w-xl sm:mr-[calc(50px+min(560px,52vw)+2rem)]">
-          <CmText
-            contentKey="portal.guest.hero.kicker"
-            as="p"
-            className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/85"
-            fallback="Gastenportaal"
-          />
-          <CmText
-            contentKey="portal.guest.hero.welcome"
-            as="h2"
-            className="mt-2 font-serif text-2xl font-semibold tracking-tight md:text-3xl lg:text-4xl"
-            fallback="Welkom"
-          />
-          <CmText
-            contentKey="portal.guest.hero.body"
-            as="p"
-            className="mt-3 max-w-xl text-sm leading-relaxed text-white/90"
-            fallback="Kies hieronder hoe je wilt starten: gratis test-fotoshoot, casting of een vrijblijvend intakegesprek."
-          />
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => onNav('gratis-fotoshoot')}
-              className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
-            >
-              <CmText contentKey="portal.guest.hero.btn.gratis" as="span" fallback="Gratis fotoshoot" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onNav('casting')}
-              className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
-            >
-              <CmText contentKey="portal.guest.hero.btn.casting" as="span" fallback="Casting" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onNav('intake-gesprek')}
-              className="rounded-full border border-white/40 bg-white/10 px-4 py-2 text-xs font-medium text-white backdrop-blur hover:bg-white/20"
-            >
-              <CmText contentKey="portal.guest.hero.btn.intake" as="span" fallback="Intakegesprek" />
-            </button>
-          </div>
-          <GuestSignatureTagline variant="light" className="mt-6 max-w-md" />
-        </div>
-      </div>
-
-      <div className="pointer-events-none relative z-[5] mt-6 flex justify-center px-4 sm:absolute sm:bottom-[50px] sm:right-[50px] sm:top-[50px] sm:mt-0 sm:flex sm:justify-end sm:px-0">
-        {isDesktop ? (
-        <video
-          key={playSrc}
-          ref={videoRef}
-          src={playSrc}
-            className="aspect-video w-full max-w-2xl appearance-none select-none rounded-none border-0 bg-transparent object-contain shadow-none outline-none ring-0 sm:h-full sm:w-auto sm:max-w-[min(560px,52vw)]"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          controls={false}
-          aria-label="Class-Models promotiefilm"
-        />
-        ) : null}
-      </div>
-    </div>
   );
 }
 
@@ -1160,11 +1046,7 @@ export function GuestPortalLayout() {
         menuTitle="Gast menu"
         menuContent={guestNavContent}
       />
-      {/* Rode hero — vanaf desktopbreedte; op gsm telt enkel de compacte app-balk */}
-      <div className="hidden w-full overflow-hidden bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)] lg:block">
-        <ModelWordenHeroInner onNav={goMenu} />
-      </div>
-
+      {/* De grote rode hero-balk is vervangen door de fijne zwarte menubalk in de site-header. */}
       <div className="mx-auto w-full max-w-page px-0 pb-6 pt-0 lg:px-6 lg:pb-10 lg:pt-8">
         <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-stretch">
           <aside className="hidden h-full min-h-0 flex-col overflow-hidden rounded-cm border border-line bg-white shadow-sm lg:sticky lg:top-4 lg:flex">

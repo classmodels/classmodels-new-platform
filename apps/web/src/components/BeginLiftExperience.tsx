@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   quadMatrix3d,
   type Quad,
@@ -13,15 +15,21 @@ import {
   GRATIS_FOTOSHOOT_PAGE,
   GUEST_FAQ,
   INTAKE_GESPREK_PAGE,
+  MODEL_WORDEN_STATS,
+  WAAROM_CHECKLIST,
+  WAAROM_PARAGRAPHS,
 } from '@/components/guest-portal/guest-portal-data';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 const VIDEO_INTRO = `${SHEET_BASE}/videos/intro-lift.mp4`;
 const VIDEO_DESK = `${SHEET_BASE}/videos/lift-to-desk.mp4`;
+const VIDEO_TV = `${SHEET_BASE}/videos/tv-loop.mp4`;
 
 /** Beide films zijn 1280x720; alle hotspot/muur-coördinaten zijn in dit stelsel gemeten. */
 const BASE_W = 1280;
 const BASE_H = 720;
+/** Het beeld op 90% van de sitebreedte — zo blijft er boven/onder niets afgekapt. */
+const WIDTH_FRACTION = 0.9;
 
 type Phase = 'intro' | 'lift' | 'ride' | 'desk';
 
@@ -34,12 +42,26 @@ type MenuId =
   | 'veelgestelde-vragen'
   | 'testshoot';
 
-/** Liftknoppen (eindbeeld film 1) — drie ronde knoppen links in de lift. */
-const LIFT_BUTTONS: { label: string; x: number; y: number; w: number; h: number }[] = [
-  { label: 'Modellen portaal', x: 50, y: 128, w: 100, h: 118 },
-  { label: 'Klanten portaal', x: 50, y: 262, w: 100, h: 118 },
-  { label: 'Gasten portaal', x: 50, y: 408, w: 100, h: 118 },
+/**
+ * Liftknoppen (eindbeeld film 1) — drie ronde knoppen links in de lift.
+ * Modellen/Klanten gaan (in afwachting) naar de oude enterpagina met login/registratie;
+ * Gasten start film 100 richting de receptie.
+ */
+const LIFT_BUTTONS: { label: string; x: number; y: number; w: number; h: number; action: 'model' | 'client' | 'guest' }[] = [
+  { label: 'Modellen portaal', x: 50, y: 128, w: 100, h: 118, action: 'model' },
+  { label: 'Klanten portaal', x: 50, y: 262, w: 100, h: 118, action: 'client' },
+  { label: 'Gasten portaal', x: 50, y: 408, w: 100, h: 118, action: 'guest' },
 ];
+
+/** Tv op de muur in de receptie (eindbeeld film 100) — daar speelt de promofilm in loop. */
+const TV_QUAD: Quad = {
+  tl: [346, 196],
+  tr: [525, 219],
+  br: [525, 342],
+  bl: [346, 334],
+};
+const TV_SRC_W = 320;
+const TV_SRC_H = 180;
 
 /** Menu-items op de desk (eindbeeld film 100) — klikzones over de geschilderde knoppen. */
 const DESK_MENU: { id: MenuId; label: string; x: number; y: number; w: number; h: number }[] = [
@@ -115,6 +137,47 @@ function WallBullets({ items }: { items: readonly string[] }) {
   );
 }
 
+/** Boekingsknop (agenda) — opent de online afspraak in het gastenportaal. */
+function WallCta({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="mt-5 block w-full rounded-md py-3 text-center font-sans font-semibold text-white transition hover:opacity-90"
+      style={{ fontSize: 14.5, background: '#6f121b' }}
+    >
+      {label}
+    </Link>
+  );
+}
+
+/** Kleine link naar de volledige pagina in het gastenportaal. */
+function WallPortalLink({ href, label }: { href: string; label?: string }) {
+  return (
+    <p className="m-0 mt-3 text-center font-sans" style={{ fontSize: 12.5, color: '#6b5c48' }}>
+      <Link href={href} className="underline underline-offset-2 hover:opacity-80" style={{ color: GOLD }}>
+        {label ?? 'Bekijk de volledige pagina in het gastenportaal'}
+      </Link>
+    </p>
+  );
+}
+
+function WallStats() {
+  return (
+    <div className="mt-6 grid grid-cols-4 gap-2.5">
+      {MODEL_WORDEN_STATS.map((s) => (
+        <div key={s.label} className="rounded-md px-2 py-2.5 text-center" style={{ background: '#6f121b' }}>
+          <p className="m-0 font-serif font-bold text-white" style={{ fontSize: 17 }}>
+            {s.value}
+          </p>
+          <p className="m-0 mt-0.5 font-sans font-semibold text-white/90" style={{ fontSize: 9.5 }}>
+            {s.label}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Inhoud per menu-item, gerenderd op het muurpaneel. */
 function WallContent({ menu }: { menu: MenuId }) {
   switch (menu) {
@@ -135,6 +198,20 @@ function WallContent({ menu }: { menu: MenuId }) {
               </section>
             ))}
           </div>
+          <h3 className="m-0 mt-7 font-serif font-semibold" style={{ fontSize: 18, color: INK }}>
+            Waarom Class-Models
+          </h3>
+          <div className="mt-2 space-y-2.5">
+            {WAAROM_PARAGRAPHS.map((p) => (
+              <p key={p} className="m-0 font-sans leading-relaxed" style={{ fontSize: 13.5, color: '#4a4033' }}>
+                {p}
+              </p>
+            ))}
+          </div>
+          <WallBullets items={WAAROM_CHECKLIST} />
+          <WallStats />
+          <WallCta href="/portal/guest?p=gratis-fotoshoot&book=gratis-fotoshoot" label="Plan je gratis fotoshoot" />
+          <WallPortalLink href="/portal/guest" />
         </div>
       );
     case 'gratis-fotoshoot':
@@ -151,6 +228,11 @@ function WallContent({ menu }: { menu: MenuId }) {
           <p className="m-0 mt-2 font-sans leading-relaxed" style={{ fontSize: 14, color: '#3d3428' }}>
             {GRATIS_FOTOSHOOT_PAGE.whyParagraph}
           </p>
+          <WallCta
+            href="/portal/guest?p=gratis-fotoshoot&book=gratis-fotoshoot"
+            label={GRATIS_FOTOSHOOT_PAGE.ctaButton}
+          />
+          <WallPortalLink href="/portal/guest?p=gratis-fotoshoot" />
         </div>
       );
     case 'casting':
@@ -167,6 +249,8 @@ function WallContent({ menu }: { menu: MenuId }) {
           <p className="m-0 mt-2 font-sans leading-relaxed" style={{ fontSize: 14, color: '#3d3428' }}>
             {CASTING_PAGE.whyParagraph}
           </p>
+          <WallCta href="/portal/guest?p=casting&book=casting" label={CASTING_PAGE.ctaButton} />
+          <WallPortalLink href="/portal/guest?p=casting" />
         </div>
       );
     case 'intake-gesprek':
@@ -189,6 +273,15 @@ function WallContent({ menu }: { menu: MenuId }) {
               </li>
             ))}
           </ol>
+          <h3 className="m-0 mt-6 font-serif font-semibold" style={{ fontSize: 18, color: INK }}>
+            {INTAKE_GESPREK_PAGE.whyTitle}
+          </h3>
+          <WallBullets items={WAAROM_CHECKLIST} />
+          <WallCta
+            href="/portal/guest?p=intake-gesprek&book=intake-gesprek"
+            label={INTAKE_GESPREK_PAGE.ctaButton}
+          />
+          <WallPortalLink href="/portal/guest?p=intake-gesprek" />
         </div>
       );
     case 'doelgroepen':
@@ -210,6 +303,8 @@ function WallContent({ menu }: { menu: MenuId }) {
               </div>
             ))}
           </div>
+          <WallCta href="/portal/guest?p=gratis-fotoshoot&book=gratis-fotoshoot" label="Plan je gratis fotoshoot" />
+          <WallPortalLink href="/portal/guest?p=doelgroepen" />
         </div>
       );
     case 'veelgestelde-vragen':
@@ -228,6 +323,8 @@ function WallContent({ menu }: { menu: MenuId }) {
               </section>
             ))}
           </div>
+          <WallCta href="/portal/guest?p=contact" label="Stel je vraag via contact" />
+          <WallPortalLink href="/portal/guest?p=veelgestelde-vragen" />
         </div>
       );
     case 'testshoot':
@@ -241,6 +338,8 @@ function WallContent({ menu }: { menu: MenuId }) {
           <p className="m-0 mt-3 font-sans leading-relaxed" style={{ fontSize: 14, color: '#3d3428' }}>
             Log in via het gastenportaal om jouw testshoot te bekijken.
           </p>
+          <WallCta href="/portal/guest?p=testshoot" label="Bekijk jouw testshoot" />
+          <WallPortalLink href="/portal/guest" label="Naar het gastenportaal" />
         </div>
       );
   }
@@ -252,6 +351,7 @@ function WallContent({ menu }: { menu: MenuId }) {
  * de gekozen inhoud verschijnt in perspectief op het witte paneel van de rechtermuur.
  */
 export function BeginLiftExperience() {
+  const router = useRouter();
   const shellRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLVideoElement>(null);
   const rideRef = useRef<HTMLVideoElement>(null);
@@ -259,11 +359,12 @@ export function BeginLiftExperience() {
   const [scale, setScale] = useState(1);
   const [activeMenu, setActiveMenu] = useState<MenuId | null>(null);
 
-  /** Volledige breedte van de site; verticaal gecentreerd (hoge schermen: donkere rand boven/onder). */
+  /** 90% van de sitebreedte, gecentreerd — zo valt er boven/onder niets van de film weg. */
   useEffect(() => {
     const el = shellRef.current;
     if (!el) return;
-    const update = () => setScale(el.clientWidth > 0 ? el.clientWidth / BASE_W : 1);
+    const update = () =>
+      setScale(el.clientWidth > 0 ? (el.clientWidth * WIDTH_FRACTION) / BASE_W : 1);
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -283,14 +384,25 @@ export function BeginLiftExperience() {
     }
   }, []);
 
-  const onLiftButton = useCallback(() => {
-    setPhase('ride');
-    const v = rideRef.current;
-    if (v) {
-      v.currentTime = 0;
-      void v.play().catch(() => setPhase('desk'));
-    }
-  }, []);
+  const onLiftButton = useCallback(
+    (action: 'model' | 'client' | 'guest') => {
+      if (action === 'model') {
+        router.push('/lobby?tab=model');
+        return;
+      }
+      if (action === 'client') {
+        router.push('/lobby?tab=client');
+        return;
+      }
+      setPhase('ride');
+      const v = rideRef.current;
+      if (v) {
+        v.currentTime = 0;
+        void v.play().catch(() => setPhase('desk'));
+      }
+    },
+    [router],
+  );
 
   const wallTransform = quadMatrix3d(WALL_SRC_W, WALL_SRC_H, WALL_QUAD);
 
@@ -342,12 +454,38 @@ export function BeginLiftExperience() {
                 type="button"
                 aria-label={b.label}
                 title={b.label}
-                onClick={onLiftButton}
+                onClick={() => onLiftButton(b.action)}
                 className="absolute cursor-pointer rounded-full bg-transparent outline-none transition duration-300 hover:shadow-[0_0_34px_10px_rgba(255,214,150,0.28)] focus-visible:shadow-[0_0_34px_10px_rgba(255,214,150,0.28)]"
                 style={{ left: b.x, top: b.y, width: b.w, height: b.h }}
               />
             ))
           : null}
+
+        {/* Tv in de receptie — promofilm in loop op het eindbeeld van film 100. */}
+        {phase === 'desk' ? (
+          <div className="pointer-events-none absolute inset-0 z-10">
+            <video
+              src={VIDEO_TV}
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="auto"
+              disablePictureInPicture
+              onContextMenu={(e) => e.preventDefault()}
+              className="select-none object-fill"
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: TV_SRC_W,
+                height: TV_SRC_H,
+                transform: quadMatrix3d(TV_SRC_W, TV_SRC_H, TV_QUAD),
+                transformOrigin: '0 0',
+              }}
+            />
+          </div>
+        ) : null}
 
         {/* Menubord op de desk — pas klikbaar op het eindbeeld van film 100. */}
         {phase === 'desk'
