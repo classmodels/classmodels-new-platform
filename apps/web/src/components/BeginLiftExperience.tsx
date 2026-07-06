@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   quadMatrix3d,
   type Quad,
@@ -489,6 +489,7 @@ function WallContent({ menu, onBook, onContact }: WallContentProps) {
  */
 export function BeginLiftExperience() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const shellRef = useRef<HTMLDivElement>(null);
   const introRef = useRef<HTMLVideoElement>(null);
   const rideRef = useRef<HTMLVideoElement>(null);
@@ -507,16 +508,29 @@ export function BeginLiftExperience() {
     setWallOverlay(null);
   }, []);
 
-  /** 80% van de beschikbare breedte, gecentreerd — content staat onder de site-menubalk. */
+  /**
+   * 80% van de breedte, maar nooit hoger dan de ruimte onder de zwarte menubalk:
+   * de film begint direct onder de balk en wordt onderaan niet afgekapt.
+   * De shell krijgt exact de geschaalde filmhoogte.
+   */
   useEffect(() => {
     const el = shellRef.current;
     if (!el) return;
-    const update = () =>
-      setScale(el.clientWidth > 0 ? (el.clientWidth * WIDTH_FRACTION) / BASE_W : 1);
+    const update = () => {
+      const w = el.clientWidth;
+      if (w <= 0) return;
+      const top = el.getBoundingClientRect().top;
+      const availH = Math.max(300, window.innerHeight - Math.max(0, top));
+      setScale(Math.min((w * WIDTH_FRACTION) / BASE_W, availH / BASE_H));
+    };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
   }, []);
 
   /** Autoplay kan geblokkeerd zijn; dan tonen we meteen het eindbeeld met de knoppen. */
@@ -532,6 +546,22 @@ export function BeginLiftExperience() {
     }
   }, []);
 
+  const startRide = useCallback(() => {
+    introRef.current?.pause();
+    setPhase('ride');
+    const v = rideRef.current;
+    if (v) {
+      v.currentTime = 0;
+      void v.play().catch(() => setPhase('desk'));
+    }
+  }, []);
+
+  /** `/?go=guest` (Gastenportaal in de menubalk) → meteen film 100: de lift gaat open. */
+  const goParam = searchParams.get('go');
+  useEffect(() => {
+    if (goParam === 'guest') startRide();
+  }, [goParam, startRide]);
+
   const onLiftButton = useCallback(
     (action: 'model' | 'client' | 'guest') => {
       if (action === 'model') {
@@ -542,26 +572,26 @@ export function BeginLiftExperience() {
         router.push('/lobby?tab=client');
         return;
       }
-      setPhase('ride');
-      const v = rideRef.current;
-      if (v) {
-        v.currentTime = 0;
-        void v.play().catch(() => setPhase('desk'));
-      }
+      startRide();
     },
-    [router],
+    [router, startRide],
   );
 
   const wallTransform = quadMatrix3d(WALL_SRC_W, WALL_SRC_H, WALL_QUAD);
 
   return (
-    <div ref={shellRef} className="relative h-full min-h-[320px] w-full overflow-hidden bg-black">
+    <div
+      ref={shellRef}
+      className="relative w-full overflow-hidden bg-black"
+      style={{ height: Math.round(BASE_H * scale) }}
+    >
       <div
-        className="absolute left-1/2 top-1/2"
+        className="absolute left-1/2 top-0"
         style={{
           width: BASE_W,
           height: BASE_H,
-          transform: `translate(-50%, -50%) scale(${scale})`,
+          transform: `translateX(-50%) scale(${scale})`,
+          transformOrigin: 'top center',
         }}
       >
         {/* Film 1 — lift; blijft op het laatste beeld staan (geen controls). */}

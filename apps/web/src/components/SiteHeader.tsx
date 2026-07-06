@@ -40,7 +40,7 @@ export function SiteHeader() {
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-5 gap-y-2 md:flex-nowrap md:gap-x-7">
           <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 md:flex-nowrap md:gap-x-6">
-            <Link href="/portal/guest" className="text-white/90 hover:text-white">
+            <Link href="/?go=guest" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
             </Link>
             <Link href={user ? '/portal/model' : '/lobby?tab=model'} className="text-white/90 hover:text-white">
