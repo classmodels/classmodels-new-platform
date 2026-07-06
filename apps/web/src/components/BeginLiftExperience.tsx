@@ -61,10 +61,10 @@ const LIFT_BUTTONS: { label: string; x: number; y: number; w: number; h: number;
  * met onderaan in het midden een klein stand-by lampje.
  */
 const TV_QUAD: Quad = {
-  tl: [339, 189],
-  tr: [531, 214],
-  br: [531, 349],
-  bl: [339, 338],
+  tl: [341, 191],
+  tr: [527, 217],
+  br: [527, 350],
+  bl: [341, 345],
 };
 const TV_SRC_W = 320;
 const TV_SRC_H = 196;
@@ -73,16 +73,30 @@ const TV_BEZEL_X = 10;
 const TV_BEZEL_TOP = 8;
 const TV_BEZEL_BOTTOM = 14;
 
-/** Menu-items op de desk (eindbeeld film 100) — klikzones over de geschilderde knoppen. */
-const DESK_MENU: { id: MenuId; label: string; x: number; y: number; w: number; h: number }[] = [
-  { id: 'model-worden', label: 'Model worden', x: 58, y: 275, w: 150, h: 44 },
-  { id: 'gratis-fotoshoot', label: 'Gratis fotoshoot', x: 63, y: 319, w: 150, h: 42 },
-  { id: 'casting', label: 'Casting', x: 68, y: 361, w: 150, h: 42 },
-  { id: 'intake-gesprek', label: 'Intake gesprek', x: 75, y: 403, w: 148, h: 41 },
-  { id: 'doelgroepen', label: 'Doelgroepen', x: 81, y: 444, w: 147, h: 41 },
-  { id: 'veelgestelde-vragen', label: 'Veelgestelde vragen', x: 88, y: 485, w: 145, h: 40 },
-  { id: 'testshoot', label: 'Testshoot', x: 93, y: 525, w: 143, h: 42 },
+/** Menu-items op het menubord van de desk (eindbeeld film 100). */
+const DESK_MENU: { id: MenuId; label: string }[] = [
+  { id: 'model-worden', label: 'Model worden' },
+  { id: 'gratis-fotoshoot', label: 'Gratis fotoshoot' },
+  { id: 'casting', label: 'Casting' },
+  { id: 'intake-gesprek', label: 'Intake gesprek' },
+  { id: 'doelgroepen', label: 'Doelgroepen' },
+  { id: 'veelgestelde-vragen', label: 'Veelgestelde vragen' },
+  { id: 'testshoot', label: 'Testshoot' },
 ];
+
+/**
+ * Binnenvlak van het menubord — opgemeten op het eindbeeld. Ons eigen scherpe
+ * HTML-menu dekt de (wazig meegefilmde) knoppen af en volgt de hoek van het bord.
+ * De bron wordt op dubbele resolutie gerenderd en door de homografie verkleind → scherpe tekst.
+ */
+const DESK_QUAD: Quad = {
+  tl: [42, 254],
+  tr: [217, 267],
+  br: [252, 604],
+  bl: [42, 590],
+};
+const DESK_SRC_W = 360;
+const DESK_SRC_H = 680;
 
 /**
  * Rechtermuur (wit paneel in zwart kader, eindbeeld film 100) — opgemeten randen:
@@ -696,23 +710,103 @@ export function BeginLiftExperience() {
           </div>
         ) : null}
 
-        {/* Menubord op de desk — pas klikbaar op het eindbeeld van film 100. */}
-        {phase === 'desk'
-          ? DESK_MENU.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                aria-label={m.label}
-                onClick={() => openMenu(m.id)}
-                className={`absolute cursor-pointer rounded-sm bg-transparent outline-none transition duration-300 ${
-                  activeMenu === m.id
-                    ? 'shadow-[0_0_22px_6px_rgba(255,214,150,0.30)]'
-                    : 'hover:shadow-[0_0_22px_6px_rgba(255,214,150,0.20)]'
-                }`}
-                style={{ left: m.x, top: m.y, width: m.w, height: m.h }}
+        {/* Menubord op de desk — eigen scherp gerenderd bord dat de hoek van de desk volgt. */}
+        {phase === 'desk' ? (
+          <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }}>
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: DESK_SRC_W,
+                height: DESK_SRC_H,
+                transform: quadMatrix3d(DESK_SRC_W, DESK_SRC_H, DESK_QUAD),
+                transformOrigin: '0 0',
+                pointerEvents: 'auto',
+                background: 'linear-gradient(160deg, #171310 0%, #100d0b 55%, #171310 100%)',
+                borderRadius: 8,
+                border: '1px solid rgba(190,150,95,0.55)',
+                boxShadow: 'inset 0 0 26px rgba(0,0,0,0.85), inset 0 0 3px rgba(255,220,170,0.18)',
+                padding: '18px 16px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <p
+                className="m-0 shrink-0 text-center font-sans uppercase"
+                style={{ fontSize: 12.5, letterSpacing: '0.3em', color: 'rgba(214,178,124,0.95)' }}
+              >
+                Menu
+              </p>
+              <span
+                aria-hidden
+                className="mx-auto mb-3 mt-2 block h-px w-3/4 shrink-0"
+                style={{
+                  background:
+                    'linear-gradient(to right, transparent, rgba(214,178,124,0.7), transparent)',
+                }}
               />
-            ))
-          : null}
+              {/* Scrollbaar: komen er later meer menu-items bij, dan scrol je op het bord zelf. */}
+              <div
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {DESK_MENU.map((m) => {
+                  const active = activeMenu === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => openMenu(m.id)}
+                      className="group flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-4 text-left outline-none transition duration-200"
+                      style={{
+                        minHeight: 58,
+                        background: active
+                          ? 'linear-gradient(180deg, rgba(84,64,40,0.72), rgba(52,40,26,0.72))'
+                          : 'linear-gradient(180deg, rgba(48,40,32,0.55), rgba(28,23,18,0.55))',
+                        border: active
+                          ? '1.5px solid rgba(240,204,140,0.95)'
+                          : '1px solid rgba(190,150,95,0.4)',
+                        boxShadow: active
+                          ? '0 0 16px rgba(240,204,140,0.35), inset 0 0 10px rgba(240,204,140,0.12)'
+                          : 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (active) return;
+                        e.currentTarget.style.border = '1.5px solid rgba(240,204,140,0.85)';
+                        e.currentTarget.style.boxShadow =
+                          '0 0 18px rgba(240,204,140,0.30), inset 0 0 8px rgba(240,204,140,0.10)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (activeMenu === m.id) return;
+                        e.currentTarget.style.border = '1px solid rgba(190,150,95,0.4)';
+                        e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.05)';
+                      }}
+                    >
+                      <span
+                        className="font-serif"
+                        style={{
+                          fontSize: 19,
+                          lineHeight: 1.15,
+                          color: active ? '#ffe9c4' : '#f3ead9',
+                          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                        }}
+                      >
+                        {m.label}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
+                        style={{ fontSize: 18, color: 'rgba(240,204,140,0.9)' }}
+                      >
+                        ›
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Inhoud op de rechtermuur — zelfde hoeken als de muur (homografie). */}
         {phase === 'desk' ? (
