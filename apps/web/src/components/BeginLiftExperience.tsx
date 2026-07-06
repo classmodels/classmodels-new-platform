@@ -30,8 +30,8 @@ const VIDEO_TV = `${SHEET_BASE}/videos/tv-loop.mp4`;
 /** Beide films zijn 1280x720; alle hotspot/muur-coördinaten zijn in dit stelsel gemeten. */
 const BASE_W = 1280;
 const BASE_H = 720;
-/** Het beeld op 90% van de sitebreedte — zo blijft er boven/onder niets afgekapt. */
-const WIDTH_FRACTION = 0.9;
+/** Het beeld op 80% van de sitebreedte — zo blijft er boven/onder niets afgekapt. */
+const WIDTH_FRACTION = 0.8;
 
 type Phase = 'intro' | 'lift' | 'ride' | 'desk';
 
@@ -189,46 +189,114 @@ function WallStats() {
   );
 }
 
-/** Welkomsttekst op de muur zolang er nog geen menu-item gekozen is. */
+/** Welkomsttekst op de muur — zelfde layout, tekst verschijnt snel alsof getypt. */
+const WELCOME_TYPING_MS = 18;
+
+type WelcomeBlock = {
+  id: string;
+  text: string;
+};
+
+const WELCOME_BLOCKS: WelcomeBlock[] = [
+  { id: 'kicker', text: 'Class-Models' },
+  { id: 'title', text: 'Welkom in het\ngastenportaal' },
+  {
+    id: 'body1',
+    text: 'Hier vind je alle informatie over model worden en boek je meteen een afspraak voor een gratis fotoshoot, een casting of een vrijblijvend intakegesprek.',
+  },
+  {
+    id: 'body2',
+    text: 'Kies links op de balie een onderwerp uit het menubord — de inhoud verschijnt hier op de muur.',
+  },
+];
+
 function WallWelcome() {
+  const [blockIdx, setBlockIdx] = useState(0);
+  const [charIdx, setCharIdx] = useState(0);
+  const current = WELCOME_BLOCKS[blockIdx];
+  const allDone = blockIdx >= WELCOME_BLOCKS.length - 1 && charIdx >= (current?.text.length ?? 0);
+
+  useEffect(() => {
+    if (!current) return;
+    if (charIdx < current.text.length) {
+      const t = window.setTimeout(() => setCharIdx((c) => c + 1), WELCOME_TYPING_MS);
+      return () => window.clearTimeout(t);
+    }
+    if (blockIdx < WELCOME_BLOCKS.length - 1) {
+      const t = window.setTimeout(() => {
+        setBlockIdx((b) => b + 1);
+        setCharIdx(0);
+      }, 90);
+      return () => window.clearTimeout(t);
+    }
+    return undefined;
+  }, [blockIdx, charIdx, current]);
+
+  const visibleFor = (index: number) => {
+    if (index < blockIdx) return WELCOME_BLOCKS[index].text;
+    if (index === blockIdx) return WELCOME_BLOCKS[index].text.slice(0, charIdx);
+    return '';
+  };
+
+  const showCursor = (index: number) => index === blockIdx && charIdx < WELCOME_BLOCKS[index].text.length;
+
+  const renderWithBreaks = (text: string, cursor: boolean) => {
+    const parts = text.split('\n');
+    return (
+      <>
+        {parts.map((part, i) => (
+          <span key={i}>
+            {i > 0 ? <br /> : null}
+            {part}
+          </span>
+        ))}
+        {cursor ? (
+          <span className="inline-block w-[2px] animate-pulse" style={{ color: GOLD }} aria-hidden>
+            |
+          </span>
+        ) : null}
+      </>
+    );
+  };
+
   return (
     <div className="flex h-full flex-col justify-center text-center">
       <p
         className="m-0 font-sans uppercase"
-        style={{ fontSize: 14, letterSpacing: '0.28em', color: GOLD }}
+        style={{ fontSize: 14, letterSpacing: '0.28em', color: GOLD, minHeight: '1.25em' }}
       >
-        Class-Models
+        {renderWithBreaks(visibleFor(0), showCursor(0))}
       </p>
       <h2
         className="m-0 mt-4 font-serif font-semibold leading-tight"
-        style={{ fontSize: 44, color: INK }}
+        style={{ fontSize: 44, color: INK, minHeight: '2.4em' }}
       >
-        Welkom in het
-        <br />
-        gastenportaal
+        {blockIdx >= 1 ? renderWithBreaks(visibleFor(1), showCursor(1)) : null}
       </h2>
-      <span
-        aria-hidden
-        className="mx-auto mt-6 block h-px w-40"
-        style={{ background: `linear-gradient(to right, transparent, ${GOLD}, transparent)` }}
-      />
+      {blockIdx >= 1 && charIdx >= WELCOME_BLOCKS[1].text.length ? (
+        <span
+          aria-hidden
+          className="mx-auto mt-6 block h-px w-40"
+          style={{ background: `linear-gradient(to right, transparent, ${GOLD}, transparent)` }}
+        />
+      ) : null}
       <p
         className="mx-auto mt-7 max-w-[400px] font-serif leading-relaxed"
-        style={{ fontSize: 21, color: '#3d3428' }}
+        style={{ fontSize: 21, color: '#3d3428', minHeight: blockIdx >= 2 ? undefined : 0 }}
       >
-        Hier vind je alle informatie over model worden en boek je meteen een afspraak voor een
-        gratis fotoshoot, een casting of een vrijblijvend intakegesprek.
+        {blockIdx >= 2 ? renderWithBreaks(visibleFor(2), showCursor(2)) : null}
       </p>
       <p
         className="mx-auto mt-8 max-w-[380px] font-sans leading-relaxed"
-        style={{ fontSize: 16, color: '#6b5c48' }}
+        style={{ fontSize: 16, color: '#6b5c48', minHeight: blockIdx >= 3 ? undefined : 0 }}
       >
-        Kies links op de balie een onderwerp uit het menubord — de inhoud verschijnt hier op de
-        muur.
+        {blockIdx >= 3 ? renderWithBreaks(visibleFor(3), showCursor(3)) : null}
       </p>
-      <span aria-hidden className="mx-auto mt-8 text-2xl" style={{ color: GOLD }}>
-        ◆
-      </span>
+      {allDone ? (
+        <span aria-hidden className="mx-auto mt-8 text-2xl" style={{ color: GOLD }}>
+          ◆
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -439,7 +507,7 @@ export function BeginLiftExperience() {
     setWallOverlay(null);
   }, []);
 
-  /** 90% van de sitebreedte, gecentreerd — zo valt er boven/onder niets van de film weg. */
+  /** 80% van de beschikbare breedte, gecentreerd — content staat onder de site-menubalk. */
   useEffect(() => {
     const el = shellRef.current;
     if (!el) return;
@@ -487,7 +555,7 @@ export function BeginLiftExperience() {
   const wallTransform = quadMatrix3d(WALL_SRC_W, WALL_SRC_H, WALL_QUAD);
 
   return (
-    <div ref={shellRef} className="relative h-[100dvh] w-full overflow-hidden bg-black">
+    <div ref={shellRef} className="relative h-full min-h-[320px] w-full overflow-hidden bg-black">
       <div
         className="absolute left-1/2 top-1/2"
         style={{

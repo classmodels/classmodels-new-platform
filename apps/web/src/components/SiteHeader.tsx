@@ -11,14 +11,10 @@ export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const onAdmin = pathname?.startsWith('/admin');
-  const onPortal = pathname?.startsWith('/portal');
-
   if (onAdmin) return null;
 
   return (
-    <header
-      className={`border-b border-white/10 bg-ink text-white ${onPortal ? 'hidden lg:block' : ''}`}
-    >
+    <header className="shrink-0 border-b border-white/10 bg-ink text-white">
       {/* Fijne zwarte menubalk: back-knop + logo links, menuknoppen + talen rechts. */}
       <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-4 py-1.5 text-sm md:flex-nowrap md:gap-x-8 lg:px-[50px]">
         <div className="flex min-w-0 shrink-0 items-center gap-3">
@@ -47,7 +43,7 @@ export function SiteHeader() {
             <Link href="/portal/guest" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
             </Link>
-            <Link href={user ? '/portal/model' : '/'} className="text-white/90 hover:text-white">
+            <Link href={user ? '/portal/model' : '/lobby?tab=model'} className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.model" as="span" className="text-white/90" fallback="Modellenportaal" />
             </Link>
             <Link href="/portal/client" className="text-white/90 hover:text-white">
@@ -72,7 +68,7 @@ export function SiteHeader() {
                 <CmText contentKey="site.header.nav.logout" as="span" className="text-white/80" fallback="Uitloggen" />
               </button>
             ) : (
-              <Link href="/" className="text-white/90 hover:text-white">
+              <Link href="/lobby?tab=model" className="text-white/90 hover:text-white">
                 <CmText contentKey="site.header.nav.login" as="span" className="text-white/90" fallback="Inloggen" />
               </Link>
             )}
