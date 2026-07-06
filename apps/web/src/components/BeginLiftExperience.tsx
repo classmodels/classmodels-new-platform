@@ -13,6 +13,7 @@ import {
   DOELGROEPEN_CARDS,
   DOELGROEPEN_INTRO,
   GRATIS_FOTOSHOOT_PAGE,
+  GUEST_CONTACT_INFO,
   GUEST_FAQ,
   INTAKE_GESPREK_PAGE,
   MODEL_WORDEN_STATS,
@@ -20,7 +21,6 @@ import {
   WAAROM_PARAGRAPHS,
 } from '@/components/guest-portal/guest-portal-data';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
-import { GuestContactSection } from '@/components/guest-portal/GuestContactSection';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 const VIDEO_INTRO = `${SHEET_BASE}/videos/intro-lift.mp4`;
@@ -161,14 +161,21 @@ function WallBullets({ items }: { items: readonly string[] }) {
   );
 }
 
-/** Actieknop op de muur — opent bv. de online agenda direct op ditzelfde paneel. */
+/** Actieknop op de muur — donker met gouden bies, in de stijl van de receptie. */
 function WallCta({ onClick, label }: { onClick: () => void; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="mt-5 block w-full cursor-pointer rounded-md py-3 text-center font-sans font-semibold text-white transition hover:opacity-90"
-      style={{ fontSize: 14.5, background: '#6f121b' }}
+      className="mt-5 block w-full cursor-pointer rounded-md py-3 text-center font-serif font-semibold transition hover:opacity-90"
+      style={{
+        fontSize: 15.5,
+        color: '#ffe9c4',
+        background: 'linear-gradient(180deg, #3a2e20, #241d15)',
+        border: '1px solid rgba(240,204,140,0.75)',
+        boxShadow: '0 0 14px rgba(240,204,140,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+        letterSpacing: '0.02em',
+      }}
     >
       {label}
     </button>
@@ -186,15 +193,101 @@ function WallPortalLink({ href, label }: { href: string; label: string }) {
   );
 }
 
+/** Contact op de muur — zelfde stijl als de rest van het paneel (goud/donker op perkament). */
+function WallContact() {
+  const rows: { label: string; value: string; href?: string }[] = [
+    { label: 'Adres', value: `${GUEST_CONTACT_INFO.street}, ${GUEST_CONTACT_INFO.cityLine}` },
+    { label: 'E-mail', value: GUEST_CONTACT_INFO.email, href: `mailto:${GUEST_CONTACT_INFO.email}` },
+    {
+      label: 'Telefoon',
+      value: GUEST_CONTACT_INFO.phoneDisplay,
+      href: `tel:${GUEST_CONTACT_INFO.phoneTel}`,
+    },
+  ];
+  return (
+    <div>
+      <WallHeading kicker="Neem contact op" title="Contact" />
+      <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 14, color: '#3d3428' }}>
+        Vragen over model worden, castings of een samenwerking? Bel, mail of kom langs — we
+        reageren zo snel mogelijk.
+      </p>
+      <div className="mt-5 space-y-3">
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            className="rounded-md px-4 py-3"
+            style={{
+              background: 'rgba(138,107,69,0.08)',
+              border: '1px solid rgba(138,107,69,0.35)',
+            }}
+          >
+            <p
+              className="m-0 font-sans uppercase"
+              style={{ fontSize: 10, letterSpacing: '0.18em', color: GOLD }}
+            >
+              {r.label}
+            </p>
+            {r.href ? (
+              <a
+                href={r.href}
+                className="mt-1 block font-serif underline-offset-2 hover:underline"
+                style={{ fontSize: 16.5, color: INK }}
+              >
+                {r.value}
+              </a>
+            ) : (
+              <p className="m-0 mt-1 font-serif" style={{ fontSize: 16.5, color: INK }}>
+                {r.value}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+      <a
+        href={`mailto:${GUEST_CONTACT_INFO.email}?subject=${encodeURIComponent('Bericht via de receptie — Class-Models')}`}
+        className="mt-5 block w-full rounded-md py-3 text-center font-serif font-semibold transition hover:opacity-90"
+        style={{
+          fontSize: 15.5,
+          color: '#ffe9c4',
+          background: 'linear-gradient(180deg, #3a2e20, #241d15)',
+          border: '1px solid rgba(240,204,140,0.75)',
+          boxShadow: '0 0 14px rgba(240,204,140,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+          letterSpacing: '0.02em',
+        }}
+      >
+        Stuur een e-mail
+      </a>
+      <p className="m-0 mt-3 text-center font-sans" style={{ fontSize: 12.5, color: '#6b5c48' }}>
+        <a
+          href={GUEST_CONTACT_INFO.mapsOpenUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 hover:opacity-80"
+          style={{ color: GOLD }}
+        >
+          Open het adres in Google Maps
+        </a>
+      </p>
+    </div>
+  );
+}
+
 function WallStats() {
   return (
     <div className="mt-6 grid grid-cols-4 gap-2.5">
       {MODEL_WORDEN_STATS.map((s) => (
-        <div key={s.label} className="rounded-md px-2 py-2.5 text-center" style={{ background: '#6f121b' }}>
-          <p className="m-0 font-serif font-bold text-white" style={{ fontSize: 17 }}>
+        <div
+          key={s.label}
+          className="rounded-md px-2 py-2.5 text-center"
+          style={{
+            background: 'linear-gradient(180deg, #3a2e20, #241d15)',
+            border: '1px solid rgba(190,150,95,0.55)',
+          }}
+        >
+          <p className="m-0 font-serif font-bold" style={{ fontSize: 17, color: '#ffe9c4' }}>
             {s.value}
           </p>
-          <p className="m-0 mt-0.5 font-sans font-semibold text-white/90" style={{ fontSize: 9.5 }}>
+          <p className="m-0 mt-0.5 font-sans font-semibold" style={{ fontSize: 9.5, color: 'rgba(255,233,196,0.85)' }}>
             {s.label}
           </p>
         </div>
@@ -485,8 +578,15 @@ function WallContent({ menu, onBook, onContact }: WallContentProps) {
           </p>
           <Link
             href="/portal/guest?p=testshoot"
-            className="mt-5 block w-full rounded-md py-3 text-center font-sans font-semibold text-white transition hover:opacity-90"
-            style={{ fontSize: 14.5, background: '#6f121b' }}
+            className="mt-5 block w-full rounded-md py-3 text-center font-serif font-semibold transition hover:opacity-90"
+            style={{
+              fontSize: 15.5,
+              color: '#ffe9c4',
+              background: 'linear-gradient(180deg, #3a2e20, #241d15)',
+              border: '1px solid rgba(240,204,140,0.75)',
+              boxShadow: '0 0 14px rgba(240,204,140,0.18), inset 0 1px 0 rgba(255,255,255,0.06)',
+              letterSpacing: '0.02em',
+            }}
           >
             Bekijk jouw testshoot
           </Link>
@@ -838,14 +938,16 @@ export function BeginLiftExperience() {
                       ← Terug naar het overzicht
                     </button>
                     {wallOverlay.kind === 'booking' ? (
-                      <GuestBookingPanel
-                        calendarSlug={wallOverlay.slug}
-                        heading={wallOverlay.title}
-                        variant="default"
-                        onClose={() => setWallOverlay(null)}
-                      />
+                      <div className="cm-wall-booking">
+                        <GuestBookingPanel
+                          calendarSlug={wallOverlay.slug}
+                          heading={wallOverlay.title}
+                          variant="default"
+                          onClose={() => setWallOverlay(null)}
+                        />
+                      </div>
                     ) : (
-                      <GuestContactSection />
+                      <WallContact />
                     )}
                   </div>
                 ) : activeMenu ? (
@@ -867,6 +969,36 @@ export function BeginLiftExperience() {
         @keyframes beginWallFade {
           from { opacity: 0; transform: translateY(6px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        /* Agendapaneel op de muur: witte kaarten en rode knoppen omzetten naar de goud/donkere receptiestijl. */
+        .cm-wall-booking [class*="bg-white"],
+        .cm-wall-booking [class*="bg-panel"] {
+          background: rgba(138, 107, 69, 0.07) !important;
+        }
+        .cm-wall-booking [class*="border-zinc"],
+        .cm-wall-booking [class*="border-line"] {
+          border-color: rgba(138, 107, 69, 0.4) !important;
+        }
+        .cm-wall-booking [class*="bg-burgundy"] {
+          background: linear-gradient(180deg, #3a2e20, #241d15) !important;
+          border: 1px solid rgba(240, 204, 140, 0.75) !important;
+          color: #ffe9c4 !important;
+        }
+        .cm-wall-booking [class*="text-burgundy"] {
+          color: #8a6b45 !important;
+        }
+        .cm-wall-booking [class*="border-burgundy"] {
+          border-color: rgba(138, 107, 69, 0.65) !important;
+        }
+        .cm-wall-booking input,
+        .cm-wall-booking select,
+        .cm-wall-booking textarea {
+          background: rgba(255, 252, 246, 0.85) !important;
+          border-color: rgba(138, 107, 69, 0.4) !important;
+          color: #211a13 !important;
+        }
+        .cm-wall-booking [class*="shadow"] {
+          box-shadow: none !important;
         }
       `}</style>
     </div>
