@@ -90,13 +90,13 @@ const DESK_MENU: { id: MenuId; label: string }[] = [
  * De bron wordt op dubbele resolutie gerenderd en door de homografie verkleind → scherpe tekst.
  */
 const DESK_QUAD: Quad = {
-  tl: [42, 254],
-  tr: [217, 267],
-  br: [252, 604],
-  bl: [42, 590],
+  tl: [40, 249],
+  tr: [216, 263],
+  br: [255, 577],
+  bl: [41, 598],
 };
 const DESK_SRC_W = 360;
-const DESK_SRC_H = 680;
+const DESK_SRC_H = 660;
 
 /**
  * Rechtermuur (wit paneel in zwart kader, eindbeeld film 100) — opgemeten randen:

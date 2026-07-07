@@ -20,104 +20,69 @@ import { useShowroomGallery } from '@/components/model-portal/model-gallery-3d/u
 import layout from '@/components/model-portal/showroom-room-layout.json';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
-const BG = `${SHEET_BASE}/images/showroom-room-bg-v2.jpg`;
+const BG = `${SHEET_BASE}/images/showroom-room-bg-v3.png`;
 
 const BASE_W = layout.base.width;
 const BASE_H = layout.base.height;
-/** Voormuur (rechts) — hoofdfoto, hoekpunten volgen de muurlijnen. */
+/** Linkermuur — grote hoofdfoto met backlight (zoals referentiebeeld). */
 const HERO_QUAD = layout.hero as Quad;
-/** Zijmuur (links) — 8 kleine foto's met muurperspectief. */
+/** Achtermuur — 10 kleine foto's (2 rijen van 5) met muurperspectief. */
 const GRID_QUADS = layout.grid as Quad[];
-/** Achtermuur (midden) — Model Stats, tekst volgt het muurvlak. */
+/** Achtermuur rechts — maten van het model onder de naam. */
 const STATS_QUAD = layout.statsWall as Quad;
-/** Zijmuur — naam van het model boven de foto's. */
+/** Achtermuur rechts — naam van het model bovenaan. */
 const NAME_QUAD = layout.nameWall as Quad;
-/** Zijmuur — "Modellen Gallerij" onder de foto's. */
+/** Achtermuur — "Modellengallerij" onder de foto's. */
 const LABEL_QUAD = layout.galleryLabel as Quad;
-/** Zwarte verhoging (balk) onderaan — beschikbaarheden. */
-const BALK_QUAD = layout.balk as Quad;
 
-/** Max. crop links (naam/foto's beginnen op ±170px) en rechts (na de hero is alleen muur/plant). */
-const CROP_L_MAX = 160;
-const CROP_R_MAX = 495;
+/** Max. crop links (hero begint op ±70px) en rechts (naam/maten tot ±1445px). */
+const CROP_L_MAX = 60;
+const CROP_R_MAX = 180;
 /** Breedte die altijd zichtbaar moet blijven; smaller schalen we niet (dan liever randen boven/onder). */
-const SAFE_MIN_W = 2560 - CROP_L_MAX - CROP_R_MAX;
+const SAFE_MIN_W = BASE_W - CROP_L_MAX - CROP_R_MAX;
 
 const HERO_SRC = quadSourceSize(HERO_QUAD);
 const STATS_SRC = quadSourceSize(STATS_QUAD);
 const NAME_SRC = quadSourceSize(NAME_QUAD);
 const LABEL_SRC = quadSourceSize(LABEL_QUAD);
-const BALK_SRC = quadSourceSize(BALK_QUAD);
 
 /** Canvasdikte (px in bronrechthoek) — foto's hangen als dikke doeken. */
 const CANVAS_DEPTH_SMALL = 5;
 const CANVAS_DEPTH_HERO = 9;
 const CANVAS_EDGE = '#241a16';
 
-const COPPER_BRIGHT = '#f0c89a';
-const COPPER_DIM = 'rgba(232,184,138,0.85)';
-const TEXT_WHITE = 'rgba(255,246,236,0.94)';
-const STATS_GLOW = '0 0 14px rgba(232,184,138,0.55), 0 0 34px rgba(232,184,138,0.28)';
-
-const NAME_DEPTH_LAYERS = 6;
-
-/** Naam met dikte: schaduw achter, bronzen zijkant-lagen, verlicht front. */
-function ExtrudedWallName({ text, fontSize }: { text: string; fontSize: number }) {
-  const step = Math.max(0.8, fontSize * 0.028);
-  const sideX = Math.max(0.4, fontSize * 0.014);
-  const depth = NAME_DEPTH_LAYERS * step;
+/** Naam rechtsboven op de muur — warme serif met zachte backlight-gloed (ref. beeld 2). */
+function GlowWallName({ text, fontSize }: { text: string; fontSize: number }) {
   const typo = {
     fontSize,
-    letterSpacing: '0.1em',
+    letterSpacing: '0.04em',
     whiteSpace: 'nowrap' as const,
   };
-
   return (
-    <div className="relative flex h-full w-full items-end font-serif font-medium uppercase leading-none">
-      {/* zachte slagschaduw op de muur, dicht achter de letters */}
+    <div className="relative flex h-full w-full items-center justify-end font-serif font-medium leading-none">
       <span
         aria-hidden
-        className="pointer-events-none absolute bottom-0 left-0 select-none"
-        style={{
-          ...typo,
-          transform: `translate(${depth * 0.8 + 2}px, ${depth + 4}px)`,
-          color: 'rgba(0,0,0,0.38)',
-          filter: 'blur(4px)',
-        }}
+        className="pointer-events-none absolute right-0 select-none"
+        style={{ ...typo, color: 'rgba(255,214,150,0.6)', filter: 'blur(10px)' }}
       >
         {text}
       </span>
-      {/* zijkanten van de letters (dikte) */}
-      {Array.from({ length: NAME_DEPTH_LAYERS }, (_, i) => {
-        const layer = NAME_DEPTH_LAYERS - i;
-        const bronze = Math.round(168 - layer * 13);
-        return (
-          <span
-            key={layer}
-            aria-hidden
-            className="pointer-events-none absolute bottom-0 left-0 select-none"
-            style={{
-              ...typo,
-              transform: `translate(${sideX * layer}px, ${step * layer}px)`,
-              color: `rgb(${bronze}, ${Math.round(bronze * 0.62)}, ${Math.round(bronze * 0.38)})`,
-            }}
-          >
-            {text}
-          </span>
-        );
-      })}
-      {/* verlicht front */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute right-0 select-none"
+        style={{ ...typo, color: 'rgba(120,78,40,0.35)', transform: 'translateY(2px)' }}
+      >
+        {text}
+      </span>
       <span
         className="relative"
         style={{
           ...typo,
-          color: '#fffdf8',
-          WebkitTextStroke: `${Math.max(0.6, fontSize * 0.022)}px rgba(212,165,116,0.5)`,
+          color: '#fff7e8',
           textShadow: [
-            '1px 1px 0 rgba(255,250,235,0.85)',
-            '0 -1px 0 rgba(255,250,235,0.5)',
-            `0 0 ${fontSize * 0.38}px rgba(255,225,180,0.95)`,
-            `0 0 ${fontSize * 0.85}px rgba(240,195,140,0.7)`,
+            `0 0 ${fontSize * 0.3}px rgba(255,226,178,0.9)`,
+            `0 0 ${fontSize * 0.8}px rgba(240,195,140,0.55)`,
+            '0 1px 2px rgba(70,40,15,0.35)',
           ].join(', '),
         }}
       >
@@ -135,7 +100,7 @@ function PaintedWallLabel({ text, fontSize }: { text: string; fontSize: number }
     whiteSpace: 'nowrap' as const,
   };
   return (
-    <div className="relative flex h-full w-full items-center font-serif font-semibold uppercase leading-none">
+    <div className="relative flex h-full w-full items-center font-serif font-semibold leading-none">
       <span
         aria-hidden
         className="pointer-events-none absolute left-0 select-none"
@@ -177,6 +142,24 @@ function fitFontSize(text: string, srcW: number, max: number): number {
   if (!text) return max;
   const perChar = 0.74 + 0.1; // glyf + tracking (em)
   return Math.min(max, (srcW * 0.97) / (text.length * perChar));
+}
+
+/** "SOPHIE V." → "Sophie V." (initialen met punt blijven hoofdletters). */
+function toTitleCase(name: string): string {
+  return name
+    .split(/\s+/)
+    .map((w) =>
+      /^[A-Z]\.?$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+    )
+    .join(' ');
+}
+
+/** "176 CM" → "176 cm", "DONKERBRUIN" → "Donkerbruin". */
+function statValueCase(v: string): string {
+  if (/cm$/i.test(v.trim())) return v.toLowerCase();
+  if (/^[\d.,/ ]+$/.test(v.trim())) return v;
+  const low = v.toLowerCase();
+  return low.charAt(0).toUpperCase() + low.slice(1);
 }
 
 export function ModelShowroomReference({
@@ -238,8 +221,9 @@ export function ModelShowroomReference({
 
   const heroSrc = photoUrls[slideIndex] ?? photoUrls[0] ?? '';
 
+  /** Naam in gemengde kast ("Sophie V.") zoals het referentiebeeld. */
   const nameLine = activeModel
-    ? showroomDisplayName(activeModel, isAdmin).toUpperCase()
+    ? toTitleCase(showroomDisplayName(activeModel, isAdmin))
     : '';
   const stats = activeModel ? showroomStats(activeModel) : [];
   /** Alle beschikbaarheden op één regel. */
@@ -247,8 +231,7 @@ export function ModelShowroomReference({
     ? activeModel.beschikbaar
         .map((b) => b.trim())
         .filter(Boolean)
-        .join('  -  ')
-        .toUpperCase()
+        .join('  ·  ')
     : '';
 
   const onPinWall = useCallback((idx: number) => setPinnedIndex(idx), []);
@@ -256,7 +239,7 @@ export function ModelShowroomReference({
   const onLeaveWall = useCallback(() => setHoverIndex(null), []);
   const ready = photoUrls.length > 0;
 
-  const nameFontSize = fitFontSize(nameLine, NAME_SRC.w, 56);
+  const nameFontSize = fitFontSize(nameLine, NAME_SRC.w, 44);
 
   return (
     <div ref={shellRef} className="absolute inset-0 overflow-hidden bg-[#120608]">
@@ -320,28 +303,42 @@ export function ModelShowroomReference({
             })}
           </div>
 
-          {/* Naam van het model — verlicht met dikte, boven de foto's op de zijmuur */}
+          {/* Naam van het model — rechtsboven op de achtermuur, met gloed */}
           {nameLine ? (
             <div className="absolute inset-0 z-[14] overflow-visible pointer-events-none">
               <QuadWallText quad={NAME_QUAD} srcW={NAME_SRC.w} srcH={NAME_SRC.h}>
-                <ExtrudedWallName text={nameLine} fontSize={nameFontSize} />
+                <GlowWallName text={nameLine} fontSize={nameFontSize} />
               </QuadWallText>
             </div>
           ) : null}
 
-          {/* Modellen Gallerij — onder de foto's, in de muurhoek */}
+          {/* Modellengallerij — onder de foto's op de achtermuur */}
           <div className="absolute inset-0 z-[14] overflow-visible pointer-events-none">
             <QuadWallText quad={LABEL_QUAD} srcW={LABEL_SRC.w} srcH={LABEL_SRC.h}>
               <PaintedWallLabel
-                text="Modellen Gallerij"
-                fontSize={fitFontSize('Modellen Gallerij', LABEL_SRC.w, 42)}
+                text="Modellengallerij"
+                fontSize={fitFontSize('Modellengallerij', LABEL_SRC.w, 34)}
               />
             </QuadWallText>
           </div>
 
-          {/* Voormuur — hoofdfoto als dik canvas (pointer-events uit: hover op zijmuur blijft werken) */}
+          {/* Linkermuur — hoofdfoto als dik canvas (pointer-events uit: hover op fotomuur blijft werken) */}
           {heroSrc ? (
             <div className="absolute inset-0 z-[12] overflow-visible pointer-events-none">
+              {/* warme backlight-gloed achter het canvas (ref. beeld 2) */}
+              <div
+                aria-hidden
+                className="absolute"
+                style={{
+                  left: HERO_QUAD.tl[0] - 46,
+                  top: HERO_QUAD.tl[1] - 40,
+                  width: HERO_QUAD.tr[0] - HERO_QUAD.tl[0] + 92,
+                  height: HERO_QUAD.bl[1] - HERO_QUAD.tl[1] + 84,
+                  background:
+                    'radial-gradient(ellipse at center, rgba(255,214,160,0.55) 0%, rgba(255,206,150,0.25) 55%, rgba(255,200,140,0) 78%)',
+                  filter: 'blur(14px)',
+                }}
+              />
               <QuadPhotoPin
                 src={heroSrc}
                 quad={HERO_QUAD}
@@ -358,100 +355,81 @@ export function ModelShowroomReference({
             </div>
           ) : null}
 
-          {/* Achtermuur — Model Stats, groter en in het muurvlak gedraaid */}
+          {/* Achtermuur rechts — maten als geschilderde muurtekst (ref. beeld 2) */}
           <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
             <QuadWallText quad={STATS_QUAD} srcW={STATS_SRC.w} srcH={STATS_SRC.h}>
-              <div className="flex h-full w-full flex-col px-[12px] pt-[14px]">
-                <p
-                  className="m-0 whitespace-nowrap font-sans font-normal uppercase leading-none"
-                  style={{
-                    fontSize: 26,
-                    letterSpacing: '0.18em',
-                    color: COPPER_BRIGHT,
-                    textShadow: STATS_GLOW,
-                  }}
-                >
-                  Model Stats
-                </p>
-                <span
-                  aria-hidden
-                  style={{
-                    marginTop: 16,
-                    height: 1.5,
-                    width: '82%',
-                    background:
-                      'linear-gradient(to right, rgba(232,184,138,0.65), rgba(232,184,138,0.05))',
-                  }}
-                />
-
-                <dl className="m-0 p-0" style={{ marginTop: 26 }}>
+              <div className="flex h-full w-full flex-col pt-[4px]">
+                <dl className="m-0 grid gap-y-[13px] p-0" style={{ gridTemplateColumns: '46% 54%' }}>
                   {stats.map(([label, value]) => (
-                    <div
-                      key={label}
-                      className="flex items-baseline justify-between"
-                      style={{ marginBottom: 22 }}
-                    >
+                    <div key={label} className="contents">
                       <dt
-                        className="whitespace-nowrap font-sans font-normal uppercase"
+                        className="whitespace-nowrap font-serif font-normal"
                         style={{
-                          fontSize: 19,
-                          letterSpacing: '0.13em',
-                          color: COPPER_DIM,
-                          textShadow: '0 0 10px rgba(232,184,138,0.35)',
+                          fontSize: 17,
+                          letterSpacing: '0.04em',
+                          color: 'rgba(112,74,42,0.92)',
+                          textShadow: '0 1px 1px rgba(255,240,214,0.5)',
                         }}
                       >
                         {label}
                       </dt>
                       <dd
-                        className="m-0 whitespace-nowrap font-sans font-light uppercase"
+                        className="m-0 whitespace-nowrap font-serif font-normal"
                         style={{
-                          fontSize: 19,
-                          letterSpacing: '0.09em',
-                          color: TEXT_WHITE,
-                          textShadow: '0 0 10px rgba(255,255,255,0.22)',
+                          fontSize: 17,
+                          letterSpacing: '0.04em',
+                          color: 'rgba(94,60,32,0.95)',
+                          textShadow: '0 1px 1px rgba(255,240,214,0.5)',
                         }}
                       >
-                        {value}
+                        {statValueCase(value)}
                       </dd>
                     </div>
                   ))}
                 </dl>
+
+                {availInline ? (
+                  <>
+                    <span
+                      aria-hidden
+                      style={{
+                        marginTop: 20,
+                        height: 1,
+                        width: '92%',
+                        background:
+                          'linear-gradient(to right, rgba(150,102,58,0.55), rgba(150,102,58,0.05))',
+                      }}
+                    />
+                    <p
+                      className="m-0 whitespace-nowrap font-serif"
+                      style={{
+                        marginTop: 14,
+                        fontSize: 13.5,
+                        letterSpacing: '0.1em',
+                        color: 'rgba(112,74,42,0.85)',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Beschikbaar voor
+                    </p>
+                    <p
+                      className="m-0 font-serif"
+                      style={{
+                        marginTop: 8,
+                        fontSize: 14.5,
+                        lineHeight: 1.5,
+                        letterSpacing: '0.03em',
+                        color: 'rgba(94,60,32,0.92)',
+                        whiteSpace: 'normal',
+                      }}
+                    >
+                      {availInline}
+                    </p>
+                  </>
+                ) : null}
               </div>
             </QuadWallText>
           </div>
-
-          {/* Zwarte verhoging (balk) — beschikbaar voor links, alles op één regel */}
-          {availInline ? (
-            <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
-              <QuadWallText quad={BALK_QUAD} srcW={BALK_SRC.w} srcH={BALK_SRC.h}>
-                <div className="flex h-full w-full flex-col justify-center px-[6px]">
-                  <p
-                    className="m-0 whitespace-nowrap font-sans font-normal uppercase leading-none"
-                    style={{
-                      fontSize: 21,
-                      letterSpacing: '0.22em',
-                      color: COPPER_DIM,
-                      textShadow: '0 0 12px rgba(232,184,138,0.4)',
-                    }}
-                  >
-                    Beschikbaar voor
-                  </p>
-                  <p
-                    className="m-0 whitespace-nowrap font-sans font-light uppercase"
-                    style={{
-                      marginTop: 14,
-                      fontSize: 19,
-                      letterSpacing: '0.1em',
-                      color: TEXT_WHITE,
-                      textShadow: '0 0 10px rgba(255,255,255,0.2)',
-                    }}
-                  >
-                    {availInline}
-                  </p>
-                </div>
-              </QuadWallText>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>
