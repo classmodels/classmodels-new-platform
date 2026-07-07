@@ -15,15 +15,15 @@ import { getApiBase, publicMediaUrl } from '@/lib/api';
 import layout from '@/components/model-portal/showroom-room-layout.json';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
-const BG = `${SHEET_BASE}/images/showroom-room-bg-v4.png`;
+const BG = `${SHEET_BASE}/images/showroom-room-bg-v5.jpg`;
 
 const BASE_W = layout.base.width;
 const BASE_H = layout.base.height;
 /** Rechtermuur — volledig gevuld met modellenkaarten (scrollbaar). */
 const WALL_QUAD = layout.modelsWall as Quad;
 
-/** Beeld op 85% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
-const WIDTH_FRACTION = 0.85;
+/** Beeld op 80% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
+const WIDTH_FRACTION = 0.8;
 
 const WALL_SRC = quadSourceSize(WALL_QUAD);
 

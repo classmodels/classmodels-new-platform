@@ -16,7 +16,7 @@ export function SiteHeader() {
   return (
     <header className="shrink-0 border-b border-white/10 bg-ink text-white">
       {/* Fijne zwarte menubalk: back-knop + logo links, menuknoppen + talen rechts. */}
-      <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-4 py-1.5 text-sm md:flex-nowrap md:gap-x-8 lg:px-[50px]">
+      <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-4 py-1.5 text-xs md:flex-nowrap md:gap-x-8 lg:px-[50px]">
         <div className="flex min-w-0 shrink-0 items-center gap-3">
           <button
             type="button"
@@ -29,14 +29,6 @@ export function SiteHeader() {
           >
             ← <CmText contentKey="site.header.nav.back" as="span" fallback="Terug" />
           </button>
-          <Link href="/" className="notranslate block">
-            <CmText
-              contentKey="site.header.logo"
-              as="span"
-              className="block font-serif text-lg font-semibold leading-none tracking-tight text-burgundy md:text-xl"
-              fallback="Class-Models"
-            />
-          </Link>
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-5 gap-y-2 md:flex-nowrap md:gap-x-7">
           <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 md:flex-nowrap md:gap-x-6">
