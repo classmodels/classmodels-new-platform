@@ -22,8 +22,8 @@ const BASE_H = layout.base.height;
 /** Rechtermuur — volledig gevuld met modellenkaarten (scrollbaar). */
 const WALL_QUAD = layout.modelsWall as Quad;
 
-/** Beeld op 98% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
-const WIDTH_FRACTION = 0.98;
+/** Beeld op 85% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
+const WIDTH_FRACTION = 0.85;
 
 const WALL_SRC = quadSourceSize(WALL_QUAD);
 

@@ -38,8 +38,8 @@ const LABEL_QUAD = layout.galleryLabel as Quad;
 /** Rechtermuur — beschikbaarheden onder de maten, links uitgelijnd. */
 const AVAIL_QUAD = layout.availWall as Quad;
 
-/** Beeld op 98% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
-const WIDTH_FRACTION = 0.98;
+/** Beeld op 85% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
+const WIDTH_FRACTION = 0.85;
 
 const HERO_SRC = quadSourceSize(HERO_QUAD);
 const STATS_SRC = quadSourceSize(STATS_QUAD);
