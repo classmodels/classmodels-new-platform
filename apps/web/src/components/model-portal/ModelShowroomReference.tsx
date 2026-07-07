@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { ShowroomDeskMenu } from '@/components/model-portal/ShowroomDeskMenu';
 import { CmProgressBar } from '@/components/CmProgressBar';
 import { QuadPhotoPin } from '@/components/model-portal/model-gallery-3d/QuadPhotoPin';
 import { QuadWallText } from '@/components/model-portal/model-gallery-3d/QuadWallText';
@@ -20,26 +21,26 @@ import { useShowroomGallery } from '@/components/model-portal/model-gallery-3d/u
 import layout from '@/components/model-portal/showroom-room-layout.json';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
-const BG = `${SHEET_BASE}/images/showroom-room-bg-v3.png`;
+const BG = `${SHEET_BASE}/images/showroom-room-bg-v4.png`;
 
 const BASE_W = layout.base.width;
 const BASE_H = layout.base.height;
-/** Linkermuur — grote hoofdfoto met backlight (zoals referentiebeeld). */
+/** Linkermuur-segment — grote hoofdfoto met backlight. */
 const HERO_QUAD = layout.hero as Quad;
-/** Achtermuur — 8 kleine foto's (2 rijen van 4, 2:3) met muurperspectief. */
+/** Rechtermuur — 8 kleine foto's (2 rijen van 4, 2:3) met muurperspectief. */
 const GRID_QUADS = layout.grid as Quad[];
-/** Achtermuur rechts — maten van het model onder de naam. */
+/** Rechtermuur — maten rechts van de kleine foto's, op fotohoogte. */
 const STATS_QUAD = layout.statsWall as Quad;
-/** Achtermuur rechts — naam van het model, op fotohoogte en op de maten-kolomlijn. */
+/** Linkermuur — naamplakkaat boven de hoofdfoto, links uitgelijnd met de foto. */
 const NAME_QUAD = layout.nameWall as Quad;
-/** Achtermuur — "Modellengallerij" onder de foto's. */
+/** Rechtermuur — "Modellengallerij" onder de foto's. */
 const LABEL_QUAD = layout.galleryLabel as Quad;
-/** Achtermuur — beschikbaarheden onderaan de muur. */
+/** Rechtermuur — beschikbaarheden onder de maten, links uitgelijnd. */
 const AVAIL_QUAD = layout.availWall as Quad;
 
-/** Max. crop links (hero begint op ±70px) en rechts (naam/maten tot ±1445px). */
-const CROP_L_MAX = 60;
-const CROP_R_MAX = 180;
+/** Max. crop links (logo/kiosk blijven grotendeels zichtbaar) en rechts (maten tot ±1655px). */
+const CROP_L_MAX = 40;
+const CROP_R_MAX = 15;
 /** Breedte die altijd zichtbaar moet blijven; smaller schalen we niet (dan liever randen boven/onder). */
 const SAFE_MIN_W = BASE_W - CROP_L_MAX - CROP_R_MAX;
 
@@ -49,6 +50,12 @@ const NAME_SRC = quadSourceSize(NAME_QUAD);
 const LABEL_SRC = quadSourceSize(LABEL_QUAD);
 const AVAIL_SRC = quadSourceSize(AVAIL_QUAD);
 
+/**
+ * Supersampling: tekst 2x zo groot renderen en door de homografie laten
+ * verkleinen → gestoken scherpe letters (zelfde truc als het gastendeskmenu).
+ */
+const NAME_SS = 2;
+
 /** Dikke galerij-kaders: espresso lijst met dikte tegen de muur. */
 const CANVAS_DEPTH_SMALL = 9;
 const CANVAS_DEPTH_HERO = 14;
@@ -57,38 +64,33 @@ const FRAME_SMALL_PX = 4;
 const FRAME_HERO_PX = 6;
 const FRAME_COLOR = '#191009';
 
-/** Naam rechtsboven op de muur — warme serif met zachte backlight-gloed (ref. beeld 2). */
-function GlowWallName({ text, fontSize }: { text: string; fontSize: number }) {
-  const typo = {
-    fontSize,
-    letterSpacing: '0.04em',
-    whiteSpace: 'nowrap' as const,
-  };
+/** Naam van het model — donker plakkaat met dikke, wit verlichte letters (2x supersampled). */
+function NamePlaque({ text, fontSize }: { text: string; fontSize: number }) {
   return (
-    <div className="relative flex h-full w-full items-start justify-start font-serif font-medium leading-none">
+    <div
+      className="flex h-full w-full items-center justify-center"
+      style={{
+        background:
+          'linear-gradient(140deg, #1a120c 0%, #2a1c13 45%, #140d09 100%)',
+        border: `${2 * NAME_SS}px solid rgba(206,162,104,0.55)`,
+        borderRadius: 5 * NAME_SS,
+        boxShadow: [
+          `inset 0 0 ${22 * NAME_SS}px rgba(0,0,0,0.85)`,
+          `inset 0 ${NAME_SS}px 0 rgba(255,222,172,0.22)`,
+          `0 ${6 * NAME_SS}px ${18 * NAME_SS}px rgba(28,14,4,0.5)`,
+        ].join(', '),
+      }}
+    >
       <span
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 select-none"
-        style={{ ...typo, color: 'rgba(255,214,150,0.6)', filter: 'blur(10px)' }}
-      >
-        {text}
-      </span>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-0 top-0 select-none"
-        style={{ ...typo, color: 'rgba(120,78,40,0.35)', transform: 'translateY(2px)' }}
-      >
-        {text}
-      </span>
-      <span
-        className="relative"
+        className="whitespace-nowrap font-serif font-bold leading-none"
         style={{
-          ...typo,
-          color: '#fff7e8',
+          fontSize,
+          letterSpacing: '0.09em',
+          color: '#ffffff',
           textShadow: [
-            `0 0 ${fontSize * 0.3}px rgba(255,226,178,0.9)`,
-            `0 0 ${fontSize * 0.8}px rgba(240,195,140,0.55)`,
-            '0 1px 2px rgba(70,40,15,0.35)',
+            `0 0 ${Math.round(fontSize * 0.22)}px rgba(255,255,255,0.95)`,
+            `0 0 ${Math.round(fontSize * 0.55)}px rgba(255,246,226,0.75)`,
+            `0 0 ${Math.round(fontSize * 1.1)}px rgba(255,232,188,0.45)`,
           ].join(', '),
         }}
       >
@@ -102,7 +104,7 @@ function GlowWallName({ text, fontSize }: { text: string; fontSize: number }) {
 function PaintedWallLabel({ text, fontSize }: { text: string; fontSize: number }) {
   const typo = {
     fontSize,
-    letterSpacing: '0.06em',
+    letterSpacing: '0.12em',
     whiteSpace: 'nowrap' as const,
   };
   return (
@@ -222,7 +224,7 @@ export function ModelShowroomReference({
     ? activeModel.beschikbaar
         .map((b) => b.trim())
         .filter(Boolean)
-        .join('  ·  ')
+        .join(' · ')
     : '';
 
   const onPinWall = useCallback((idx: number) => setPinnedIndex(idx), []);
@@ -230,7 +232,7 @@ export function ModelShowroomReference({
   const onLeaveWall = useCallback(() => setHoverIndex(null), []);
   const ready = photoUrls.length > 0;
 
-  const nameFontSize = fitFontSize(nameLine, NAME_SRC.w, 44);
+  const nameFontSize = fitFontSize(nameLine, NAME_SRC.w * NAME_SS * 0.9, 36 * NAME_SS);
 
   return (
     <div ref={shellRef} className="absolute inset-0 overflow-hidden bg-[#120608]">
@@ -265,7 +267,7 @@ export function ModelShowroomReference({
             draggable={false}
           />
 
-          {/* Zijmuur links — kleine foto's als dikke canvassen */}
+          {/* Rechtermuur — kleine foto's als dikke canvassen */}
           <div className="absolute inset-0 z-10 overflow-visible">
             {GRID_QUADS.map((quad, idx) => {
               const src = photoUrls[idx];
@@ -295,21 +297,25 @@ export function ModelShowroomReference({
             })}
           </div>
 
-          {/* Naam van het model — rechtsboven op de achtermuur, met gloed */}
+          {/* Naamplakkaat — boven de hoofdfoto, links uitgelijnd met de foto */}
           {nameLine ? (
             <div className="absolute inset-0 z-[14] overflow-visible pointer-events-none">
-              <QuadWallText quad={NAME_QUAD} srcW={NAME_SRC.w} srcH={NAME_SRC.h}>
-                <GlowWallName text={nameLine} fontSize={nameFontSize} />
+              <QuadWallText
+                quad={NAME_QUAD}
+                srcW={Math.round(NAME_SRC.w * NAME_SS)}
+                srcH={Math.round(NAME_SRC.h * NAME_SS)}
+              >
+                <NamePlaque text={nameLine} fontSize={nameFontSize} />
               </QuadWallText>
             </div>
           ) : null}
 
-          {/* Modellengallerij — onder de foto's op de achtermuur */}
+          {/* Modellengallerij — onder de foto's op de rechtermuur */}
           <div className="absolute inset-0 z-[14] overflow-visible pointer-events-none">
             <QuadWallText quad={LABEL_QUAD} srcW={LABEL_SRC.w} srcH={LABEL_SRC.h}>
               <PaintedWallLabel
                 text="Modellengallerij"
-                fontSize={fitFontSize('Modellengallerij', LABEL_SRC.w, 34)}
+                fontSize={fitFontSize('Modellengallerij', LABEL_SRC.w, 42)}
               />
             </QuadWallText>
           </div>
@@ -348,13 +354,13 @@ export function ModelShowroomReference({
             </div>
           ) : null}
 
-          {/* Achtermuur rechts — maten: titels links uitgelijnd, waarden rechts uitgelijnd */}
+          {/* Rechtermuur — maten rechts van de foto's: titels links, waarden rechts uitgelijnd */}
           <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
             <QuadWallText quad={STATS_QUAD} srcW={STATS_SRC.w} srcH={STATS_SRC.h}>
               <div className="flex h-full w-full flex-col pt-[4px]">
                 <dl
                   className="m-0 grid gap-y-[13px] p-0"
-                  style={{ gridTemplateColumns: 'auto 1fr', columnGap: 56 }}
+                  style={{ gridTemplateColumns: 'auto 1fr', columnGap: 38 }}
                 >
                   {stats.map(([label, value]) => (
                     <div key={label} className="contents">
@@ -387,32 +393,32 @@ export function ModelShowroomReference({
             </QuadWallText>
           </div>
 
-          {/* Beschikbaarheden — onderaan de muur, alles op één regel */}
+          {/* Beschikbaarheden — onderaan de muur, net boven de plint, alles op één regel */}
           {availInline ? (
             <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
               <QuadWallText quad={AVAIL_QUAD} srcW={AVAIL_SRC.w} srcH={AVAIL_SRC.h}>
-                <div className="flex h-full w-full flex-col items-end justify-end pb-[2px]">
+                <div className="flex h-full w-full flex-col items-start justify-end pb-[2px]">
                   <p
                     className="m-0 whitespace-nowrap font-serif"
                     style={{
-                      fontSize: 13,
-                      letterSpacing: '0.14em',
-                      color: 'rgba(74,44,20,0.95)',
+                      fontSize: 12,
+                      letterSpacing: '0.13em',
+                      color: 'rgba(32,17,7,0.98)',
                       textTransform: 'uppercase',
-                      textShadow: '0 1px 1px rgba(255,240,214,0.4)',
+                      textShadow: '0 1px 1px rgba(255,240,214,0.3)',
                     }}
                   >
                     Beschikbaar voor
                   </p>
                   <p
-                    className="m-0 whitespace-nowrap font-serif"
+                    className="m-0 whitespace-nowrap text-left font-serif"
                     style={{
-                      marginTop: 9,
-                      // serif ≈ 0.55em per teken — één regel passend binnen de strook
+                      marginTop: 7,
+                      // serif ≈ 0.58em per teken — alles op één regel binnen de strook
                       fontSize: Math.min(16, (AVAIL_SRC.w * 0.97) / (availInline.length * 0.58)),
                       letterSpacing: '0.03em',
-                      color: 'rgba(64,38,18,0.95)',
-                      textShadow: '0 1px 1px rgba(255,240,214,0.4)',
+                      color: 'rgba(36,20,8,0.97)',
+                      textShadow: '0 1px 1px rgba(255,240,214,0.35)',
                     }}
                   >
                     {availInline}
@@ -421,6 +427,9 @@ export function ModelShowroomReference({
               </QuadWallText>
             </div>
           ) : null}
+
+          {/* Kiosk links — menubord van het modellenportaal */}
+          <ShowroomDeskMenu currentPage="fiche" />
         </div>
       ) : null}
     </div>

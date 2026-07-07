@@ -13,10 +13,10 @@ function ShowroomContent() {
   return <ModelShowroomReference modelId={modelId} demo={demo} />;
 }
 
-/** Modellenfiche — exacte referentiefoto (bijlage 1) + foto's in witte vlakken. */
+/** Modellenfiche — showroomruimte; blijft altijd onder de zwarte menubalk. */
 export default function ModelShowroomPage() {
   return (
-    <div className="fixed inset-0 z-[100] flex h-[100dvh] w-full flex-col overflow-hidden bg-[#120608]">
+    <div className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-[#120608]">
       <div className="absolute left-4 top-4 z-[110] flex items-center gap-2">
         <Link
           href="/portal/model?tab=modellen"
