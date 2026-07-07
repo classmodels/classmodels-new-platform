@@ -89,14 +89,20 @@ const DESK_MENU: { id: MenuId; label: string }[] = [
  * HTML-menu dekt de (wazig meegefilmde) knoppen af en volgt de hoek van het bord.
  * De bron wordt op dubbele resolutie gerenderd en door de homografie verkleind → scherpe tekst.
  */
+/**
+ * Binnenscherm van het menubord — net binnen de bronzen/gouden bies van de
+ * fysieke desk, zodat die bies in beeld blijft. Hoekpunten gemeten als
+ * snijpunten van de vier bieslijnen in het eindbeeld van de film.
+ */
 const DESK_QUAD: Quad = {
-  tl: [40, 249],
-  tr: [216, 263],
-  br: [255, 577],
-  bl: [41, 598],
+  tl: [46, 256],
+  tr: [212, 268],
+  br: [246, 554],
+  bl: [80, 570],
 };
-const DESK_SRC_W = 360;
-const DESK_SRC_H = 660;
+/** 2x supersampling: bron dubbel zo groot renderen → scherpe tekst na de perspectieftransform. */
+const DESK_SRC_W = 720;
+const DESK_SRC_H = 1320;
 
 /**
  * Rechtermuur (wit paneel in zwart kader, eindbeeld film 100) — opgemeten randen:
@@ -813,6 +819,11 @@ export function BeginLiftExperience() {
         {/* Menubord op de desk — eigen scherp gerenderd bord dat de hoek van de desk volgt. */}
         {phase === 'desk' ? (
           <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }}>
+            {/*
+              Bron 2x zo groot gerenderd (supersampling) en dan door de homografie
+              verkleind → gestoken scherpe tekst. Het bord ligt binnen de gouden
+              bies van de fysieke desk, zodat die zichtbaar blijft.
+            */}
             <div
               style={{
                 position: 'absolute',
@@ -823,32 +834,32 @@ export function BeginLiftExperience() {
                 transform: quadMatrix3d(DESK_SRC_W, DESK_SRC_H, DESK_QUAD),
                 transformOrigin: '0 0',
                 pointerEvents: 'auto',
-                background: 'linear-gradient(160deg, #171310 0%, #100d0b 55%, #171310 100%)',
-                borderRadius: 8,
-                border: '1px solid rgba(190,150,95,0.55)',
-                boxShadow: 'inset 0 0 26px rgba(0,0,0,0.85), inset 0 0 3px rgba(255,220,170,0.18)',
-                padding: '18px 16px 20px',
+                background: 'linear-gradient(160deg, #15110e 0%, #0e0b09 55%, #15110e 100%)',
+                borderRadius: 6,
+                boxShadow: 'inset 0 0 52px rgba(0,0,0,0.85)',
+                padding: '36px 32px 40px',
                 display: 'flex',
                 flexDirection: 'column',
               }}
             >
               <p
                 className="m-0 shrink-0 text-center font-sans uppercase"
-                style={{ fontSize: 12.5, letterSpacing: '0.3em', color: 'rgba(214,178,124,0.95)' }}
+                style={{ fontSize: 25, letterSpacing: '0.3em', color: 'rgba(214,178,124,0.95)' }}
               >
                 Menu
               </p>
               <span
                 aria-hidden
-                className="mx-auto mb-3 mt-2 block h-px w-3/4 shrink-0"
+                className="mx-auto mb-6 mt-4 block w-3/4 shrink-0"
                 style={{
+                  height: 2,
                   background:
                     'linear-gradient(to right, transparent, rgba(214,178,124,0.7), transparent)',
                 }}
               />
               {/* Scrollbaar: komen er later meer menu-items bij, dan scrol je op het bord zelf. */}
               <div
-                className="min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
                 {DESK_MENU.map((m) => {
                   const active = activeMenu === m.id;
@@ -857,46 +868,46 @@ export function BeginLiftExperience() {
                       key={m.id}
                       type="button"
                       onClick={() => openMenu(m.id)}
-                      className="group flex w-full cursor-pointer items-center justify-between gap-2 rounded-md px-4 text-left outline-none transition duration-200"
+                      className="group flex w-full cursor-pointer items-center justify-between gap-4 rounded-lg px-8 text-left outline-none transition duration-200"
                       style={{
-                        minHeight: 58,
+                        minHeight: 116,
                         background: active
                           ? 'linear-gradient(180deg, rgba(84,64,40,0.72), rgba(52,40,26,0.72))'
                           : 'linear-gradient(180deg, rgba(48,40,32,0.55), rgba(28,23,18,0.55))',
                         border: active
-                          ? '1.5px solid rgba(240,204,140,0.95)'
-                          : '1px solid rgba(190,150,95,0.4)',
+                          ? '3px solid rgba(240,204,140,0.95)'
+                          : '2px solid rgba(190,150,95,0.4)',
                         boxShadow: active
-                          ? '0 0 16px rgba(240,204,140,0.35), inset 0 0 10px rgba(240,204,140,0.12)'
-                          : 'inset 0 1px 0 rgba(255,255,255,0.05)',
+                          ? '0 0 32px rgba(240,204,140,0.35), inset 0 0 20px rgba(240,204,140,0.12)'
+                          : 'inset 0 2px 0 rgba(255,255,255,0.05)',
                       }}
                       onMouseEnter={(e) => {
                         if (active) return;
-                        e.currentTarget.style.border = '1.5px solid rgba(240,204,140,0.85)';
+                        e.currentTarget.style.border = '3px solid rgba(240,204,140,0.85)';
                         e.currentTarget.style.boxShadow =
-                          '0 0 18px rgba(240,204,140,0.30), inset 0 0 8px rgba(240,204,140,0.10)';
+                          '0 0 36px rgba(240,204,140,0.30), inset 0 0 16px rgba(240,204,140,0.10)';
                       }}
                       onMouseLeave={(e) => {
                         if (activeMenu === m.id) return;
-                        e.currentTarget.style.border = '1px solid rgba(190,150,95,0.4)';
-                        e.currentTarget.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.05)';
+                        e.currentTarget.style.border = '2px solid rgba(190,150,95,0.4)';
+                        e.currentTarget.style.boxShadow = 'inset 0 2px 0 rgba(255,255,255,0.05)';
                       }}
                     >
                       <span
                         className="font-serif"
                         style={{
-                          fontSize: 19,
+                          fontSize: 38,
                           lineHeight: 1.15,
                           color: active ? '#ffe9c4' : '#f3ead9',
-                          textShadow: '0 1px 2px rgba(0,0,0,0.6)',
+                          textShadow: '0 2px 4px rgba(0,0,0,0.6)',
                         }}
                       >
                         {m.label}
                       </span>
                       <span
                         aria-hidden
-                        className="shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
-                        style={{ fontSize: 18, color: 'rgba(240,204,140,0.9)' }}
+                        className="shrink-0 transition-transform duration-200 group-hover:translate-x-1"
+                        style={{ fontSize: 36, color: 'rgba(240,204,140,0.9)' }}
                       >
                         ›
                       </span>

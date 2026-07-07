@@ -26,14 +26,16 @@ const BASE_W = layout.base.width;
 const BASE_H = layout.base.height;
 /** Linkermuur — grote hoofdfoto met backlight (zoals referentiebeeld). */
 const HERO_QUAD = layout.hero as Quad;
-/** Achtermuur — 10 kleine foto's (2 rijen van 5) met muurperspectief. */
+/** Achtermuur — 8 kleine foto's (2 rijen van 4, 2:3) met muurperspectief. */
 const GRID_QUADS = layout.grid as Quad[];
 /** Achtermuur rechts — maten van het model onder de naam. */
 const STATS_QUAD = layout.statsWall as Quad;
-/** Achtermuur rechts — naam van het model bovenaan. */
+/** Achtermuur rechts — naam van het model, op fotohoogte en op de maten-kolomlijn. */
 const NAME_QUAD = layout.nameWall as Quad;
 /** Achtermuur — "Modellengallerij" onder de foto's. */
 const LABEL_QUAD = layout.galleryLabel as Quad;
+/** Achtermuur — beschikbaarheden onderaan de muur. */
+const AVAIL_QUAD = layout.availWall as Quad;
 
 /** Max. crop links (hero begint op ±70px) en rechts (naam/maten tot ±1445px). */
 const CROP_L_MAX = 60;
@@ -45,11 +47,15 @@ const HERO_SRC = quadSourceSize(HERO_QUAD);
 const STATS_SRC = quadSourceSize(STATS_QUAD);
 const NAME_SRC = quadSourceSize(NAME_QUAD);
 const LABEL_SRC = quadSourceSize(LABEL_QUAD);
+const AVAIL_SRC = quadSourceSize(AVAIL_QUAD);
 
-/** Canvasdikte (px in bronrechthoek) — foto's hangen als dikke doeken. */
-const CANVAS_DEPTH_SMALL = 5;
-const CANVAS_DEPTH_HERO = 9;
+/** Dikke galerij-kaders: espresso lijst met dikte tegen de muur. */
+const CANVAS_DEPTH_SMALL = 9;
+const CANVAS_DEPTH_HERO = 14;
 const CANVAS_EDGE = '#241a16';
+const FRAME_SMALL_PX = 4;
+const FRAME_HERO_PX = 6;
+const FRAME_COLOR = '#191009';
 
 /** Naam rechtsboven op de muur — warme serif met zachte backlight-gloed (ref. beeld 2). */
 function GlowWallName({ text, fontSize }: { text: string; fontSize: number }) {
@@ -59,17 +65,17 @@ function GlowWallName({ text, fontSize }: { text: string; fontSize: number }) {
     whiteSpace: 'nowrap' as const,
   };
   return (
-    <div className="relative flex h-full w-full items-center justify-end font-serif font-medium leading-none">
+    <div className="relative flex h-full w-full items-start justify-start font-serif font-medium leading-none">
       <span
         aria-hidden
-        className="pointer-events-none absolute right-0 select-none"
+        className="pointer-events-none absolute left-0 top-0 select-none"
         style={{ ...typo, color: 'rgba(255,214,150,0.6)', filter: 'blur(10px)' }}
       >
         {text}
       </span>
       <span
         aria-hidden
-        className="pointer-events-none absolute right-0 select-none"
+        className="pointer-events-none absolute left-0 top-0 select-none"
         style={{ ...typo, color: 'rgba(120,78,40,0.35)', transform: 'translateY(2px)' }}
       >
         {text}
@@ -92,33 +98,19 @@ function GlowWallName({ text, fontSize }: { text: string; fontSize: number }) {
   );
 }
 
-/** Geschilderd muurlabel met backlight-gloed (Modellen Gallerij). */
+/** Muurlabel "Modellengallerij" — strak en scherp, zoals het referentiebeeld. */
 function PaintedWallLabel({ text, fontSize }: { text: string; fontSize: number }) {
   const typo = {
     fontSize,
-    letterSpacing: '0.14em',
+    letterSpacing: '0.06em',
     whiteSpace: 'nowrap' as const,
   };
   return (
-    <div className="relative flex h-full w-full items-center font-serif font-semibold leading-none">
+    <div className="relative flex h-full w-full items-center font-serif font-medium leading-none">
       <span
         aria-hidden
         className="pointer-events-none absolute left-0 select-none"
-        style={{ ...typo, color: 'rgba(255,198,128,0.55)', filter: 'blur(9px)' }}
-      >
-        {text}
-      </span>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-0 select-none"
-        style={{ ...typo, color: 'rgba(255,218,158,0.9)', filter: 'blur(3px)' }}
-      >
-        {text}
-      </span>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-0 select-none"
-        style={{ ...typo, color: 'rgba(54,36,22,0.35)', transform: 'translateY(2px)' }}
+        style={{ ...typo, color: 'rgba(70,42,20,0.28)', transform: 'translateY(1.5px)' }}
       >
         {text}
       </span>
@@ -126,9 +118,8 @@ function PaintedWallLabel({ text, fontSize }: { text: string; fontSize: number }
         className="relative"
         style={{
           ...typo,
-          color: 'rgba(196,156,104,0.95)',
-          WebkitTextStroke: '1px rgba(106,72,42,0.35)',
-          textShadow: '0 -1px 0 rgba(255,245,220,0.5), 0 1px 2px rgba(0,0,0,0.25)',
+          color: 'rgba(126,84,44,0.98)',
+          textShadow: '0 1px 1px rgba(255,240,214,0.45)',
         }}
       >
         {text}
@@ -287,7 +278,8 @@ export function ModelShowroomReference({
                   quad={quad}
                   srcW={srcSize.w}
                   srcH={srcSize.h}
-                  framePx={0}
+                  framePx={FRAME_SMALL_PX}
+                  frameColor={FRAME_COLOR}
                   frameDepthPx={CANVAS_DEPTH_SMALL}
                   frameDepthColor={CANVAS_EDGE}
                   showShadow
@@ -344,7 +336,8 @@ export function ModelShowroomReference({
                 quad={HERO_QUAD}
                 srcW={HERO_SRC.w}
                 srcH={HERO_SRC.h}
-                framePx={0}
+                framePx={FRAME_HERO_PX}
+                frameColor={FRAME_COLOR}
                 frameDepthPx={CANVAS_DEPTH_HERO}
                 frameDepthColor={CANVAS_EDGE}
                 showShadow
@@ -355,15 +348,18 @@ export function ModelShowroomReference({
             </div>
           ) : null}
 
-          {/* Achtermuur rechts — maten als geschilderde muurtekst (ref. beeld 2) */}
+          {/* Achtermuur rechts — maten: titels links uitgelijnd, waarden rechts uitgelijnd */}
           <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
             <QuadWallText quad={STATS_QUAD} srcW={STATS_SRC.w} srcH={STATS_SRC.h}>
               <div className="flex h-full w-full flex-col pt-[4px]">
-                <dl className="m-0 grid gap-y-[13px] p-0" style={{ gridTemplateColumns: '46% 54%' }}>
+                <dl
+                  className="m-0 grid gap-y-[13px] p-0"
+                  style={{ gridTemplateColumns: 'auto 1fr', columnGap: 56 }}
+                >
                   {stats.map(([label, value]) => (
                     <div key={label} className="contents">
                       <dt
-                        className="whitespace-nowrap font-serif font-normal"
+                        className="whitespace-nowrap text-left font-serif font-normal"
                         style={{
                           fontSize: 17,
                           letterSpacing: '0.04em',
@@ -374,7 +370,7 @@ export function ModelShowroomReference({
                         {label}
                       </dt>
                       <dd
-                        className="m-0 whitespace-nowrap font-serif font-normal"
+                        className="m-0 whitespace-nowrap text-right font-serif font-normal"
                         style={{
                           fontSize: 17,
                           letterSpacing: '0.04em',
@@ -387,49 +383,44 @@ export function ModelShowroomReference({
                     </div>
                   ))}
                 </dl>
-
-                {availInline ? (
-                  <>
-                    <span
-                      aria-hidden
-                      style={{
-                        marginTop: 20,
-                        height: 1,
-                        width: '92%',
-                        background:
-                          'linear-gradient(to right, rgba(150,102,58,0.55), rgba(150,102,58,0.05))',
-                      }}
-                    />
-                    <p
-                      className="m-0 whitespace-nowrap font-serif"
-                      style={{
-                        marginTop: 14,
-                        fontSize: 13.5,
-                        letterSpacing: '0.1em',
-                        color: 'rgba(112,74,42,0.85)',
-                        textTransform: 'uppercase',
-                      }}
-                    >
-                      Beschikbaar voor
-                    </p>
-                    <p
-                      className="m-0 font-serif"
-                      style={{
-                        marginTop: 8,
-                        fontSize: 14.5,
-                        lineHeight: 1.5,
-                        letterSpacing: '0.03em',
-                        color: 'rgba(94,60,32,0.92)',
-                        whiteSpace: 'normal',
-                      }}
-                    >
-                      {availInline}
-                    </p>
-                  </>
-                ) : null}
               </div>
             </QuadWallText>
           </div>
+
+          {/* Beschikbaarheden — onderaan de muur, alles op één regel */}
+          {availInline ? (
+            <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
+              <QuadWallText quad={AVAIL_QUAD} srcW={AVAIL_SRC.w} srcH={AVAIL_SRC.h}>
+                <div className="flex h-full w-full flex-col items-end justify-end pb-[2px]">
+                  <p
+                    className="m-0 whitespace-nowrap font-serif"
+                    style={{
+                      fontSize: 13,
+                      letterSpacing: '0.14em',
+                      color: 'rgba(74,44,20,0.95)',
+                      textTransform: 'uppercase',
+                      textShadow: '0 1px 1px rgba(255,240,214,0.4)',
+                    }}
+                  >
+                    Beschikbaar voor
+                  </p>
+                  <p
+                    className="m-0 whitespace-nowrap font-serif"
+                    style={{
+                      marginTop: 9,
+                      // serif ≈ 0.55em per teken — één regel passend binnen de strook
+                      fontSize: Math.min(16, (AVAIL_SRC.w * 0.97) / (availInline.length * 0.58)),
+                      letterSpacing: '0.03em',
+                      color: 'rgba(64,38,18,0.95)',
+                      textShadow: '0 1px 1px rgba(255,240,214,0.4)',
+                    }}
+                  >
+                    {availInline}
+                  </p>
+                </div>
+              </QuadWallText>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
