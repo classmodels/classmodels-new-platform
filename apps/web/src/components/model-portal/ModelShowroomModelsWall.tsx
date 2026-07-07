@@ -22,9 +22,8 @@ const BASE_H = layout.base.height;
 /** Rechtermuur — volledig gevuld met modellenkaarten (scrollbaar). */
 const WALL_QUAD = layout.modelsWall as Quad;
 
-const CROP_L_MAX = 40;
-const CROP_R_MAX = 12;
-const SAFE_MIN_W = BASE_W - CROP_L_MAX - CROP_R_MAX;
+/** Beeld op 98% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
+const WIDTH_FRACTION = 0.98;
 
 const WALL_SRC = quadSourceSize(WALL_QUAD);
 
@@ -38,8 +37,7 @@ export function ModelShowroomModelsWall() {
   const router = useRouter();
   const { token } = useAuth();
   const shellRef = useRef<HTMLDivElement>(null);
-  const [coverScale, setCoverScale] = useState(1);
-  const [coverShiftX, setCoverShiftX] = useState(0);
+  const [scale, setScale] = useState(1);
   const [models, setModels] = useState<CatalogModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,12 +63,8 @@ export function ModelShowroomModelsWall() {
     const el = shellRef.current;
     if (!el) return;
     const update = () => {
-      const cover = Math.max(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
-      const s = Math.min(cover, el.clientWidth / SAFE_MIN_W);
-      setCoverScale(s > 0 ? s : 1);
-      const crop = Math.max(0, BASE_W * s - el.clientWidth);
-      const cropL = crop * (CROP_L_MAX / (CROP_L_MAX + CROP_R_MAX));
-      setCoverShiftX(crop / 2 - cropL);
+      const s = (el.clientWidth * WIDTH_FRACTION) / BASE_W;
+      setScale(s > 0 ? s : 1);
     };
     update();
     const ro = new ResizeObserver(update);
@@ -113,7 +107,10 @@ export function ModelShowroomModelsWall() {
   }, [token]);
 
   return (
-    <div ref={shellRef} className="absolute inset-0 overflow-hidden bg-[#120608]">
+    <div
+      ref={shellRef}
+      className="absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#120608]"
+    >
       {loading ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 px-6">
           <div className="w-full max-w-xs">
@@ -129,11 +126,15 @@ export function ModelShowroomModelsWall() {
       ) : null}
 
       <div
-        className="absolute left-1/2 top-1/2 origin-center [container-type:size]"
+        className="relative mx-auto"
+        style={{ width: BASE_W * scale, height: BASE_H * scale }}
+      >
+      <div
+        className="absolute left-0 top-0 origin-top-left [container-type:size]"
         style={{
           width: BASE_W,
           height: BASE_H,
-          transform: `translate(calc(-50% + ${coverShiftX}px), -50%) scale(${coverScale})`,
+          transform: `scale(${scale})`,
         }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -300,6 +301,7 @@ export function ModelShowroomModelsWall() {
 
         {/* Kiosk links — menubord van het modellenportaal */}
         <ShowroomDeskMenu currentPage="modellen" />
+      </div>
       </div>
     </div>
   );

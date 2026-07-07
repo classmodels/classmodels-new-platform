@@ -38,11 +38,8 @@ const LABEL_QUAD = layout.galleryLabel as Quad;
 /** Rechtermuur — beschikbaarheden onder de maten, links uitgelijnd. */
 const AVAIL_QUAD = layout.availWall as Quad;
 
-/** Max. crop links (logo/kiosk blijven grotendeels zichtbaar) en rechts (maten tot ±1655px). */
-const CROP_L_MAX = 40;
-const CROP_R_MAX = 15;
-/** Breedte die altijd zichtbaar moet blijven; smaller schalen we niet (dan liever randen boven/onder). */
-const SAFE_MIN_W = BASE_W - CROP_L_MAX - CROP_R_MAX;
+/** Beeld op 98% van de sitebreedte; is het hoger dan het scherm, dan kan er gescrold worden. */
+const WIDTH_FRACTION = 0.98;
 
 const HERO_SRC = quadSourceSize(HERO_QUAD);
 const STATS_SRC = quadSourceSize(STATS_QUAD);
@@ -166,8 +163,7 @@ export function ModelShowroomReference({
   const isAdmin = Boolean(user?.roles?.includes('admin'));
   const gallery = useShowroomGallery(token, demo ? null : modelId ?? null);
   const shellRef = useRef<HTMLDivElement>(null);
-  const [coverScale, setCoverScale] = useState(1);
-  const [coverShiftX, setCoverShiftX] = useState(0);
+  const [scale, setScale] = useState(1);
   /** Vastgeklikte foto — blijft staan na klik. */
   const [pinnedIndex, setPinnedIndex] = useState(0);
   /** Tijdelijke hover-preview — valt terug op pinned bij mouse-leave. */
@@ -190,17 +186,8 @@ export function ModelShowroomReference({
     const el = shellRef.current;
     if (!el) return;
     const update = () => {
-      // Schermvullend (cover), maar de zijwaartse crop is begrensd zodat de
-      // foto's en teksten nooit buiten beeld vallen; op smallere schermen
-      // ontstaat dan een subtiele donkere rand boven/onder.
-      const cover = Math.max(el.clientWidth / BASE_W, el.clientHeight / BASE_H);
-      const s = Math.min(cover, el.clientWidth / SAFE_MIN_W);
-      setCoverScale(s > 0 ? s : 1);
-      // Verdeel de crop: links zit de naam/foto's dicht bij de rand, rechts
-      // is na de hero vooral lege muur — dus rechts mag meer wegvallen.
-      const crop = Math.max(0, BASE_W * s - el.clientWidth);
-      const cropL = crop * (CROP_L_MAX / (CROP_L_MAX + CROP_R_MAX));
-      setCoverShiftX(crop / 2 - cropL);
+      const s = (el.clientWidth * WIDTH_FRACTION) / BASE_W;
+      setScale(s > 0 ? s : 1);
     };
     update();
     const ro = new ResizeObserver(update);
@@ -235,7 +222,10 @@ export function ModelShowroomReference({
   const nameFontSize = fitFontSize(nameLine, NAME_SRC.w * NAME_SS * 0.9, 36 * NAME_SS);
 
   return (
-    <div ref={shellRef} className="absolute inset-0 overflow-hidden bg-[#120608]">
+    <div
+      ref={shellRef}
+      className="absolute inset-0 overflow-y-auto overflow-x-hidden bg-[#120608]"
+    >
       {loading ? (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80 px-6">
           <div className="w-full max-w-xs">
@@ -252,11 +242,15 @@ export function ModelShowroomReference({
 
       {ready ? (
         <div
-          className="absolute left-1/2 top-1/2 origin-center [container-type:size]"
+          className="relative mx-auto"
+          style={{ width: BASE_W * scale, height: BASE_H * scale }}
+        >
+        <div
+          className="absolute left-0 top-0 origin-top-left [container-type:size]"
           style={{
             width: BASE_W,
             height: BASE_H,
-            transform: `translate(calc(-50% + ${coverShiftX}px), -50%) scale(${coverScale})`,
+            transform: `scale(${scale})`,
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -430,6 +424,7 @@ export function ModelShowroomReference({
 
           {/* Kiosk links — menubord van het modellenportaal */}
           <ShowroomDeskMenu currentPage="fiche" />
+        </div>
         </div>
       ) : null}
     </div>
