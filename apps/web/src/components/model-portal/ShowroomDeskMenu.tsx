@@ -86,10 +86,9 @@ export function ShowroomDeskMenu({
           transform: quadMatrix3d(MENU_W, MENU_H, MENU_QUAD),
           transformOrigin: '0 0',
           pointerEvents: 'auto',
-          // Doorschijnend: het zwarte scherm van de kiosk zelf blijft zichtbaar;
-          // de grote hoekradius volgt de ronde schermhoeken zodat er niets uitsteekt.
-          background: 'rgba(11,10,10,0.93)',
-          borderRadius: 84,
+          // Volledig doorzichtig: het zwarte kioskscherm uit de foto blijft de
+          // achtergrond, zodat er niets over de gouden rand kan uitsteken.
+          background: 'transparent',
           padding: '56px 46px 44px',
           display: 'flex',
           flexDirection: 'column',
@@ -141,9 +140,6 @@ export function ShowroomDeskMenu({
                     borderRadius: 12,
                     background: BTN_BG,
                     ...BTN_EDGES,
-                    ...(active
-                      ? { borderTop: '1px solid rgba(233,199,128,0.55)' }
-                      : null),
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = BTN_BG_HOVER;
