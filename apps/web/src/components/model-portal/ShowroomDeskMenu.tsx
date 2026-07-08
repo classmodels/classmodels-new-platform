@@ -21,10 +21,33 @@ const MENU_H = Math.round(MENU_SRC.h * SS);
 
 type MenuItem = { id: string; label: string; href: string };
 
-/** Vlakke knoppen zoals het referentiebeeld: egaal donkergrijs, geen randen of gradiënten. */
-const BTN_BG = '#26231f';
-const BTN_BG_HOVER = '#38332c';
-const BTN_BG_ACTIVE = '#443a2a';
+/**
+ * Knoppen exact zoals het referentiebeeld: #131314, zeer licht afgeronde
+ * hoeken, dun licht lijntje boven en links, onderaan zachtjes vervaagd.
+ */
+const BTN_BG = '#131314';
+const BTN_BG_HOVER = '#1b1b1d';
+const BTN_FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif";
+const BTN_EDGES = {
+  borderTop: '1px solid rgba(255,255,255,0.16)',
+  borderLeft: '1px solid rgba(255,255,255,0.10)',
+  borderRight: '1px solid rgba(255,255,255,0.03)',
+  borderBottom: '1px solid rgba(0,0,0,0)',
+  boxShadow: 'inset 0 -14px 18px rgba(0,0,0,0.30)',
+} as const;
+
+/**
+ * Lange Nederlandse samenstellingen krijgen een zacht afbreekpunt zodat alle
+ * knoppen dezelfde grote letters kunnen houden (bv. Opleidings-afspraak).
+ */
+function breakLabel(label: string): string {
+  return label
+    .split(' ')
+    .map((w) =>
+      w.length > 14 ? w.replace(/(afspraak|bericht|fiche)$/i, '\u00AD$1') : w,
+    )
+    .join(' ');
+}
 
 /**
  * Menubord op de kiosk, naar het referentiebeeld: gouden "Welkom" (met de
@@ -63,10 +86,11 @@ export function ShowroomDeskMenu({
           transform: quadMatrix3d(MENU_W, MENU_H, MENU_QUAD),
           transformOrigin: '0 0',
           pointerEvents: 'auto',
-          background: '#0d0c0b',
-          borderRadius: 22,
-          boxShadow: 'inset 0 0 60px rgba(0,0,0,0.75)',
-          padding: '52px 44px 40px',
+          // Doorschijnend: het zwarte scherm van de kiosk zelf blijft zichtbaar;
+          // de grote hoekradius volgt de ronde schermhoeken zodat er niets uitsteekt.
+          background: 'rgba(11,10,10,0.93)',
+          borderRadius: 84,
+          padding: '56px 46px 44px',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -109,30 +133,36 @@ export function ShowroomDeskMenu({
                   key={item.id}
                   type="button"
                   onClick={() => router.push(item.href)}
-                  className={`cursor-pointer rounded-xl px-4 text-center outline-none transition-colors duration-150 ${
+                  className={`cursor-pointer px-4 text-center outline-none transition-colors duration-150 ${
                     fullWidth ? 'col-span-2' : ''
                   }`}
                   style={{
-                    minHeight: 118,
-                    background: active ? BTN_BG_ACTIVE : BTN_BG,
+                    minHeight: 112,
+                    borderRadius: 12,
+                    background: BTN_BG,
+                    ...BTN_EDGES,
+                    ...(active
+                      ? { borderTop: '1px solid rgba(233,199,128,0.55)' }
+                      : null),
                   }}
                   onMouseEnter={(e) => {
-                    if (!active) e.currentTarget.style.background = BTN_BG_HOVER;
+                    e.currentTarget.style.background = BTN_BG_HOVER;
                   }}
                   onMouseLeave={(e) => {
-                    if (!active) e.currentTarget.style.background = BTN_BG;
+                    e.currentTarget.style.background = BTN_BG;
                   }}
                 >
                   <span
-                    className="font-sans"
                     style={{
-                      fontSize: 33,
-                      lineHeight: 1.22,
+                      fontFamily: BTN_FONT,
+                      fontSize: 36,
+                      lineHeight: 1.2,
+                      letterSpacing: '0.035em',
                       fontWeight: 400,
-                      color: active ? '#f0cc8c' : 'rgba(255,255,255,0.97)',
+                      color: active ? '#e9c780' : 'rgba(255,255,255,0.97)',
                     }}
                   >
-                    {item.label}
+                    {breakLabel(item.label)}
                   </span>
                 </button>
               );
