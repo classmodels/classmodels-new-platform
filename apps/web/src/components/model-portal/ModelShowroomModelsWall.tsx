@@ -223,27 +223,28 @@ export function ModelShowroomModelsWall() {
                       </span>
                       <span
                         className="flex w-full items-center justify-between gap-2 px-3"
-                        style={{ minHeight: 52 }}
+                        style={{ minHeight: 62 }}
                       >
                         <span
                           className="truncate font-sans"
                           style={{
-                            fontSize: 17,
-                            letterSpacing: '0.04em',
-                            color: 'rgba(238,220,190,0.95)',
-                            textShadow: '0 1px 2px rgba(0,0,0,0.7)',
+                            fontSize: 24,
+                            fontWeight: 500,
+                            letterSpacing: '0.03em',
+                            color: '#ffffff',
+                            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
                           }}
                         >
                           {m.displayName}
                         </span>
                         {m.age != null ? (
                           <span
-                            className="shrink-0 rounded-md px-2 py-1 font-sans"
+                            className="shrink-0 whitespace-nowrap font-sans"
                             style={{
-                              fontSize: 13,
-                              color: 'rgba(238,220,190,0.9)',
-                              border: '1px solid rgba(214,178,124,0.45)',
-                              background: 'rgba(0,0,0,0.35)',
+                              fontSize: 20,
+                              fontWeight: 400,
+                              color: '#ffffff',
+                              textShadow: '0 1px 3px rgba(0,0,0,0.8)',
                             }}
                           >
                             {m.age} jaar

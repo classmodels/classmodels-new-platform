@@ -387,32 +387,56 @@ export function ModelShowroomReference({
             </QuadWallText>
           </div>
 
-          {/* Beschikbaarheden — onderaan de muur, net boven de plint, alles op één regel */}
+          {/* Beschikbaarheden — donker plakkaat met wit verlichte tekst en licht achter de plaat */}
           {availInline ? (
             <div className="absolute inset-0 z-20 overflow-visible pointer-events-none">
-              <QuadWallText quad={AVAIL_QUAD} srcW={AVAIL_SRC.w} srcH={AVAIL_SRC.h}>
-                <div className="flex h-full w-full flex-col items-start justify-end pb-[2px]">
+              <QuadWallText
+                quad={AVAIL_QUAD}
+                srcW={Math.round(AVAIL_SRC.w * NAME_SS)}
+                srcH={Math.round(AVAIL_SRC.h * NAME_SS)}
+              >
+                <div
+                  className="flex h-full w-full flex-col items-center justify-center"
+                  style={{
+                    background:
+                      'linear-gradient(140deg, #1a120c 0%, #2a1c13 45%, #140d09 100%)',
+                    border: `${2 * NAME_SS}px solid rgba(206,162,104,0.55)`,
+                    borderRadius: 5 * NAME_SS,
+                    boxShadow: [
+                      `inset 0 0 ${22 * NAME_SS}px rgba(0,0,0,0.85)`,
+                      `inset 0 ${NAME_SS}px 0 rgba(255,222,172,0.22)`,
+                      // licht dat achter de plaat vandaan komt (backlit)
+                      `0 0 ${14 * NAME_SS}px rgba(255,224,178,0.55)`,
+                      `0 0 ${34 * NAME_SS}px rgba(255,214,160,0.3)`,
+                      `0 ${5 * NAME_SS}px ${16 * NAME_SS}px rgba(28,14,4,0.5)`,
+                    ].join(', '),
+                  }}
+                >
                   <p
                     className="m-0 whitespace-nowrap font-serif"
                     style={{
-                      fontSize: 12,
-                      letterSpacing: '0.13em',
-                      color: 'rgba(32,17,7,0.98)',
+                      fontSize: 11 * NAME_SS,
+                      letterSpacing: '0.16em',
+                      color: '#ffffff',
                       textTransform: 'uppercase',
-                      textShadow: '0 1px 1px rgba(255,240,214,0.3)',
+                      textShadow: `0 0 ${6 * NAME_SS}px rgba(255,255,255,0.75)`,
                     }}
                   >
                     Beschikbaar voor
                   </p>
                   <p
-                    className="m-0 whitespace-nowrap text-left font-serif"
+                    className="m-0 whitespace-nowrap text-center font-serif"
                     style={{
-                      marginTop: 7,
-                      // serif ≈ 0.58em per teken — alles op één regel binnen de strook
-                      fontSize: Math.min(16, (AVAIL_SRC.w * 0.97) / (availInline.length * 0.58)),
-                      letterSpacing: '0.03em',
-                      color: 'rgba(36,20,8,0.97)',
-                      textShadow: '0 1px 1px rgba(255,240,214,0.35)',
+                      marginTop: 4 * NAME_SS,
+                      // serif ≈ 0.58em per teken — alles op één regel binnen de plaat
+                      fontSize:
+                        Math.min(
+                          15,
+                          (AVAIL_SRC.w * 0.92) / (availInline.length * 0.58),
+                        ) * NAME_SS,
+                      letterSpacing: '0.04em',
+                      color: '#ffffff',
+                      textShadow: `0 0 ${5 * NAME_SS}px rgba(255,246,226,0.6)`,
                     }}
                   >
                     {availInline}
