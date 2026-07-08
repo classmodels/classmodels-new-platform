@@ -94,26 +94,20 @@ export function ShowroomDeskMenu({
           flexDirection: 'column',
         }}
       >
-        {/* Kop zoals het referentiebeeld: gouden serif, rustig gecentreerd */}
-        <div className="shrink-0 text-center">
-          <p
-            className="m-0 whitespace-nowrap font-serif"
-            style={{ fontSize: 60, lineHeight: 1.1, color: '#e9c780' }}
-          >
-            Welkom
-          </p>
-          {firstName ? (
-            <p
-              className="m-0 mt-2 whitespace-nowrap font-serif"
-              style={{ fontSize: 38, lineHeight: 1.2, color: '#e9c780' }}
-            >
-              {firstName}
-            </p>
-          ) : null}
-        </div>
+        {/* Kop: "Welkom (naam)" op één regel, gouden serif */}
+        <p
+          className="m-0 shrink-0 whitespace-nowrap text-center font-serif"
+          style={{
+            fontSize: firstName ? 52 : 60,
+            lineHeight: 1.1,
+            color: '#e9c780',
+          }}
+        >
+          {firstName ? `Welkom ${firstName}` : 'Welkom'}
+        </p>
 
         <p
-          className="m-0 mt-12 shrink-0 text-center font-sans"
+          className="m-0 mt-8 shrink-0 text-center font-sans"
           style={{ fontSize: 30, color: 'rgba(255,255,255,0.95)' }}
         >
           Kies een onderwerp:
