@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { GratisFotoshootFilm } from '@/components/guest-portal/GratisFotoshootFilm';
 
-/** Gratis fotoshoot: fotostudio-film in loop met de inhoud in de grote kader op de muur. */
+/** Gratis fotoshoot: achtergrond 6.png met info en agenda in de grote kader. */
 export default function GratisFotoshootPage() {
   return (
     <Suspense fallback={null}>
