@@ -623,10 +623,18 @@ export function BeginLiftExperience() {
     | null
   >(null);
 
-  const openMenu = useCallback((id: MenuId) => {
-    setActiveMenu(id);
-    setWallOverlay(null);
-  }, []);
+  const openMenu = useCallback(
+    (id: MenuId) => {
+      // Gratis fotoshoot heeft een eigen beleving: de fotostudio-film met de inhoud in de kader.
+      if (id === 'gratis-fotoshoot') {
+        router.push('/gratis-fotoshoot');
+        return;
+      }
+      setActiveMenu(id);
+      setWallOverlay(null);
+    },
+    [router],
+  );
 
   /**
    * 80% van de breedte, maar nooit hoger dan de ruimte onder de zwarte menubalk:
