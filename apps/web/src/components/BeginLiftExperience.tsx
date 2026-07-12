@@ -4,13 +4,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getApiBase } from '@/lib/api';
 import {
+  CASTING_PAGE,
   DOELGROEPEN_CARDS,
   DOELGROEPEN_INTRO,
+  GRATIS_FOTOSHOOT_PAGE,
   GUEST_FAQ,
+  INTAKE_GESPREK_PAGE,
   MODEL_WORDEN_STATS,
   WAAROM_CHECKLIST,
   WAAROM_PARAGRAPHS,
 } from '@/components/guest-portal/guest-portal-data';
+import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 /** Film 30 — de lift in het onthaal, met vier ronde knoppen links. */
@@ -42,6 +46,9 @@ const WIDTH_FRACTION = 0.8;
 /** Duur van de fade naar zwart bij 'Exit room' (ms). */
 const FADE_MS = 700;
 
+/** De gewone animatiefilms lopen iets sneller; de bioscoopfilm speelt op normale snelheid. */
+const RIDE_SPEED = 1.35;
+
 type Phase =
   | 'intro' // film 30 speelt
   | 'lift' // eindbeeld film 30: liftknoppen klikbaar
@@ -55,7 +62,8 @@ type Phase =
   | 'infoDim' // licht dooft (2.png) en film 61 speelt met geluid op het grote scherm
   | 'info' // licht weer aan (3.png): bordjes klikbaar, content op het grote scherm
   | 'infoExitRide' // film 5 speelt (de infozaal verlaten); daarna fade naar de hal
-  | 'fotoshootRide'; // film 6 speelt (naar de fotoshoot-ruimte); daarna de fotoshoot-pagina
+  | 'fotoshootRide' // film 6 speelt (naar de fotoshoot-ruimte)
+  | 'fotoshoot'; // eindbeeld film 6: bordjes klikbaar, content in de grote kader
 
 type Hotspot = { label: string; x: number; y: number; w: number; h: number };
 
@@ -81,11 +89,39 @@ const HALL_SIGNS: (Hotspot & {
   { label: 'Casting', x: 522, y: 207, w: 129, h: 45, action: 'casting' },
 ];
 
-/** Exit room-bordje in de castingzaal (eindbeeld film 32). */
-const CASTING_EXIT: Hotspot = { label: 'Exit room', x: 1051, y: 122, w: 117, h: 45 };
+/** Onderwerpen van de bordjes in de casting-, intake- en fotoshoot-ruimte. */
+type RoomTopic = 'info' | 'afspraak' | 'faq' | 'doelgroepen';
 
-/** Exit room-bordje in de intakekamer (eindbeeld film 33). */
-const INTAKE_EXIT: Hotspot = { label: 'Exit room', x: 966, y: 342, w: 120, h: 44 };
+/** Bordjes op de rechtermuur van de castingzaal (eindbeeld film 32). */
+const CASTING_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
+  { label: 'Exit room', x: 1050, y: 118, w: 120, h: 50, action: 'exit' },
+  { label: 'Info casting', x: 1050, y: 187, w: 120, h: 45, action: 'info' },
+  { label: 'Afspraak maken', x: 1050, y: 251, w: 120, h: 45, action: 'afspraak' },
+  { label: 'Veel gestelde vragen', x: 1050, y: 316, w: 120, h: 60, action: 'faq' },
+];
+/** Het beige vlak binnen de grote donkere lijst in de castingzaal. */
+const CASTING_FRAME = { x: 696, y: 142, w: 310, h: 292 };
+
+/** Bordjes op de rechtermuur van de intakekamer (eindbeeld film 33). */
+const INTAKE_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
+  { label: 'Info intake-gesprek', x: 964, y: 152, w: 128, h: 46, action: 'info' },
+  { label: 'Afspraak maken', x: 964, y: 214, w: 128, h: 46, action: 'afspraak' },
+  { label: 'Veel gestelde vragen', x: 964, y: 277, w: 128, h: 47, action: 'faq' },
+  { label: 'Exit room', x: 964, y: 341, w: 128, h: 48, action: 'exit' },
+];
+/** Het beige vlak binnen de grote donkere lijst in de intakekamer. */
+const INTAKE_FRAME = { x: 626, y: 180, w: 288, h: 274 };
+
+/** Bordjes op de rechtermuur van de fotoshoot-ruimte (eindbeeld film 6). */
+const FOTOSHOOT_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
+  { label: 'Info fotoshoot', x: 1056, y: 120, w: 130, h: 60, action: 'info' },
+  { label: 'Afspraak maken gratis fotoshoot', x: 1056, y: 187, w: 130, h: 53, action: 'afspraak' },
+  { label: 'Veel gestelde vragen', x: 1056, y: 248, w: 130, h: 52, action: 'faq' },
+  { label: 'Doelgroepen', x: 1056, y: 308, w: 130, h: 46, action: 'doelgroepen' },
+  { label: 'Exit room', x: 1056, y: 364, w: 130, h: 46, action: 'exit' },
+];
+/** Het beige vlak binnen de grote donkere lijst in de fotoshoot-ruimte. */
+const FOTOSHOOT_FRAME = { x: 660, y: 161, w: 325, h: 318 };
 
 /** Onderwerpen van de bordjes op de zijmuren van de infozaal. */
 type InfoTopic =
@@ -111,8 +147,12 @@ const INFO_SIGNS: (Hotspot & { action: InfoTopic | 'exit' })[] = [
   { label: 'Trailers try-out modeshows', x: 994, y: 315, w: 112, h: 85, action: 'trailers' },
 ];
 
-/** Het grote bioscoopdoek in de infozaal (1280x720-stelsel, gemeten op 3.png). */
-const INFO_SCREEN = { x: 372, y: 152, w: 534, h: 288 };
+/**
+ * Het grote bioscoopdoek in de infozaal (1280x720-stelsel, gemeten op 2.png).
+ * Iets ruimer dan het doek zelf zodat de trailer het scherm volledig vult en
+ * links/rechts niets van het doek meer te zien is.
+ */
+const INFO_SCREEN = { x: 364, y: 145, w: 540, h: 312 };
 /** 2x supersampling: content groot renderen en terugschalen → scherpe tekst op het doek. */
 const INFO_SCREEN_SS = 2;
 
@@ -131,6 +171,21 @@ function holdLastFrame(v: HTMLVideoElement | null) {
   if (Number.isFinite(v.duration) && v.duration > 0) {
     v.currentTime = Math.max(0, v.duration - 0.05);
   }
+}
+
+/**
+ * Spring naar (bijna) het einde en speel dat laatste stukje af: zo tekent de
+ * browser het beeld gegarandeerd en blijft de video via 'ended' op het
+ * laatste beeld staan — ook als de video nog niet geladen was.
+ */
+function seekToEnd(v: HTMLVideoElement | null) {
+  if (!v) return;
+  const land = () => {
+    v.currentTime = Math.max(0, v.duration - 0.12);
+    void v.play().catch(() => {});
+  };
+  if (Number.isFinite(v.duration) && v.duration > 0) land();
+  else v.addEventListener('loadedmetadata', land, { once: true });
 }
 
 /** Kleuren voor de content op het bioscoopdoek — donkere inkt en goud op het lichte doek. */
@@ -336,12 +391,156 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
   }
 }
 
+type RoomId = 'casting' | 'intake' | 'fotoshoot';
+
+function RoomHeading({ title }: { title: string }) {
+  return (
+    <header>
+      <h2 className="m-0 font-serif font-bold leading-tight" style={{ fontSize: 40, color: SCREEN_INK }}>
+        {title}
+      </h2>
+      <span
+        aria-hidden
+        className="mt-2.5 block h-[3px] w-36"
+        style={{ background: `linear-gradient(to right, ${SCREEN_GOLD}, transparent)` }}
+      />
+    </header>
+  );
+}
+
+function RoomBullets({ items }: { items: readonly string[] }) {
+  return (
+    <ul className="m-0 mt-4 list-none space-y-2.5 p-0">
+      {items.map((b) => (
+        <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 21, color: SCREEN_INK }}>
+          <span aria-hidden style={{ color: SCREEN_GOLD }}>
+            ◆
+          </span>
+          <span className="min-w-0 flex-1">{b}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Inhoud op de grote wandkader in de casting-, intake- en fotoshoot-ruimte —
+ * dezelfde teksten als op de oude pagina's van het gastenportaal.
+ */
+function RoomWallContent({ room, topic }: { room: RoomId; topic: RoomTopic }) {
+  if (topic === 'faq') {
+    return (
+      <div>
+        <RoomHeading title="Veelgestelde vragen" />
+        <div className="mt-5 space-y-5">
+          {GUEST_FAQ.map((f) => (
+            <section key={f.q}>
+              <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 24, color: SCREEN_INK }}>
+                {f.q}
+              </h3>
+              <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 20, color: '#4a4033' }}>
+                {f.a}
+              </p>
+            </section>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (topic === 'doelgroepen') {
+    return (
+      <div>
+        <RoomHeading title="Doelgroepen" />
+        <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 21, color: SCREEN_INK }}>
+          {DOELGROEPEN_INTRO}
+        </p>
+        <div className="mt-5 space-y-3">
+          {DOELGROEPEN_CARDS.map((c) => (
+            <div
+              key={c.title}
+              className="rounded-lg px-4 py-3"
+              style={{ background: 'rgba(138,107,69,0.10)', border: '1px solid rgba(138,107,69,0.4)' }}
+            >
+              <p className="m-0 font-serif font-semibold" style={{ fontSize: 22, color: SCREEN_INK }}>
+                {c.title}
+              </p>
+              <p className="m-0 mt-1 font-sans leading-snug" style={{ fontSize: 18, color: '#4a4033' }}>
+                {c.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  if (topic === 'afspraak') {
+    const bySlug: Record<RoomId, { slug: string; heading: string }> = {
+      casting: { slug: CASTING_PAGE.agendaSlug, heading: CASTING_PAGE.bookingSubject },
+      intake: { slug: INTAKE_GESPREK_PAGE.agendaSlug, heading: INTAKE_GESPREK_PAGE.bookingSubject },
+      fotoshoot: { slug: GRATIS_FOTOSHOOT_PAGE.agendaSlug, heading: GRATIS_FOTOSHOOT_PAGE.bookingSubject },
+    };
+    const cfg = bySlug[room];
+    return (
+      <div className="cm-room-booking">
+        <RoomHeading title="Afspraak maken" />
+        <div className="mt-3">
+          <GuestBookingPanel calendarSlug={cfg.slug} heading={cfg.heading} variant="default" onClose={() => {}} />
+        </div>
+      </div>
+    );
+  }
+  // topic === 'info'
+  if (room === 'intake') {
+    return (
+      <div>
+        <RoomHeading title="Intake gesprek" />
+        <h3 className="m-0 mt-5 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+          {INTAKE_GESPREK_PAGE.howTitle}
+        </h3>
+        <ol className="m-0 mt-3 list-none space-y-2.5 p-0">
+          {INTAKE_GESPREK_PAGE.steps.map((s, i) => (
+            <li key={s} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 21, color: SCREEN_INK }}>
+              <span className="font-serif font-bold" style={{ color: SCREEN_GOLD }}>
+                {i + 1}.
+              </span>
+              <span className="min-w-0 flex-1">{s}</span>
+            </li>
+          ))}
+        </ol>
+        <h3 className="m-0 mt-6 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+          {INTAKE_GESPREK_PAGE.whyTitle}
+        </h3>
+        <RoomBullets items={WAAROM_CHECKLIST} />
+      </div>
+    );
+  }
+  const page = room === 'casting' ? CASTING_PAGE : GRATIS_FOTOSHOOT_PAGE;
+  return (
+    <div>
+      <RoomHeading title={room === 'casting' ? 'Casting' : 'Gratis fotoshoot'} />
+      <h3 className="m-0 mt-5 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+        {page.expectTitle}
+      </h3>
+      <RoomBullets items={page.expectBullets} />
+      <h3 className="m-0 mt-6 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+        {page.whyTitle}
+      </h3>
+      <p className="m-0 mt-2.5 font-sans leading-relaxed" style={{ fontSize: 21, color: SCREEN_INK }}>
+        {page.whyParagraph}
+      </p>
+    </div>
+  );
+}
+
 /**
  * Beginpagina: film 30 (lift) → eindbeeld met klikbare liftknoppen →
  * Gastenportaal start film 31 (hal) → op het eindbeeld zijn de deurbordjes klikbaar:
  * Info model worden → film 34, Casting → film 32, Intake gesprek → film 33,
- * Gratis fotoshoot → eigen pagina. 'Exit room' fadet naar zwart en fadet dan
- * altijd in op het eindbeeld van film 31 — nooit terug naar de beginpagina.
+ * Gratis fotoshoot → film 6. In elke ruimte zijn de wandbordjes klikbaar en
+ * komt de bijbehorende content op de grote wandkader. 'Exit room' in een
+ * ruimte fadet altijd terug naar het eindbeeld van film 31; 'Exit room' in de
+ * hal fadet terug naar de lift. Tijdens elke film staat rechtsonder een knop
+ * 'Overslaan'.
  */
 export function BeginLiftExperience() {
   const router = useRouter();
@@ -362,6 +561,8 @@ export function BeginLiftExperience() {
   const [faded, setFaded] = useState(false);
   /** Gekozen onderwerp op het grote scherm van de infozaal. */
   const [infoTopic, setInfoTopic] = useState<InfoTopic>('info-model-worden');
+  /** Gekozen onderwerp op de wandkader in de casting-, intake- en fotoshoot-ruimte. */
+  const [roomTopic, setRoomTopic] = useState<RoomTopic>('info');
   /** Geluid van de trailer (film 61) — knop onderaan in het zwarte gedeelte. */
   const [trailerMuted, setTrailerMuted] = useState(false);
   const [reviews, setReviews] = useState<InfoReview[] | null>(null);
@@ -401,6 +602,7 @@ export function BeginLiftExperience() {
   useEffect(() => {
     const v = introRef.current;
     if (!v) return;
+    v.playbackRate = RIDE_SPEED;
     const p = v.play();
     if (p) {
       p.catch(() => {
@@ -416,6 +618,7 @@ export function BeginLiftExperience() {
     const v = hallRef.current;
     if (v) {
       v.currentTime = 0;
+      v.playbackRate = RIDE_SPEED;
       void v.play().catch(() => {
         holdLastFrame(v);
         setPhase('hall');
@@ -424,10 +627,12 @@ export function BeginLiftExperience() {
   }, []);
 
   const startCasting = useCallback(() => {
+    setRoomTopic('info');
     setPhase('castingRide');
     const v = castingRef.current;
     if (v) {
       v.currentTime = 0;
+      v.playbackRate = RIDE_SPEED;
       void v.play().catch(() => {
         holdLastFrame(v);
         setPhase('casting');
@@ -436,10 +641,12 @@ export function BeginLiftExperience() {
   }, []);
 
   const startIntake = useCallback(() => {
+    setRoomTopic('info');
     setPhase('intakeRide');
     const v = intakeRef.current;
     if (v) {
       v.currentTime = 0;
+      v.playbackRate = RIDE_SPEED;
       void v.play().catch(() => {
         holdLastFrame(v);
         setPhase('intake');
@@ -474,6 +681,7 @@ export function BeginLiftExperience() {
     const v = infoRef.current;
     if (v) {
       v.currentTime = 0;
+      v.playbackRate = RIDE_SPEED;
       void v.play().catch(() => {
         // Film 34 kan niet spelen → meteen door naar de trailer in de donkere zaal.
         startTrailer();
@@ -504,10 +712,26 @@ export function BeginLiftExperience() {
       infoRef.current?.pause();
       trailerRef.current?.pause();
       infoExitRef.current?.pause();
-      holdLastFrame(hallRef.current);
+      fotoshootRef.current?.pause();
+      seekToEnd(hallRef.current);
       setPhase('hall');
       // Eén frame wachten zodat het nieuwe beeld al klaarstaat achter het zwart.
-      fadeTimer.current = window.setTimeout(() => setFaded(false), 80);
+      fadeTimer.current = window.setTimeout(() => setFaded(false), 120);
+    }, FADE_MS);
+  }, []);
+
+  /**
+   * Exit room in de hal: fade naar zwart en land op het eindbeeld van film 30 —
+   * de lift, waar de knoppen naar de andere portalen klikbaar zijn.
+   */
+  const fadeToLift = useCallback(() => {
+    setFaded(true);
+    if (fadeTimer.current) window.clearTimeout(fadeTimer.current);
+    fadeTimer.current = window.setTimeout(() => {
+      hallRef.current?.pause();
+      seekToEnd(introRef.current);
+      setPhase('lift');
+      fadeTimer.current = window.setTimeout(() => setFaded(false), 120);
     }, FADE_MS);
   }, []);
 
@@ -524,24 +748,42 @@ export function BeginLiftExperience() {
       return;
     }
     v.currentTime = 0;
+    v.playbackRate = RIDE_SPEED;
     void v.play().catch(() => fadeToHall());
   }, [fadeToHall]);
 
   /**
-   * Gratis fotoshoot: film 6 speelt (van de hal naar de fotoshoot-ruimte);
-   * de film eindigt op hetzelfde beeld als de fotoshoot-pagina, dus daarna
-   * gaan we naadloos naar die pagina door.
+   * Gratis fotoshoot: film 6 speelt (van de hal naar de fotoshoot-ruimte) en
+   * blijft op het eindbeeld staan; daar zijn de bordjes klikbaar en komt de
+   * content in de grote wandkader.
    */
   const startFotoshoot = useCallback(() => {
+    setRoomTopic('info');
     setPhase('fotoshootRide');
     const v = fotoshootRef.current;
     if (!v) {
-      router.push('/gratis-fotoshoot');
+      setPhase('fotoshoot');
       return;
     }
     v.currentTime = 0;
-    void v.play().catch(() => router.push('/gratis-fotoshoot'));
-  }, [router]);
+    v.playbackRate = RIDE_SPEED;
+    void v.play().catch(() => {
+      holdLastFrame(v);
+      setPhase('fotoshoot');
+    });
+  }, []);
+
+  /** Bordjes in de casting-, intake- en fotoshoot-ruimte. */
+  const onRoomSign = useCallback(
+    (action: RoomTopic | 'exit') => {
+      if (action === 'exit') {
+        fadeToHall();
+        return;
+      }
+      setRoomTopic(action);
+    },
+    [fadeToHall],
+  );
 
   /** Bordjes op de zijmuren van de infozaal — ten allen tijde klikbaar. */
   const onInfoSign = useCallback(
@@ -562,28 +804,37 @@ export function BeginLiftExperience() {
     [startInfoExit, startTrailer],
   );
 
-  /** Direct naar het eindbeeld van film 31 springen (zonder de film af te spelen). */
+  /**
+   * Direct naar het eindbeeld van film 31 (de hal): kort zwart, dan infaden op
+   * het eindbeeld — zonder de film af te spelen.
+   */
   const jumpToHall = useCallback(() => {
+    setFaded(true);
     introRef.current?.pause();
+    castingRef.current?.pause();
+    intakeRef.current?.pause();
+    infoRef.current?.pause();
+    trailerRef.current?.pause();
+    infoExitRef.current?.pause();
+    fotoshootRef.current?.pause();
     setPhase('hall');
-    const v = hallRef.current;
-    if (!v) return;
-    if (Number.isFinite(v.duration) && v.duration > 0) {
-      holdLastFrame(v);
-    } else {
-      v.addEventListener('loadedmetadata', () => holdLastFrame(v), { once: true });
-    }
+    seekToEnd(hallRef.current);
+    if (fadeTimer.current) window.clearTimeout(fadeTimer.current);
+    fadeTimer.current = window.setTimeout(() => setFaded(false), 450);
   }, []);
 
   /**
-   * `/?go=guest` (Gastenportaal in de menubalk) → film 31 speelt naar de hal;
-   * `/?go=hall` (exit room vanaf een andere pagina) → meteen het eindbeeld van film 31.
+   * `/?go=guest` (Gastenportaal in de menubalk) en `/?go=hall` (exit room
+   * vanaf een andere pagina) → direct uitfaden en infaden op het eindbeeld
+   * van film 31 (de hal). De parameter wordt daarna uit de URL gehaald zodat
+   * een volgende klik op de menubalk opnieuw werkt.
    */
   const goParam = searchParams.get('go');
   useEffect(() => {
-    if (goParam === 'guest') startHall();
-    else if (goParam === 'hall') jumpToHall();
-  }, [goParam, startHall, jumpToHall]);
+    if (!goParam) return;
+    if (goParam === 'guest' || goParam === 'hall') jumpToHall();
+    router.replace('/', { scroll: false });
+  }, [goParam, jumpToHall, router]);
 
   const onLiftButton = useCallback(
     (action: 'gallery' | 'model' | 'client' | 'guest') => {
@@ -619,16 +870,48 @@ export function BeginLiftExperience() {
         return;
       }
       if (action === 'fotoshoot') {
-        // Eerst film 6 (naar de fotoshoot-ruimte), daarna de fotoshoot-pagina.
+        // Film 6 speelt naar de fotoshoot-ruimte en blijft op het eindbeeld staan.
         startFotoshoot();
         return;
       }
-      // Exit room in de hal: nooit terug naar de beginpagina — de fade komt
-      // gewoon weer uit op het eindbeeld van film 31.
-      fadeToHall();
+      // Exit room in de hal → terug naar de lift, waar de knoppen naar de
+      // andere portalen klikbaar zijn.
+      fadeToLift();
     },
-    [startInfo, startCasting, startIntake, startFotoshoot, fadeToHall],
+    [startInfo, startCasting, startIntake, startFotoshoot, fadeToLift],
   );
+
+  /**
+   * Overslaan: spoel de film die nu speelt door naar (bijna) het einde; het
+   * 'ended'-event zorgt daarna vanzelf voor de juiste vervolgstap.
+   */
+  const skipFilm = useCallback(() => {
+    const byPhase: Partial<Record<Phase, HTMLVideoElement | null>> = {
+      intro: introRef.current,
+      hallRide: hallRef.current,
+      castingRide: castingRef.current,
+      intakeRide: intakeRef.current,
+      infoRide: infoRef.current,
+      infoExitRide: infoExitRef.current,
+      fotoshootRide: fotoshootRef.current,
+      infoDim: trailerRef.current,
+    };
+    const v = byPhase[phase];
+    if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return;
+    v.currentTime = Math.max(0, v.duration - 0.15);
+    void v.play().catch(() => {});
+  }, [phase]);
+
+  /** Er speelt een film → de knop 'Overslaan' staat rechtsonder. */
+  const filmPlaying =
+    phase === 'intro' ||
+    phase === 'hallRide' ||
+    phase === 'castingRide' ||
+    phase === 'intakeRide' ||
+    phase === 'infoRide' ||
+    phase === 'infoExitRide' ||
+    phase === 'fotoshootRide' ||
+    phase === 'infoDim';
 
   /** Onzichtbare klikvlakken: alleen een handje bij hover, geen zichtbare overlay. */
   const hotspotClass = 'absolute cursor-pointer bg-transparent outline-none';
@@ -729,7 +1012,7 @@ export function BeginLiftExperience() {
           className={videoClass(phase === 'infoExitRide')}
         />
 
-        {/* Film 6 — van de hal naar de gratis fotoshoot-ruimte; daarna de fotoshoot-pagina. */}
+        {/* Film 6 — naar de fotoshoot-ruimte; blijft op het eindbeeld staan. */}
         <video
           ref={fotoshootRef}
           src={VIDEO_FOTOSHOOT_ENTRY}
@@ -737,9 +1020,9 @@ export function BeginLiftExperience() {
           playsInline
           preload="none"
           disablePictureInPicture
-          onEnded={() => router.push('/gratis-fotoshoot')}
+          onEnded={() => setPhase('fotoshoot')}
           onContextMenu={(e) => e.preventDefault()}
-          className={videoClass(phase === 'fotoshootRide')}
+          className={videoClass(phase === 'fotoshootRide' || phase === 'fotoshoot')}
         />
 
         {/* Infozaal met gedoofd licht (2.png) — fadet in over het eindbeeld van film 34. */}
@@ -854,39 +1137,50 @@ export function BeginLiftExperience() {
             ))
           : null}
 
-        {/* Exit room in de castingzaal — fade naar zwart, dan terug naar de hal. */}
-        {phase === 'casting' ? (
-          <button
-            type="button"
-            aria-label="Exit room"
-            title="Exit room"
-            onClick={fadeToHall}
-            className={hotspotClass}
-            style={{
-              left: CASTING_EXIT.x,
-              top: CASTING_EXIT.y,
-              width: CASTING_EXIT.w,
-              height: CASTING_EXIT.h,
-            }}
-          />
-        ) : null}
-
-        {/* Exit room in de intakekamer — fade naar zwart, dan terug naar de hal. */}
-        {phase === 'intake' ? (
-          <button
-            type="button"
-            aria-label="Exit room"
-            title="Exit room"
-            onClick={fadeToHall}
-            className={hotspotClass}
-            style={{
-              left: INTAKE_EXIT.x,
-              top: INTAKE_EXIT.y,
-              width: INTAKE_EXIT.w,
-              height: INTAKE_EXIT.h,
-            }}
-          />
-        ) : null}
+        {/* Casting-, intake- en fotoshoot-ruimte: bordjes klikbaar + content op de wandkader. */}
+        {(
+          [
+            { room: 'casting' as const, active: phase === 'casting', signs: CASTING_SIGNS, frame: CASTING_FRAME },
+            { room: 'intake' as const, active: phase === 'intake', signs: INTAKE_SIGNS, frame: INTAKE_FRAME },
+            { room: 'fotoshoot' as const, active: phase === 'fotoshoot', signs: FOTOSHOOT_SIGNS, frame: FOTOSHOOT_FRAME },
+          ] as const
+        ).map(({ room, active, signs, frame }) =>
+          active ? (
+            <div key={room} className="absolute inset-0">
+              {signs.map((s) => (
+                <button
+                  key={s.label}
+                  type="button"
+                  aria-label={s.label}
+                  title={s.label}
+                  onClick={() => onRoomSign(s.action)}
+                  className={hotspotClass}
+                  style={{ left: s.x, top: s.y, width: s.w, height: s.h, zIndex: 10 }}
+                />
+              ))}
+              <div
+                className="absolute"
+                style={{ left: frame.x, top: frame.y, width: frame.w, height: frame.h }}
+              >
+                {/* 2x supersampling: groot renderen en terugschalen → scherpe tekst op de wand. */}
+                <div
+                  key={roomTopic}
+                  className="overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  style={{
+                    width: frame.w * INFO_SCREEN_SS,
+                    height: frame.h * INFO_SCREEN_SS,
+                    transform: `scale(${1 / INFO_SCREEN_SS})`,
+                    transformOrigin: '0 0',
+                    padding: '26px 34px 32px',
+                    animation: 'beginScreenFade 480ms ease-out',
+                  }}
+                >
+                  <RoomWallContent room={room} topic={roomTopic} />
+                </div>
+              </div>
+            </div>
+          ) : null,
+        )}
 
       </div>
 
@@ -914,6 +1208,25 @@ export function BeginLiftExperience() {
         </button>
       ) : null}
 
+      {/* Overslaan — rechtsonder, zichtbaar zolang er een film speelt. */}
+      {filmPlaying ? (
+        <button
+          type="button"
+          aria-label="Overslaan"
+          onClick={skipFilm}
+          className="absolute bottom-3 right-4 z-30 cursor-pointer rounded-full px-4 py-1.5 font-sans transition hover:opacity-85"
+          style={{
+            fontSize: 13,
+            color: '#e9c780',
+            background: 'rgba(20,16,12,0.85)',
+            border: '1px solid rgba(233,199,128,0.5)',
+            letterSpacing: '0.04em',
+          }}
+        >
+          Overslaan ≫
+        </button>
+      ) : null}
+
       {/* Zwarte fade-overlay voor de exit room-overgang. */}
       <div
         aria-hidden
@@ -928,6 +1241,59 @@ export function BeginLiftExperience() {
         @keyframes beginScreenFade {
           from { opacity: 0; transform: scale(${1 / INFO_SCREEN_SS}) translateY(10px); }
           to { opacity: 1; transform: scale(${1 / INFO_SCREEN_SS}) translateY(0); }
+        }
+        /* Agendapaneel op de wandkader: donkere tekst, doorzichtige achtergrond. */
+        .cm-room-booking [class*="bg-white"],
+        .cm-room-booking [class*="bg-panel"],
+        .cm-room-booking [class*="bg-zinc"] {
+          background: transparent !important;
+        }
+        .cm-room-booking [class*="border-zinc"],
+        .cm-room-booking [class*="border-line"] {
+          border-color: rgba(42, 33, 24, 0.35) !important;
+        }
+        .cm-room-booking [class*="bg-burgundy"] {
+          background: #131314 !important;
+          border: 1px solid rgba(0, 0, 0, 0.5) !important;
+          color: #ffffff !important;
+        }
+        .cm-room-booking [class*="text-burgundy"] {
+          color: ${SCREEN_INK} !important;
+        }
+        .cm-room-booking [class*="border-burgundy"] {
+          border-color: rgba(42, 33, 24, 0.45) !important;
+        }
+        .cm-room-booking,
+        .cm-room-booking [class*="text-ink"],
+        .cm-room-booking p,
+        .cm-room-booking label,
+        .cm-room-booking span,
+        .cm-room-booking li,
+        .cm-room-booking td,
+        .cm-room-booking th,
+        .cm-room-booking button {
+          color: ${SCREEN_INK} !important;
+          font-size: 21px !important;
+          line-height: 1.4 !important;
+        }
+        .cm-room-booking h1,
+        .cm-room-booking h2,
+        .cm-room-booking h3 {
+          color: ${SCREEN_INK} !important;
+          font-size: 26px !important;
+          font-weight: 700 !important;
+          line-height: 1.2 !important;
+        }
+        .cm-room-booking input,
+        .cm-room-booking select,
+        .cm-room-booking textarea {
+          background: rgba(255, 252, 246, 0.92) !important;
+          border-color: rgba(42, 33, 24, 0.35) !important;
+          color: #000000 !important;
+          font-size: 20px !important;
+        }
+        .cm-room-booking [class*="shadow"] {
+          box-shadow: none !important;
         }
       `}</style>
     </div>
