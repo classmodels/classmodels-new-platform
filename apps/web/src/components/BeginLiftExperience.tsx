@@ -15,6 +15,11 @@ import {
   WAAROM_PARAGRAPHS,
 } from '@/components/guest-portal/guest-portal-data';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
+import {
+  quadMatrix3d,
+  quadSourceSize,
+  type Quad,
+} from '@/components/model-portal/model-gallery-3d/quadTransform';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 /** Film 30 — de lift in het onthaal, met vier ronde knoppen links. */
@@ -99,8 +104,13 @@ const CASTING_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
   { label: 'Afspraak maken', x: 1050, y: 251, w: 120, h: 45, action: 'afspraak' },
   { label: 'Veel gestelde vragen', x: 1050, y: 316, w: 120, h: 60, action: 'faq' },
 ];
-/** Het beige vlak binnen de grote donkere lijst in de castingzaal. */
-const CASTING_FRAME = { x: 696, y: 142, w: 310, h: 292 };
+/** Het beige vlak binnen de grote donkere lijst in de castingzaal (rechte muur). */
+const CASTING_FRAME: Quad = {
+  tl: [696, 142],
+  tr: [1006, 142],
+  br: [1006, 434],
+  bl: [696, 434],
+};
 
 /** Bordjes op de rechtermuur van de intakekamer (eindbeeld film 33). */
 const INTAKE_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
@@ -109,8 +119,17 @@ const INTAKE_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
   { label: 'Veel gestelde vragen', x: 964, y: 277, w: 128, h: 47, action: 'faq' },
   { label: 'Exit room', x: 964, y: 341, w: 128, h: 48, action: 'exit' },
 ];
-/** Het beige vlak binnen de grote donkere lijst in de intakekamer. */
-const INTAKE_FRAME = { x: 626, y: 180, w: 288, h: 274 };
+/**
+ * Het beige vlak binnen de grote donkere lijst in de intakekamer.
+ * De muur staat schuin: de vier hoekpunten zijn apart gemeten zodat de
+ * content het perspectief van de muur volgt.
+ */
+const INTAKE_FRAME: Quad = {
+  tl: [621, 181],
+  tr: [917, 167],
+  br: [917, 473],
+  bl: [621, 445],
+};
 
 /** Bordjes op de rechtermuur van de fotoshoot-ruimte (eindbeeld film 6). */
 const FOTOSHOOT_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
@@ -120,8 +139,13 @@ const FOTOSHOOT_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
   { label: 'Doelgroepen', x: 1056, y: 308, w: 130, h: 46, action: 'doelgroepen' },
   { label: 'Exit room', x: 1056, y: 364, w: 130, h: 46, action: 'exit' },
 ];
-/** Het beige vlak binnen de grote donkere lijst in de fotoshoot-ruimte. */
-const FOTOSHOOT_FRAME = { x: 660, y: 161, w: 325, h: 318 };
+/** Het beige vlak binnen de grote donkere lijst in de fotoshoot-ruimte (rechte muur). */
+const FOTOSHOOT_FRAME: Quad = {
+  tl: [660, 161],
+  tr: [985, 161],
+  br: [985, 479],
+  bl: [660, 479],
+};
 
 /** Onderwerpen van de bordjes op de zijmuren van de infozaal. */
 type InfoTopic =
@@ -188,14 +212,15 @@ function seekToEnd(v: HTMLVideoElement | null) {
   else v.addEventListener('loadedmetadata', land, { once: true });
 }
 
-/** Kleuren voor de content op het bioscoopdoek — donkere inkt en goud op het lichte doek. */
-const SCREEN_INK = '#2a2118';
+/** Kleuren voor de content op doek en wandkaders — donkere inkt en goud op de lichte ondergrond. */
+const SCREEN_INK = '#1e1710';
+const SCREEN_INK_SOFT = '#382c22';
 const SCREEN_GOLD = '#8a6b45';
 
 function ScreenHeading({ title }: { title: string }) {
   return (
     <header className="shrink-0">
-      <h2 className="m-0 font-serif font-semibold leading-tight" style={{ fontSize: 52, color: SCREEN_INK }}>
+      <h2 className="m-0 font-serif font-semibold leading-tight" style={{ fontSize: 55, color: SCREEN_INK }}>
         {title}
       </h2>
       <span
@@ -215,13 +240,13 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
         <div>
           <ScreenHeading title="Model worden bij Class-Models" />
           {WAAROM_PARAGRAPHS.map((p) => (
-            <p key={p} className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+            <p key={p} className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 29, color: SCREEN_INK }}>
               {p}
             </p>
           ))}
           <ul className="m-0 mt-6 list-none space-y-3 p-0">
             {WAAROM_CHECKLIST.map((b) => (
-              <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 25, color: SCREEN_INK }}>
+              <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 28, color: SCREEN_INK }}>
                 <span aria-hidden style={{ color: SCREEN_GOLD }}>
                   ◆
                 </span>
@@ -239,10 +264,10 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
                   border: '1px solid rgba(190,150,95,0.55)',
                 }}
               >
-                <p className="m-0 font-serif font-bold" style={{ fontSize: 30, color: '#ffe9c4' }}>
+                <p className="m-0 font-serif font-bold" style={{ fontSize: 33, color: '#ffe9c4' }}>
                   {s.value}
                 </p>
-                <p className="m-0 mt-1 font-sans" style={{ fontSize: 17, color: 'rgba(255,233,196,0.85)' }}>
+                <p className="m-0 mt-1 font-sans" style={{ fontSize: 20, color: 'rgba(255,233,196,0.85)' }}>
                   {s.label}
                 </p>
               </div>
@@ -257,10 +282,10 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
           <div className="mt-6 space-y-6">
             {GUEST_FAQ.map((f) => (
               <section key={f.q}>
-                <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 30, color: SCREEN_INK }}>
+                <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 33, color: SCREEN_INK }}>
                   {f.q}
                 </h3>
-                <p className="m-0 mt-2 font-sans leading-snug" style={{ fontSize: 25, color: '#4a4033' }}>
+                <p className="m-0 mt-2 font-sans leading-snug" style={{ fontSize: 28, color: SCREEN_INK_SOFT }}>
                   {f.a}
                 </p>
               </section>
@@ -272,7 +297,7 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
       return (
         <div>
           <ScreenHeading title="Doelgroepen" />
-          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 29, color: SCREEN_INK }}>
             {DOELGROEPEN_INTRO}
           </p>
           <div className="mt-6 grid grid-cols-3 gap-4">
@@ -282,10 +307,10 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
                 className="rounded-lg px-4 py-4"
                 style={{ background: 'rgba(138,107,69,0.10)', border: '1px solid rgba(138,107,69,0.4)' }}
               >
-                <p className="m-0 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+                <p className="m-0 font-serif font-semibold" style={{ fontSize: 29, color: SCREEN_INK }}>
                   {c.title}
                 </p>
-                <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 20, color: '#4a4033' }}>
+                <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 23, color: SCREEN_INK_SOFT }}>
                   {c.body}
                 </p>
               </div>
@@ -298,11 +323,11 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
         <div>
           <ScreenHeading title="Hoe onze modellen hun avontuur ervaren" />
           {reviews === null ? (
-            <p className="m-0 mt-6 font-sans" style={{ fontSize: 25, color: '#4a4033' }}>
+            <p className="m-0 mt-6 font-sans" style={{ fontSize: 28, color: SCREEN_INK_SOFT }}>
               Reviews laden…
             </p>
           ) : reviews.length === 0 ? (
-            <p className="m-0 mt-6 font-sans" style={{ fontSize: 25, color: '#4a4033' }}>
+            <p className="m-0 mt-6 font-sans" style={{ fontSize: 28, color: SCREEN_INK_SOFT }}>
               Nog geen reviews beschikbaar.
             </p>
           ) : (
@@ -313,22 +338,22 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
                   className="rounded-lg px-4 py-4"
                   style={{ background: 'rgba(138,107,69,0.10)', border: '1px solid rgba(138,107,69,0.4)' }}
                 >
-                  <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 24, color: SCREEN_INK }}>
+                  <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 27, color: SCREEN_INK }}>
                     {r.title}
                   </h3>
-                  <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 19, color: '#4a4033' }}>
+                  <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 22, color: SCREEN_INK_SOFT }}>
                     {r.body}
                   </p>
                   <div className="mt-2 flex items-center justify-between gap-2">
                     {r.authorName ? (
-                      <p className="m-0 font-sans font-semibold" style={{ fontSize: 18, color: SCREEN_INK }}>
+                      <p className="m-0 font-sans font-semibold" style={{ fontSize: 21, color: SCREEN_INK }}>
                         — {r.authorName}
                       </p>
                     ) : (
                       <span />
                     )}
                     {r.rating ? (
-                      <span aria-label={`${r.rating} van 5 sterren`} style={{ fontSize: 19, color: '#b98a2f' }}>
+                      <span aria-label={`${r.rating} van 5 sterren`} style={{ fontSize: 22, color: '#b98a2f' }}>
                         {'★'.repeat(Math.min(5, Math.max(0, r.rating)))}
                         <span style={{ color: 'rgba(138,107,69,0.35)' }}>
                           {'★'.repeat(5 - Math.min(5, Math.max(0, r.rating)))}
@@ -346,12 +371,12 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
       return (
         <div>
           <ScreenHeading title="Onze klanten" />
-          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 29, color: SCREEN_INK }}>
             Onze modellen werken voor uiteenlopende merken en klanten: campagnes, fotoshoots,
             reclame, events en modeshows. Van lokale zaken tot grote namen — voor elke opdracht
             zoeken we het profiel dat er het best bij past.
           </p>
-          <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+          <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 29, color: SCREEN_INK }}>
             Bent u zelf op zoek naar modellen voor uw merk of evenement? Via het klantenportaal
             plaatst u eenvoudig een aanvraag en stellen wij een selectie voor die aansluit bij uw
             campagne.
@@ -363,7 +388,7 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
               'Events, beurzen en productlanceringen',
               'Modeshows en try-outs',
             ].map((b) => (
-              <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 25, color: SCREEN_INK }}>
+              <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 28, color: SCREEN_INK }}>
                 <span aria-hidden style={{ color: SCREEN_GOLD }}>
                   ◆
                 </span>
@@ -377,12 +402,12 @@ function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: Info
       return (
         <div>
           <ScreenHeading title="Trailers — try-out modeshows" />
-          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 29, color: SCREEN_INK }}>
             Onze modellen schitteren op try-out modeshows: een echte show met publiek, styling en
             professionele begeleiding. De trailer speelt op dit scherm — klik op het bordje
             &lsquo;Trailers try-out modeshows&rsquo; om hem (opnieuw) te bekijken.
           </p>
-          <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+          <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 29, color: SCREEN_INK }}>
             Zin om zelf mee te lopen? Boek een intakegesprek of doe mee aan de casting — de
             bordjes vind je in de hal van het gastenportaal.
           </p>
@@ -396,7 +421,7 @@ type RoomId = 'casting' | 'intake' | 'fotoshoot';
 function RoomHeading({ title }: { title: string }) {
   return (
     <header>
-      <h2 className="m-0 font-serif font-bold leading-tight" style={{ fontSize: 40, color: SCREEN_INK }}>
+      <h2 className="m-0 font-serif font-bold leading-tight" style={{ fontSize: 43, color: SCREEN_INK }}>
         {title}
       </h2>
       <span
@@ -412,7 +437,7 @@ function RoomBullets({ items }: { items: readonly string[] }) {
   return (
     <ul className="m-0 mt-4 list-none space-y-2.5 p-0">
       {items.map((b) => (
-        <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 21, color: SCREEN_INK }}>
+        <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 24, color: SCREEN_INK }}>
           <span aria-hidden style={{ color: SCREEN_GOLD }}>
             ◆
           </span>
@@ -435,10 +460,10 @@ function RoomWallContent({ room, topic }: { room: RoomId; topic: RoomTopic }) {
         <div className="mt-5 space-y-5">
           {GUEST_FAQ.map((f) => (
             <section key={f.q}>
-              <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 24, color: SCREEN_INK }}>
+              <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 27, color: SCREEN_INK }}>
                 {f.q}
               </h3>
-              <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 20, color: '#4a4033' }}>
+              <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 23, color: SCREEN_INK_SOFT }}>
                 {f.a}
               </p>
             </section>
@@ -451,7 +476,7 @@ function RoomWallContent({ room, topic }: { room: RoomId; topic: RoomTopic }) {
     return (
       <div>
         <RoomHeading title="Doelgroepen" />
-        <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 21, color: SCREEN_INK }}>
+        <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 24, color: SCREEN_INK }}>
           {DOELGROEPEN_INTRO}
         </p>
         <div className="mt-5 space-y-3">
@@ -461,10 +486,10 @@ function RoomWallContent({ room, topic }: { room: RoomId; topic: RoomTopic }) {
               className="rounded-lg px-4 py-3"
               style={{ background: 'rgba(138,107,69,0.10)', border: '1px solid rgba(138,107,69,0.4)' }}
             >
-              <p className="m-0 font-serif font-semibold" style={{ fontSize: 22, color: SCREEN_INK }}>
+              <p className="m-0 font-serif font-semibold" style={{ fontSize: 25, color: SCREEN_INK }}>
                 {c.title}
               </p>
-              <p className="m-0 mt-1 font-sans leading-snug" style={{ fontSize: 18, color: '#4a4033' }}>
+              <p className="m-0 mt-1 font-sans leading-snug" style={{ fontSize: 21, color: SCREEN_INK_SOFT }}>
                 {c.body}
               </p>
             </div>
@@ -494,12 +519,12 @@ function RoomWallContent({ room, topic }: { room: RoomId; topic: RoomTopic }) {
     return (
       <div>
         <RoomHeading title="Intake gesprek" />
-        <h3 className="m-0 mt-5 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+        <h3 className="m-0 mt-5 font-serif font-semibold" style={{ fontSize: 29, color: SCREEN_INK }}>
           {INTAKE_GESPREK_PAGE.howTitle}
         </h3>
         <ol className="m-0 mt-3 list-none space-y-2.5 p-0">
           {INTAKE_GESPREK_PAGE.steps.map((s, i) => (
-            <li key={s} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 21, color: SCREEN_INK }}>
+            <li key={s} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 24, color: SCREEN_INK }}>
               <span className="font-serif font-bold" style={{ color: SCREEN_GOLD }}>
                 {i + 1}.
               </span>
@@ -507,7 +532,7 @@ function RoomWallContent({ room, topic }: { room: RoomId; topic: RoomTopic }) {
             </li>
           ))}
         </ol>
-        <h3 className="m-0 mt-6 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+        <h3 className="m-0 mt-6 font-serif font-semibold" style={{ fontSize: 29, color: SCREEN_INK }}>
           {INTAKE_GESPREK_PAGE.whyTitle}
         </h3>
         <RoomBullets items={WAAROM_CHECKLIST} />
@@ -518,14 +543,14 @@ function RoomWallContent({ room, topic }: { room: RoomId; topic: RoomTopic }) {
   return (
     <div>
       <RoomHeading title={room === 'casting' ? 'Casting' : 'Gratis fotoshoot'} />
-      <h3 className="m-0 mt-5 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+      <h3 className="m-0 mt-5 font-serif font-semibold" style={{ fontSize: 29, color: SCREEN_INK }}>
         {page.expectTitle}
       </h3>
       <RoomBullets items={page.expectBullets} />
-      <h3 className="m-0 mt-6 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+      <h3 className="m-0 mt-6 font-serif font-semibold" style={{ fontSize: 29, color: SCREEN_INK }}>
         {page.whyTitle}
       </h3>
-      <p className="m-0 mt-2.5 font-sans leading-relaxed" style={{ fontSize: 21, color: SCREEN_INK }}>
+      <p className="m-0 mt-2.5 font-sans leading-relaxed" style={{ fontSize: 24, color: SCREEN_INK }}>
         {page.whyParagraph}
       </p>
     </div>
@@ -1158,26 +1183,39 @@ export function BeginLiftExperience() {
                   style={{ left: s.x, top: s.y, width: s.w, height: s.h, zIndex: 10 }}
                 />
               ))}
-              <div
-                className="absolute"
-                style={{ left: frame.x, top: frame.y, width: frame.w, height: frame.h }}
-              >
-                {/* 2x supersampling: groot renderen en terugschalen → scherpe tekst op de wand. */}
-                <div
-                  key={roomTopic}
-                  className="overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                  style={{
-                    width: frame.w * INFO_SCREEN_SS,
-                    height: frame.h * INFO_SCREEN_SS,
-                    transform: `scale(${1 / INFO_SCREEN_SS})`,
-                    transformOrigin: '0 0',
-                    padding: '26px 34px 32px',
-                    animation: 'beginScreenFade 480ms ease-out',
-                  }}
-                >
-                  <RoomWallContent room={room} topic={roomTopic} />
-                </div>
-              </div>
+              {(() => {
+                /*
+                 * De content wordt met een matrix3d op de vier gemeten
+                 * hoekpunten van de kader gelegd, zodat hij het perspectief
+                 * van (schuine) muren volgt. 2x supersampling houdt de tekst
+                 * scherp. Scrollen kan gewoon binnen het vlak.
+                 */
+                const src = quadSourceSize(frame);
+                const sw = Math.round(src.w * INFO_SCREEN_SS);
+                const sh = Math.round(src.h * INFO_SCREEN_SS);
+                return (
+                  <div
+                    className="absolute left-0 top-0"
+                    style={{
+                      width: sw,
+                      height: sh,
+                      transform: quadMatrix3d(sw, sh, frame),
+                      transformOrigin: '0 0',
+                    }}
+                  >
+                    <div
+                      key={roomTopic}
+                      className="h-full w-full overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                      style={{
+                        padding: '26px 34px 32px',
+                        animation: 'beginWallFade 480ms ease-out',
+                      }}
+                    >
+                      <RoomWallContent room={room} topic={roomTopic} />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           ) : null,
         )}
@@ -1242,6 +1280,10 @@ export function BeginLiftExperience() {
           from { opacity: 0; transform: scale(${1 / INFO_SCREEN_SS}) translateY(10px); }
           to { opacity: 1; transform: scale(${1 / INFO_SCREEN_SS}) translateY(0); }
         }
+        @keyframes beginWallFade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
         /* Agendapaneel op de wandkader: donkere tekst, doorzichtige achtergrond. */
         .cm-room-booking [class*="bg-white"],
         .cm-room-booking [class*="bg-panel"],
@@ -1273,14 +1315,14 @@ export function BeginLiftExperience() {
         .cm-room-booking th,
         .cm-room-booking button {
           color: ${SCREEN_INK} !important;
-          font-size: 21px !important;
+          font-size: 24px !important;
           line-height: 1.4 !important;
         }
         .cm-room-booking h1,
         .cm-room-booking h2,
         .cm-room-booking h3 {
           color: ${SCREEN_INK} !important;
-          font-size: 26px !important;
+          font-size: 30px !important;
           font-weight: 700 !important;
           line-height: 1.2 !important;
         }
@@ -1290,7 +1332,7 @@ export function BeginLiftExperience() {
           background: rgba(255, 252, 246, 0.92) !important;
           border-color: rgba(42, 33, 24, 0.35) !important;
           color: #000000 !important;
-          font-size: 20px !important;
+          font-size: 22px !important;
         }
         .cm-room-booking [class*="shadow"] {
           box-shadow: none !important;
