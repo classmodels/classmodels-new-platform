@@ -2,6 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { getApiBase } from '@/lib/api';
+import {
+  DOELGROEPEN_CARDS,
+  DOELGROEPEN_INTRO,
+  GUEST_FAQ,
+  MODEL_WORDEN_STATS,
+  WAAROM_CHECKLIST,
+  WAAROM_PARAGRAPHS,
+} from '@/components/guest-portal/guest-portal-data';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 /** Film 30 — de lift in het onthaal, met vier ronde knoppen links. */
@@ -14,6 +23,11 @@ const VIDEO_CASTING = `${SHEET_BASE}/videos/casting-room.mp4`;
 const VIDEO_INTAKE = `${SHEET_BASE}/videos/intake-room.mp4`;
 /** Film 34 — de infozaal (bioscoop) achter 'Info model worden'. */
 const VIDEO_INFO = `${SHEET_BASE}/videos/info-model-room.mp4`;
+/** Film 61 — de trailer die met geluid op het grote scherm van de infozaal speelt. */
+const VIDEO_TRAILER = `${SHEET_BASE}/videos/info-trailer.mp4`;
+/** Infozaal met gedoofd licht (2.png) en met het licht aan (3.png). */
+const IMG_INFO_DARK = `${SHEET_BASE}/images/info-room-dark.jpg`;
+const IMG_INFO_LIGHT = `${SHEET_BASE}/images/info-room-light.jpg`;
 
 /** Alle hotspot-coördinaten zijn gemeten in dit 1280x720-stelsel (films zijn 16:9). */
 const BASE_W = 1280;
@@ -34,7 +48,8 @@ type Phase =
   | 'intakeRide' // film 33 speelt
   | 'intake' // eindbeeld film 33: exit room klikbaar
   | 'infoRide' // film 34 speelt
-  | 'info'; // eindbeeld film 34: exit room klikbaar
+  | 'infoDim' // licht dooft (2.png) en film 61 speelt met geluid op het grote scherm
+  | 'info'; // licht weer aan (3.png): bordjes klikbaar, content op het grote scherm
 
 type Hotspot = { label: string; x: number; y: number; w: number; h: number };
 
@@ -66,8 +81,42 @@ const CASTING_EXIT: Hotspot = { label: 'Exit room', x: 1051, y: 122, w: 117, h: 
 /** Exit room-bordje in de intakekamer (eindbeeld film 33). */
 const INTAKE_EXIT: Hotspot = { label: 'Exit room', x: 966, y: 342, w: 120, h: 44 };
 
-/** Exit room-bordje in de infozaal (eindbeeld film 34). */
-const INFO_EXIT: Hotspot = { label: 'Exit room', x: 147, y: 139, w: 127, h: 47 };
+/** Onderwerpen van de bordjes op de zijmuren van de infozaal. */
+type InfoTopic =
+  | 'veelgestelde-vragen'
+  | 'doelgroepen'
+  | 'info-model-worden'
+  | 'reviews'
+  | 'onze-klanten'
+  | 'trailers';
+
+/**
+ * Bordjes op de zijmuren van de infozaal (2.png/3.png, zelfde kadrering als
+ * het eindbeeld van film 34). Ten allen tijde klikbaar; de inhoud verschijnt
+ * op het grote scherm.
+ */
+const INFO_SIGNS: (Hotspot & { action: InfoTopic | 'exit' })[] = [
+  { label: 'Exit room', x: 160, y: 148, w: 109, h: 35, action: 'exit' },
+  { label: 'Veel gestelde vragen', x: 160, y: 215, w: 109, h: 54, action: 'veelgestelde-vragen' },
+  { label: 'Doelgroepen', x: 160, y: 306, w: 109, h: 42, action: 'doelgroepen' },
+  { label: 'Info model worden', x: 160, y: 385, w: 109, h: 35, action: 'info-model-worden' },
+  { label: 'Reviews', x: 994, y: 150, w: 112, h: 38, action: 'reviews' },
+  { label: 'Onze klanten', x: 994, y: 235, w: 112, h: 40, action: 'onze-klanten' },
+  { label: 'Trailers try-out modeshows', x: 994, y: 315, w: 112, h: 85, action: 'trailers' },
+];
+
+/** Het grote bioscoopdoek in de infozaal (1280x720-stelsel, gemeten op 3.png). */
+const INFO_SCREEN = { x: 372, y: 152, w: 534, h: 288 };
+/** 2x supersampling: content groot renderen en terugschalen → scherpe tekst op het doek. */
+const INFO_SCREEN_SS = 2;
+
+type InfoReview = {
+  id: string;
+  title: string;
+  body: string;
+  authorName?: string | null;
+  rating?: number | null;
+};
 
 /** Zet een (uitgespeelde of nog niet gestarte) video vast op het laatste beeld. */
 function holdLastFrame(v: HTMLVideoElement | null) {
@@ -75,6 +124,209 @@ function holdLastFrame(v: HTMLVideoElement | null) {
   v.pause();
   if (Number.isFinite(v.duration) && v.duration > 0) {
     v.currentTime = Math.max(0, v.duration - 0.05);
+  }
+}
+
+/** Kleuren voor de content op het bioscoopdoek — donkere inkt en goud op het lichte doek. */
+const SCREEN_INK = '#2a2118';
+const SCREEN_GOLD = '#8a6b45';
+
+function ScreenHeading({ title }: { title: string }) {
+  return (
+    <header className="shrink-0">
+      <h2 className="m-0 font-serif font-semibold leading-tight" style={{ fontSize: 52, color: SCREEN_INK }}>
+        {title}
+      </h2>
+      <span
+        aria-hidden
+        className="mt-3 block h-[3px] w-44"
+        style={{ background: `linear-gradient(to right, ${SCREEN_GOLD}, transparent)` }}
+      />
+    </header>
+  );
+}
+
+/** Inhoud op het grote bioscoopdoek — dezelfde teksten als elders op de site. */
+function InfoScreenContent({ topic, reviews }: { topic: InfoTopic; reviews: InfoReview[] | null }) {
+  switch (topic) {
+    case 'info-model-worden':
+      return (
+        <div>
+          <ScreenHeading title="Model worden bij Class-Models" />
+          {WAAROM_PARAGRAPHS.map((p) => (
+            <p key={p} className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+              {p}
+            </p>
+          ))}
+          <ul className="m-0 mt-6 list-none space-y-3 p-0">
+            {WAAROM_CHECKLIST.map((b) => (
+              <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 25, color: SCREEN_INK }}>
+                <span aria-hidden style={{ color: SCREEN_GOLD }}>
+                  ◆
+                </span>
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-7 grid grid-cols-4 gap-4">
+            {MODEL_WORDEN_STATS.map((s) => (
+              <div
+                key={s.label}
+                className="rounded-lg px-3 py-4 text-center"
+                style={{
+                  background: 'linear-gradient(180deg, #3a2e20, #241d15)',
+                  border: '1px solid rgba(190,150,95,0.55)',
+                }}
+              >
+                <p className="m-0 font-serif font-bold" style={{ fontSize: 30, color: '#ffe9c4' }}>
+                  {s.value}
+                </p>
+                <p className="m-0 mt-1 font-sans" style={{ fontSize: 17, color: 'rgba(255,233,196,0.85)' }}>
+                  {s.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    case 'veelgestelde-vragen':
+      return (
+        <div>
+          <ScreenHeading title="Veelgestelde vragen" />
+          <div className="mt-6 space-y-6">
+            {GUEST_FAQ.map((f) => (
+              <section key={f.q}>
+                <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 30, color: SCREEN_INK }}>
+                  {f.q}
+                </h3>
+                <p className="m-0 mt-2 font-sans leading-snug" style={{ fontSize: 25, color: '#4a4033' }}>
+                  {f.a}
+                </p>
+              </section>
+            ))}
+          </div>
+        </div>
+      );
+    case 'doelgroepen':
+      return (
+        <div>
+          <ScreenHeading title="Doelgroepen" />
+          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+            {DOELGROEPEN_INTRO}
+          </p>
+          <div className="mt-6 grid grid-cols-3 gap-4">
+            {DOELGROEPEN_CARDS.map((c) => (
+              <div
+                key={c.title}
+                className="rounded-lg px-4 py-4"
+                style={{ background: 'rgba(138,107,69,0.10)', border: '1px solid rgba(138,107,69,0.4)' }}
+              >
+                <p className="m-0 font-serif font-semibold" style={{ fontSize: 26, color: SCREEN_INK }}>
+                  {c.title}
+                </p>
+                <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 20, color: '#4a4033' }}>
+                  {c.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    case 'reviews':
+      return (
+        <div>
+          <ScreenHeading title="Hoe onze modellen hun avontuur ervaren" />
+          {reviews === null ? (
+            <p className="m-0 mt-6 font-sans" style={{ fontSize: 25, color: '#4a4033' }}>
+              Reviews laden…
+            </p>
+          ) : reviews.length === 0 ? (
+            <p className="m-0 mt-6 font-sans" style={{ fontSize: 25, color: '#4a4033' }}>
+              Nog geen reviews beschikbaar.
+            </p>
+          ) : (
+            <div className="mt-6 grid grid-cols-2 gap-4">
+              {reviews.map((r) => (
+                <article
+                  key={r.id}
+                  className="rounded-lg px-4 py-4"
+                  style={{ background: 'rgba(138,107,69,0.10)', border: '1px solid rgba(138,107,69,0.4)' }}
+                >
+                  <h3 className="m-0 font-serif font-semibold" style={{ fontSize: 24, color: SCREEN_INK }}>
+                    {r.title}
+                  </h3>
+                  <p className="m-0 mt-1.5 font-sans leading-snug" style={{ fontSize: 19, color: '#4a4033' }}>
+                    {r.body}
+                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    {r.authorName ? (
+                      <p className="m-0 font-sans font-semibold" style={{ fontSize: 18, color: SCREEN_INK }}>
+                        — {r.authorName}
+                      </p>
+                    ) : (
+                      <span />
+                    )}
+                    {r.rating ? (
+                      <span aria-label={`${r.rating} van 5 sterren`} style={{ fontSize: 19, color: '#b98a2f' }}>
+                        {'★'.repeat(Math.min(5, Math.max(0, r.rating)))}
+                        <span style={{ color: 'rgba(138,107,69,0.35)' }}>
+                          {'★'.repeat(5 - Math.min(5, Math.max(0, r.rating)))}
+                        </span>
+                      </span>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    case 'onze-klanten':
+      return (
+        <div>
+          <ScreenHeading title="Onze klanten" />
+          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+            Onze modellen werken voor uiteenlopende merken en klanten: campagnes, fotoshoots,
+            reclame, events en modeshows. Van lokale zaken tot grote namen — voor elke opdracht
+            zoeken we het profiel dat er het best bij past.
+          </p>
+          <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+            Bent u zelf op zoek naar modellen voor uw merk of evenement? Via het klantenportaal
+            plaatst u eenvoudig een aanvraag en stellen wij een selectie voor die aansluit bij uw
+            campagne.
+          </p>
+          <ul className="m-0 mt-6 list-none space-y-3 p-0">
+            {[
+              'Campagnes en reclame voor merken en winkels',
+              'Fotoshoots voor catalogi, webshops en social media',
+              'Events, beurzen en productlanceringen',
+              'Modeshows en try-outs',
+            ].map((b) => (
+              <li key={b} className="flex gap-3 font-sans leading-snug" style={{ fontSize: 25, color: SCREEN_INK }}>
+                <span aria-hidden style={{ color: SCREEN_GOLD }}>
+                  ◆
+                </span>
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    case 'trailers':
+      return (
+        <div>
+          <ScreenHeading title="Trailers — try-out modeshows" />
+          <p className="m-0 mt-5 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+            Onze modellen schitteren op try-out modeshows: een echte show met publiek, styling en
+            professionele begeleiding. De trailer speelt op dit scherm — klik op het bordje
+            &lsquo;Trailers try-out modeshows&rsquo; om hem (opnieuw) te bekijken.
+          </p>
+          <p className="m-0 mt-4 font-sans leading-relaxed" style={{ fontSize: 26, color: SCREEN_INK }}>
+            Zin om zelf mee te lopen? Boek een intakegesprek of doe mee aan de casting — de
+            bordjes vind je in de hal van het gastenportaal.
+          </p>
+        </div>
+      );
   }
 }
 
@@ -94,11 +346,17 @@ export function BeginLiftExperience() {
   const castingRef = useRef<HTMLVideoElement>(null);
   const intakeRef = useRef<HTMLVideoElement>(null);
   const infoRef = useRef<HTMLVideoElement>(null);
+  const trailerRef = useRef<HTMLVideoElement>(null);
   const fadeTimer = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>('intro');
   const [scale, setScale] = useState(1);
   /** Zwarte overlay voor de exit room-overgang: uitfaden → wisselen → infaden. */
   const [faded, setFaded] = useState(false);
+  /** Gekozen onderwerp op het grote scherm van de infozaal. */
+  const [infoTopic, setInfoTopic] = useState<InfoTopic>('info-model-worden');
+  /** Geluid van de trailer (film 61) — knop onderaan in het zwarte gedeelte. */
+  const [trailerMuted, setTrailerMuted] = useState(false);
+  const [reviews, setReviews] = useState<InfoReview[] | null>(null);
 
   /**
    * 80% van de breedte, maar nooit hoger dan de ruimte onder de zwarte menubalk:
@@ -181,17 +439,48 @@ export function BeginLiftExperience() {
     }
   }, []);
 
+  /**
+   * Na film 34 dooft het licht (2.png) en speelt film 61 direct met geluid op
+   * het grote scherm. Lukt afspelen met geluid niet (autoplay-beleid), dan
+   * starten we gedempt en kan het geluid met de knop weer aan.
+   */
+  const startTrailer = useCallback(() => {
+    setPhase('infoDim');
+    const v = trailerRef.current;
+    if (!v) {
+      setPhase('info');
+      return;
+    }
+    v.currentTime = 0;
+    v.muted = false;
+    setTrailerMuted(false);
+    void v.play().catch(() => {
+      v.muted = true;
+      setTrailerMuted(true);
+      void v.play().catch(() => setPhase('info'));
+    });
+  }, []);
+
   const startInfo = useCallback(() => {
     setPhase('infoRide');
     const v = infoRef.current;
     if (v) {
       v.currentTime = 0;
       void v.play().catch(() => {
-        holdLastFrame(v);
-        setPhase('info');
+        // Film 34 kan niet spelen → meteen door naar de trailer in de donkere zaal.
+        startTrailer();
       });
     }
-  }, []);
+  }, [startTrailer]);
+
+  /** Reviews pas ophalen wanneer het onderwerp voor het eerst gekozen wordt. */
+  useEffect(() => {
+    if (infoTopic !== 'reviews' || reviews !== null) return;
+    fetch(`${getApiBase()}/reviews`, { cache: 'no-store' })
+      .then(async (r) => (r.ok ? r.json() : []))
+      .then((data: unknown) => setReviews(Array.isArray(data) ? (data as InfoReview[]) : []))
+      .catch(() => setReviews([]));
+  }, [infoTopic, reviews]);
 
   /**
    * Exit room: de pagina fadet uit naar zwart en fadet daarna altijd in op het
@@ -205,12 +494,33 @@ export function BeginLiftExperience() {
       castingRef.current?.pause();
       intakeRef.current?.pause();
       infoRef.current?.pause();
+      trailerRef.current?.pause();
       holdLastFrame(hallRef.current);
       setPhase('hall');
       // Eén frame wachten zodat het nieuwe beeld al klaarstaat achter het zwart.
       fadeTimer.current = window.setTimeout(() => setFaded(false), 80);
     }, FADE_MS);
   }, []);
+
+  /** Bordjes op de zijmuren van de infozaal — ten allen tijde klikbaar. */
+  const onInfoSign = useCallback(
+    (action: InfoTopic | 'exit') => {
+      if (action === 'exit') {
+        trailerRef.current?.pause();
+        fadeToHall();
+        return;
+      }
+      if (action === 'trailers') {
+        // Licht dooft en de trailer speelt (opnieuw) op het grote scherm.
+        startTrailer();
+        return;
+      }
+      trailerRef.current?.pause();
+      setInfoTopic(action);
+      setPhase('info');
+    },
+    [fadeToHall, startTrailer],
+  );
 
   /** Direct naar het eindbeeld van film 31 springen (zonder de film af te spelen). */
   const jumpToHall = useCallback(() => {
@@ -352,7 +662,7 @@ export function BeginLiftExperience() {
           className={videoClass(phase === 'intakeRide' || phase === 'intake')}
         />
 
-        {/* Film 34 — de infozaal (Info model worden). */}
+        {/* Film 34 — de infozaal (Info model worden); daarna dooft het licht. */}
         <video
           ref={infoRef}
           src={VIDEO_INFO}
@@ -360,10 +670,92 @@ export function BeginLiftExperience() {
           playsInline
           preload="none"
           disablePictureInPicture
+          onEnded={startTrailer}
+          onContextMenu={(e) => e.preventDefault()}
+          className={videoClass(phase === 'infoRide' || phase === 'infoDim' || phase === 'info')}
+        />
+
+        {/* Infozaal met gedoofd licht (2.png) — fadet in over het eindbeeld van film 34. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={IMG_INFO_DARK}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+          style={{ opacity: phase === 'infoDim' ? 1 : 0, transition: 'opacity 900ms ease-in-out' }}
+        />
+
+        {/* Infozaal met het licht aan (3.png) — fadet in als de trailer gedaan is. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={IMG_INFO_LIGHT}
+          alt=""
+          draggable={false}
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
+          style={{ opacity: phase === 'info' ? 1 : 0, transition: 'opacity 900ms ease-in-out' }}
+        />
+
+        {/* Film 61 — de trailer, met geluid, op het grote scherm in de donkere zaal. */}
+        <video
+          ref={trailerRef}
+          src={VIDEO_TRAILER}
+          playsInline
+          preload="auto"
+          disablePictureInPicture
           onEnded={() => setPhase('info')}
           onContextMenu={(e) => e.preventDefault()}
-          className={videoClass(phase === 'infoRide' || phase === 'info')}
+          className={`absolute select-none object-fill ${phase === 'infoDim' ? 'opacity-100' : 'opacity-0'}`}
+          style={{
+            left: INFO_SCREEN.x,
+            top: INFO_SCREEN.y,
+            width: INFO_SCREEN.w,
+            height: INFO_SCREEN.h,
+            transition: 'opacity 900ms ease-in-out',
+            pointerEvents: 'none',
+          }}
         />
+
+        {/* Content op het grote scherm — als het licht weer aan is. */}
+        {phase === 'info' ? (
+          <div
+            className="absolute"
+            style={{ left: INFO_SCREEN.x, top: INFO_SCREEN.y, width: INFO_SCREEN.w, height: INFO_SCREEN.h }}
+          >
+            {/*
+              Bron 2x zo groot gerenderd (supersampling) en teruggeschaald →
+              gestoken scherpe tekst op het doek. Scrollen kan op het doek zelf.
+            */}
+            <div
+              key={infoTopic}
+              className="overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{
+                width: INFO_SCREEN.w * INFO_SCREEN_SS,
+                height: INFO_SCREEN.h * INFO_SCREEN_SS,
+                transform: `scale(${1 / INFO_SCREEN_SS})`,
+                transformOrigin: '0 0',
+                padding: '34px 46px 40px',
+                animation: 'beginScreenFade 480ms ease-out',
+              }}
+            >
+              <InfoScreenContent topic={infoTopic} reviews={reviews} />
+            </div>
+          </div>
+        ) : null}
+
+        {/* Bordjes op de zijmuren van de infozaal — ten allen tijde klikbaar. */}
+        {phase === 'infoDim' || phase === 'info'
+          ? INFO_SIGNS.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                aria-label={s.label}
+                title={s.label}
+                onClick={() => onInfoSign(s.action)}
+                className={hotspotClass}
+                style={{ left: s.x, top: s.y, width: s.w, height: s.h, zIndex: 10 }}
+              />
+            ))
+          : null}
 
         {/* Liftknoppen — pas klikbaar op het eindbeeld van film 30. */}
         {phase === 'lift'
@@ -429,23 +821,31 @@ export function BeginLiftExperience() {
           />
         ) : null}
 
-        {/* Exit room in de infozaal — fade naar zwart, dan terug naar de hal. */}
-        {phase === 'info' ? (
-          <button
-            type="button"
-            aria-label="Exit room"
-            title="Exit room"
-            onClick={fadeToHall}
-            className={hotspotClass}
-            style={{
-              left: INFO_EXIT.x,
-              top: INFO_EXIT.y,
-              width: INFO_EXIT.w,
-              height: INFO_EXIT.h,
-            }}
-          />
-        ) : null}
       </div>
+
+      {/* Geluidsknop voor de trailer — buiten het beeld, onderaan in het zwarte gedeelte. */}
+      {phase === 'infoDim' ? (
+        <button
+          type="button"
+          onClick={() => {
+            const v = trailerRef.current;
+            if (!v) return;
+            const next = !v.muted;
+            v.muted = next;
+            setTrailerMuted(next);
+          }}
+          className="absolute bottom-3 left-4 z-30 cursor-pointer rounded-full px-4 py-1.5 font-sans transition hover:opacity-85"
+          style={{
+            fontSize: 13,
+            color: '#e9c780',
+            background: 'rgba(20,16,12,0.85)',
+            border: '1px solid rgba(233,199,128,0.5)',
+            letterSpacing: '0.04em',
+          }}
+        >
+          {trailerMuted ? '🔇 Geluid aan' : '🔊 Geluid uit'}
+        </button>
+      ) : null}
 
       {/* Zwarte fade-overlay voor de exit room-overgang. */}
       <div
@@ -456,6 +856,13 @@ export function BeginLiftExperience() {
           transition: `opacity ${FADE_MS}ms ease-in-out`,
         }}
       />
+
+      <style>{`
+        @keyframes beginScreenFade {
+          from { opacity: 0; transform: scale(${1 / INFO_SCREEN_SS}) translateY(10px); }
+          to { opacity: 1; transform: scale(${1 / INFO_SCREEN_SS}) translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
