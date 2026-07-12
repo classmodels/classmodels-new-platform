@@ -22,7 +22,12 @@ export function AppChrome({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <AdminBar />
       {showBar ? <div className="h-10 shrink-0" aria-hidden /> : null}
-      {!onAdmin && !isFullBleedGallery ? <SiteHeader /> : null}
+      {/* Beginpagina op de gsm heeft een eigen app-balk; daar geen dubbele zwarte balk. */}
+      {!onAdmin && !isFullBleedGallery ? (
+        <div className={onBeginPage ? 'hidden md:block' : undefined}>
+          <SiteHeader />
+        </div>
+      ) : null}
       {/* Beginpagina: main als flex-kolom zodat de zwarte achtergrond tot onderaan doorloopt. */}
       <main className={`relative z-0 min-h-0 flex-1 ${onBeginPage ? 'flex flex-col bg-black' : ''}`}>
         {children}

@@ -178,6 +178,36 @@ body {
   }
 }
 
+/* GSM: gastenportaal in de nieuwe donkere stijl met goudaccenten.
+   Alleen onder lg — op de pc blijft alles exact zoals het was. */
+@media (max-width: 1023.98px) {
+  /* Alle bordeauxrode vlakken (app-balk, titelbalken, knoppen) worden donker. */
+  .cm-mobile-guest [class*='bg-burgundy'],
+  .cm-mobile-guest nav [class*='bg-burgundy'] {
+    background-color: #131314 !important;
+  }
+  .cm-mobile-guest .cm-red-titlebar {
+    background-color: #131314 !important;
+    border-bottom: 1px solid rgba(233, 199, 128, 0.3) !important;
+  }
+  .cm-mobile-guest [class*='text-burgundy'] {
+    color: #c99a4e !important;
+  }
+  .cm-mobile-guest [class*='border-burgundy'] {
+    border-color: rgba(201, 154, 78, 0.55) !important;
+  }
+  /* Actieve menurij: gouden accentlijn in plaats van bordeauxrood. */
+  .cm-mobile-guest [class*='6f121b'] {
+    box-shadow: inset 3px 0 0 0 #c99a4e !important;
+  }
+  /* CTA-knoppen op donkere vlakken: gouden rand zodat ze opvallen. */
+  .cm-mobile-guest a[class*='bg-burgundy'],
+  .cm-mobile-guest button[class*='bg-burgundy'] {
+    border: 1px solid rgba(233, 199, 128, 0.5) !important;
+    color: #e9c780 !important;
+  }
+}
+
 /* Google Translate widget: verberg bovenste banner, pagina niet verschuiven */
 .goog-te-banner-frame,
 .skiptranslate,

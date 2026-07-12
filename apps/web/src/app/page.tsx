@@ -1,11 +1,14 @@
 import { Suspense } from 'react';
-import { BeginLiftExperience } from '@/components/BeginLiftExperience';
+import { BeginHome } from '@/components/BeginHome';
 
-/** Beginpagina: lift-film → liftknoppen → receptie-film → menubord met content op de rechtermuur. */
+/**
+ * Beginpagina: op de pc de filmervaring (lift → hal → kamers), op de gsm de
+ * eenvoudige mobiele startpagina zonder films of foto's.
+ */
 export default function BeginPage() {
   return (
     <Suspense fallback={null}>
-      <BeginLiftExperience />
+      <BeginHome />
     </Suspense>
   );
 }

@@ -367,9 +367,10 @@ function GuestPortalPromoBanner({
   /**
    * Volle breedte wit paneel + tegen de rode titelbalk: compenseert horizontaal én verticaal
    * het padding van het hoofdblok (`p-4` / `md:p-6`).
+   * Op de gsm (onder lg) worden geen foto's getoond — alleen de nuttige content.
    */
   return (
-    <div className="relative -mx-4 -mt-4 w-[calc(100%+2rem)] max-w-none overflow-hidden md:-mx-6 md:-mt-6 md:w-[calc(100%+3rem)]">
+    <div className="relative -mx-4 -mt-4 hidden w-[calc(100%+2rem)] max-w-none overflow-hidden md:-mx-6 md:-mt-6 md:w-[calc(100%+3rem)] lg:block">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imgSrc}
@@ -1039,7 +1040,7 @@ export function GuestPortalLayout() {
   );
 
   return (
-    <div className="min-h-[100dvh] bg-panel text-ink">
+    <div className="cm-mobile-guest min-h-[100dvh] bg-panel text-ink">
       <MobileAppBar
         title="Gastenportaal"
         subtitle={rightPanelTitle}
