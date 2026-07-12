@@ -12,6 +12,8 @@ const VIDEO_HALL = `${SHEET_BASE}/videos/guest-hall.mp4`;
 const VIDEO_CASTING = `${SHEET_BASE}/videos/casting-room.mp4`;
 /** Film 33 — de intakegesprek-kamer. */
 const VIDEO_INTAKE = `${SHEET_BASE}/videos/intake-room.mp4`;
+/** Film 34 — de infozaal (bioscoop) achter 'Info model worden'. */
+const VIDEO_INFO = `${SHEET_BASE}/videos/info-model-room.mp4`;
 
 /** Alle hotspot-coördinaten zijn gemeten in dit 1280x720-stelsel (films zijn 16:9). */
 const BASE_W = 1280;
@@ -30,7 +32,9 @@ type Phase =
   | 'castingRide' // film 32 speelt
   | 'casting' // eindbeeld film 32: exit room klikbaar
   | 'intakeRide' // film 33 speelt
-  | 'intake'; // eindbeeld film 33: exit room klikbaar
+  | 'intake' // eindbeeld film 33: exit room klikbaar
+  | 'infoRide' // film 34 speelt
+  | 'info'; // eindbeeld film 34: exit room klikbaar
 
 type Hotspot = { label: string; x: number; y: number; w: number; h: number };
 
@@ -47,8 +51,9 @@ const LIFT_BUTTONS: (Hotspot & { action: 'gallery' | 'model' | 'client' | 'guest
 
 /** Bordjes boven de deur in de hal (eindbeeld film 31). */
 const HALL_SIGNS: (Hotspot & {
-  action: 'casting' | 'intake' | 'fotoshoot' | 'exit';
+  action: 'info' | 'casting' | 'intake' | 'fotoshoot' | 'exit';
 })[] = [
+  { label: 'Info model worden', x: 300, y: 160, w: 135, h: 38, action: 'info' },
   { label: 'Exit room', x: 462, y: 158, w: 116, h: 42, action: 'exit' },
   { label: 'Intake-gesprek', x: 245, y: 211, w: 127, h: 40, action: 'intake' },
   { label: 'Gratis fotoshoot', x: 385, y: 212, w: 124, h: 40, action: 'fotoshoot' },
@@ -60,6 +65,9 @@ const CASTING_EXIT: Hotspot = { label: 'Exit room', x: 1051, y: 122, w: 117, h: 
 
 /** Exit room-bordje in de intakekamer (eindbeeld film 33). */
 const INTAKE_EXIT: Hotspot = { label: 'Exit room', x: 966, y: 342, w: 120, h: 44 };
+
+/** Exit room-bordje in de infozaal (eindbeeld film 34). */
+const INFO_EXIT: Hotspot = { label: 'Exit room', x: 147, y: 139, w: 127, h: 47 };
 
 /** Zet een (uitgespeelde of nog niet gestarte) video vast op het laatste beeld. */
 function holdLastFrame(v: HTMLVideoElement | null) {
@@ -73,8 +81,9 @@ function holdLastFrame(v: HTMLVideoElement | null) {
 /**
  * Beginpagina: film 30 (lift) → eindbeeld met klikbare liftknoppen →
  * Gastenportaal start film 31 (hal) → op het eindbeeld zijn de deurbordjes klikbaar:
- * Casting → film 32, Intake gesprek → film 33, Gratis fotoshoot → eigen pagina.
- * 'Exit room' fadet naar zwart en fadet dan in op het eindbeeld van film 31.
+ * Info model worden → film 34, Casting → film 32, Intake gesprek → film 33,
+ * Gratis fotoshoot → eigen pagina. 'Exit room' fadet naar zwart en fadet dan
+ * altijd in op het eindbeeld van film 31 — nooit terug naar de beginpagina.
  */
 export function BeginLiftExperience() {
   const router = useRouter();
@@ -84,6 +93,7 @@ export function BeginLiftExperience() {
   const hallRef = useRef<HTMLVideoElement>(null);
   const castingRef = useRef<HTMLVideoElement>(null);
   const intakeRef = useRef<HTMLVideoElement>(null);
+  const infoRef = useRef<HTMLVideoElement>(null);
   const fadeTimer = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>('intro');
   const [scale, setScale] = useState(1);
@@ -171,33 +181,59 @@ export function BeginLiftExperience() {
     }
   }, []);
 
+  const startInfo = useCallback(() => {
+    setPhase('infoRide');
+    const v = infoRef.current;
+    if (v) {
+      v.currentTime = 0;
+      void v.play().catch(() => {
+        holdLastFrame(v);
+        setPhase('info');
+      });
+    }
+  }, []);
+
   /**
-   * Exit room: de pagina fadet uit naar zwart en fadet daarna in op het
-   * gevraagde eindbeeld (de hal van film 31, of de lift van film 30).
+   * Exit room: de pagina fadet uit naar zwart en fadet daarna altijd in op het
+   * eindbeeld van film 31 (de hal). Er wordt nooit teruggegaan naar de
+   * beginpagina — die zie je alleen bij het betreden van de site.
    */
-  const fadeTo = useCallback((target: 'hall' | 'lift') => {
+  const fadeToHall = useCallback(() => {
     setFaded(true);
     if (fadeTimer.current) window.clearTimeout(fadeTimer.current);
     fadeTimer.current = window.setTimeout(() => {
       castingRef.current?.pause();
       intakeRef.current?.pause();
-      if (target === 'hall') {
-        holdLastFrame(hallRef.current);
-        setPhase('hall');
-      } else {
-        holdLastFrame(introRef.current);
-        setPhase('lift');
-      }
+      infoRef.current?.pause();
+      holdLastFrame(hallRef.current);
+      setPhase('hall');
       // Eén frame wachten zodat het nieuwe beeld al klaarstaat achter het zwart.
       fadeTimer.current = window.setTimeout(() => setFaded(false), 80);
     }, FADE_MS);
   }, []);
 
-  /** `/?go=guest` (Gastenportaal in de menubalk) → meteen film 31: naar de hal. */
+  /** Direct naar het eindbeeld van film 31 springen (zonder de film af te spelen). */
+  const jumpToHall = useCallback(() => {
+    introRef.current?.pause();
+    setPhase('hall');
+    const v = hallRef.current;
+    if (!v) return;
+    if (Number.isFinite(v.duration) && v.duration > 0) {
+      holdLastFrame(v);
+    } else {
+      v.addEventListener('loadedmetadata', () => holdLastFrame(v), { once: true });
+    }
+  }, []);
+
+  /**
+   * `/?go=guest` (Gastenportaal in de menubalk) → film 31 speelt naar de hal;
+   * `/?go=hall` (exit room vanaf een andere pagina) → meteen het eindbeeld van film 31.
+   */
   const goParam = searchParams.get('go');
   useEffect(() => {
     if (goParam === 'guest') startHall();
-  }, [goParam, startHall]);
+    else if (goParam === 'hall') jumpToHall();
+  }, [goParam, startHall, jumpToHall]);
 
   const onLiftButton = useCallback(
     (action: 'gallery' | 'model' | 'client' | 'guest') => {
@@ -219,7 +255,11 @@ export function BeginLiftExperience() {
   );
 
   const onHallSign = useCallback(
-    (action: 'casting' | 'intake' | 'fotoshoot' | 'exit') => {
+    (action: 'info' | 'casting' | 'intake' | 'fotoshoot' | 'exit') => {
+      if (action === 'info') {
+        startInfo();
+        return;
+      }
       if (action === 'casting') {
         startCasting();
         return;
@@ -232,10 +272,11 @@ export function BeginLiftExperience() {
         router.push('/gratis-fotoshoot');
         return;
       }
-      // Exit room in de hal: terug naar de lift (eindbeeld film 30).
-      fadeTo('lift');
+      // Exit room in de hal: nooit terug naar de beginpagina — de fade komt
+      // gewoon weer uit op het eindbeeld van film 31.
+      fadeToHall();
     },
-    [router, startCasting, startIntake, fadeTo],
+    [router, startInfo, startCasting, startIntake, fadeToHall],
   );
 
   /** Onzichtbare klikvlakken: alleen een handje bij hover, geen zichtbare overlay. */
@@ -311,6 +352,19 @@ export function BeginLiftExperience() {
           className={videoClass(phase === 'intakeRide' || phase === 'intake')}
         />
 
+        {/* Film 34 — de infozaal (Info model worden). */}
+        <video
+          ref={infoRef}
+          src={VIDEO_INFO}
+          muted
+          playsInline
+          preload="none"
+          disablePictureInPicture
+          onEnded={() => setPhase('info')}
+          onContextMenu={(e) => e.preventDefault()}
+          className={videoClass(phase === 'infoRide' || phase === 'info')}
+        />
+
         {/* Liftknoppen — pas klikbaar op het eindbeeld van film 30. */}
         {phase === 'lift'
           ? LIFT_BUTTONS.map((b) => (
@@ -347,7 +401,7 @@ export function BeginLiftExperience() {
             type="button"
             aria-label="Exit room"
             title="Exit room"
-            onClick={() => fadeTo('hall')}
+            onClick={fadeToHall}
             className={hotspotClass}
             style={{
               left: CASTING_EXIT.x,
@@ -364,13 +418,30 @@ export function BeginLiftExperience() {
             type="button"
             aria-label="Exit room"
             title="Exit room"
-            onClick={() => fadeTo('hall')}
+            onClick={fadeToHall}
             className={hotspotClass}
             style={{
               left: INTAKE_EXIT.x,
               top: INTAKE_EXIT.y,
               width: INTAKE_EXIT.w,
               height: INTAKE_EXIT.h,
+            }}
+          />
+        ) : null}
+
+        {/* Exit room in de infozaal — fade naar zwart, dan terug naar de hal. */}
+        {phase === 'info' ? (
+          <button
+            type="button"
+            aria-label="Exit room"
+            title="Exit room"
+            onClick={fadeToHall}
+            className={hotspotClass}
+            style={{
+              left: INFO_EXIT.x,
+              top: INFO_EXIT.y,
+              width: INFO_EXIT.w,
+              height: INFO_EXIT.h,
             }}
           />
         ) : null}

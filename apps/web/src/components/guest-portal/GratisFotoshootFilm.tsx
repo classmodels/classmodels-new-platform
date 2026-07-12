@@ -107,7 +107,8 @@ export function GratisFotoshootFilm() {
           {[
             { ...INFO_BTN, label: 'Info', onClick: () => setPanel('info') },
             { ...BOOK_BTN, label: 'Afspraak boeken', onClick: () => setPanel('booking') },
-            { ...EXIT_BTN, label: 'Exit room', onClick: () => router.push('/') },
+            // Exit room gaat altijd naar het eindbeeld van film 31 (de hal), nooit naar de beginpagina.
+            { ...EXIT_BTN, label: 'Exit room', onClick: () => router.push('/?go=hall') },
           ].map((btn) => (
             <button
               key={btn.label}
