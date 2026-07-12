@@ -25,6 +25,10 @@ const VIDEO_INTAKE = `${SHEET_BASE}/videos/intake-room.mp4`;
 const VIDEO_INFO = `${SHEET_BASE}/videos/info-model-room.mp4`;
 /** Film 61 — de trailer die met geluid op het grote scherm van de infozaal speelt. */
 const VIDEO_TRAILER = `${SHEET_BASE}/videos/info-trailer.mp4`;
+/** Film 6 — van de hal naar de gratis fotoshoot-ruimte; eindigt op het beeld van die pagina. */
+const VIDEO_FOTOSHOOT_ENTRY = `${SHEET_BASE}/videos/fotoshoot-entry.mp4`;
+/** Film 5 — de infozaal verlaten (licht dooft); daarna fade naar de hal. */
+const VIDEO_INFO_EXIT = `${SHEET_BASE}/videos/info-exit.mp4`;
 /** Infozaal met gedoofd licht (2.png) en met het licht aan (3.png). */
 const IMG_INFO_DARK = `${SHEET_BASE}/images/info-room-dark.jpg`;
 const IMG_INFO_LIGHT = `${SHEET_BASE}/images/info-room-light.jpg`;
@@ -49,7 +53,9 @@ type Phase =
   | 'intake' // eindbeeld film 33: exit room klikbaar
   | 'infoRide' // film 34 speelt
   | 'infoDim' // licht dooft (2.png) en film 61 speelt met geluid op het grote scherm
-  | 'info'; // licht weer aan (3.png): bordjes klikbaar, content op het grote scherm
+  | 'info' // licht weer aan (3.png): bordjes klikbaar, content op het grote scherm
+  | 'infoExitRide' // film 5 speelt (de infozaal verlaten); daarna fade naar de hal
+  | 'fotoshootRide'; // film 6 speelt (naar de fotoshoot-ruimte); daarna de fotoshoot-pagina
 
 type Hotspot = { label: string; x: number; y: number; w: number; h: number };
 
@@ -347,6 +353,8 @@ export function BeginLiftExperience() {
   const intakeRef = useRef<HTMLVideoElement>(null);
   const infoRef = useRef<HTMLVideoElement>(null);
   const trailerRef = useRef<HTMLVideoElement>(null);
+  const infoExitRef = useRef<HTMLVideoElement>(null);
+  const fotoshootRef = useRef<HTMLVideoElement>(null);
   const fadeTimer = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>('intro');
   const [scale, setScale] = useState(1);
@@ -495,6 +503,7 @@ export function BeginLiftExperience() {
       intakeRef.current?.pause();
       infoRef.current?.pause();
       trailerRef.current?.pause();
+      infoExitRef.current?.pause();
       holdLastFrame(hallRef.current);
       setPhase('hall');
       // Eén frame wachten zodat het nieuwe beeld al klaarstaat achter het zwart.
@@ -502,12 +511,43 @@ export function BeginLiftExperience() {
     }, FADE_MS);
   }, []);
 
+  /**
+   * De infozaal verlaten: film 5 speelt (het licht dooft en je gaat naar
+   * buiten); als die gedaan is, fadet het beeld naar de hal van film 31.
+   */
+  const startInfoExit = useCallback(() => {
+    trailerRef.current?.pause();
+    setPhase('infoExitRide');
+    const v = infoExitRef.current;
+    if (!v) {
+      fadeToHall();
+      return;
+    }
+    v.currentTime = 0;
+    void v.play().catch(() => fadeToHall());
+  }, [fadeToHall]);
+
+  /**
+   * Gratis fotoshoot: film 6 speelt (van de hal naar de fotoshoot-ruimte);
+   * de film eindigt op hetzelfde beeld als de fotoshoot-pagina, dus daarna
+   * gaan we naadloos naar die pagina door.
+   */
+  const startFotoshoot = useCallback(() => {
+    setPhase('fotoshootRide');
+    const v = fotoshootRef.current;
+    if (!v) {
+      router.push('/gratis-fotoshoot');
+      return;
+    }
+    v.currentTime = 0;
+    void v.play().catch(() => router.push('/gratis-fotoshoot'));
+  }, [router]);
+
   /** Bordjes op de zijmuren van de infozaal — ten allen tijde klikbaar. */
   const onInfoSign = useCallback(
     (action: InfoTopic | 'exit') => {
       if (action === 'exit') {
-        trailerRef.current?.pause();
-        fadeToHall();
+        startInfoExit();
         return;
       }
       if (action === 'trailers') {
@@ -519,7 +559,7 @@ export function BeginLiftExperience() {
       setInfoTopic(action);
       setPhase('info');
     },
-    [fadeToHall, startTrailer],
+    [startInfoExit, startTrailer],
   );
 
   /** Direct naar het eindbeeld van film 31 springen (zonder de film af te spelen). */
@@ -579,14 +619,15 @@ export function BeginLiftExperience() {
         return;
       }
       if (action === 'fotoshoot') {
-        router.push('/gratis-fotoshoot');
+        // Eerst film 6 (naar de fotoshoot-ruimte), daarna de fotoshoot-pagina.
+        startFotoshoot();
         return;
       }
       // Exit room in de hal: nooit terug naar de beginpagina — de fade komt
       // gewoon weer uit op het eindbeeld van film 31.
       fadeToHall();
     },
-    [router, startInfo, startCasting, startIntake, fadeToHall],
+    [startInfo, startCasting, startIntake, startFotoshoot, fadeToHall],
   );
 
   /** Onzichtbare klikvlakken: alleen een handje bij hover, geen zichtbare overlay. */
@@ -673,6 +714,32 @@ export function BeginLiftExperience() {
           onEnded={startTrailer}
           onContextMenu={(e) => e.preventDefault()}
           className={videoClass(phase === 'infoRide' || phase === 'infoDim' || phase === 'info')}
+        />
+
+        {/* Film 5 — de infozaal verlaten; daarna fade naar de hal. */}
+        <video
+          ref={infoExitRef}
+          src={VIDEO_INFO_EXIT}
+          muted
+          playsInline
+          preload="none"
+          disablePictureInPicture
+          onEnded={fadeToHall}
+          onContextMenu={(e) => e.preventDefault()}
+          className={videoClass(phase === 'infoExitRide')}
+        />
+
+        {/* Film 6 — van de hal naar de gratis fotoshoot-ruimte; daarna de fotoshoot-pagina. */}
+        <video
+          ref={fotoshootRef}
+          src={VIDEO_FOTOSHOOT_ENTRY}
+          muted
+          playsInline
+          preload="none"
+          disablePictureInPicture
+          onEnded={() => router.push('/gratis-fotoshoot')}
+          onContextMenu={(e) => e.preventDefault()}
+          className={videoClass(phase === 'fotoshootRide')}
         />
 
         {/* Infozaal met gedoofd licht (2.png) — fadet in over het eindbeeld van film 34. */}
