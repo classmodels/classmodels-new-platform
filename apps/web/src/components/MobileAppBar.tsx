@@ -22,24 +22,22 @@ function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
 
   return (
     <div>
-      <Link href="/portal/guest" className={portalRowClass}>
+      <Link href="/?m=guest" className={portalRowClass}>
         <span>Gastenportaal</span>
         <span className="text-white/70" aria-hidden>
           ›
         </span>
       </Link>
-      <Link href={user ? '/portal/model' : '/'} className={portalRowClass}>
+      <Link href={user ? '/portal/model' : '/?m=model'} className={portalRowClass}>
         <span>Modellenportaal</span>
         <span className="text-white/70" aria-hidden>
           ›
         </span>
       </Link>
-      <Link href="/portal/client" className={portalRowClass}>
-        <span>Klantenportaal</span>
-        <span className="text-white/70" aria-hidden>
-          ›
-        </span>
-      </Link>
+      {/* Klantenportaal is nog niet actief — zichtbaar maar niet aanklikbaar. */}
+      <div aria-disabled="true" className={`${portalRowClass} cursor-default opacity-60 hover:bg-burgundy`}>
+        <span>Klantenportaal (binnenkort)</span>
+      </div>
       {user ? (
         <button
           type="button"
@@ -54,7 +52,7 @@ function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
           <span>Uitloggen</span>
         </button>
       ) : (
-        <Link href="/" className={logoutRowClass}>
+        <Link href="/?m=model" className={logoutRowClass}>
           <span>Inloggen</span>
         </Link>
       )}

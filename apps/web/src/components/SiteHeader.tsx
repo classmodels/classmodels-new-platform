@@ -5,13 +5,21 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { CmText } from '@/components/CmText';
 import { GoogleTranslate } from '@/components/GoogleTranslate';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 export function SiteHeader() {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const isMobile = useIsMobile() === true;
   const onAdmin = pathname?.startsWith('/admin');
   if (onAdmin) return null;
+
+  // Op de gsm geen filmervaring of lobby-afbeelding: rechtstreeks naar de
+  // mobiele portaalschermen (gastenportaal / modellenlogin).
+  const guestHref = isMobile ? '/?m=guest' : '/?go=guest';
+  const modelHref = user ? '/portal/model' : isMobile ? '/?m=model' : '/lobby?tab=model';
+  const loginHref = isMobile ? '/?m=model' : '/lobby?tab=model';
 
   return (
     <header className="shrink-0 border-b border-white/10 bg-ink text-white">
@@ -32,10 +40,10 @@ export function SiteHeader() {
         </div>
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-5 gap-y-2 md:flex-nowrap md:gap-x-7">
           <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 md:flex-nowrap md:gap-x-6">
-            <Link href="/?go=guest" className="text-white/90 hover:text-white">
+            <Link href={guestHref} className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
             </Link>
-            <Link href={user ? '/portal/model' : '/lobby?tab=model'} className="text-white/90 hover:text-white">
+            <Link href={modelHref} className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.model" as="span" className="text-white/90" fallback="Modellenportaal" />
             </Link>
             <Link href="/portal/client" className="text-white/90 hover:text-white">
@@ -60,7 +68,7 @@ export function SiteHeader() {
                 <CmText contentKey="site.header.nav.logout" as="span" className="text-white/80" fallback="Uitloggen" />
               </button>
             ) : (
-              <Link href="/lobby?tab=model" className="text-white/90 hover:text-white">
+              <Link href={loginHref} className="text-white/90 hover:text-white">
                 <CmText contentKey="site.header.nav.login" as="span" className="text-white/90" fallback="Inloggen" />
               </Link>
             )}
