@@ -173,6 +173,7 @@ export function ModelPortalShell({
         subtitle={sectionTitle}
         menuTitle="Menu"
         menuContent={navContent}
+        backRow
       />
       <ImpersonationBanner />
       <div className="hidden w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)] lg:block">

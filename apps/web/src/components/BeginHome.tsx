@@ -11,7 +11,7 @@ import { useIsMobile } from '@/lib/use-is-mobile';
  */
 export function BeginHome() {
   const isMobile = useIsMobile();
-  // Nog niet bekend (eerste render): zwart houden zodat niets flitst.
-  if (isMobile === null) return <div className="min-h-[60vh] bg-black" />;
+  // Nog niet bekend (eerste render): op gsm licht, op pc zwart — zodat niets flitst.
+  if (isMobile === null) return <div className="min-h-[60vh] bg-[#f1eee8] md:bg-black" />;
   return isMobile ? <MobileBeginHome /> : <BeginLiftExperience />;
 }

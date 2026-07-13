@@ -1046,6 +1046,7 @@ export function GuestPortalLayout() {
         subtitle={rightPanelTitle}
         menuTitle="Gast menu"
         menuContent={guestNavContent}
+        backRow
       />
       {/* De grote rode hero-balk is vervangen door de fijne zwarte menubalk in de site-header. */}
       <div className="mx-auto w-full max-w-page px-0 pb-6 pt-0 lg:px-6 lg:pb-10 lg:pt-8">

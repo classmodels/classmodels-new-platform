@@ -15,16 +15,20 @@ import { apiFetch } from '@/lib/api';
  *   casting, intake gesprek) en info model worden, met alleen het gastmenu.
  * - `?m=model`: het modellenportaal — duidelijk inloggen, wachtwoord vergeten
  *   of account aanmaken; alleen voor modellen met een contract.
- * De pc-versie (filmervaring) blijft volledig ongewijzigd.
+ * Kleuren: zeer licht warmgrijs met donkerbruine en bronzen accenten
+ * (naar de sfeer van de welkomsthal). De pc-versie blijft volledig ongewijzigd.
  */
 
-const GOLD = '#e9c780';
-const GOLD_SOFT = 'rgba(233,199,128,0.55)';
-const GOLD_LINE = 'rgba(233,199,128,0.28)';
-const BG = '#0e0c0a';
-const CARD = 'rgba(255,244,222,0.05)';
-const TEXT = '#f2e8d5';
-const TEXT_SOFT = 'rgba(242,232,213,0.72)';
+const BG = '#f1eee8';
+const CARD = '#faf8f4';
+const LINE = '#ddd5c7';
+const TEXT = '#372c1f';
+const TEXT_SOFT = '#7a6e5d';
+const ACCENT = '#8a6a3b';
+const BAR = '#221c15';
+const BAR_TEXT = '#f3ead8';
+const CTA_BG = '#372c1f';
+const CTA_TEXT = '#f6efe2';
 
 function parseApiError(err: unknown, fallback: string): string {
   if (!(err instanceof Error)) return fallback;
@@ -82,7 +86,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2
       className="m-0 mt-7 font-serif text-[13px] font-semibold uppercase tracking-[0.22em]"
-      style={{ color: GOLD }}
+      style={{ color: ACCENT }}
     >
       {children}
     </h2>
@@ -94,7 +98,7 @@ function ChevronRow({ href, label, sub }: { href: string; label: string; sub?: s
     <Link
       href={href}
       className="flex items-center justify-between gap-3 px-4 py-3.5"
-      style={{ borderTop: `1px solid ${GOLD_LINE}` }}
+      style={{ borderTop: `1px solid ${LINE}` }}
     >
       <span className="min-w-0">
         <span className="block text-[15px] font-semibold" style={{ color: TEXT }}>
@@ -106,14 +110,14 @@ function ChevronRow({ href, label, sub }: { href: string; label: string; sub?: s
           </span>
         ) : null}
       </span>
-      <span aria-hidden className="shrink-0 text-lg" style={{ color: GOLD_SOFT }}>
+      <span aria-hidden className="shrink-0 text-lg" style={{ color: ACCENT }}>
         ›
       </span>
     </Link>
   );
 }
 
-/** Rij met '← Terug' en 'Beginpagina' — iets lager dan de app-balk. */
+/** Rij met '← Terug' en 'Beginpagina' — direct onder de app-balk. */
 function BackRow() {
   const router = useRouter();
   return (
@@ -125,14 +129,14 @@ function BackRow() {
           else router.push('/');
         }}
         className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
-        style={{ color: TEXT, border: `1px solid ${GOLD_LINE}` }}
+        style={{ color: TEXT, border: `1px solid ${LINE}`, background: CARD }}
       >
         ← Terug
       </button>
       <Link
         href="/"
         className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
-        style={{ color: GOLD, border: `1px solid ${GOLD_SOFT}` }}
+        style={{ color: CTA_TEXT, background: CTA_BG, border: `1px solid ${CTA_BG}` }}
       >
         Beginpagina
       </Link>
@@ -140,13 +144,13 @@ function BackRow() {
   );
 }
 
-/** Bovenbalk: logo, optioneel hamburger (alleen gastenportaal) en inloggen/uitloggen. */
-function TopBar({ onMenu }: { onMenu?: () => void }) {
+/** Bovenbalk zoals in het gastenportaal: donkere balk, vette witte titel + subtitel. */
+function TopBar({ title, subtitle, onMenu }: { title: string; subtitle?: string; onMenu?: () => void }) {
   const { user, logout } = useAuth();
   return (
     <header
-      className="cm-appbar-safe sticky top-0 z-40"
-      style={{ background: '#131314', borderBottom: `1px solid ${GOLD_LINE}` }}
+      className="cm-appbar-safe sticky top-0 z-40 shadow-md"
+      style={{ background: BAR, color: BAR_TEXT }}
     >
       <div className="flex h-12 items-center gap-2 px-2">
         {onMenu ? (
@@ -157,26 +161,30 @@ function TopBar({ onMenu }: { onMenu?: () => void }) {
             className="flex h-10 w-10 shrink-0 items-center justify-center"
           >
             <span className="flex flex-col gap-[5px]">
-              <span className="block h-[2px] w-5" style={{ background: GOLD }} />
-              <span className="block h-[2px] w-5" style={{ background: GOLD }} />
-              <span className="block h-[2px] w-5" style={{ background: GOLD }} />
+              <span className="block h-[2px] w-5" style={{ background: BAR_TEXT }} />
+              <span className="block h-[2px] w-5" style={{ background: BAR_TEXT }} />
+              <span className="block h-[2px] w-5" style={{ background: BAR_TEXT }} />
             </span>
           </button>
         ) : (
           <span className="w-2" aria-hidden />
         )}
-        <p
-          className="notranslate min-w-0 flex-1 truncate font-serif text-[15px] font-semibold tracking-[0.14em]"
-          style={{ color: GOLD }}
-        >
-          CLASS-MODELS
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="notranslate m-0 truncate text-sm font-bold uppercase leading-tight tracking-wide">
+            {title}
+          </p>
+          {subtitle ? (
+            <p className="m-0 truncate text-[11px] leading-tight" style={{ color: 'rgba(243,234,216,0.75)' }}>
+              {subtitle}
+            </p>
+          ) : null}
+        </div>
         {user ? (
           <button
             type="button"
             onClick={() => logout()}
             className="shrink-0 rounded-full px-3 py-1 text-[12px]"
-            style={{ color: TEXT_SOFT, border: `1px solid ${GOLD_LINE}` }}
+            style={{ color: BAR_TEXT, border: '1px solid rgba(243,234,216,0.4)' }}
           >
             Uitloggen
           </button>
@@ -193,31 +201,31 @@ function TopBar({ onMenu }: { onMenu?: () => void }) {
 function StartView() {
   return (
     <>
-      <TopBar />
+      <TopBar title="Class-Models" subtitle="Welkom" />
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10 pt-8">
         <h1 className="m-0 font-serif text-[27px] font-semibold leading-tight" style={{ color: TEXT }}>
-          Welkom bij <span style={{ color: GOLD }}>Class-Models</span>
+          Welkom bij <span style={{ color: ACCENT }}>Class-Models</span>
         </h1>
         <p className="m-0 mt-2 text-[14.5px] leading-relaxed" style={{ color: TEXT_SOFT }}>
           Kies hieronder uw portaal.
         </p>
 
-        <div className="mt-6 space-y-3.5">
+        <div className="mt-7 space-y-6">
           {/* Gastenportaal */}
           <Link
             href="/?m=guest"
-            className="block rounded-xl px-4 py-4"
-            style={{ background: CARD, border: `1px solid ${GOLD_SOFT}` }}
+            className="block rounded-xl px-4 py-5 shadow-sm"
+            style={{ background: CARD, border: `1px solid ${ACCENT}66` }}
           >
             <span className="flex items-center justify-between gap-3">
-              <span className="font-serif text-[20px] font-semibold" style={{ color: GOLD }}>
+              <span className="font-serif text-[21px] font-semibold" style={{ color: ACCENT }}>
                 Gastenportaal
               </span>
-              <span aria-hidden className="text-xl" style={{ color: GOLD_SOFT }}>
+              <span aria-hidden className="text-xl" style={{ color: ACCENT }}>
                 ›
               </span>
             </span>
-            <span className="mt-1 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
+            <span className="mt-1.5 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
               Model worden? Klik hier — gratis fotoshoot, casting, intake gesprek en alle info.
             </span>
           </Link>
@@ -225,18 +233,18 @@ function StartView() {
           {/* Modellenportaal */}
           <Link
             href="/?m=model"
-            className="block rounded-xl px-4 py-4"
-            style={{ background: CARD, border: `1px solid ${GOLD_LINE}` }}
+            className="block rounded-xl px-4 py-5 shadow-sm"
+            style={{ background: CARD, border: `1px solid ${LINE}` }}
           >
             <span className="flex items-center justify-between gap-3">
-              <span className="font-serif text-[20px] font-semibold" style={{ color: TEXT }}>
+              <span className="font-serif text-[21px] font-semibold" style={{ color: TEXT }}>
                 Modellenportaal
               </span>
-              <span aria-hidden className="text-xl" style={{ color: GOLD_SOFT }}>
+              <span aria-hidden className="text-xl" style={{ color: ACCENT }}>
                 ›
               </span>
             </span>
-            <span className="mt-1 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
+            <span className="mt-1.5 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
               Alleen voor ingeschreven modellen met een contract bij Class-Models.
             </span>
           </Link>
@@ -244,21 +252,21 @@ function StartView() {
           {/* Klantenportaal — zichtbaar maar nog niet aanklikbaar. */}
           <div
             aria-disabled="true"
-            className="rounded-xl px-4 py-4"
-            style={{ background: CARD, border: `1px solid ${GOLD_LINE}`, opacity: 0.55 }}
+            className="rounded-xl px-4 py-5"
+            style={{ background: CARD, border: `1px solid ${LINE}`, opacity: 0.55 }}
           >
             <span className="flex items-center justify-between gap-3">
-              <span className="font-serif text-[20px] font-semibold" style={{ color: TEXT }}>
+              <span className="font-serif text-[21px] font-semibold" style={{ color: TEXT }}>
                 Klantenportaal
               </span>
             </span>
-            <span className="mt-1 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
+            <span className="mt-1.5 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
               Voor bedrijven en klanten — binnenkort beschikbaar.
             </span>
           </div>
         </div>
 
-        <p className="m-0 mt-10 text-center text-[12px]" style={{ color: 'rgba(242,232,213,0.45)' }}>
+        <p className="m-0 mt-10 text-center text-[12px]" style={{ color: TEXT_SOFT }}>
           Class-Models — Provinciebaan 3, 2235 Hulshout
         </p>
       </div>
@@ -290,13 +298,13 @@ function GuestView() {
 
   return (
     <>
-      <TopBar onMenu={() => setOpen(true)} />
+      <TopBar title="Gastenportaal" subtitle="Model worden bij Class-Models" onMenu={() => setOpen(true)} />
 
       {/* Overlay + inschuifmenu: alleen het gastmenu, plus de andere portalen. */}
       <div
         aria-hidden
         onClick={close}
-        className={`fixed inset-0 z-40 bg-black/60 transition-opacity duration-200 ${
+        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 ${
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       />
@@ -307,22 +315,22 @@ function GuestView() {
         className={`fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col shadow-2xl transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ background: '#131314', borderRight: `1px solid ${GOLD_LINE}` }}
+        style={{ background: BAR, borderRight: '1px solid rgba(243,234,216,0.15)' }}
       >
-        <div className="cm-appbar-safe shrink-0" style={{ borderBottom: `1px solid ${GOLD_LINE}` }}>
+        <div className="cm-appbar-safe shrink-0" style={{ borderBottom: '1px solid rgba(243,234,216,0.15)' }}>
           <div className="flex h-12 items-center justify-between gap-2 pl-4 pr-1">
             <p
-              className="notranslate truncate font-serif text-[14px] font-semibold tracking-[0.14em]"
-              style={{ color: GOLD }}
+              className="notranslate m-0 truncate text-sm font-bold uppercase tracking-wide"
+              style={{ color: BAR_TEXT }}
             >
-              GASTENPORTAAL
+              Gastenportaal
             </p>
             <button
               type="button"
               aria-label="Menu sluiten"
               onClick={close}
               className="flex h-10 w-10 shrink-0 items-center justify-center text-2xl leading-none"
-              style={{ color: GOLD }}
+              style={{ color: BAR_TEXT }}
             >
               ×
             </button>
@@ -334,10 +342,10 @@ function GuestView() {
               key={m.label}
               href={m.href}
               className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-medium"
-              style={{ color: TEXT, borderBottom: '1px solid rgba(233,199,128,0.14)' }}
+              style={{ color: '#e8e0cf', borderBottom: '1px solid rgba(243,234,216,0.1)' }}
             >
               <span>{m.label}</span>
-              <span aria-hidden style={{ color: GOLD_SOFT }}>
+              <span aria-hidden style={{ color: 'rgba(243,234,216,0.5)' }}>
                 ›
               </span>
             </Link>
@@ -346,17 +354,21 @@ function GuestView() {
           <Link
             href="/?m=model"
             className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-semibold"
-            style={{ color: GOLD, borderBottom: '1px solid rgba(233,199,128,0.14)', background: 'rgba(233,199,128,0.06)' }}
+            style={{
+              color: BAR_TEXT,
+              borderBottom: '1px solid rgba(243,234,216,0.1)',
+              background: 'rgba(243,234,216,0.08)',
+            }}
           >
             <span>Modellenportaal</span>
-            <span aria-hidden style={{ color: GOLD_SOFT }}>
+            <span aria-hidden style={{ color: 'rgba(243,234,216,0.5)' }}>
               ›
             </span>
           </Link>
           <div
             aria-disabled="true"
             className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-semibold"
-            style={{ color: TEXT_SOFT, borderBottom: '1px solid rgba(233,199,128,0.14)', opacity: 0.55 }}
+            style={{ color: 'rgba(243,234,216,0.5)', borderBottom: '1px solid rgba(243,234,216,0.1)' }}
           >
             <span>Klantenportaal (binnenkort)</span>
           </div>
@@ -366,8 +378,8 @@ function GuestView() {
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
         <BackRow />
 
-        <h1 className="m-0 mt-5 font-serif text-[25px] font-semibold leading-tight" style={{ color: TEXT }}>
-          <span style={{ color: GOLD }}>Gastenportaal</span>
+        <h1 className="m-0 mt-5 font-serif text-[25px] font-semibold leading-tight">
+          <span style={{ color: ACCENT }}>Gastenportaal</span>
         </h1>
         <p className="m-0 mt-2 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
           Hier vind je alle info om model te worden, kan je deelnemen aan een casting, een gratis
@@ -375,12 +387,12 @@ function GuestView() {
         </p>
 
         <SectionTitle>Maak snel een keuze</SectionTitle>
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-4">
           {QUICK_ACTIONS.map((a) => (
             <section
               key={a.title}
-              className="rounded-xl px-4 py-4"
-              style={{ background: CARD, border: `1px solid ${GOLD_LINE}` }}
+              className="rounded-xl px-4 py-4 shadow-sm"
+              style={{ background: CARD, border: `1px solid ${LINE}` }}
             >
               <h3 className="m-0 font-serif text-[19px] font-semibold" style={{ color: TEXT }}>
                 {a.title}
@@ -392,14 +404,14 @@ function GuestView() {
                 <Link
                   href={a.infoHref}
                   className="flex items-center justify-center rounded-lg px-3 py-2.5 text-[13.5px] font-semibold"
-                  style={{ color: GOLD, border: `1px solid ${GOLD_SOFT}` }}
+                  style={{ color: ACCENT, border: `1px solid ${ACCENT}99`, background: BG }}
                 >
                   Info
                 </Link>
                 <Link
                   href={a.bookHref}
                   className="flex items-center justify-center rounded-lg px-3 py-2.5 text-[13.5px] font-bold"
-                  style={{ background: GOLD, color: '#191510' }}
+                  style={{ background: CTA_BG, color: CTA_TEXT }}
                 >
                   Afspraak boeken
                 </Link>
@@ -410,8 +422,8 @@ function GuestView() {
 
         <SectionTitle>Info model worden</SectionTitle>
         <div
-          className="mt-3 overflow-hidden rounded-xl"
-          style={{ background: CARD, border: `1px solid ${GOLD_LINE}` }}
+          className="mt-3 overflow-hidden rounded-xl shadow-sm"
+          style={{ background: CARD, border: `1px solid ${LINE}` }}
         >
           <div className="[&>a:first-child]:!border-t-0">
             <ChevronRow
@@ -525,8 +537,8 @@ function ModelView() {
 
   const inputClass = 'mt-2.5 w-full rounded-lg px-3.5 py-3 text-[15px] outline-none';
   const inputStyle: React.CSSProperties = {
-    background: 'rgba(255,244,222,0.06)',
-    border: `1px solid ${GOLD_LINE}`,
+    background: '#ffffff',
+    border: `1px solid ${LINE}`,
     color: TEXT,
   };
 
@@ -538,23 +550,23 @@ function ModelView() {
 
   return (
     <>
-      <TopBar />
+      <TopBar title="Modellenportaal" subtitle="Inloggen of account aanmaken" />
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
         <BackRow />
 
         <h1 className="m-0 mt-5 font-serif text-[25px] font-semibold leading-tight">
-          <span style={{ color: GOLD }}>Modellenportaal</span>
+          <span style={{ color: ACCENT }}>Modellenportaal</span>
         </h1>
 
         {/* Duidelijke vermelding: alleen voor modellen met een contract. */}
         <div
           className="mt-3 rounded-xl px-4 py-3"
-          style={{ background: 'rgba(233,199,128,0.08)', border: `1px solid ${GOLD_SOFT}` }}
+          style={{ background: '#f5edda', border: `1px solid ${ACCENT}66` }}
         >
           <p className="m-0 text-[13.5px] leading-snug" style={{ color: TEXT }}>
-            <strong style={{ color: GOLD }}>Let op:</strong> alleen voor modellen met een contract
+            <strong style={{ color: ACCENT }}>Let op:</strong> alleen voor modellen met een contract
             bij Class-Models. Nog geen contract? Meld u dan aan via het{' '}
-            <Link href="/?m=guest" className="font-semibold underline underline-offset-2" style={{ color: GOLD }}>
+            <Link href="/?m=guest" className="font-semibold underline underline-offset-2" style={{ color: ACCENT }}>
               gastenportaal
             </Link>
             .
@@ -572,8 +584,8 @@ function ModelView() {
               className="rounded-lg px-1 py-2.5 text-center text-[12.5px] font-semibold leading-tight"
               style={
                 mode === t.id
-                  ? { background: GOLD, color: '#191510' }
-                  : { color: TEXT_SOFT, border: `1px solid ${GOLD_LINE}` }
+                  ? { background: CTA_BG, color: CTA_TEXT }
+                  : { color: TEXT_SOFT, border: `1px solid ${LINE}`, background: CARD }
               }
             >
               {t.label}
@@ -582,11 +594,14 @@ function ModelView() {
         </div>
 
         <div
-          className="mt-4 rounded-xl px-4 py-5"
-          style={{ background: CARD, border: `1px solid ${GOLD_LINE}` }}
+          className="mt-4 rounded-xl px-4 py-5 shadow-sm"
+          style={{ background: CARD, border: `1px solid ${LINE}` }}
         >
           {err ? (
-            <p className="m-0 mb-3 rounded-lg px-3 py-2 text-[13px]" style={{ background: 'rgba(180,35,24,0.18)', border: '1px solid rgba(180,35,24,0.45)', color: '#ffb4ab' }}>
+            <p
+              className="m-0 mb-3 rounded-lg px-3 py-2 text-[13px]"
+              style={{ background: '#fbeae7', border: '1px solid #e5b3aa', color: '#8f2318' }}
+            >
               {err}
             </p>
           ) : null}
@@ -622,7 +637,7 @@ function ModelView() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 accent-amber-300"
+                  className="h-4 w-4 accent-[#8a6a3b]"
                 />
                 Aangemeld blijven
               </label>
@@ -630,7 +645,7 @@ function ModelView() {
                 type="submit"
                 disabled={busy}
                 className="mt-4 w-full rounded-lg py-3 text-[15px] font-bold disabled:opacity-60"
-                style={{ background: GOLD, color: '#191510' }}
+                style={{ background: CTA_BG, color: CTA_TEXT }}
               >
                 {busy ? 'Bezig…' : 'Inloggen'}
               </button>
@@ -647,7 +662,11 @@ function ModelView() {
                 wachtwoord in te stellen.
               </p>
               {forgotMsg ? (
-                <p className="m-0 mt-3 rounded-lg px-3 py-2 text-[13px]" style={{ background: 'rgba(21,147,74,0.15)', border: '1px solid rgba(21,147,74,0.45)', color: '#9be3b6' }} role="status">
+                <p
+                  className="m-0 mt-3 rounded-lg px-3 py-2 text-[13px]"
+                  style={{ background: '#e9f4ec', border: '1px solid #a9d3b4', color: '#1f6b34' }}
+                  role="status"
+                >
                   {forgotMsg}
                 </p>
               ) : (
@@ -666,7 +685,7 @@ function ModelView() {
                     type="submit"
                     disabled={busy}
                     className="mt-4 w-full rounded-lg py-3 text-[15px] font-bold disabled:opacity-60"
-                    style={{ background: GOLD, color: '#191510' }}
+                    style={{ background: CTA_BG, color: CTA_TEXT }}
                   >
                     {busy ? 'Bezig…' : 'Verstuur e-mail'}
                   </button>
@@ -754,7 +773,7 @@ function ModelView() {
                 type="submit"
                 disabled={busy}
                 className="mt-4 w-full rounded-lg py-3 text-[15px] font-bold disabled:opacity-60"
-                style={{ background: GOLD, color: '#191510' }}
+                style={{ background: CTA_BG, color: CTA_TEXT }}
               >
                 {busy ? 'Bezig…' : 'Account aanmaken'}
               </button>
@@ -771,7 +790,7 @@ export function MobileBeginHome() {
   const view = searchParams.get('m');
 
   return (
-    <div className="min-h-[100dvh] w-full" style={{ background: BG }}>
+    <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
       {view === 'guest' ? <GuestView /> : view === 'model' ? <ModelView /> : <StartView />}
     </div>
   );

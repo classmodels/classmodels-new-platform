@@ -119,8 +119,8 @@ body {
   color: #e4e4e7 !important;
 }
 .cm-drawer-dark nav .bg-burgundy {
-  background-color: #6f121b !important;
-  color: #ffffff !important;
+  background-color: #4a3b28 !important;
+  color: #f6efe2 !important;
 }
 
 /* Rode titelbalk op gsm: titel bovenaan, daaronder de actieknoppen op één rij,
@@ -178,33 +178,66 @@ body {
   }
 }
 
-/* GSM: gastenportaal in de nieuwe donkere stijl met goudaccenten.
+/* GSM: de hele site in zeer licht warmgrijs met donkerbruine en bronzen
+   accenten (naar de sfeer van de welkomsthal, maar veel lichter).
    Alleen onder lg — op de pc blijft alles exact zoals het was. */
 @media (max-width: 1023.98px) {
-  /* Alle bordeauxrode vlakken (app-balk, titelbalken, knoppen) worden donker. */
-  .cm-mobile-guest [class*='bg-burgundy'],
-  .cm-mobile-guest nav [class*='bg-burgundy'] {
-    background-color: #131314 !important;
+  body {
+    background-color: #f1eee8;
   }
-  .cm-mobile-guest .cm-red-titlebar {
-    background-color: #131314 !important;
-    border-bottom: 1px solid rgba(233, 199, 128, 0.3) !important;
+  .bg-panel {
+    background-color: #f1eee8 !important;
   }
-  .cm-mobile-guest [class*='text-burgundy'] {
-    color: #c99a4e !important;
+
+  /* Bordeauxrode vlakken en knoppen worden warm donkerbruin. */
+  [class*='bg-burgundy'] {
+    background-color: #372c1f !important;
   }
-  .cm-mobile-guest [class*='border-burgundy'] {
-    border-color: rgba(201, 154, 78, 0.55) !important;
+  [class*='text-burgundy'] {
+    color: #8a6a3b !important;
   }
-  /* Actieve menurij: gouden accentlijn in plaats van bordeauxrood. */
-  .cm-mobile-guest [class*='6f121b'] {
-    box-shadow: inset 3px 0 0 0 #c99a4e !important;
+  [class*='border-burgundy'] {
+    border-color: rgba(138, 106, 59, 0.5) !important;
   }
-  /* CTA-knoppen op donkere vlakken: gouden rand zodat ze opvallen. */
-  .cm-mobile-guest a[class*='bg-burgundy'],
-  .cm-mobile-guest button[class*='bg-burgundy'] {
-    border: 1px solid rgba(233, 199, 128, 0.5) !important;
-    color: #e9c780 !important;
+
+  /* Titelbalken: zeer licht grijs met donkere tekst (niet meer donker/rood). */
+  .cm-red-titlebar {
+    background-color: #e8e2d5 !important;
+    border-bottom: 1px solid #d6cdbc !important;
+  }
+  .cm-red-titlebar,
+  .cm-red-titlebar * {
+    color: #372c1f !important;
+  }
+  .cm-red-titlebar [class*='border-white'] {
+    border-color: rgba(55, 44, 31, 0.35) !important;
+  }
+  .cm-red-titlebar [class*='bg-white'] {
+    background-color: rgba(55, 44, 31, 0.08) !important;
+  }
+  /* Donkere knoppen in de titelbalk houden lichte tekst. */
+  .cm-red-titlebar [class*='bg-burgundy'],
+  .cm-red-titlebar [class*='bg-burgundy'] *,
+  .cm-red-titlebar [class*='bg-zinc-9'],
+  .cm-red-titlebar [class*='bg-zinc-9'] * {
+    color: #f6efe2 !important;
+  }
+
+  /* Actieve menurij (was bordeauxrood #6f121b): bruin met bronzen accentlijn. */
+  [class*='6f121b'] {
+    background-color: #4a3b28 !important;
+    box-shadow: inset 3px 0 0 0 #b08d55 !important;
+  }
+
+  /* Online agenda: donkere dagkoppen worden licht grijs met donkere tekst. */
+  .cm-mobile-guest div[class*='bg-zinc-900'] {
+    background-color: #e8e2d5 !important;
+    color: #372c1f !important;
+  }
+  /* Donkere actieknoppen in de agenda blijven donkerbruin met lichte tekst. */
+  .cm-mobile-guest button[class*='bg-zinc-900'] {
+    background-color: #372c1f !important;
+    color: #f6efe2 !important;
   }
 }
 

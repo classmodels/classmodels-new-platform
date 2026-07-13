@@ -28,8 +28,8 @@ export function AppChrome({ children }: { children: ReactNode }) {
           <SiteHeader />
         </div>
       ) : null}
-      {/* Beginpagina: main als flex-kolom zodat de zwarte achtergrond tot onderaan doorloopt. */}
-      <main className={`relative z-0 min-h-0 flex-1 ${onBeginPage ? 'flex flex-col bg-black' : ''}`}>
+      {/* Beginpagina: main als flex-kolom; op de gsm licht, op de pc zwart (filmervaring). */}
+      <main className={`relative z-0 min-h-0 flex-1 ${onBeginPage ? 'flex flex-col bg-[#f1eee8] md:bg-black' : ''}`}>
         {children}
       </main>
     </div>

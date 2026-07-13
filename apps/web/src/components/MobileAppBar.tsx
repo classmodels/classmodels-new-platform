@@ -14,9 +14,9 @@ type Tone = 'burgundy' | 'dark';
 function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
   const { user, logout } = useAuth();
   const router = useRouter();
-  /** De drie portalen: rode achtergrond, witte tekst. */
+  /** De portalen: iets lichtere bruine rijen onderaan het donkere menu. */
   const portalRowClass =
-    'flex w-full items-center justify-between gap-2 border-t border-white/20 bg-burgundy py-3.5 pl-3 pr-3 text-left text-[13.5px] font-semibold text-white hover:bg-burgundyDeep';
+    'flex w-full items-center justify-between gap-2 border-t border-white/15 bg-[#33291d] py-3.5 pl-3 pr-3 text-left text-[13.5px] font-semibold text-[#f3ead8] hover:bg-[#3d3223]';
   const logoutRowClass =
     'flex w-full items-center justify-between gap-2 border-t border-white/[0.14] py-3.5 pl-3 pr-3 text-left text-[13.5px] font-semibold text-red-400 hover:bg-white/[0.07]';
 
@@ -35,7 +35,7 @@ function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
         </span>
       </Link>
       {/* Klantenportaal is nog niet actief — zichtbaar maar niet aanklikbaar. */}
-      <div aria-disabled="true" className={`${portalRowClass} cursor-default opacity-60 hover:bg-burgundy`}>
+      <div aria-disabled="true" className={`${portalRowClass} cursor-default opacity-60 hover:bg-[#33291d]`}>
         <span>Klantenportaal (binnenkort)</span>
       </div>
       {user ? (
@@ -51,11 +51,7 @@ function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
         >
           <span>Uitloggen</span>
         </button>
-      ) : (
-        <Link href="/?m=model" className={logoutRowClass}>
-          <span>Inloggen</span>
-        </Link>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -97,7 +93,34 @@ type Props = {
   /** Optioneel extra element rechts in de balk (vóór de uitlogknop). */
   rightSlot?: React.ReactNode;
   tone?: Tone;
+  /** Rij met '← Terug' en 'Beginpagina' direct onder de balk (portalen op de gsm). */
+  backRow?: boolean;
 };
+
+/** Rij met '← Terug' en 'Beginpagina' — vervangt de taalknoppen op de gsm. */
+function AppBarBackRow() {
+  const router = useRouter();
+  return (
+    <div className="flex items-center gap-2.5 border-b border-[#ddd5c7] bg-[#f1eee8] px-4 py-2.5">
+      <button
+        type="button"
+        onClick={() => {
+          if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+          else router.push('/');
+        }}
+        className="rounded-full border border-[#c9bfae] bg-white px-4 py-1.5 text-[13px] font-semibold text-[#372c1f]"
+      >
+        ← Terug
+      </button>
+      <Link
+        href="/"
+        className="rounded-full border border-[#372c1f] bg-[#372c1f] px-4 py-1.5 text-[13px] font-semibold text-[#f6efe2]"
+      >
+        Beginpagina
+      </Link>
+    </div>
+  );
+}
 
 /**
  * Mobiele app-balk (alleen zichtbaar onder lg): vaste gekleurde balk bovenaan
@@ -110,6 +133,7 @@ export function MobileAppBar({
   menuContent,
   rightSlot,
   tone = 'burgundy',
+  backRow = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
@@ -128,10 +152,11 @@ export function MobileAppBar({
     };
   }, [open, close]);
 
-  const barBg = tone === 'dark' ? 'bg-[#1e2329]' : 'bg-burgundy';
+  /* Nieuwe gsm-stijl: warme donkerbruine balk (bordeauxrood is verleden tijd). */
+  const barBg = tone === 'dark' ? 'bg-[#1e2329]' : 'bg-[#221c15]';
   /** Drawer altijd donkergrijs (app-stijl); admin-nav heeft eigen donkere kleuren. */
-  const drawerBg = tone === 'dark' ? 'bg-[#1e2329] text-zinc-200' : 'cm-drawer-dark bg-[#1c1c20] text-[#d4d4d8]';
-  const drawerHead = tone === 'dark' ? 'bg-[#171b20] text-white' : 'bg-burgundy text-white';
+  const drawerBg = tone === 'dark' ? 'bg-[#1e2329] text-zinc-200' : 'cm-drawer-dark bg-[#221c15] text-[#e8e0cf]';
+  const drawerHead = tone === 'dark' ? 'bg-[#171b20] text-white' : 'bg-[#1a150f] text-[#f3ead8]';
 
   return (
     <div className="lg:hidden">
@@ -169,6 +194,7 @@ export function MobileAppBar({
       <div aria-hidden className="cm-appbar-safe">
         <div className="h-12" />
       </div>
+      {backRow ? <AppBarBackRow /> : null}
 
       {/* Overlay */}
       <div

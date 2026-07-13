@@ -205,7 +205,7 @@ export default function ClientPortalPage() {
 
   return (
     <div className="min-h-[100dvh] bg-panel text-ink">
-      <MobileAppBar title="Klantenportaal" menuTitle="Menu" menuContent={clientNavContent} />
+      <MobileAppBar title="Klantenportaal" menuTitle="Menu" menuContent={clientNavContent} backRow />
       <div className="hidden w-full bg-gradient-to-br from-burgundy via-burgundyDeep to-burgundy text-white shadow-[0_1px_0_rgba(0,0,0,0.06)] lg:block">
         <div className="mx-auto w-full max-w-page px-4 py-8 md:px-6 md:py-10">
           <CmText
