@@ -209,6 +209,7 @@ function TopBar({ title, subtitle, onMenu }: { title: string; subtitle?: string;
 /* ------------------------------------------------------------------ */
 
 function StartView() {
+  const { user } = useAuth();
   return (
     <>
       <TopBar title="Class-Models" subtitle="Welkom" />
@@ -240,9 +241,9 @@ function StartView() {
             </span>
           </Link>
 
-          {/* Modellenportaal */}
+          {/* Modellenportaal — al ingelogd? Dan rechtstreeks naar het portaal. */}
           <Link
-            href="/?m=model"
+            href={user ? '/portal/model' : '/?m=model'}
             className="block rounded-xl px-4 py-5 shadow-sm"
             style={{ background: CARD, border: `1px solid ${LINE}` }}
           >
@@ -255,7 +256,9 @@ function StartView() {
               </span>
             </span>
             <span className="mt-1.5 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
-              Alleen voor ingeschreven modellen met een contract bij Class-Models.
+              {user
+                ? 'U bent ingelogd — klik hier om direct naar uw portaal te gaan.'
+                : 'Alleen voor ingeschreven modellen met een contract bij Class-Models.'}
             </span>
           </Link>
 
@@ -289,6 +292,7 @@ function StartView() {
 /* ------------------------------------------------------------------ */
 
 function GuestView() {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
@@ -360,9 +364,9 @@ function GuestView() {
               </span>
             </Link>
           ))}
-          {/* Andere portalen onderaan het menu. */}
+          {/* Andere portalen onderaan het menu — ingelogd = direct naar het portaal. */}
           <Link
-            href="/?m=model"
+            href={user ? '/portal/model' : '/?m=model'}
             className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-semibold"
             style={{
               color: BAR_TEXT,
@@ -460,10 +464,15 @@ type ModelMode = 'login' | 'forgot' | 'register';
 
 function ModelView() {
   const router = useRouter();
-  const { login, register: registerUser } = useAuth();
+  const { login, register: registerUser, user, loading } = useAuth();
   const [mode, setMode] = useState<ModelMode>('login');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  /** Al ingelogd? Dan niet opnieuw inloggen maar rechtstreeks naar het portaal. */
+  useEffect(() => {
+    if (!loading && user) router.replace('/portal/model');
+  }, [loading, user, router]);
 
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
@@ -557,6 +566,19 @@ function ModelView() {
     { id: 'forgot', label: 'Wachtwoord vergeten' },
     { id: 'register', label: 'Account aanmaken' },
   ];
+
+  // Tijdens het laden van de sessie (of vlak voor de doorverwijzing) geen
+  // inlogformulier tonen aan iemand die al ingelogd is.
+  if (loading || user) {
+    return (
+      <>
+        <TopBar title="Modellenportaal" subtitle="Even geduld…" />
+        <div className="mx-auto w-full max-w-[560px] px-4 pt-10 text-center text-[14px]" style={{ color: TEXT_SOFT }}>
+          {user ? 'U bent al ingelogd — u wordt doorgestuurd naar uw portaal…' : 'Laden…'}
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
