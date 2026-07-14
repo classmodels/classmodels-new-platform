@@ -15,6 +15,7 @@ import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
 import { CLASS_MODELS_OFFICE, GUEST_APPOINTMENT_OFFICE_LINE } from '@/lib/class-models-office';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
 import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 function ymdLocal(d: Date): string {
   return ymdEuropeBrussels(d);
@@ -88,8 +89,9 @@ function fieldEffectiveRequired(guestWebBooking: boolean, f: FieldDto): boolean 
 }
 
 const WEEKDAY_SHORT = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'] as const;
-/** Max. dagen per pagina; bij meer dagen: Vorige/Volgende onder de kolommen. */
-const DAYS_PER_PAGE = 4;
+/** Max. dagen per pagina op de pc; op de gsm 2 dagen met alle uren onder elkaar. */
+const DAYS_PER_PAGE_DESKTOP = 4;
+const DAYS_PER_PAGE_MOBILE = 2;
 
 function colHeader(ymd: string): string {
   const [y, m, d] = ymd.split('-').map((x) => parseInt(x, 10));
@@ -123,6 +125,9 @@ export function GuestBookingPanel({
   /** Volle sloten tonen als «Bezet» (portfolio). */
   showOccupiedSlots?: boolean;
 }) {
+  const isMobile = useIsMobile() === true;
+  const daysPerPage = isMobile ? DAYS_PER_PAGE_MOBILE : DAYS_PER_PAGE_DESKTOP;
+
   const [step, setStep] = useState<Step>('slots');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -183,8 +188,8 @@ export function GuestBookingPanel({
       const sorted = [...dateSet].sort();
       const todayYmd = ymdEuropeBrussels(new Date());
       const todayIdx = sorted.indexOf(todayYmd);
-      if (todayIdx >= 0 && sorted.length > DAYS_PER_PAGE) {
-        setDayPage(Math.floor(todayIdx / DAYS_PER_PAGE));
+      if (todayIdx >= 0 && sorted.length > daysPerPage) {
+        setDayPage(Math.floor(todayIdx / daysPerPage));
       } else {
         setDayPage(0);
       }
@@ -195,7 +200,7 @@ export function GuestBookingPanel({
     } finally {
       setLoading(false);
     }
-  }, [calendarSlug]);
+  }, [calendarSlug, daysPerPage]);
 
   useEffect(() => {
     loadData();
@@ -208,18 +213,18 @@ export function GuestBookingPanel({
     return [...s].sort();
   }, [slots, openDates]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedDates.length / DAYS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(sortedDates.length / daysPerPage));
 
   useEffect(() => {
     if (dayPage > 0 && dayPage >= totalPages) setDayPage(Math.max(0, totalPages - 1));
   }, [dayPage, totalPages]);
 
-  /** Bij ≤4 dagen: alles tonen; bij >4: pagina van 4. */
+  /** Bij weinig dagen: alles tonen; anders paginas van `daysPerPage`. */
   const visibleDates = useMemo(() => {
-    if (sortedDates.length <= DAYS_PER_PAGE) return sortedDates;
-    const start = dayPage * DAYS_PER_PAGE;
-    return sortedDates.slice(start, start + DAYS_PER_PAGE);
-  }, [sortedDates, dayPage]);
+    if (sortedDates.length <= daysPerPage) return sortedDates;
+    const start = dayPage * daysPerPage;
+    return sortedDates.slice(start, start + daysPerPage);
+  }, [sortedDates, dayPage, daysPerPage]);
 
   const slotsByYmd = useMemo(() => {
     const m = new Map<string, SlotDto[]>();
@@ -249,7 +254,7 @@ export function GuestBookingPanel({
 
   const displayFields = useMemo(() => fields, [fields]);
 
-  const showDatePager = sortedDates.length > DAYS_PER_PAGE;
+  const showDatePager = sortedDates.length > daysPerPage;
 
   const datePager = showDatePager ? (
     <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-zinc-200/80 pt-3">
@@ -264,7 +269,7 @@ export function GuestBookingPanel({
       </button>
       <span className="text-center text-[11px] text-zinc-500">
         {sortedDates.length
-          ? `Dag ${dayPage * DAYS_PER_PAGE + 1}–${Math.min(sortedDates.length, (dayPage + 1) * DAYS_PER_PAGE)} van ${sortedDates.length}`
+          ? `Dag ${dayPage * daysPerPage + 1}–${Math.min(sortedDates.length, (dayPage + 1) * daysPerPage)} van ${sortedDates.length}`
           : ''}
       </span>
       <button
@@ -275,6 +280,33 @@ export function GuestBookingPanel({
         onClick={() => setDayPage((p) => Math.min(totalPages - 1, p + 1))}
       >
         Volgende ›
+      </button>
+    </div>
+  ) : null;
+
+  /**
+   * Gsm: duidelijke navigatie BOVEN de kalender — "Bekijk volgende dagen →"
+   * zodat meteen duidelijk is dat er meer dagen zijn dan de twee zichtbare.
+   */
+  const topDatePager = showDatePager ? (
+    <div className="mb-1 flex shrink-0 items-center justify-between gap-2">
+      <button
+        type="button"
+        aria-label="Vorige dagen"
+        disabled={dayPage <= 0}
+        className="rounded-md border border-zinc-300 bg-white px-2.5 py-2 text-xs font-semibold text-zinc-700 disabled:opacity-35"
+        onClick={() => setDayPage((p) => Math.max(0, p - 1))}
+      >
+        ‹ Vorige
+      </button>
+      <button
+        type="button"
+        aria-label="Bekijk volgende dagen"
+        disabled={dayPage >= totalPages - 1}
+        className="flex items-center gap-1.5 rounded-md bg-zinc-900 px-3 py-2 text-xs font-semibold text-white disabled:opacity-35"
+        onClick={() => setDayPage((p) => Math.min(totalPages - 1, p + 1))}
+      >
+        Bekijk volgende dagen <span aria-hidden className="text-sm leading-none">→</span>
       </button>
     </div>
   ) : null;
@@ -816,7 +848,8 @@ export function GuestBookingPanel({
         ) : null}
         {step === 'slots' ? (
           <div className="space-y-3">
-            <div className="max-h-[min(520px,62vh)] overflow-y-auto pr-1">
+            {isMobile ? topDatePager : null}
+            <div className={isMobile ? '' : 'max-h-[min(520px,62vh)] overflow-y-auto pr-1'}>
               <div className="grid w-full gap-4" style={dayGridStyle}>
                 {visibleDates.map((ymd) => (
                   <div key={ymd} className="min-w-0">
@@ -827,7 +860,10 @@ export function GuestBookingPanel({
                         month: 'long',
                       }).format(new Date(`${ymd}T12:00:00`))}
                     </p>
-                    <div className="mt-2 flex max-h-[min(460px,50vh)] flex-col gap-1.5 overflow-y-auto pr-0.5">
+                    {/* Gsm: alle uren volledig onder elkaar (geen scroll per dag). */}
+                    <div
+                      className={`mt-2 flex flex-col gap-1.5 ${isMobile ? '' : 'max-h-[min(460px,50vh)] overflow-y-auto pr-0.5'}`}
+                    >
                       {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
                         <p className="px-1 py-2 text-[11px] text-muted">Geen vrije momenten (meer) op deze dag.</p>
                       ) : null}
@@ -879,14 +915,18 @@ export function GuestBookingPanel({
   const slotsBlock =
     step === 'slots' ? (
       <div className="min-h-0 min-w-0 flex-1">
-        <div className="flex min-h-0 max-h-[min(520px,62vh)] flex-1 flex-col">
+        <div className={`flex min-h-0 flex-1 flex-col ${isMobile ? '' : 'max-h-[min(520px,62vh)]'}`}>
+          {isMobile ? topDatePager : null}
           <div className="grid min-h-0 w-full min-w-0 flex-1 gap-1.5 pb-1" style={dayGridStyle}>
             {visibleDates.map((ymd) => (
               <div key={ymd} className="flex min-h-0 min-w-0 flex-col text-center">
                 <div className="shrink-0 rounded-t-md bg-zinc-900 py-2 text-[11px] font-semibold uppercase tracking-wide text-white">
                   {colHeader(ymd)}
                 </div>
-                <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5">
+                {/* Gsm: alle uren volledig onder elkaar (geen scroll per dag). */}
+                <div
+                  className={`min-h-0 flex-1 space-y-1.5 rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5 ${isMobile ? '' : 'overflow-y-auto'}`}
+                >
                   {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
                     <p className="px-1 py-2 text-[10px] text-zinc-500">Geen vrije momenten (meer).</p>
                   ) : null}

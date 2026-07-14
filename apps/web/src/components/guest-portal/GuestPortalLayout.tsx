@@ -30,6 +30,7 @@ import {
 import { GuestTestshootSection } from '@/components/guest-portal/GuestTestshootSection';
 import { MobileAppBar } from '@/components/MobileAppBar';
 import { guestPortalPublicMediaUrl } from '@/lib/guest-portal-media';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 const GUEST_MENU_IDS = GUEST_MENU.map((m) => m.id) as readonly GuestMenuId[];
 
@@ -697,6 +698,33 @@ export function GuestPortalLayout() {
     setBookingFlow({ calendarSlug, title });
   }, []);
 
+  const isMobile = useIsMobile() === true;
+
+  /**
+   * CTA-knoppen ("Ben jij klaar om de eerste stap te zetten?"): op de gsm
+   * meteen de juiste online agenda openen in plaats van de infopagina.
+   */
+  const ctaSelect = useCallback(
+    (id: GuestMenuId) => {
+      if (isMobile) {
+        if (id === 'gratis-fotoshoot') {
+          setBookingFlow({ calendarSlug: GRATIS_FOTOSHOOT_PAGE.agendaSlug, title: 'Gratis fotoshoot' });
+          return;
+        }
+        if (id === 'casting') {
+          setBookingFlow({ calendarSlug: CASTING_PAGE.agendaSlug, title: 'Casting' });
+          return;
+        }
+        if (id === 'intake-gesprek') {
+          setBookingFlow({ calendarSlug: INTAKE_GESPREK_PAGE.agendaSlug, title: 'Intake gesprek' });
+          return;
+        }
+      }
+      goMenu(id);
+    },
+    [isMobile, goMenu],
+  );
+
   const menuLabel = GUEST_MENU.find((m) => m.id === active)?.label ?? '';
   const showGuestOfficeInBar =
     bookingFlow != null && GUEST_AGENDA_PRO_SLUGS.has(bookingFlow.calendarSlug);
@@ -707,10 +735,10 @@ export function GuestPortalLayout() {
       ? `container.${contentSlug}.hero.title`
       : `portal.guest.panel.title.${active}`;
 
-  const ctaFor = (target: GuestMenuId) => () => goMenu(target);
+  const ctaFor = (target: GuestMenuId) => () => ctaSelect(target);
 
   const renderModelWorden = () => (
-    <div className="space-y-4 md:space-y-5">
+    <div className="cm-modelworden space-y-4 md:space-y-5">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-stretch md:gap-4">
         {CARD_MODEL_WORDEN.map((c, i) => (
           <ModelWordenColumnCard
@@ -831,7 +859,7 @@ export function GuestPortalLayout() {
         </SectionBlock>
       </div>
 
-      <GuestPortalCtaRow onSelect={goMenu} />
+      <GuestPortalCtaRow onSelect={ctaSelect} />
     </div>
   );
 
@@ -855,7 +883,7 @@ export function GuestPortalLayout() {
           </div>
         ))}
       </div>
-      <GuestPortalCtaRow onSelect={goMenu} />
+      <GuestPortalCtaRow onSelect={ctaSelect} />
     </div>
   );
 
@@ -912,7 +940,7 @@ export function GuestPortalLayout() {
         <GuestServiceTwoColumnPage
           page={INTAKE_GESPREK_PAGE}
           cmsScope="intake-gesprek"
-          onMenuSelect={goMenu}
+          onMenuSelect={ctaSelect}
           onStartBooking={startBooking}
         />
       </div>
@@ -926,7 +954,7 @@ export function GuestPortalLayout() {
         <GuestOfferWithDoelgroepenPage
           page={GRATIS_FOTOSHOOT_PAGE}
           cmsScope="gratis-fotoshoot"
-          onMenuSelect={goMenu}
+          onMenuSelect={ctaSelect}
           onStartBooking={startBooking}
         />
       </div>
@@ -940,7 +968,7 @@ export function GuestPortalLayout() {
         <GuestOfferWithDoelgroepenPage
           page={CASTING_PAGE}
           cmsScope="casting"
-          onMenuSelect={goMenu}
+          onMenuSelect={ctaSelect}
           onStartBooking={startBooking}
         />
       </div>

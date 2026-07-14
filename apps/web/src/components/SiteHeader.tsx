@@ -24,30 +24,35 @@ export function SiteHeader() {
   if (isMobile) {
     // Portaalpagina's hebben op de gsm hun eigen app-balk met Terug/Beginpagina.
     if (pathname?.startsWith('/portal')) return null;
-    // Overige gsm-pagina's: alleen '← Terug' en 'Beginpagina' — geen
-    // taalknoppen, geen Inloggen, geen navigatielinks.
+    // Overige gsm-pagina's: alleen '← Terug' (één stap terug) en 'Beginpagina'
+    // (rechts) — geen taalknoppen, geen Inloggen, geen navigatielinks.
+    // Vast bovenaan zodat de rij bij het scrollen zichtbaar blijft.
     return (
-      <header className="shrink-0 border-b border-[#ddd5c7] bg-[#f1eee8]">
-        <div className="flex items-center gap-2.5 px-4 py-2.5">
-          <button
-            type="button"
-            onClick={() => {
-              if (typeof window !== 'undefined' && window.history.length > 1) router.back();
-              else router.push('/');
-            }}
-            className="rounded-full border border-[#c9bfae] bg-white px-4 py-1.5 text-[13px] font-semibold text-[#372c1f]"
-            aria-label="Terug"
-          >
-            ← <CmText contentKey="site.header.nav.back" as="span" fallback="Terug" />
-          </button>
-          <Link
-            href="/"
-            className="rounded-full border border-[#372c1f] bg-[#372c1f] px-4 py-1.5 text-[13px] font-semibold text-[#f6efe2]"
-          >
-            Beginpagina
-          </Link>
-        </div>
-      </header>
+      <>
+        <header className="fixed inset-x-0 top-0 z-30 border-b border-[#ddd5c7] bg-[#f1eee8]">
+          <div className="flex items-center justify-between gap-2.5 px-4 py-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+                else router.push('/');
+              }}
+              className="rounded-full border border-[#c9bfae] bg-white px-4 py-1.5 text-[13px] font-semibold text-[#372c1f]"
+              aria-label="Terug"
+            >
+              ← <CmText contentKey="site.header.nav.back" as="span" fallback="Terug" />
+            </button>
+            <Link
+              href="/"
+              className="rounded-full border border-[#372c1f] bg-[#372c1f] px-4 py-1.5 text-[13px] font-semibold text-[#f6efe2]"
+            >
+              Beginpagina
+            </Link>
+          </div>
+        </header>
+        {/* Opvulblok met dezelfde hoogte als de vaste rij hierboven. */}
+        <div aria-hidden className="h-[54px] shrink-0" />
+      </>
     );
   }
 

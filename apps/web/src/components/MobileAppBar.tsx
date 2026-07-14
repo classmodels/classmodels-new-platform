@@ -97,28 +97,40 @@ type Props = {
   backRow?: boolean;
 };
 
-/** Rij met '← Terug' en 'Beginpagina' — vervangt de taalknoppen op de gsm. */
+/**
+ * Rij met '← Terug' (links, één stap terug) en 'Beginpagina' (rechts) —
+ * vervangt de taalknoppen op de gsm en blijft bij het scrollen bovenaan
+ * plakken, net onder de vaste app-balk.
+ */
 function AppBarBackRow() {
   const router = useRouter();
   return (
-    <div className="flex items-center gap-2.5 border-b border-[#ddd5c7] bg-[#f1eee8] px-4 py-2.5">
-      <button
-        type="button"
-        onClick={() => {
-          if (typeof window !== 'undefined' && window.history.length > 1) router.back();
-          else router.push('/');
-        }}
-        className="rounded-full border border-[#c9bfae] bg-white px-4 py-1.5 text-[13px] font-semibold text-[#372c1f]"
+    <>
+      {/* Vast onder de app-balk zodat Terug/Beginpagina altijd zichtbaar blijven. */}
+      <div
+        className="fixed inset-x-0 z-30 flex items-center justify-between gap-2.5 border-b border-[#ddd5c7] bg-[#f1eee8] px-4 py-2.5"
+        style={{ top: 'calc(48px + env(safe-area-inset-top, 0px))' }}
       >
-        ← Terug
-      </button>
-      <Link
-        href="/"
-        className="rounded-full border border-[#372c1f] bg-[#372c1f] px-4 py-1.5 text-[13px] font-semibold text-[#f6efe2]"
-      >
-        Beginpagina
-      </Link>
-    </div>
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined' && window.history.length > 1) router.back();
+            else router.push('/');
+          }}
+          className="rounded-full border border-[#c9bfae] bg-white px-4 py-1.5 text-[13px] font-semibold text-[#372c1f]"
+        >
+          ← Terug
+        </button>
+        <Link
+          href="/"
+          className="rounded-full border border-[#372c1f] bg-[#372c1f] px-4 py-1.5 text-[13px] font-semibold text-[#f6efe2]"
+        >
+          Beginpagina
+        </Link>
+      </div>
+      {/* Opvulblok met dezelfde hoogte als de vaste rij hierboven. */}
+      <div aria-hidden className="h-[54px]" />
+    </>
   );
 }
 

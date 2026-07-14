@@ -229,6 +229,22 @@ body {
     box-shadow: inset 3px 0 0 0 #b08d55 !important;
   }
 
+  /* "Info model worden" op de gsm: iets grotere, beter leesbare tekst. */
+  .cm-modelworden .text-sm {
+    font-size: 15.5px !important;
+    line-height: 1.6 !important;
+  }
+  .cm-modelworden .text-xs {
+    font-size: 13.5px !important;
+    line-height: 1.5 !important;
+  }
+  .cm-modelworden [class*='text-[11px]'] {
+    font-size: 12.5px !important;
+  }
+  .cm-modelworden [class*='text-[10px]'] {
+    font-size: 12px !important;
+  }
+
   /* Online agenda: donkere dagkoppen worden licht grijs met donkere tekst. */
   .cm-mobile-guest div[class*='bg-zinc-900'] {
     background-color: #e8e2d5 !important;

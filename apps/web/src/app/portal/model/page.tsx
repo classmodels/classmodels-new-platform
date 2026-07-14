@@ -203,6 +203,20 @@ function ModelPortalPageInner() {
   const [checkoutBusy, setCheckoutBusy] = useState(false);
   const [checkoutErr, setCheckoutErr] = useState<string | null>(null);
 
+  /** Teller op het app-icoon direct synchroniseren bij het openen van het portaal. */
+  const portalUnread = portalUser?.push?.unreadCount ?? 0;
+  useEffect(() => {
+    if (!portalUser) return;
+    if (typeof navigator === 'undefined' || !('setAppBadge' in navigator)) return;
+    const nav = navigator as Navigator & {
+      setAppBadge?: (n: number) => Promise<void>;
+      clearAppBadge?: () => Promise<void>;
+    };
+    void (portalUnread > 0 ? nav.setAppBadge?.(portalUnread) : nav.clearAppBadge?.())?.catch(
+      () => undefined,
+    );
+  }, [portalUser, portalUnread]);
+
   const [profileEditing, setProfileEditing] = useState(false);
   const [showNewModelProfielHint, setShowNewModelProfielHint] = useState(false);
 
@@ -511,7 +525,13 @@ function ModelPortalPageInner() {
   let main: ReactNode = null;
 
   if (tab === 'home') {
-    main = <ModelPortalHomeContent userEmail={portalUser.email} premiumReturn={premiumReturn} />;
+    main = (
+      <ModelPortalHomeContent
+        userEmail={portalUser.email}
+        premiumReturn={premiumReturn}
+        pushUnreadCount={portalUser.push?.unreadCount ?? 0}
+      />
+    );
   } else if (tab === 'premium') {
     main = (
       <ModelPremiumTab

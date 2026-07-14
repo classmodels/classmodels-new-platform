@@ -3,28 +3,37 @@
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ModelShowroomReference } from '@/components/model-portal/ModelShowroomReference';
+import { MobileModelFiche } from '@/components/model-portal/MobileModelFiche';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 function ShowroomContent() {
   const searchParams = useSearchParams();
   const modelId = searchParams.get('model');
   const demo = searchParams.get('demo') !== '0' && !modelId;
+  const isMobile = useIsMobile();
 
-  return <ModelShowroomReference modelId={modelId} demo={demo} />;
-}
+  // Op de gsm: gewone foto's en info in plaats van de (te kleine) 3D-showroom.
+  if (isMobile === null) return null;
+  if (isMobile) return <MobileModelFiche modelId={modelId} />;
 
-/** Modellenfiche — showroomruimte; blijft altijd onder de zwarte menubalk. */
-export default function ModelShowroomPage() {
   return (
     <div className="absolute inset-0 z-10 flex flex-col overflow-hidden bg-[#120608]">
-      <Suspense
-        fallback={
-          <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/60">
-            Showroom laden…
-          </div>
-        }
-      >
-        <ShowroomContent />
-      </Suspense>
+      <ModelShowroomReference modelId={modelId} demo={demo} />
     </div>
+  );
+}
+
+/** Modellenfiche — showroomruimte op de pc; leesbare fiche op de gsm. */
+export default function ModelShowroomPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/60">
+          Showroom laden…
+        </div>
+      }
+    >
+      <ShowroomContent />
+    </Suspense>
   );
 }

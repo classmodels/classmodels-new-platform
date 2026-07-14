@@ -4,18 +4,20 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ModelShowroomReference } from '@/components/model-portal/ModelShowroomReference';
+import { MobileModelFiche } from '@/components/model-portal/MobileModelFiche';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 function GalleryContent() {
   const searchParams = useSearchParams();
   const modelId = searchParams.get('model');
   /** Zonder model-id: volledig ingevuld showcase-voorbeeld (localhost / demo). */
   const demo = searchParams.get('demo') !== '0' && !modelId;
+  const isMobile = useIsMobile();
 
-  return <ModelShowroomReference modelId={modelId} demo={demo} />;
-}
+  // Op de gsm: gewone foto's en info in plaats van de (te kleine) 3D-showroom.
+  if (isMobile === null) return null;
+  if (isMobile) return <MobileModelFiche modelId={modelId} />;
 
-/** Modellenfiche — referentiefoto bijlage 1 + foto's in witte vlakken. */
-export default function ModelGallery3DPage() {
   return (
     <div className="fixed inset-0 z-[100] flex h-[100dvh] w-full flex-col overflow-hidden bg-[#120608]">
       <div className="absolute left-4 top-4 z-[110] flex items-center gap-2">
@@ -29,16 +31,22 @@ export default function ModelGallery3DPage() {
           Showroom
         </span>
       </div>
-
-      <Suspense
-        fallback={
-          <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/60">
-            Showroom laden…
-          </div>
-        }
-      >
-        <GalleryContent />
-      </Suspense>
+      <ModelShowroomReference modelId={modelId} demo={demo} />
     </div>
+  );
+}
+
+/** Modellenfiche — referentiefoto bijlage 1 + foto's in witte vlakken. */
+export default function ModelGallery3DPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/60">
+          Showroom laden…
+        </div>
+      }
+    >
+      <GalleryContent />
+    </Suspense>
   );
 }

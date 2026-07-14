@@ -71,9 +71,12 @@ function AsideInfoCard({
 export function ModelPortalHomeContent({
   userEmail,
   premiumReturn,
+  pushUnreadCount = 0,
 }: {
   userEmail: string;
   premiumReturn: boolean;
+  /** Aantal ongelezen pushberichten — badge bij "Berichten voor u". */
+  pushUnreadCount?: number;
 }) {
   return (
     <div className="space-y-5">
@@ -349,6 +352,32 @@ export function ModelPortalHomeContent({
               fallback="Direct regelen"
             />
             <div className="mt-3 space-y-2.5">
+              <Link
+                href={tab('push')}
+                className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+              >
+                <span className="flex items-center justify-between gap-2">
+                  <CmText
+                    contentKey="portal.model.home.quick.push.title"
+                    as="span"
+                    className="text-sm font-semibold text-ink"
+                    fallback="Berichten voor u"
+                  />
+                  <span
+                    className={`push-menu-badge shrink-0 px-2 py-0.5 text-[11px] font-bold leading-none ${
+                      pushUnreadCount > 0 ? 'bg-burgundy text-white' : 'bg-zinc-200 text-zinc-600'
+                    }`}
+                    aria-label={`${pushUnreadCount} ongelezen berichten`}
+                  >
+                    {pushUnreadCount > 99 ? '99+' : pushUnreadCount}
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-xs font-normal text-muted">
+                  {pushUnreadCount > 0
+                    ? `${pushUnreadCount} ongelezen pushbericht${pushUnreadCount === 1 ? '' : 'en'}`
+                    : 'Pushberichten bekijken'}
+                </span>
+              </Link>
               <Link
                 href={tab('opleiding')}
                 className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"

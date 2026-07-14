@@ -49,7 +49,8 @@ export class AuthService {
 
   private jwtExpiresIn(rememberMe: boolean): string {
     if (rememberMe) {
-      return (process.env.JWT_EXPIRES_IN || '30d').trim() || '30d';
+      // Modellen blijven ingelogd (o.a. op de gsm/app) tot ze zelf uitloggen.
+      return (process.env.JWT_EXPIRES_IN || '365d').trim() || '365d';
     }
     return (process.env.JWT_EXPIRES_IN_SESSION || '1d').trim() || '1d';
   }

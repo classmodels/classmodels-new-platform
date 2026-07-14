@@ -117,11 +117,21 @@ function ChevronRow({ href, label, sub }: { href: string; label: string; sub?: s
   );
 }
 
-/** Rij met '← Terug' en 'Beginpagina' — direct onder de app-balk. */
+/**
+ * Rij met '← Terug' (links, één stap terug) en 'Beginpagina' (rechts) —
+ * blijft bij het scrollen bovenaan plakken, net onder de app-balk.
+ */
 function BackRow() {
   const router = useRouter();
   return (
-    <div className="mt-4 flex items-center gap-2.5">
+    <div
+      className="sticky z-30 -mx-4 flex items-center justify-between gap-2.5 px-4 py-2.5"
+      style={{
+        top: 'calc(48px + env(safe-area-inset-top, 0px))',
+        background: BG,
+        borderBottom: `1px solid ${LINE}`,
+      }}
+    >
       <button
         type="button"
         onClick={() => {
