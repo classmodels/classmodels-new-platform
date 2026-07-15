@@ -104,6 +104,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/communicatie/lijsten', label: 'Contactlijsten', permission: 'admin.push.lists' },
       { href: '/admin/communicatie/geschiedenis', label: 'Verzendgeschiedenis', permission: 'admin.push.send' },
       { href: '/admin/push-berichten', label: 'Pushberichten', permission: 'admin.push.send' },
+      { href: '/admin/communicatie/app-apparaten', label: 'App-apparaten', permission: 'admin.push.send' },
       { href: '/admin/push-lijsten', label: 'Push-lijsten', permission: 'admin.push.lists' },
     ],
   },

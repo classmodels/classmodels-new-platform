@@ -92,6 +92,7 @@ model User {
   mustChangePassword Boolean @default(false)
   passwordResetTokens PasswordResetToken[]
   webPushSubscriptions WebPushSubscription[]
+  modelPwaDevices      ModelPwaDevice[]
   modelPushSettings    ModelPushSettings?
   modelPushInbox       ModelPushInbox[]
   pushRecipientListsCreated PushRecipientList[] @relation("PushListCreatedBy")
@@ -377,6 +378,24 @@ model WebPushSubscription {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/// Model opent de site als geïnstalleerde PWA (standalone) — één rij per apparaat.
+model ModelPwaDevice {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceKey     String
+  userAgent     String?  @db.Text
+  displayMode   String   @default("standalone")
+  platform      String?
+  installSource String?
+  firstSeenAt   DateTime @default(now())
+  lastSeenAt    DateTime @updatedAt
+
+  @@unique([userId, deviceKey])
+  @@index([userId])
+  @@index([lastSeenAt])
 }
 
 /// Model: push bij historiek + push bij bureau-broadcasts (onafhankelijk aan/uit).

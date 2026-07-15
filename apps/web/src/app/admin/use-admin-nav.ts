@@ -83,6 +83,7 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/communicatie/lijsten', label: t('admin.commsLists'), permission: 'admin.push.lists' },
           { href: '/admin/communicatie/geschiedenis', label: t('admin.commsHistory'), permission: 'admin.push.send' },
           { href: '/admin/communicatie/uitschrijvingen', label: t('admin.commsUnsubscribes'), permission: 'admin.push.send' },
+          { href: '/admin/communicatie/app-apparaten', label: 'App-apparaten', permission: 'admin.push.send' },
           { href: '/admin/push-berichten', label: t('admin.pushMessages'), permission: 'admin.push.send' },
           { href: '/admin/push-lijsten', label: t('admin.pushLists'), permission: 'admin.push.lists' },
         ],

@@ -103,3 +103,25 @@ export class InboxIdsDto {
   @IsUUID('4', { each: true })
   ids!: string[];
 }
+
+export class RegisterPwaDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  deviceId?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['standalone', 'browser', 'minimal-ui', 'fullscreen'])
+  displayMode?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['ios', 'android', 'desktop', 'unknown'])
+  platform?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['standalone', 'install'])
+  source?: string;
+}

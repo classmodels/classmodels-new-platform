@@ -87,4 +87,10 @@ export class AdminPushController {
   campaigns(@Query('take') take?: string) {
     return this.adminPush.recentCampaigns(take);
   }
+
+  @Get('devices-overview')
+  @Permissions('admin.push.send')
+  devicesOverview() {
+    return this.adminPush.devicesOverview();
+  }
 }

@@ -6,6 +6,7 @@ import { LoadingProvider } from '@/context/loading-context';
 import { ContentProvider } from '@/context/content-context';
 import { I18nProvider } from '@/i18n/context';
 import { PushSwRegister } from '@/components/PushSwRegister';
+import { PwaDeviceRegister } from '@/components/PwaDeviceRegister';
 import { PageViewTracker } from '@/components/PageViewTracker';
 import { PluginHeadInjector } from '@/components/PluginHeadInjector';
 
@@ -17,6 +18,7 @@ export function Providers({ children }: { children: ReactNode }) {
           <PluginHeadInjector />
           <PageViewTracker />
           <PushSwRegister />
+          <PwaDeviceRegister />
           <ContentProvider>{children}</ContentProvider>
         </AuthProvider>
       </LoadingProvider>

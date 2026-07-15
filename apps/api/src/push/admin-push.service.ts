@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModelPushService } from './model-push.service';
+import { ModelPwaService } from './model-pwa.service';
 import type {
   AddListMemberDto,
   BroadcastPushDto,
@@ -13,6 +14,7 @@ export class AdminPushService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly modelPush: ModelPushService,
+    private readonly modelPwa: ModelPwaService,
   ) {}
 
   async listLists() {
@@ -134,5 +136,9 @@ export class AdminPushService {
         recipientList: { select: { id: true, name: true } },
       },
     });
+  }
+
+  devicesOverview() {
+    return this.modelPwa.listDevicesOverview();
   }
 }
