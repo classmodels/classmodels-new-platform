@@ -53,16 +53,16 @@ function AsideInfoCard({
 }) {
   return (
     <div className="border border-zinc-300 bg-white">
-      <div className="border-b-2 border-burgundy bg-burgundy px-2 py-0.5">
+      <div className="border-b-2 border-burgundy bg-burgundy px-3 py-2.5 md:px-2 md:py-0.5">
         <CmText
           contentKey={titleKey}
           as="h3"
-          className="text-[10px] font-bold uppercase leading-tight tracking-wide text-white"
+          className="text-sm font-bold uppercase leading-snug tracking-wide text-white md:text-[10px] md:leading-tight"
           fallback={titleFallback}
         />
       </div>
-      <div className="space-y-1.5 px-2 py-1.5 text-[11px] leading-snug text-ink/90">
-        <CmText contentKey={bodyKey} as="div" className="space-y-1.5" fallback={bodyFallback} />
+      <div className="space-y-2 px-3 py-3 text-[15px] leading-relaxed text-ink/90 md:space-y-1.5 md:px-2 md:py-1.5 md:text-[11px] md:leading-snug">
+        <CmText contentKey={bodyKey} as="div" className="space-y-2 md:space-y-1.5" fallback={bodyFallback} />
       </div>
     </div>
   );
@@ -81,12 +81,12 @@ export function ModelPortalHomeContent({
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,34%)] lg:items-start">
-        <div className="min-w-0 space-y-4 text-[13px] leading-snug text-ink/90">
+        <div className="min-w-0 space-y-4 text-[15px] leading-relaxed text-ink/90 md:text-[13px] md:leading-snug">
           <SectionBlock>
             <CmText
               contentKey="portal.model.home.welcome.small"
               as="p"
-              className="text-[13px] font-medium leading-snug text-ink"
+              className="text-[15px] font-medium leading-relaxed text-ink md:text-[13px] md:leading-snug"
               fallback="Welkom in je account."
             />
             <CmText
@@ -98,20 +98,20 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.welcome.body"
               as="p"
-              className="mt-3 text-[13px] leading-snug text-ink/90"
+              className="mt-3 text-[15px] leading-relaxed text-ink/90 md:text-[13px] md:leading-snug"
               fallback="Gefeliciteerd met uw inschrijving bij Class-Models. Uw persoonlijk profiel is succesvol aangemaakt. Via dit platform beheert u als model uw gegevens, aanvragen en communicatie met het team. Een volledig en actueel profiel is essentieel om in aanmerking te komen voor opdrachten."
             />
             <div className="mt-4 rounded-cm border border-line bg-panel px-3 py-2.5">
               <CmText
                 contentKey="portal.model.home.important.kicker"
                 as="p"
-                className="text-[11px] font-bold uppercase tracking-wide text-burgundy"
+                className="text-xs font-bold uppercase tracking-wide text-burgundy md:text-[11px]"
                 fallback="Belangrijk"
               />
               <CmText
                 contentKey="portal.model.home.important.body"
                 as="p"
-                className="mt-1.5 text-[13px] leading-snug text-ink/90"
+                className="mt-1.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90"
                 fallback="Om je account volledig te beheren, blijf je ingelogd. Je vindt alles in het menu links."
               />
             </div>
@@ -119,7 +119,7 @@ export function ModelPortalHomeContent({
               <CmText
                 contentKey="portal.model.home.premium.return"
                 as="p"
-                className="mt-3 rounded-cm border border-line bg-panel px-3 py-2 text-[13px] leading-snug text-ink"
+                className="mt-3 rounded-cm border border-line bg-panel px-3 py-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink"
                 fallback="U bent terug van de betalingspagina. Premium wordt geactiveerd zodra de betaling is bevestigd."
               />
             ) : null}
@@ -136,11 +136,11 @@ export function ModelPortalHomeContent({
               <CmText
                 contentKey="portal.model.home.platformlist.intro"
                 as="p"
-                className="mt-1.5 text-[13px] leading-snug text-muted"
+                className="mt-1.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-muted"
                 fallback="Via uw account kunt u onder andere:"
               />
             </div>
-            <ul className="mt-3 space-y-2 text-[13px] leading-snug text-ink/90">
+            <ul className="mt-3 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
               {[
                 {
                   key: 'portal.model.home.platformlist.0',
@@ -165,7 +165,7 @@ export function ModelPortalHomeContent({
               ].map((row) => (
                 <li key={row.key} className="flex gap-3">
                   <CheckBullet />
-                  <CmText contentKey={row.key} as="span" className="text-[13px] leading-snug text-ink/90" fallback={row.fb} />
+                  <CmText contentKey={row.key} as="span" className="text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90" fallback={row.fb} />
                 </li>
               ))}
             </ul>
@@ -181,11 +181,11 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.steps.intro"
               as="p"
-              className="mt-2.5 text-[13px] leading-snug text-muted"
+              className="mt-2.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-muted"
               fallback="Om uw traject correct te starten, vragen wij u om deze stappen zo snel mogelijk in orde te brengen:"
             />
             <ul className="mt-3 list-none space-y-3">
-              <li className="flex gap-3 text-[13px] leading-snug text-ink/90">
+              <li className="flex gap-3 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
                 <StepNum n={1} />
                 <span>
                   <strong className="text-ink">
@@ -200,12 +200,12 @@ export function ModelPortalHomeContent({
                   <CmText
                     contentKey="portal.model.home.steps.1.body"
                     as="span"
-                    className="text-[13px] leading-snug text-ink/90"
+                    className="text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90"
                     fallback="Essentieel om de basis en werkwijze van het modellenwerk te beheersen."
                   />
                 </span>
               </li>
-              <li className="flex gap-3 text-[13px] leading-snug text-ink/90">
+              <li className="flex gap-3 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
                 <StepNum n={2} />
                 <span>
                   <strong className="text-ink">
@@ -220,12 +220,12 @@ export function ModelPortalHomeContent({
                   <CmText
                     contentKey="portal.model.home.steps.2.body"
                     as="span"
-                    className="text-[13px] leading-snug text-ink/90"
+                    className="text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90"
                     fallback="Een professioneel portfolio is noodzakelijk om u correct te kunnen voorstellen aan klanten."
                   />
                 </span>
               </li>
-              <li className="flex gap-3 text-[13px] leading-snug text-ink/90">
+              <li className="flex gap-3 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
                 <StepNum n={3} />
                 <span>
                   <strong className="text-ink">
@@ -240,7 +240,7 @@ export function ModelPortalHomeContent({
                   <CmText
                     contentKey="portal.model.home.steps.3.body"
                     as="span"
-                    className="text-[13px] leading-snug text-ink/90"
+                    className="text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90"
                     fallback="Uw moment om vaardigheden en presentatie te tonen in een professionele setting."
                   />
                 </span>
@@ -249,7 +249,7 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.steps.outro"
               as="p"
-              className="mt-3 text-[13px] leading-snug text-ink/90"
+              className="mt-3 text-[15px] leading-relaxed text-ink/90 md:text-[13px] md:leading-snug"
               fallback="Deze stappen zijn een voorwaarde om door te stromen naar verdere opdrachten binnen Class-Models."
             />
           </SectionBlock>
@@ -264,10 +264,10 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.profile.intro"
               as="p"
-              className="mt-2.5 text-[13px] leading-snug text-muted"
+              className="mt-2.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-muted"
               fallback="Uw modellenfiche is uw professionele visitekaartje. Zorg daarom dat uw profiel:"
             />
-            <ul className="mt-3 space-y-2 text-[13px] leading-snug text-ink/90">
+            <ul className="mt-3 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
               {[
                 {
                   key: 'portal.model.home.profile.0',
@@ -284,14 +284,14 @@ export function ModelPortalHomeContent({
               ].map((row) => (
                 <li key={row.key} className="flex gap-3">
                   <CheckBullet />
-                  <CmText contentKey={row.key} as="span" className="text-[13px] leading-snug text-ink/90" fallback={row.fb} />
+                  <CmText contentKey={row.key} as="span" className="text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90" fallback={row.fb} />
                 </li>
               ))}
             </ul>
             <CmText
               contentKey="portal.model.home.profile.footer"
               as="p"
-              className="mt-3 text-[13px] leading-snug text-ink/90"
+              className="mt-3 text-[15px] leading-relaxed text-ink/90 md:text-[13px] md:leading-snug"
               fallback="Daarnaast vragen wij u om regelmatig uw dashboard te controleren. Updates, berichten, aanvragen en belangrijke acties verschijnen daar. U bent zelf verantwoordelijk om uw gegevens en status actueel te houden."
             />
           </SectionBlock>
@@ -306,10 +306,10 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.professional.intro"
               as="p"
-              className="mt-2.5 text-[13px] leading-snug text-ink/90"
+              className="mt-2.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90"
               fallback="U bent toegelaten tot Class-Models omdat wij geloven in uw potentieel. Uw succes hangt sterk samen met uw houding, betrouwbaarheid en professionaliteit. Daarom verwachten wij dat u:"
             />
-            <ul className="mt-3 space-y-2 text-[13px] leading-snug text-ink/90">
+            <ul className="mt-3 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
               {[
                 {
                   key: 'portal.model.home.professional.0',
@@ -330,14 +330,14 @@ export function ModelPortalHomeContent({
               ].map((row) => (
                 <li key={row.key} className="flex gap-3">
                   <CheckBullet />
-                  <CmText contentKey={row.key} as="span" className="text-[13px] leading-snug text-ink/90" fallback={row.fb} />
+                  <CmText contentKey={row.key} as="span" className="text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90" fallback={row.fb} />
                 </li>
               ))}
             </ul>
             <CmText
               contentKey="portal.model.home.professional.footer"
               as="p"
-              className="mt-3 text-[13px] leading-snug text-muted"
+              className="mt-3 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-muted"
               fallback="Onprofessioneel gedrag kan ertoe leiden dat u niet langer wordt ingepland voor opdrachten. Wij bewaken hiermee de kwaliteit en reputatie van onze werking, in het belang van alle modellen."
             />
           </SectionBlock>
@@ -496,21 +496,21 @@ Let op: een groot deel van de opdrachten wordt rechtstreeks door klanten toegewe
             bodyFallback={`Wij wensen u veel succes binnen Class-Models en kijken uit naar een professionele en aangename samenwerking. Heeft u vragen of opmerkingen? Neem gerust contact op met het Class-Models team via het platform.`}
           />
 
-          <p className="border-t border-zinc-200 px-2 pt-2 text-[10px] leading-tight text-muted">
+          <p className="border-t border-zinc-200 px-2 pt-2 text-xs leading-snug text-muted md:text-[10px] md:leading-tight">
             <CmText contentKey="portal.model.home.loggedIn.prefix" as="span" fallback="Ingelogd als" /> {userEmail}.
           </p>
 
-          <div className="border border-burgundy/25 bg-zinc-50 px-2 py-1.5">
+          <div className="border border-burgundy/25 bg-zinc-50 px-3 py-2.5 md:px-2 md:py-1.5">
             <CmText
               contentKey="portal.model.home.remember.kicker"
               as="p"
-              className="text-[10px] font-bold uppercase leading-tight tracking-wide text-burgundy"
+              className="text-xs font-bold uppercase leading-snug tracking-wide text-burgundy md:text-[10px] md:leading-tight"
               fallback="Onthouden"
             />
             <CmText
               contentKey="portal.model.home.remember.body"
               as="p"
-              className="mt-1 text-[11px] leading-snug text-ink/85"
+              className="mt-1.5 text-[15px] leading-relaxed text-ink/85 md:mt-1 md:text-[11px] md:leading-snug"
               fallback="Controleer regelmatig uw dashboard en houd uw profiel up-to-date — dat vergroot uw kansen op passende opdrachten."
             />
           </div>
