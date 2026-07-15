@@ -1,11 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
+
+const ASSET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
+/** Sessiesleutel: introfilm alleen bij het openen van de site/app, niet bij terugkeren. */
+const INTRO_SEEN_KEY = 'cm-mobile-intro-seen';
 
 /**
  * Mobiele versie (gsm + app). Drie schermen, gestuurd met `?m=`:
@@ -204,6 +208,253 @@ function TopBar({ title, subtitle, onMenu }: { title: string; subtitle?: string;
   );
 }
 
+/**
+ * Introfilm bij het openen van de site/app op de gsm: speelt fullscreen af
+ * en fadet daarna naar het beginbeeld. Met knop Overslaan.
+ */
+function MobileIntroOverlay({ onDone }: { onDone: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [fading, setFading] = useState(false);
+  const doneRef = useRef(false);
+
+  const finish = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setFading(true);
+    window.setTimeout(onDone, 550);
+  }, [onDone]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    const p = v.play();
+    if (p) p.catch(() => finish());
+  }, [finish]);
+
+  return (
+    <div
+      className={`fixed inset-0 z-[999] flex items-center justify-center bg-black transition-opacity duration-500 ${
+        fading ? 'pointer-events-none opacity-0' : 'opacity-100'
+      }`}
+    >
+      <video
+        ref={videoRef}
+        src={`${ASSET_BASE}/videos/mobile-intro.mp4`}
+        className="h-full w-full object-contain"
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        disablePictureInPicture
+        onEnded={finish}
+        onError={finish}
+      />
+      <button
+        type="button"
+        onClick={finish}
+        className="absolute bottom-6 right-4 rounded-full px-4 py-2 text-[13px] font-semibold"
+        style={{
+          color: '#f3ead8',
+          background: 'rgba(0,0,0,0.55)',
+          border: '1px solid rgba(243,234,216,0.45)',
+        }}
+      >
+        Overslaan ≫
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Installeer de app: keuze Android / iPhone met duidelijke uitleg.    */
+/* ------------------------------------------------------------------ */
+
+type InstallPlatform = 'android' | 'ios';
+
+/** Chrome/Edge op Android: het echte installatievenster van de browser. */
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+};
+
+function InstallStep({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <li className="flex gap-2.5">
+      <span
+        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
+        style={{ background: CTA_BG, color: CTA_TEXT }}
+        aria-hidden
+      >
+        {n}
+      </span>
+      <span className="min-w-0 text-[13.5px] leading-relaxed" style={{ color: TEXT }}>
+        {children}
+      </span>
+    </li>
+  );
+}
+
+function InstallAppSection() {
+  const [open, setOpen] = useState(false);
+  const [platform, setPlatform] = useState<InstallPlatform>('android');
+  const [installEvt, setInstallEvt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    // Voorselectie op basis van het toestel.
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/i.test(ua)) setPlatform('ios');
+    // Al als app geopend? Dan is installeren niet meer nodig.
+    if (window.matchMedia('(display-mode: standalone)').matches) setInstalled(true);
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
+  }, []);
+
+  if (installed) return null;
+
+  const tabStyle = (active: boolean): React.CSSProperties =>
+    active
+      ? { background: CTA_BG, color: CTA_TEXT, border: `1px solid ${CTA_BG}` }
+      : { color: TEXT_SOFT, border: `1px solid ${LINE}`, background: BG };
+
+  return (
+    <div
+      className="mt-8 overflow-hidden rounded-xl shadow-sm"
+      style={{ background: CARD, border: `1px solid ${ACCENT}66` }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left"
+      >
+        <span className="min-w-0">
+          <span className="block font-serif text-[18px] font-semibold" style={{ color: ACCENT }}>
+            📲 Installeer de app op uw gsm
+          </span>
+          <span className="mt-0.5 block text-[13px] leading-snug" style={{ color: TEXT_SOFT }}>
+            Gratis — zet Class-Models als app op uw beginscherm.
+          </span>
+        </span>
+        <span
+          aria-hidden
+          className="shrink-0 text-lg transition-transform duration-200"
+          style={{ color: ACCENT, transform: open ? 'rotate(90deg)' : 'none' }}
+        >
+          ›
+        </span>
+      </button>
+
+      {open ? (
+        <div className="px-4 pb-5" style={{ borderTop: `1px solid ${LINE}` }}>
+          {/* Keuze Android / iPhone */}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPlatform('android')}
+              aria-pressed={platform === 'android'}
+              className="rounded-lg px-2 py-2.5 text-center text-[13.5px] font-semibold"
+              style={tabStyle(platform === 'android')}
+            >
+              Android
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlatform('ios')}
+              aria-pressed={platform === 'ios'}
+              className="rounded-lg px-2 py-2.5 text-center text-[13.5px] font-semibold"
+              style={tabStyle(platform === 'ios')}
+            >
+              iPhone / iPad
+            </button>
+          </div>
+
+          {platform === 'android' ? (
+            <div className="mt-4">
+              {installEvt ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void installEvt.prompt();
+                      void installEvt.userChoice.then((r) => {
+                        if (r.outcome === 'accepted') {
+                          setInstalled(true);
+                        }
+                      });
+                    }}
+                    className="w-full rounded-lg py-3 text-[15px] font-bold"
+                    style={{ background: CTA_BG, color: CTA_TEXT }}
+                  >
+                    Direct installeren
+                  </button>
+                  <p className="m-0 mt-2 text-center text-[12px]" style={{ color: TEXT_SOFT }}>
+                    Uw gsm vraagt dan om de app toe te voegen — tik op «Installeren».
+                  </p>
+                  <p
+                    className="m-0 mt-4 text-[12.5px] font-semibold uppercase tracking-wide"
+                    style={{ color: TEXT_SOFT }}
+                  >
+                    Of handmatig:
+                  </p>
+                </>
+              ) : null}
+              <ol className="m-0 mt-3 list-none space-y-2.5 p-0">
+                <InstallStep n={1}>
+                  Open <strong>www.class-models.com</strong> in <strong>Chrome</strong> op uw gsm.
+                </InstallStep>
+                <InstallStep n={2}>
+                  Tik rechtsboven op de <strong>drie puntjes ( ⋮ )</strong>.
+                </InstallStep>
+                <InstallStep n={3}>
+                  Kies <strong>«App installeren»</strong> (of «Toevoegen aan startscherm»).
+                </InstallStep>
+                <InstallStep n={4}>
+                  Bevestig met <strong>«Installeren»</strong> — het Class-Models-icoon staat nu op uw
+                  beginscherm, net als een gewone app.
+                </InstallStep>
+              </ol>
+            </div>
+          ) : (
+            <div className="mt-4">
+              <ol className="m-0 mt-1 list-none space-y-2.5 p-0">
+                <InstallStep n={1}>
+                  Open <strong>www.class-models.com</strong> in <strong>Safari</strong> op uw iPhone of
+                  iPad (dit werkt alleen in Safari).
+                </InstallStep>
+                <InstallStep n={2}>
+                  Tik onderaan op de <strong>deelknop</strong>{' '}
+                  <span aria-hidden>(vierkantje met pijl omhoog ⬆︎)</span>.
+                </InstallStep>
+                <InstallStep n={3}>
+                  Scroll in het lijstje naar beneden en kies <strong>«Zet op beginscherm»</strong>.
+                </InstallStep>
+                <InstallStep n={4}>
+                  Tik rechtsboven op <strong>«Voeg toe»</strong> — het Class-Models-icoon staat nu op uw
+                  beginscherm, net als een gewone app.
+                </InstallStep>
+              </ol>
+            </div>
+          )}
+
+          <p
+            className="m-0 mt-4 rounded-lg px-3 py-2.5 text-[12.5px] leading-snug"
+            style={{ background: BG, border: `1px solid ${LINE}`, color: TEXT_SOFT }}
+          >
+            Via de app opent Class-Models op volledig scherm en kan u als model ook meldingen
+            (pushberichten) ontvangen.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Startscherm: drie portaalkeuzes, geen menu.                         */
 /* ------------------------------------------------------------------ */
@@ -278,6 +529,8 @@ function StartView() {
             </span>
           </div>
         </div>
+
+        <InstallAppSection />
 
         <p className="m-0 mt-10 text-center text-[12px]" style={{ color: TEXT_SOFT }}>
           Class-Models — Provinciebaan 3, 2235 Hulshout
@@ -820,9 +1073,41 @@ function ModelView() {
 export function MobileBeginHome() {
   const searchParams = useSearchParams();
   const view = searchParams.get('m');
+  /** null = nog niet bepaald; true = introfilm tonen; false = meteen beginbeeld. */
+  const [showIntro, setShowIntro] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Alleen op het echte beginbeeld (geen ?m=guest of ?m=model).
+    if (view !== null) {
+      setShowIntro(false);
+      return;
+    }
+    try {
+      // sessionStorage: één keer per browsersessie/app-open — niet opnieuw bij
+      // «Beginpagina» binnen dezelfde sessie, wel opnieuw bij een nieuw openen.
+      setShowIntro(sessionStorage.getItem(INTRO_SEEN_KEY) !== '1');
+    } catch {
+      setShowIntro(false);
+    }
+  }, [view]);
+
+  const onIntroDone = useCallback(() => {
+    try {
+      sessionStorage.setItem(INTRO_SEEN_KEY, '1');
+    } catch {
+      /**/
+    }
+    setShowIntro(false);
+  }, []);
+
+  // Wacht tot we weten of de intro moet — voorkomt flits van het beginbeeld.
+  if (view === null && showIntro === null) {
+    return <div className="min-h-[100dvh] w-full bg-black" aria-hidden />;
+  }
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
+      {view === null && showIntro ? <MobileIntroOverlay onDone={onIntroDone} /> : null}
       {view === 'guest' ? <GuestView /> : view === 'model' ? <ModelView /> : <StartView />}
     </div>
   );
