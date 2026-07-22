@@ -77,74 +77,82 @@ type Hotspot = { label: string; x: number; y: number; w: number; h: number };
  * Alleen een handje bij hover, geen zichtbare overlay.
  */
 const LIFT_BUTTONS: (Hotspot & { action: 'gallery' | 'model' | 'client' | 'guest' })[] = [
-  { label: 'Modellen gallerij', x: 60, y: 136, w: 88, h: 88, action: 'gallery' },
-  { label: 'Modellen portaal', x: 55, y: 264, w: 88, h: 88, action: 'model' },
-  { label: 'Klanten portaal', x: 49, y: 390, w: 88, h: 88, action: 'client' },
-  { label: 'Gasten portaal', x: 57, y: 510, w: 88, h: 88, action: 'guest' },
+  { label: 'Modellen gallerij', x: 33, y: 128, w: 96, h: 106, action: 'gallery' },
+  { label: 'Modellen portaal', x: 33, y: 259, w: 96, h: 102, action: 'model' },
+  { label: 'Klanten portaal', x: 43, y: 386, w: 86, h: 99, action: 'client' },
+  { label: 'Gasten portaal', x: 43, y: 509, w: 86, h: 98, action: 'guest' },
 ];
 
-/** Bordjes boven de deur in de hal (eindbeeld film 31). */
+/**
+ * Bordjes boven de deur in de hal (eindbeeld film 31) — één rij van vier.
+ * De nieuwe film heeft geen 'Intake-gesprek'-bordje meer; dat bordje wordt
+ * daarom als HTML-paneel (rendered: true) op de lege plek links getekend,
+ * zodat de intakekamer bereikbaar blijft.
+ */
 const HALL_SIGNS: (Hotspot & {
   action: 'info' | 'casting' | 'intake' | 'fotoshoot' | 'exit';
+  rendered?: boolean;
 })[] = [
-  { label: 'Info model worden', x: 300, y: 160, w: 135, h: 38, action: 'info' },
-  { label: 'Exit room', x: 462, y: 158, w: 116, h: 42, action: 'exit' },
-  { label: 'Intake-gesprek', x: 245, y: 211, w: 127, h: 40, action: 'intake' },
-  { label: 'Gratis fotoshoot', x: 385, y: 212, w: 124, h: 40, action: 'fotoshoot' },
-  { label: 'Casting', x: 522, y: 207, w: 129, h: 45, action: 'casting' },
+  { label: 'Intake-gesprek', x: 214, y: 168, w: 70, h: 66, action: 'intake', rendered: true },
+  { label: 'Exit room', x: 306, y: 168, w: 70, h: 66, action: 'exit' },
+  { label: 'Info model worden', x: 396, y: 168, w: 71, h: 66, action: 'info' },
+  { label: 'Casting', x: 488, y: 167, w: 71, h: 66, action: 'casting' },
+  { label: 'Gratis fotoshoot', x: 580, y: 167, w: 72, h: 66, action: 'fotoshoot' },
 ];
 
 /** Onderwerpen van de bordjes in de casting-, intake- en fotoshoot-ruimte. */
 type RoomTopic = 'info' | 'afspraak' | 'faq' | 'doelgroepen';
 
-/** Bordjes op de rechtermuur van de castingzaal (eindbeeld film 32). */
+/**
+ * Bordjes op de rechtermuur van de castingzaal (eindbeeld film 32).
+ * In de nieuwe film hangen er drie bordjes; 'Veel gestelde vragen' bestaat
+ * hier niet meer (wel nog in de intakekamer en de infozaal).
+ */
 const CASTING_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
-  { label: 'Exit room', x: 1050, y: 118, w: 120, h: 50, action: 'exit' },
-  { label: 'Info casting', x: 1050, y: 187, w: 120, h: 45, action: 'info' },
-  { label: 'Afspraak maken', x: 1050, y: 251, w: 120, h: 45, action: 'afspraak' },
-  { label: 'Veel gestelde vragen', x: 1050, y: 316, w: 120, h: 60, action: 'faq' },
+  { label: 'Info casting', x: 1028, y: 176, w: 70, h: 74, action: 'info' },
+  { label: 'Afspraak maken', x: 1028, y: 275, w: 71, h: 72, action: 'afspraak' },
+  { label: 'Exit room', x: 1028, y: 373, w: 71, h: 67, action: 'exit' },
 ];
-/** Het beige vlak binnen de grote donkere lijst in de castingzaal (rechte muur). */
+/** Het beige vlak binnen de verlichte lijst in de castingzaal (rechte muur). */
 const CASTING_FRAME: Quad = {
-  tl: [696, 142],
-  tr: [1006, 142],
-  br: [1006, 434],
-  bl: [696, 434],
+  tl: [604, 200],
+  tr: [990, 200],
+  br: [990, 484],
+  bl: [604, 484],
 };
 
 /** Bordjes op de rechtermuur van de intakekamer (eindbeeld film 33). */
 const INTAKE_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
-  { label: 'Info intake-gesprek', x: 964, y: 152, w: 128, h: 46, action: 'info' },
-  { label: 'Afspraak maken', x: 964, y: 214, w: 128, h: 46, action: 'afspraak' },
-  { label: 'Veel gestelde vragen', x: 964, y: 277, w: 128, h: 47, action: 'faq' },
-  { label: 'Exit room', x: 964, y: 341, w: 128, h: 48, action: 'exit' },
+  { label: 'Info intake-gesprek', x: 1008, y: 135, w: 62, h: 55, action: 'info' },
+  { label: 'Afspraak maken', x: 1008, y: 201, w: 62, h: 49, action: 'afspraak' },
+  { label: 'Veel gestelde vragen', x: 1008, y: 265, w: 62, h: 50, action: 'faq' },
+  { label: 'Exit room', x: 1008, y: 325, w: 62, h: 52, action: 'exit' },
 ];
-/**
- * Het beige vlak binnen de grote donkere lijst in de intakekamer.
- * De muur staat schuin: de vier hoekpunten zijn apart gemeten zodat de
- * content het perspectief van de muur volgt.
- */
+/** Het beige vlak binnen de verlichte lijst in de intakekamer (rechte muur). */
 const INTAKE_FRAME: Quad = {
-  tl: [621, 181],
-  tr: [917, 167],
-  br: [917, 473],
-  bl: [621, 445],
+  tl: [690, 145],
+  tr: [948, 145],
+  br: [948, 370],
+  bl: [690, 370],
 };
 
-/** Bordjes op de rechtermuur van de fotoshoot-ruimte (eindbeeld film 6). */
+/**
+ * Bordjes op de rechtermuur van de fotoshoot-ruimte (eindbeeld film 6).
+ * In de nieuwe film hangen er vier bordjes; 'Veel gestelde vragen' bestaat
+ * hier niet meer.
+ */
 const FOTOSHOOT_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
-  { label: 'Info fotoshoot', x: 1056, y: 120, w: 130, h: 60, action: 'info' },
-  { label: 'Afspraak maken gratis fotoshoot', x: 1056, y: 187, w: 130, h: 53, action: 'afspraak' },
-  { label: 'Veel gestelde vragen', x: 1056, y: 248, w: 130, h: 52, action: 'faq' },
-  { label: 'Doelgroepen', x: 1056, y: 308, w: 130, h: 46, action: 'doelgroepen' },
-  { label: 'Exit room', x: 1056, y: 364, w: 130, h: 46, action: 'exit' },
+  { label: 'Info fotoshoot', x: 1052, y: 155, w: 117, h: 60, action: 'info' },
+  { label: 'Afspraak maken gratis fotoshoot', x: 1052, y: 221, w: 117, h: 63, action: 'afspraak' },
+  { label: 'Doelgroepen', x: 1052, y: 293, w: 117, h: 59, action: 'doelgroepen' },
+  { label: 'Exit room', x: 1052, y: 354, w: 117, h: 60, action: 'exit' },
 ];
-/** Het beige vlak binnen de grote donkere lijst in de fotoshoot-ruimte (rechte muur). */
+/** Het beige vlak binnen de verlichte lijst in de fotoshoot-ruimte (rechte muur). */
 const FOTOSHOOT_FRAME: Quad = {
-  tl: [660, 161],
-  tr: [985, 161],
-  br: [985, 479],
-  bl: [660, 479],
+  tl: [670, 180],
+  tr: [1020, 180],
+  br: [1020, 478],
+  bl: [670, 478],
 };
 
 /** Onderwerpen van de bordjes op de zijmuren van de infozaal. */
@@ -157,26 +165,27 @@ type InfoTopic =
   | 'trailers';
 
 /**
- * Bordjes op de zijmuren van de infozaal (2.png/3.png, zelfde kadrering als
- * het eindbeeld van film 34). Ten allen tijde klikbaar; de inhoud verschijnt
- * op het grote scherm.
+ * Bordjes op de zijmuren van de infozaal. De nieuwe film 34 toont geen
+ * bordjes meer op de muren; ze worden daarom als HTML-panelen op de donkere
+ * lambrisering getekend. Ten allen tijde klikbaar; de inhoud verschijnt op
+ * het grote scherm.
  */
 const INFO_SIGNS: (Hotspot & { action: InfoTopic | 'exit' })[] = [
-  { label: 'Exit room', x: 160, y: 148, w: 109, h: 35, action: 'exit' },
-  { label: 'Veel gestelde vragen', x: 160, y: 215, w: 109, h: 54, action: 'veelgestelde-vragen' },
-  { label: 'Doelgroepen', x: 160, y: 306, w: 109, h: 42, action: 'doelgroepen' },
-  { label: 'Info model worden', x: 160, y: 385, w: 109, h: 35, action: 'info-model-worden' },
-  { label: 'Reviews', x: 994, y: 150, w: 112, h: 38, action: 'reviews' },
-  { label: 'Onze klanten', x: 994, y: 235, w: 112, h: 40, action: 'onze-klanten' },
-  { label: 'Trailers try-out modeshows', x: 994, y: 315, w: 112, h: 85, action: 'trailers' },
+  { label: 'Exit room', x: 302, y: 168, w: 92, h: 44, action: 'exit' },
+  { label: 'Veel gestelde vragen', x: 302, y: 230, w: 92, h: 44, action: 'veelgestelde-vragen' },
+  { label: 'Doelgroepen', x: 302, y: 292, w: 92, h: 44, action: 'doelgroepen' },
+  { label: 'Info model worden', x: 302, y: 354, w: 92, h: 44, action: 'info-model-worden' },
+  { label: 'Reviews', x: 888, y: 168, w: 92, h: 44, action: 'reviews' },
+  { label: 'Onze klanten', x: 888, y: 244, w: 92, h: 44, action: 'onze-klanten' },
+  { label: 'Trailers try-out modeshows', x: 888, y: 320, w: 92, h: 56, action: 'trailers' },
 ];
 
 /**
- * Het grote bioscoopdoek in de infozaal (1280x720-stelsel, gemeten op 2.png).
- * Iets ruimer dan het doek zelf zodat de trailer het scherm volledig vult en
- * links/rechts niets van het doek meer te zien is.
+ * Het grote bioscoopdoek in de infozaal (1280x720-stelsel, gemeten op het
+ * eindbeeld van de nieuwe film 34). Iets ruimer dan het doek zelf zodat de
+ * trailer het scherm volledig vult.
  */
-const INFO_SCREEN = { x: 364, y: 145, w: 540, h: 312 };
+const INFO_SCREEN = { x: 428, y: 190, w: 442, h: 244 };
 /** 2x supersampling: content groot renderen en terugschalen → scherpe tekst op het doek. */
 const INFO_SCREEN_SS = 2;
 
@@ -1117,7 +1126,8 @@ export function BeginLiftExperience() {
           </div>
         ) : null}
 
-        {/* Bordjes op de zijmuren van de infozaal — ten allen tijde klikbaar. */}
+        {/* Bordjes op de zijmuren van de infozaal — als panelen getekend (de
+            nieuwe film toont zelf geen bordjes) en ten allen tijde klikbaar. */}
         {phase === 'infoDim' || phase === 'info'
           ? INFO_SIGNS.map((s) => (
               <button
@@ -1126,9 +1136,30 @@ export function BeginLiftExperience() {
                 aria-label={s.label}
                 title={s.label}
                 onClick={() => onInfoSign(s.action)}
-                className={hotspotClass}
-                style={{ left: s.x, top: s.y, width: s.w, height: s.h, zIndex: 10 }}
-              />
+                className={`${hotspotClass} flex items-center justify-center text-center`}
+                style={{
+                  left: s.x,
+                  top: s.y,
+                  width: s.w,
+                  height: s.h,
+                  zIndex: 10,
+                  background: 'linear-gradient(180deg, rgba(28,22,16,0.96), rgba(16,12,9,0.96))',
+                  border: '1px solid rgba(233,199,128,0.55)',
+                  borderRadius: 3,
+                  boxShadow: '0 0 10px rgba(0,0,0,0.6)',
+                  color: '#e9c780',
+                  fontFamily: 'Georgia, "Times New Roman", serif',
+                  fontSize: 10,
+                  lineHeight: 1.25,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  padding: '2px 4px',
+                  opacity: phase === 'info' ? 1 : 0.55,
+                  transition: 'opacity 900ms ease-in-out',
+                }}
+              >
+                {s.label}
+              </button>
             ))
           : null}
 
@@ -1147,19 +1178,51 @@ export function BeginLiftExperience() {
             ))
           : null}
 
-        {/* Deurbordjes in de hal — pas klikbaar op het eindbeeld van film 31. */}
+        {/* Deurbordjes in de hal — pas klikbaar op het eindbeeld van film 31.
+            Het bordje 'Intake-gesprek' staat niet in de nieuwe film en wordt
+            als passend paneel op de lege plek links getekend. */}
         {phase === 'hall'
-          ? HALL_SIGNS.map((s) => (
-              <button
-                key={s.label}
-                type="button"
-                aria-label={s.label}
-                title={s.label}
-                onClick={() => onHallSign(s.action)}
-                className={hotspotClass}
-                style={{ left: s.x, top: s.y, width: s.w, height: s.h }}
-              />
-            ))
+          ? HALL_SIGNS.map((s) =>
+              s.rendered ? (
+                <button
+                  key={s.label}
+                  type="button"
+                  aria-label={s.label}
+                  title={s.label}
+                  onClick={() => onHallSign(s.action)}
+                  className={`${hotspotClass} flex items-center justify-center text-center`}
+                  style={{
+                    left: s.x,
+                    top: s.y,
+                    width: s.w,
+                    height: s.h,
+                    background: 'linear-gradient(180deg, #efe6d8, #e3d7c4)',
+                    border: '2px solid #f7f1e6',
+                    borderRadius: 2,
+                    boxShadow: '0 0 12px rgba(255,244,220,0.85), 0 1px 3px rgba(0,0,0,0.25)',
+                    color: '#2b2419',
+                    fontFamily: 'Georgia, "Times New Roman", serif',
+                    fontSize: 11,
+                    lineHeight: 1.2,
+                    letterSpacing: '0.03em',
+                    textTransform: 'uppercase',
+                    padding: '2px 4px',
+                  }}
+                >
+                  Intake gesprek
+                </button>
+              ) : (
+                <button
+                  key={s.label}
+                  type="button"
+                  aria-label={s.label}
+                  title={s.label}
+                  onClick={() => onHallSign(s.action)}
+                  className={hotspotClass}
+                  style={{ left: s.x, top: s.y, width: s.w, height: s.h }}
+                />
+              ),
+            )
           : null}
 
         {/* Casting-, intake- en fotoshoot-ruimte: bordjes klikbaar + content op de wandkader. */}
