@@ -27,7 +27,7 @@ const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
  * versie van de bestanden, zodat de browser nooit een oude versie uit de
  * cache toont.
  */
-const MEDIA_V = '?v=2026-07-23b';
+const MEDIA_V = '?v=2026-07-23c';
 /** Film 30 — de lift in het onthaal, met vier ronde knoppen links. */
 const VIDEO_INTRO = `${SHEET_BASE}/videos/intro-lift-v2.mp4${MEDIA_V}`;
 /** Film 31 — van de lift naar de hal van het gastenportaal (welkomstbord + deurbordjes). */
@@ -178,29 +178,29 @@ type InfoTopic =
   | 'trailers';
 
 /**
- * Menuteksten op de zijmuren van de infozaal. De nieuwe film 34 toont geen
- * bordjes meer op de muren; de teksten worden daarom zonder kader in de
- * donkere paneelvakken naast het scherm getekend, netjes gecentreerd.
- * Ten allen tijde klikbaar; de inhoud verschijnt op het grote scherm.
+ * Menuteksten op de zijmuren van de infozaal. De teksten zitten in de
+ * achtergrondafbeelding (bio.jpg) zelf; dit zijn alleen de onzichtbare
+ * klikvlakken die exact op de teksttegels liggen. Ten allen tijde klikbaar;
+ * de inhoud verschijnt op het grote scherm.
  */
 const INFO_SIGNS: (Hotspot & { action: InfoTopic | 'exit' })[] = [
-  // Linkermuur: paneelvak-kolom x 305-377; vakken y 158-222, 256-287, 320-356, 388-422.
-  { label: 'Exit room', x: 305, y: 158, w: 72, h: 64, action: 'exit' },
-  { label: 'Veel gestelde vragen', x: 305, y: 254, w: 72, h: 34, action: 'veelgestelde-vragen' },
-  { label: 'Doelgroepen', x: 305, y: 318, w: 72, h: 38, action: 'doelgroepen' },
-  { label: 'Info model worden', x: 305, y: 384, w: 72, h: 36, action: 'info-model-worden' },
-  // Rechtermuur: paneelvak-kolom x 916-992; zelfde vakhoogtes als links.
-  { label: 'Reviews', x: 916, y: 158, w: 76, h: 64, action: 'reviews' },
-  { label: 'Onze klanten', x: 916, y: 254, w: 76, h: 34, action: 'onze-klanten' },
-  { label: 'Trailers try-out modeshows', x: 916, y: 314, w: 76, h: 44, action: 'trailers' },
+  // Linkermuur, van boven naar onder: Exit room, Gestelde vragen, Reviews, Doelgroepen.
+  { label: 'Exit room', x: 300, y: 170, w: 100, h: 56, action: 'exit' },
+  { label: 'Veel gestelde vragen', x: 300, y: 238, w: 100, h: 48, action: 'veelgestelde-vragen' },
+  { label: 'Reviews', x: 300, y: 304, w: 100, h: 40, action: 'reviews' },
+  { label: 'Doelgroepen', x: 298, y: 376, w: 100, h: 42, action: 'doelgroepen' },
+  // Rechtermuur, van boven naar onder: Info model worden, Onze klanten, Trailers.
+  { label: 'Info model worden', x: 905, y: 170, w: 105, h: 60, action: 'info-model-worden' },
+  { label: 'Onze klanten', x: 915, y: 238, w: 95, h: 54, action: 'onze-klanten' },
+  { label: 'Trailers try-out modeshows', x: 915, y: 302, w: 95, h: 46, action: 'trailers' },
 ];
 
 /**
- * Het grote bioscoopdoek in de infozaal (1280x720-stelsel, gemeten op het
- * eindbeeld van de nieuwe film 34). Iets ruimer dan het doek zelf zodat de
- * trailer het scherm volledig vult.
+ * Het grote bioscoopdoek in de infozaal (1280x720-stelsel, gemeten op
+ * bio.jpg). Iets ruimer dan het doek zelf zodat de trailer het scherm
+ * volledig vult.
  */
-const INFO_SCREEN = { x: 428, y: 190, w: 442, h: 244 };
+const INFO_SCREEN = { x: 430, y: 184, w: 442, h: 244 };
 /** 2x supersampling: content groot renderen en terugschalen → scherpe tekst op het doek. */
 const INFO_SCREEN_SS = 2;
 
@@ -1189,8 +1189,8 @@ export function BeginLiftExperience() {
           </div>
         ) : null}
 
-        {/* Menuteksten op de zijmuren van de infozaal — zonder kader, netjes
-            gecentreerd in de donkere paneelvakken naast het scherm. */}
+        {/* Menuteksten op de zijmuren van de infozaal — de teksten zitten in de
+            achtergrondafbeelding; dit zijn de onzichtbare klikvlakken erop. */}
         {phase === 'infoDim' || phase === 'info'
           ? INFO_SIGNS.map((s) => (
               <button
@@ -1199,27 +1199,9 @@ export function BeginLiftExperience() {
                 aria-label={s.label}
                 title={s.label}
                 onClick={() => onInfoSign(s.action)}
-                className={`${hotspotClass} flex items-center justify-center text-center`}
-                style={{
-                  left: s.x,
-                  top: s.y,
-                  width: s.w,
-                  height: s.h,
-                  zIndex: 10,
-                  color: '#e9c780',
-                  fontFamily: 'Georgia, "Times New Roman", serif',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  lineHeight: 1.25,
-                  letterSpacing: '0.02em',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.9)',
-                  padding: 0,
-                  opacity: phase === 'info' ? 1 : 0.45,
-                  transition: 'opacity 900ms ease-in-out',
-                }}
-              >
-                {s.label}
-              </button>
+                className={hotspotClass}
+                style={{ left: s.x, top: s.y, width: s.w, height: s.h, zIndex: 10 }}
+              />
             ))
           : null}
 
