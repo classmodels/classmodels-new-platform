@@ -22,25 +22,31 @@ import {
 } from '@/components/model-portal/model-gallery-3d/quadTransform';
 
 const SHEET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
+/**
+ * Versienummer achter de video-/beeldadressen: verhoog dit bij elke nieuwe
+ * versie van de bestanden, zodat de browser nooit een oude versie uit de
+ * cache toont.
+ */
+const MEDIA_V = '?v=2026-07-23b';
 /** Film 30 — de lift in het onthaal, met vier ronde knoppen links. */
-const VIDEO_INTRO = `${SHEET_BASE}/videos/intro-lift-v2.mp4`;
+const VIDEO_INTRO = `${SHEET_BASE}/videos/intro-lift-v2.mp4${MEDIA_V}`;
 /** Film 31 — van de lift naar de hal van het gastenportaal (welkomstbord + deurbordjes). */
-const VIDEO_HALL = `${SHEET_BASE}/videos/guest-hall.mp4`;
+const VIDEO_HALL = `${SHEET_BASE}/videos/guest-hall.mp4${MEDIA_V}`;
 /** Film 32 — de castingzaal. */
-const VIDEO_CASTING = `${SHEET_BASE}/videos/casting-room.mp4`;
+const VIDEO_CASTING = `${SHEET_BASE}/videos/casting-room.mp4${MEDIA_V}`;
 /** Film 33 — de intakegesprek-kamer. */
-const VIDEO_INTAKE = `${SHEET_BASE}/videos/intake-room.mp4`;
+const VIDEO_INTAKE = `${SHEET_BASE}/videos/intake-room.mp4${MEDIA_V}`;
 /** Film 34 — de infozaal (bioscoop) achter 'Info model worden'. */
-const VIDEO_INFO = `${SHEET_BASE}/videos/info-model-room.mp4`;
+const VIDEO_INFO = `${SHEET_BASE}/videos/info-model-room.mp4${MEDIA_V}`;
 /** Film 66 — de trailer die met geluid op het grote scherm van de infozaal speelt. */
-const VIDEO_TRAILER = `${SHEET_BASE}/videos/info-trailer.mp4`;
+const VIDEO_TRAILER = `${SHEET_BASE}/videos/info-trailer.mp4${MEDIA_V}`;
 /** Film 6 — van de hal naar de gratis fotoshoot-ruimte; eindigt op het beeld van die pagina. */
-const VIDEO_FOTOSHOOT_ENTRY = `${SHEET_BASE}/videos/fotoshoot-entry.mp4`;
+const VIDEO_FOTOSHOOT_ENTRY = `${SHEET_BASE}/videos/fotoshoot-entry.mp4${MEDIA_V}`;
 /** De infozaal verlaten — de mensen staan op en gaan naar beneden terwijl het licht dooft; daarna fade naar de hal. */
-const VIDEO_INFO_EXIT = `${SHEET_BASE}/videos/info-exit.mp4`;
-/** Infozaal met gedoofd licht (2.png) en met het licht aan (3.png). */
-const IMG_INFO_DARK = `${SHEET_BASE}/images/info-room-dark.jpg`;
-const IMG_INFO_LIGHT = `${SHEET_BASE}/images/info-room-light.jpg`;
+const VIDEO_INFO_EXIT = `${SHEET_BASE}/videos/info-exit.mp4${MEDIA_V}`;
+/** Infozaal met gedoofd licht en met het licht aan. */
+const IMG_INFO_DARK = `${SHEET_BASE}/images/info-room-dark.jpg${MEDIA_V}`;
+const IMG_INFO_LIGHT = `${SHEET_BASE}/images/info-room-light.jpg${MEDIA_V}`;
 
 /** Alle hotspot-coördinaten zijn gemeten in dit 1280x720-stelsel (films zijn 16:9). */
 const BASE_W = 1280;
@@ -178,13 +184,15 @@ type InfoTopic =
  * Ten allen tijde klikbaar; de inhoud verschijnt op het grote scherm.
  */
 const INFO_SIGNS: (Hotspot & { action: InfoTopic | 'exit' })[] = [
-  { label: 'Exit room', x: 336, y: 168, w: 88, h: 44, action: 'exit' },
-  { label: 'Veel gestelde vragen', x: 336, y: 230, w: 88, h: 44, action: 'veelgestelde-vragen' },
-  { label: 'Doelgroepen', x: 336, y: 292, w: 88, h: 44, action: 'doelgroepen' },
-  { label: 'Info model worden', x: 336, y: 354, w: 88, h: 44, action: 'info-model-worden' },
-  { label: 'Reviews', x: 886, y: 168, w: 88, h: 44, action: 'reviews' },
-  { label: 'Onze klanten', x: 886, y: 244, w: 88, h: 44, action: 'onze-klanten' },
-  { label: 'Trailers try-out modeshows', x: 886, y: 320, w: 88, h: 56, action: 'trailers' },
+  // Linkermuur: paneelvak-kolom x 305-377; vakken y 158-222, 256-287, 320-356, 388-422.
+  { label: 'Exit room', x: 305, y: 158, w: 72, h: 64, action: 'exit' },
+  { label: 'Veel gestelde vragen', x: 305, y: 254, w: 72, h: 34, action: 'veelgestelde-vragen' },
+  { label: 'Doelgroepen', x: 305, y: 318, w: 72, h: 38, action: 'doelgroepen' },
+  { label: 'Info model worden', x: 305, y: 384, w: 72, h: 36, action: 'info-model-worden' },
+  // Rechtermuur: paneelvak-kolom x 916-992; zelfde vakhoogtes als links.
+  { label: 'Reviews', x: 916, y: 158, w: 76, h: 64, action: 'reviews' },
+  { label: 'Onze klanten', x: 916, y: 254, w: 76, h: 34, action: 'onze-klanten' },
+  { label: 'Trailers try-out modeshows', x: 916, y: 314, w: 76, h: 44, action: 'trailers' },
 ];
 
 /**
@@ -1200,11 +1208,12 @@ export function BeginLiftExperience() {
                   zIndex: 10,
                   color: '#e9c780',
                   fontFamily: 'Georgia, "Times New Roman", serif',
-                  fontSize: 12,
-                  lineHeight: 1.3,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  lineHeight: 1.25,
+                  letterSpacing: '0.02em',
                   textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+                  padding: 0,
                   opacity: phase === 'info' ? 1 : 0.45,
                   transition: 'opacity 900ms ease-in-out',
                 }}
