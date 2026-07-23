@@ -32,11 +32,11 @@ const VIDEO_CASTING = `${SHEET_BASE}/videos/casting-room.mp4`;
 const VIDEO_INTAKE = `${SHEET_BASE}/videos/intake-room.mp4`;
 /** Film 34 — de infozaal (bioscoop) achter 'Info model worden'. */
 const VIDEO_INFO = `${SHEET_BASE}/videos/info-model-room.mp4`;
-/** Film 61 — de trailer die met geluid op het grote scherm van de infozaal speelt. */
+/** Film 66 — de trailer die met geluid op het grote scherm van de infozaal speelt. */
 const VIDEO_TRAILER = `${SHEET_BASE}/videos/info-trailer.mp4`;
 /** Film 6 — van de hal naar de gratis fotoshoot-ruimte; eindigt op het beeld van die pagina. */
 const VIDEO_FOTOSHOOT_ENTRY = `${SHEET_BASE}/videos/fotoshoot-entry.mp4`;
-/** Film 5 — de infozaal verlaten (licht dooft); daarna fade naar de hal. */
+/** De infozaal verlaten — de mensen staan op en gaan naar beneden terwijl het licht dooft; daarna fade naar de hal. */
 const VIDEO_INFO_EXIT = `${SHEET_BASE}/videos/info-exit.mp4`;
 /** Infozaal met gedoofd licht (2.png) en met het licht aan (3.png). */
 const IMG_INFO_DARK = `${SHEET_BASE}/images/info-room-dark.jpg`;
@@ -51,8 +51,11 @@ const WIDTH_FRACTION = 0.8;
 /** Duur van de fade naar zwart bij 'Exit room' (ms). */
 const FADE_MS = 700;
 
-/** De gewone animatiefilms lopen iets sneller; de bioscoopfilm speelt op normale snelheid. */
-const RIDE_SPEED = 1.35;
+/** Alle films spelen op normale snelheid. */
+const RIDE_SPEED = 1;
+
+/** De trailer op het bioscoopscherm start pas na deze wachttijd (ms) nadat het licht dooft. */
+const TRAILER_DELAY_MS = 3000;
 
 type Phase =
   | 'intro' // film 30 speelt
@@ -128,12 +131,16 @@ const INTAKE_SIGNS: (Hotspot & { action: RoomTopic | 'exit' })[] = [
   { label: 'Veel gestelde vragen', x: 1008, y: 265, w: 62, h: 50, action: 'faq' },
   { label: 'Exit room', x: 1008, y: 325, w: 62, h: 52, action: 'exit' },
 ];
-/** Het beige vlak binnen de verlichte lijst in de intakekamer (rechte muur). */
+/**
+ * Het beige vlak binnen de verlichte lijst in de intakekamer.
+ * De muur staat licht in perspectief (rechts iets hoger dan links); de vier
+ * hoekpunten zijn apart gemeten zodat de tekst de hoek van de kader volgt.
+ */
 const INTAKE_FRAME: Quad = {
-  tl: [690, 145],
-  tr: [948, 145],
-  br: [948, 370],
-  bl: [690, 370],
+  tl: [681, 160],
+  tr: [960, 142],
+  br: [960, 377],
+  bl: [681, 358],
 };
 
 /**
@@ -165,19 +172,19 @@ type InfoTopic =
   | 'trailers';
 
 /**
- * Bordjes op de zijmuren van de infozaal. De nieuwe film 34 toont geen
- * bordjes meer op de muren; ze worden daarom als HTML-panelen op de donkere
- * lambrisering getekend. Ten allen tijde klikbaar; de inhoud verschijnt op
- * het grote scherm.
+ * Menuteksten op de zijmuren van de infozaal. De nieuwe film 34 toont geen
+ * bordjes meer op de muren; de teksten worden daarom zonder kader in de
+ * donkere paneelvakken naast het scherm getekend, netjes gecentreerd.
+ * Ten allen tijde klikbaar; de inhoud verschijnt op het grote scherm.
  */
 const INFO_SIGNS: (Hotspot & { action: InfoTopic | 'exit' })[] = [
-  { label: 'Exit room', x: 302, y: 168, w: 92, h: 44, action: 'exit' },
-  { label: 'Veel gestelde vragen', x: 302, y: 230, w: 92, h: 44, action: 'veelgestelde-vragen' },
-  { label: 'Doelgroepen', x: 302, y: 292, w: 92, h: 44, action: 'doelgroepen' },
-  { label: 'Info model worden', x: 302, y: 354, w: 92, h: 44, action: 'info-model-worden' },
-  { label: 'Reviews', x: 888, y: 168, w: 92, h: 44, action: 'reviews' },
-  { label: 'Onze klanten', x: 888, y: 244, w: 92, h: 44, action: 'onze-klanten' },
-  { label: 'Trailers try-out modeshows', x: 888, y: 320, w: 92, h: 56, action: 'trailers' },
+  { label: 'Exit room', x: 336, y: 168, w: 88, h: 44, action: 'exit' },
+  { label: 'Veel gestelde vragen', x: 336, y: 230, w: 88, h: 44, action: 'veelgestelde-vragen' },
+  { label: 'Doelgroepen', x: 336, y: 292, w: 88, h: 44, action: 'doelgroepen' },
+  { label: 'Info model worden', x: 336, y: 354, w: 88, h: 44, action: 'info-model-worden' },
+  { label: 'Reviews', x: 886, y: 168, w: 88, h: 44, action: 'reviews' },
+  { label: 'Onze klanten', x: 886, y: 244, w: 88, h: 44, action: 'onze-klanten' },
+  { label: 'Trailers try-out modeshows', x: 886, y: 320, w: 88, h: 56, action: 'trailers' },
 ];
 
 /**
@@ -589,7 +596,11 @@ export function BeginLiftExperience() {
   const infoExitRef = useRef<HTMLVideoElement>(null);
   const fotoshootRef = useRef<HTMLVideoElement>(null);
   const fadeTimer = useRef<number | null>(null);
+  /** Wachttijd voordat de trailer op het scherm start nadat het licht dooft. */
+  const trailerDelayTimer = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>('intro');
+  /** De trailer is echt begonnen met spelen (pas dan wordt hij zichtbaar op het doek). */
+  const [trailerStarted, setTrailerStarted] = useState(false);
   const [scale, setScale] = useState(1);
   /** Zwarte overlay voor de exit room-overgang: uitfaden → wisselen → infaden. */
   const [faded, setFaded] = useState(false);
@@ -628,9 +639,17 @@ export function BeginLiftExperience() {
   useEffect(
     () => () => {
       if (fadeTimer.current) window.clearTimeout(fadeTimer.current);
+      if (trailerDelayTimer.current) window.clearTimeout(trailerDelayTimer.current);
     },
     [],
   );
+
+  const cancelTrailerDelay = useCallback(() => {
+    if (trailerDelayTimer.current) {
+      window.clearTimeout(trailerDelayTimer.current);
+      trailerDelayTimer.current = null;
+    }
+  }, []);
 
   /** Autoplay kan geblokkeerd zijn; dan tonen we meteen het eindbeeld met de knoppen. */
   useEffect(() => {
@@ -647,54 +666,69 @@ export function BeginLiftExperience() {
   }, []);
 
   const startHall = useCallback(() => {
-    introRef.current?.pause();
-    setPhase('hallRide');
     const v = hallRef.current;
-    if (v) {
-      v.currentTime = 0;
-      v.playbackRate = RIDE_SPEED;
-      void v.play().catch(() => {
+    if (!v) {
+      setPhase('hall');
+      return;
+    }
+    v.currentTime = 0;
+    v.playbackRate = RIDE_SPEED;
+    // Pas van beeld wisselen als de film echt speelt — zo is er geen zwart beeld.
+    v.play()
+      .then(() => {
+        introRef.current?.pause();
+        setPhase('hallRide');
+      })
+      .catch(() => {
+        introRef.current?.pause();
         holdLastFrame(v);
         setPhase('hall');
       });
-    }
   }, []);
 
   const startCasting = useCallback(() => {
     setRoomTopic('info');
-    setPhase('castingRide');
     const v = castingRef.current;
-    if (v) {
-      v.currentTime = 0;
-      v.playbackRate = RIDE_SPEED;
-      void v.play().catch(() => {
+    if (!v) {
+      setPhase('casting');
+      return;
+    }
+    v.currentTime = 0;
+    v.playbackRate = RIDE_SPEED;
+    v.play()
+      .then(() => setPhase('castingRide'))
+      .catch(() => {
         holdLastFrame(v);
         setPhase('casting');
       });
-    }
   }, []);
 
   const startIntake = useCallback(() => {
     setRoomTopic('info');
-    setPhase('intakeRide');
     const v = intakeRef.current;
-    if (v) {
-      v.currentTime = 0;
-      v.playbackRate = RIDE_SPEED;
-      void v.play().catch(() => {
+    if (!v) {
+      setPhase('intake');
+      return;
+    }
+    v.currentTime = 0;
+    v.playbackRate = RIDE_SPEED;
+    v.play()
+      .then(() => setPhase('intakeRide'))
+      .catch(() => {
         holdLastFrame(v);
         setPhase('intake');
       });
-    }
   }, []);
 
   /**
-   * Na film 34 dooft het licht (2.png) en speelt film 61 direct met geluid op
-   * het grote scherm. Lukt afspelen met geluid niet (autoplay-beleid), dan
-   * starten we gedempt en kan het geluid met de knop weer aan.
+   * Na film 34 dooft het licht en speelt film 66 met geluid op het grote
+   * scherm — pas na een korte wachttijd van 3 seconden. Lukt afspelen met
+   * geluid niet (autoplay-beleid), dan starten we gedempt en kan het geluid
+   * met de knop weer aan.
    */
   const startTrailer = useCallback(() => {
     setPhase('infoDim');
+    setTrailerStarted(false);
     const v = trailerRef.current;
     if (!v) {
       setPhase('info');
@@ -703,24 +737,33 @@ export function BeginLiftExperience() {
     v.currentTime = 0;
     v.muted = false;
     setTrailerMuted(false);
-    void v.play().catch(() => {
-      v.muted = true;
-      setTrailerMuted(true);
-      void v.play().catch(() => setPhase('info'));
-    });
+    if (trailerDelayTimer.current) window.clearTimeout(trailerDelayTimer.current);
+    trailerDelayTimer.current = window.setTimeout(() => {
+      trailerDelayTimer.current = null;
+      v.play()
+        .then(() => setTrailerStarted(true))
+        .catch(() => {
+          v.muted = true;
+          setTrailerMuted(true);
+          v.play()
+            .then(() => setTrailerStarted(true))
+            .catch(() => setPhase('info'));
+        });
+    }, TRAILER_DELAY_MS);
   }, []);
 
   const startInfo = useCallback(() => {
-    setPhase('infoRide');
     const v = infoRef.current;
-    if (v) {
-      v.currentTime = 0;
-      v.playbackRate = RIDE_SPEED;
-      void v.play().catch(() => {
-        // Film 34 kan niet spelen → meteen door naar de trailer in de donkere zaal.
-        startTrailer();
-      });
+    if (!v) {
+      // Film 34 kan niet spelen → meteen door naar de trailer in de donkere zaal.
+      startTrailer();
+      return;
     }
+    v.currentTime = 0;
+    v.playbackRate = RIDE_SPEED;
+    v.play()
+      .then(() => setPhase('infoRide'))
+      .catch(() => startTrailer());
   }, [startTrailer]);
 
   /** Reviews pas ophalen wanneer het onderwerp voor het eerst gekozen wordt. */
@@ -738,6 +781,7 @@ export function BeginLiftExperience() {
    * beginpagina — die zie je alleen bij het betreden van de site.
    */
   const fadeToHall = useCallback(() => {
+    cancelTrailerDelay();
     setFaded(true);
     if (fadeTimer.current) window.clearTimeout(fadeTimer.current);
     fadeTimer.current = window.setTimeout(() => {
@@ -752,7 +796,7 @@ export function BeginLiftExperience() {
       // Eén frame wachten zodat het nieuwe beeld al klaarstaat achter het zwart.
       fadeTimer.current = window.setTimeout(() => setFaded(false), 120);
     }, FADE_MS);
-  }, []);
+  }, [cancelTrailerDelay]);
 
   /**
    * Exit room in de hal: fade naar zwart en land op het eindbeeld van film 30 —
@@ -774,8 +818,8 @@ export function BeginLiftExperience() {
    * buiten); als die gedaan is, fadet het beeld naar de hal van film 31.
    */
   const startInfoExit = useCallback(() => {
+    cancelTrailerDelay();
     trailerRef.current?.pause();
-    setPhase('infoExitRide');
     const v = infoExitRef.current;
     if (!v) {
       fadeToHall();
@@ -783,8 +827,10 @@ export function BeginLiftExperience() {
     }
     v.currentTime = 0;
     v.playbackRate = RIDE_SPEED;
-    void v.play().catch(() => fadeToHall());
-  }, [fadeToHall]);
+    v.play()
+      .then(() => setPhase('infoExitRide'))
+      .catch(() => fadeToHall());
+  }, [cancelTrailerDelay, fadeToHall]);
 
   /**
    * Gratis fotoshoot: film 6 speelt (van de hal naar de fotoshoot-ruimte) en
@@ -793,7 +839,6 @@ export function BeginLiftExperience() {
    */
   const startFotoshoot = useCallback(() => {
     setRoomTopic('info');
-    setPhase('fotoshootRide');
     const v = fotoshootRef.current;
     if (!v) {
       setPhase('fotoshoot');
@@ -801,10 +846,12 @@ export function BeginLiftExperience() {
     }
     v.currentTime = 0;
     v.playbackRate = RIDE_SPEED;
-    void v.play().catch(() => {
-      holdLastFrame(v);
-      setPhase('fotoshoot');
-    });
+    v.play()
+      .then(() => setPhase('fotoshootRide'))
+      .catch(() => {
+        holdLastFrame(v);
+        setPhase('fotoshoot');
+      });
   }, []);
 
   /** Bordjes in de casting-, intake- en fotoshoot-ruimte. */
@@ -831,11 +878,12 @@ export function BeginLiftExperience() {
         startTrailer();
         return;
       }
+      cancelTrailerDelay();
       trailerRef.current?.pause();
       setInfoTopic(action);
       setPhase('info');
     },
-    [startInfoExit, startTrailer],
+    [cancelTrailerDelay, startInfoExit, startTrailer],
   );
 
   /**
@@ -843,6 +891,7 @@ export function BeginLiftExperience() {
    * het eindbeeld — zonder de film af te spelen.
    */
   const jumpToHall = useCallback(() => {
+    cancelTrailerDelay();
     setFaded(true);
     introRef.current?.pause();
     castingRef.current?.pause();
@@ -855,7 +904,7 @@ export function BeginLiftExperience() {
     seekToEnd(hallRef.current);
     if (fadeTimer.current) window.clearTimeout(fadeTimer.current);
     fadeTimer.current = window.setTimeout(() => setFaded(false), 450);
-  }, []);
+  }, [cancelTrailerDelay]);
 
   /**
    * `/?go=guest` (Gastenportaal in de menubalk) en `/?go=hall` (exit room
@@ -932,9 +981,14 @@ export function BeginLiftExperience() {
     };
     const v = byPhase[phase];
     if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return;
+    if (phase === 'infoDim') {
+      // Wachttijd van de trailer overslaan en meteen naar het einde spoelen.
+      cancelTrailerDelay();
+      setTrailerStarted(true);
+    }
     v.currentTime = Math.max(0, v.duration - 0.15);
     void v.play().catch(() => {});
-  }, [phase]);
+  }, [phase, cancelTrailerDelay]);
 
   /** Er speelt een film → de knop 'Overslaan' staat rechtsonder. */
   const filmPlaying =
@@ -1000,7 +1054,7 @@ export function BeginLiftExperience() {
           src={VIDEO_CASTING}
           muted
           playsInline
-          preload="none"
+          preload="auto"
           disablePictureInPicture
           onEnded={() => setPhase('casting')}
           onContextMenu={(e) => e.preventDefault()}
@@ -1013,7 +1067,7 @@ export function BeginLiftExperience() {
           src={VIDEO_INTAKE}
           muted
           playsInline
-          preload="none"
+          preload="auto"
           disablePictureInPicture
           onEnded={() => setPhase('intake')}
           onContextMenu={(e) => e.preventDefault()}
@@ -1026,7 +1080,7 @@ export function BeginLiftExperience() {
           src={VIDEO_INFO}
           muted
           playsInline
-          preload="none"
+          preload="auto"
           disablePictureInPicture
           onEnded={startTrailer}
           onContextMenu={(e) => e.preventDefault()}
@@ -1039,7 +1093,7 @@ export function BeginLiftExperience() {
           src={VIDEO_INFO_EXIT}
           muted
           playsInline
-          preload="none"
+          preload="auto"
           disablePictureInPicture
           onEnded={fadeToHall}
           onContextMenu={(e) => e.preventDefault()}
@@ -1052,7 +1106,7 @@ export function BeginLiftExperience() {
           src={VIDEO_FOTOSHOOT_ENTRY}
           muted
           playsInline
-          preload="none"
+          preload="auto"
           disablePictureInPicture
           onEnded={() => setPhase('fotoshoot')}
           onContextMenu={(e) => e.preventDefault()}
@@ -1079,7 +1133,8 @@ export function BeginLiftExperience() {
           style={{ opacity: phase === 'info' ? 1 : 0, transition: 'opacity 900ms ease-in-out' }}
         />
 
-        {/* Film 61 — de trailer, met geluid, op het grote scherm in de donkere zaal. */}
+        {/* Film 66 — de trailer, met geluid, op het grote scherm in de donkere
+            zaal. Wordt pas zichtbaar zodra hij echt speelt (na de wachttijd). */}
         <video
           ref={trailerRef}
           src={VIDEO_TRAILER}
@@ -1088,7 +1143,7 @@ export function BeginLiftExperience() {
           disablePictureInPicture
           onEnded={() => setPhase('info')}
           onContextMenu={(e) => e.preventDefault()}
-          className={`absolute select-none object-fill ${phase === 'infoDim' ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute select-none object-fill ${phase === 'infoDim' && trailerStarted ? 'opacity-100' : 'opacity-0'}`}
           style={{
             left: INFO_SCREEN.x,
             top: INFO_SCREEN.y,
@@ -1126,8 +1181,8 @@ export function BeginLiftExperience() {
           </div>
         ) : null}
 
-        {/* Bordjes op de zijmuren van de infozaal — als panelen getekend (de
-            nieuwe film toont zelf geen bordjes) en ten allen tijde klikbaar. */}
+        {/* Menuteksten op de zijmuren van de infozaal — zonder kader, netjes
+            gecentreerd in de donkere paneelvakken naast het scherm. */}
         {phase === 'infoDim' || phase === 'info'
           ? INFO_SIGNS.map((s) => (
               <button
@@ -1143,18 +1198,14 @@ export function BeginLiftExperience() {
                   width: s.w,
                   height: s.h,
                   zIndex: 10,
-                  background: 'linear-gradient(180deg, rgba(28,22,16,0.96), rgba(16,12,9,0.96))',
-                  border: '1px solid rgba(233,199,128,0.55)',
-                  borderRadius: 3,
-                  boxShadow: '0 0 10px rgba(0,0,0,0.6)',
                   color: '#e9c780',
                   fontFamily: 'Georgia, "Times New Roman", serif',
-                  fontSize: 10,
-                  lineHeight: 1.25,
+                  fontSize: 12,
+                  lineHeight: 1.3,
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
-                  padding: '2px 4px',
-                  opacity: phase === 'info' ? 1 : 0.55,
+                  textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+                  opacity: phase === 'info' ? 1 : 0.45,
                   transition: 'opacity 900ms ease-in-out',
                 }}
               >
