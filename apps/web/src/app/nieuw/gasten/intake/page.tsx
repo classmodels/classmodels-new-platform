@@ -23,7 +23,7 @@ export default function IntakePage() {
 
           <div className="nieuw-agenda-align" style={{ marginTop: 40 }}>
             <h2 className="nieuw-h3 nieuw-agenda-title">{INTAKE_GESPREK_PAGE.whyTitle}</h2>
-            <h2 className="nieuw-h3 nieuw-agenda-booking-title">Online afspraak intake</h2>
+            <h2 className="nieuw-h3 nieuw-agenda-booking-title">Maak online een intake-gesprek afspraak</h2>
             <ul className="nieuw-checklist nieuw-agenda-frames">
               {WAAROM_CHECKLIST.map((item) => (
                 <li key={item}>
@@ -32,10 +32,7 @@ export default function IntakePage() {
                 </li>
               ))}
             </ul>
-            <NieuwBookingBlock
-              slug={INTAKE_GESPREK_PAGE.agendaSlug}
-              subtitle="Boek een vrijblijvend intakegesprek via de agenda."
-            />
+            <NieuwBookingBlock slug={INTAKE_GESPREK_PAGE.agendaSlug} />
           </div>
 
           <h2 className="nieuw-h3" style={{ marginTop: 48 }}>

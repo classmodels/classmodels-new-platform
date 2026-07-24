@@ -8,7 +8,7 @@ export function getJwtSecret(): string {
 
 /** Leest env bij factory-aanroep; lege `JWT_EXPIRES_IN` zou anders `jwt.sign` doen crashen. */
 export function createJwtModuleOptions(): JwtModuleOptions {
-  const expiresIn = (process.env.JWT_EXPIRES_IN || '7d').trim() || '7d';
+  const expiresIn = (process.env.JWT_EXPIRES_IN || '365d').trim() || '365d';
   return {
     secret: getJwtSecret(),
     signOptions: { expiresIn },

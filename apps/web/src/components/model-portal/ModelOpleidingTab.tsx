@@ -63,7 +63,7 @@ export function ModelOpleidingTab({
 
   const cancelBooking = useCallback(async () => {
     if (!token || !can('portal.model.agenda.book')) return;
-    if (!window.confirm('Opleidingsafspraak verwijderen?')) return;
+    if (!window.confirm('Opleidingsafspraak annuleren?')) return;
     setErr(null);
     try {
       await apiFetch('/portal/model/agenda/opleiding/cancel-my', {
@@ -122,9 +122,14 @@ export function ModelOpleidingTab({
     return (
       <div className="flex flex-wrap gap-2">
         {headerBtn('Info opleiding', () => setPanel((p) => (p === 'info' ? 'summary' : 'info')))}
-        {booking && panel !== 'book' ? headerBtn('Afspraak wijzigen', () => setPanel('book'), true) : null}
-        {!booking && panel !== 'book' && !loading ? headerBtn('Afspraak maken', () => setPanel('book'), true) : null}
-        {booking && panel !== 'book' ? headerBtn('Afspraak verwijderen', cancelBooking, false, true) : null}
+        {panel === 'book'
+          ? headerBtn('Terug', () => setPanel(booking ? 'summary' : 'summary'))
+          : null}
+        {booking ? headerBtn('Afspraak verplaatsen', () => setPanel('book'), true) : null}
+        {!booking && panel !== 'book' && !loading
+          ? headerBtn('Afspraak maken', () => setPanel('book'), true)
+          : null}
+        {booking ? headerBtn('Afspraak annuleren', cancelBooking, false, true) : null}
       </div>
     );
   }, [booking, cancelBooking, headerBtn, loading, panel]);

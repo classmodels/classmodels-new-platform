@@ -101,7 +101,7 @@ export function ModelPortfolioTab({
 
   const cancelBooking = useCallback(async () => {
     if (!token || !can('portal.model.agenda.book')) return;
-    if (!window.confirm('Portfolio-afspraak verwijderen?')) return;
+    if (!window.confirm('Portfolio-afspraak annuleren?')) return;
     setErr(null);
     try {
       await apiFetch('/portal/model/agenda/portfolio/cancel-my', {
@@ -160,9 +160,12 @@ export function ModelPortfolioTab({
     return (
       <div className="flex flex-wrap gap-2">
         {headerBtn('Info portfolio', () => setPanel((p) => (p === 'info' ? 'summary' : 'info')))}
-        {booking && panel !== 'book' ? headerBtn('Afspraak wijzigen', () => setPanel('book'), true) : null}
-        {!booking && panel !== 'book' && !loading ? headerBtn('Afspraak maken', () => setPanel('book'), true) : null}
-        {booking && panel !== 'book' ? headerBtn('Afspraak verwijderen', cancelBooking, false, true) : null}
+        {panel === 'book' ? headerBtn('Terug', () => setPanel('summary')) : null}
+        {booking ? headerBtn('Afspraak verplaatsen', () => setPanel('book'), true) : null}
+        {!booking && panel !== 'book' && !loading
+          ? headerBtn('Afspraak maken', () => setPanel('book'), true)
+          : null}
+        {booking ? headerBtn('Afspraak annuleren', cancelBooking, false, true) : null}
       </div>
     );
   }, [booking, cancelBooking, headerBtn, loading, panel]);

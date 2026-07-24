@@ -262,24 +262,24 @@ export function GuestBookingPanel({
         type="button"
         aria-label="Vorige dagen"
         disabled={dayPage <= 0}
-        className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
+        className="rounded border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
         onClick={() => setDayPage((p) => Math.max(0, p - 1))}
       >
-        ‹ Vorige
+        ‹ Vorige dagen
       </button>
-      <span className="text-center text-[11px] text-zinc-500">
+      <span className="min-w-0 flex-1 px-2 text-center text-[11px] leading-snug text-zinc-500">
         {sortedDates.length
-          ? `Dag ${dayPage * daysPerPage + 1}–${Math.min(sortedDates.length, (dayPage + 1) * daysPerPage)} van ${sortedDates.length}`
+          ? `Andere dagen bekijken · dag ${dayPage * daysPerPage + 1}–${Math.min(sortedDates.length, (dayPage + 1) * daysPerPage)} van ${sortedDates.length}`
           : ''}
       </span>
       <button
         type="button"
         aria-label="Volgende dagen"
         disabled={dayPage >= totalPages - 1}
-        className="rounded border border-zinc-200 px-2 py-1 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
+        className="rounded border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
         onClick={() => setDayPage((p) => Math.min(totalPages - 1, p + 1))}
       >
-        Volgende ›
+        Volgende dagen ›
       </button>
     </div>
   ) : null;
@@ -749,7 +749,8 @@ export function GuestBookingPanel({
             <p className="mt-2 text-center text-xs text-amber-800">{bookNotifications.emailError}</p>
           ) : null}
           <p className="mt-3 rounded-md border border-burgundy/25 bg-burgundy/5 px-3 py-2 text-center text-xs leading-relaxed text-zinc-800">
-            <strong className="text-burgundy">Locatie:</strong> {GUEST_APPOINTMENT_OFFICE_LINE.replace(/^Uw afspraak vindt plaats op ons kantoor: /, '')}
+            <strong className="text-burgundy">Locatie:</strong>{' '}
+            {CLASS_MODELS_OFFICE.fullAddress}
           </p>
           {travelInfo?.distanceLabel ? (
             <p className="mt-2 text-center text-sm font-medium text-zinc-900">
@@ -826,14 +827,19 @@ export function GuestBookingPanel({
 
   if (variant !== 'pro') {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-4">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{heading}</p>
-            <h2 className="mt-1 font-serif text-xl font-semibold text-ink">
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
+          <div className="min-w-0 flex-1">
+            {heading ? (
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{heading}</p>
+            ) : null}
+            <h2 className={`${heading ? 'mt-1' : 'mt-0'} font-serif text-xl font-semibold text-ink`}>
               {step === 'slots' ? 'Kies een moment' : 'Uw gegevens'}
               {calTitle ? <span className="block text-sm font-normal text-muted">{calTitle}</span> : null}
             </h2>
+            {step === 'slots' && showGuestOffice ? (
+              <p className="mt-4 text-[13px] leading-snug text-muted">{GUEST_APPOINTMENT_OFFICE_LINE}</p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -849,7 +855,13 @@ export function GuestBookingPanel({
         {step === 'slots' ? (
           <div className="space-y-3">
             {isMobile ? topDatePager : null}
-            <div className={isMobile ? '' : 'max-h-[min(520px,62vh)] overflow-y-auto pr-1'}>
+            <div
+              className={
+                isMobile
+                  ? ''
+                  : 'nieuw-agenda-scroll max-h-[min(520px,62vh)] overflow-y-scroll pr-1'
+              }
+            >
               <div className="grid w-full gap-4" style={dayGridStyle}>
                 {visibleDates.map((ymd) => (
                   <div key={ymd} className="min-w-0">
@@ -862,10 +874,16 @@ export function GuestBookingPanel({
                     </p>
                     {/* Gsm: alle uren volledig onder elkaar (geen scroll per dag). */}
                     <div
-                      className={`mt-2 flex flex-col gap-1.5 ${isMobile ? '' : 'max-h-[min(460px,50vh)] overflow-y-auto pr-0.5'}`}
+                      className={`mt-2 flex flex-col gap-1.5 ${
+                        isMobile
+                          ? ''
+                          : 'nieuw-agenda-scroll max-h-[min(460px,50vh)] overflow-y-scroll pr-0.5'
+                      }`}
                     >
                       {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
-                        <p className="px-1 py-2 text-[11px] text-muted">Geen vrije momenten (meer) op deze dag.</p>
+                        <p className="px-1 py-2 text-[11px] text-muted">
+                          Geen vrije momenten (meer) op deze dag.
+                        </p>
                       ) : null}
                       {(slotsByYmd.get(ymd) ?? []).map((s) => renderSlotButton(s, slotId === s.id))}
                     </div>

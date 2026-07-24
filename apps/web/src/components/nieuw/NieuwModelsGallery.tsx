@@ -1,12 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { getApiBase, publicMediaUrl } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import {
   ModelDetailDialog,
   type CatalogModel,
 } from '@/components/models-catalog/ModelsCatalogGrid';
+import {
+  clearImpersonationSession,
+  startImpersonationSession,
+} from '@/lib/impersonation';
 
 function availSlug(label: string) {
   return label.toLowerCase().trim().replace(/\s+/g, '-');
@@ -17,10 +22,12 @@ export function NieuwModelsGallery({
 }: {
   title?: string;
   subtitle?: string;
-  /** @deprecated Showroom-link is verwijderd; prop blijft optioneel voor oude callers. */
   showroomHref?: string;
 }) {
-  const { token } = useAuth();
+  const router = useRouter();
+  const { token, user, can, applySessionToken } = useAuth();
+  const isAdmin = Boolean(user?.roles?.includes('admin') || can('*'));
+  const canImpersonate = can('admin.users.write');
   const [models, setModels] = useState<CatalogModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,34 +93,46 @@ export function NieuwModelsGallery({
     const needle = q.trim().toLowerCase();
 
     return models.filter((m) => {
-      if (m.isInactive) return false;
-
+      if (m.isInactive && !isAdmin) return false;
       if (flagSel.has('newface') && !m.isNewface) return false;
       if (flagSel.has('tryout') && !m.isTryout) return false;
-
       if (avSel.size) {
         const slugs = m.beschikbaarSlugs?.length
           ? m.beschikbaarSlugs
           : (m.beschikbaar ?? []).map(availSlug);
         if (!slugs.some((x) => avSel.has(x))) return false;
       }
-
       if (genderSel.size) {
         if (!m.gender || !genderSel.has(m.gender)) return false;
       }
-
       if (amin && (m.age == null || m.age < amin)) return false;
       if (amax && (m.age == null || m.age > amax)) return false;
-
       if (needle) {
         const name =
           `${m.displayName} ${m.firstName ?? ''} ${m.lastName ?? ''} ${m.gemeente ?? ''}`.toLowerCase();
         if (!name.includes(needle)) return false;
       }
-
       return true;
     });
-  }, [models, avSel, genderSel, flagSel, ageMin, ageMax, q]);
+  }, [models, avSel, genderSel, flagSel, ageMin, ageMax, q, isAdmin]);
+
+  const openAsModel = async (m: CatalogModel) => {
+    if (!token || !user?.email || !canImpersonate) return;
+    try {
+      startImpersonationSession(token, user.email);
+      const res = await apiFetch<{ access_token: string }>('/auth/impersonate', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ targetUserId: m.id }),
+      });
+      await applySessionToken(res.access_token);
+      setModal(null);
+      router.push('/nieuw/modellen?tab=profiel');
+    } catch (err) {
+      clearImpersonationSession();
+      window.alert(err instanceof Error ? err.message : 'Openen als model mislukt.');
+    }
+  };
 
   const modalPhoto = modal?.profileThumbKey ? publicMediaUrl(modal.profileThumbKey) : '';
 
@@ -256,30 +275,41 @@ export function NieuwModelsGallery({
                     .filter(Boolean)
                     .join(' · ');
                   return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      className="nieuw-model"
-                      onClick={() => setModal(m)}
-                    >
-                      <div className="nieuw-model-foto">
-                        {src ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={src} alt={m.displayName} />
-                        ) : (
-                          <div className="nieuw-model-placeholder">
-                            {(m.displayName || '?').slice(0, 1).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div className="nieuw-model-meta">
-                        <h4>{m.displayName}</h4>
-                        <p>
-                          {meta ||
-                            (m.gender === 'man' ? 'Man' : m.gender === 'vrouw' ? 'Vrouw' : 'Profiel')}
-                        </p>
-                      </div>
-                    </button>
+                    <div key={m.id}>
+                      <button
+                        type="button"
+                        className="nieuw-model"
+                        onClick={() => setModal(m)}
+                      >
+                        <div className="nieuw-model-foto">
+                          {src ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={src} alt={m.displayName} />
+                          ) : (
+                            <div className="nieuw-model-placeholder">
+                              {(m.displayName || '?').slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="nieuw-model-meta">
+                          <h4>{m.displayName}</h4>
+                          <p>
+                            {meta ||
+                              (m.gender === 'man' ? 'Man' : m.gender === 'vrouw' ? 'Vrouw' : 'Profiel')}
+                          </p>
+                        </div>
+                      </button>
+                      {canImpersonate ? (
+                        <button
+                          type="button"
+                          className="nieuw-btn nieuw-btn-ghost"
+                          style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
+                          onClick={() => void openAsModel(m)}
+                        >
+                          Als model
+                        </button>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>
@@ -297,7 +327,7 @@ export function NieuwModelsGallery({
         <ModelDetailDialog
           m={modal}
           initialPhotoSrc={modalPhoto}
-          isAdmin={false}
+          isAdmin={isAdmin}
           token={token}
           theme="dark"
           onClose={() => setModal(null)}

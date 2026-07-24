@@ -8,4 +8,4 @@ export const CLASS_MODELS_OFFICE = {
 } as const;
 
 export const GUEST_APPOINTMENT_OFFICE_LINE =
-  'Uw afspraak vindt plaats op ons kantoor: Provinciebaan 3, 2235 Hulshout';
+  'De afspraak gaat door op de Provinciebaan 3, 2235 Hulshout';

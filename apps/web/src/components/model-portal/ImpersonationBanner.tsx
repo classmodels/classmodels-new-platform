@@ -32,7 +32,7 @@ export function ImpersonationBanner() {
       return;
     }
     setActive(false);
-    router.replace('/admin/modellen-profielen');
+    router.replace('/nieuw/modellen?tab=modellen');
   }, [applySessionToken, router]);
 
   if (!active || !user) return null;

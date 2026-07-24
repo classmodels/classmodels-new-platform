@@ -25,6 +25,7 @@ import { ModelModeshowDownloadsTab } from '@/components/model-portal/ModelModesh
 import { ModelSetCardTab } from '@/components/model-portal/ModelSetCardTab';
 import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalReviewTab';
 import { PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
+import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 
 type PremiumInfo = {
   currency: string;
@@ -76,23 +77,24 @@ function LoginForm() {
     setError(null);
     setBusy(true);
     try {
+      // Altijd onthouden tot uitloggen (lange JWT).
       await login(identifier.trim(), password, { rememberMe: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Inloggen mislukt.';
-      setError(
-        /database|server|mis/i.test(msg)
-          ? 'Inloggen lukt niet: de lokale database draait niet (of de API kan er niet bij). Gebruik hieronder “Voorbeeld bekijken” om de pagina’s toch te zien, of start Docker/MySQL.'
-          : msg,
-      );
+      if (/ongeldig|credentials|wachtwoord|unauthorized/i.test(msg)) {
+        setError(
+          'Inloggen mislukt. Gebruik het e-mailadres of telefoonnummer van uw modelaccount. Werkt het oude wachtwoord niet meer? Kies “Wachtwoord vergeten” hieronder.',
+        );
+      } else if (/database|server|mis/i.test(msg)) {
+        setError(
+          'Inloggen lukt niet: de server of database is even niet bereikbaar. Probeer later opnieuw of neem contact op met Class-Models.',
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setBusy(false);
     }
-  };
-
-  const fillDemo = () => {
-    setIdentifier('model@class-models.local');
-    setPassword('Demo123!');
-    setError(null);
   };
 
   return (
@@ -102,23 +104,22 @@ function LoginForm() {
           Welkom <em>terug</em>
         </h1>
         <p className="nieuw-lead">
-          Log in om uw portaal te openen — of bekijk eerst een voorbeeld van alle pagina’s zonder
-          account.
+          Log in met uw modelaccount om het Modellenportaal te openen.
         </p>
 
         <div className="nieuw-panel" style={{ marginTop: 22, borderColor: 'var(--n-gold-hair)' }}>
-          <span className="nieuw-label">Lokaal demo-account</span>
-          <p style={{ margin: '10px 0 0', color: 'var(--n-mut)', fontSize: 14 }}>
-            E-mail: <strong style={{ color: 'var(--n-ink)' }}>model@class-models.local</strong>
-            <br />
-            Wachtwoord: <strong style={{ color: 'var(--n-ink)' }}>Demo123!</strong>
+          <span className="nieuw-label">Alleen voor contractmodellen</span>
+          <p style={{ margin: '12px 0 0', color: 'var(--n-mut)', fontSize: 14, lineHeight: 1.65 }}>
+            Het modellenaccount is alleen voor modellen die onder contract staan bij Class-Models.
+            Het is onnodig een account aan te maken als u geen overeenkomst heeft met Class-Models.
+            Geen overeenkomst? Ga dan naar het gastenportaal.
           </p>
           <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button type="button" className="nieuw-btn" onClick={fillDemo}>
-              Vul demo-gegevens in
-            </button>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen?preview=1">
-              Voorbeeld bekijken (zonder login)
+            <Link className="nieuw-btn" href="/nieuw/gasten/model-worden">
+              Naar gastenportaal
+            </Link>
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen/registreren">
+              Modellenaccount maken
             </Link>
           </div>
         </div>
@@ -135,7 +136,7 @@ function LoginForm() {
                 marginBottom: 8,
               }}
             >
-              E-mail of gebruikersnaam
+              E-mail of telefoonnummer
             </span>
             <input
               type="text"
@@ -202,7 +203,7 @@ function LoginForm() {
               Wachtwoord vergeten?
             </Link>
             <Link className="nieuw-link" href="/nieuw/modellen/registreren">
-              Nog geen account? Registreer
+              Modellenaccount maken
             </Link>
           </div>
         </form>
@@ -212,22 +213,47 @@ function LoginForm() {
 }
 
 function WrongRolePanel() {
-  const { logout } = useAuth();
+  const { logout, user, can } = useAuth();
+  const isAdmin = Boolean(user?.roles?.includes('admin') || can('*'));
+
   return (
     <section className="nieuw-uc">
-      <div className="nieuw-wrap">
+      <div className="nieuw-wrap" style={{ maxWidth: 560 }}>
         <h1 className="nieuw-h1">
-          Alleen voor <em>modellen</em>
+          {isAdmin ? (
+            <>
+              Admin · <em>modellenportaal</em>
+            </>
+          ) : (
+            <>
+              Alleen voor <em>modellen</em>
+            </>
+          )}
         </h1>
         <p className="nieuw-lead" style={{ margin: '18px auto 0', textAlign: 'center' }}>
-          U bent ingelogd, maar dit account heeft geen modelrol. Het Modellenportaal is uitsluitend bedoeld
-          voor geregistreerde modellen van Class-Models.
+          {isAdmin
+            ? 'U bent als administrator ingelogd. Open een model via “Modellen” en kies “Als model” om het portaal in naam van dat model te gebruiken — of log uit en log in met een modelaccount.'
+            : 'U bent ingelogd met een account zonder modelrol. Het Modellenportaal is alleen voor contractmodellen. Log uit en log in met uw modelaccount, of maak een account aan als u een overeenkomst heeft.'}
         </p>
         <div style={{ marginTop: 36, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button type="button" className="nieuw-btn" onClick={() => logout()}>
-            Uitloggen
+          {isAdmin ? (
+            <Link className="nieuw-btn" href="/nieuw/modellen?tab=modellen&admin=1">
+              Naar modellen (als admin)
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            className="nieuw-btn"
+            onClick={() => {
+              logout();
+            }}
+          >
+            Uitloggen en opnieuw inloggen
           </button>
-          <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/gasten">
+          <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen/registreren">
+            Modellenaccount maken
+          </Link>
+          <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/gasten/model-worden">
             Naar gastenportaal
           </Link>
         </div>
@@ -250,6 +276,8 @@ export default function NieuwModellenPage() {
   const [mediaBusy, setMediaBusy] = useState(false);
 
   const isModel = Boolean(user?.roles?.includes('model'));
+  const isAdminUser = Boolean(user?.roles?.includes('admin') || can('*'));
+  const canEnterPortal = isModel || isAdminUser;
 
   useEffect(() => {
     if (!isModel) return;
@@ -368,7 +396,7 @@ export default function NieuwModellenPage() {
     );
   } else if (!user && !preview) {
     body = <LoginForm />;
-  } else if (user && !isModel && !preview) {
+  } else if (user && !canEnterPortal && !preview) {
     body = <WrongRolePanel />;
   } else if (preview && !user) {
     const activeLabel = MODEL_PORTAL_TABS.find((t) => t.id === tab)?.label ?? 'Home';
@@ -380,15 +408,14 @@ export default function NieuwModellenPage() {
             <span className="nieuw-label">Voorbeeldmodus</span>
             <p className="nieuw-lead" style={{ marginTop: 8 }}>
               U bekijkt het Modellenportaal zonder inloggen. Interactieve functies (opdrachten
-              boeken, betalen, uploads) werken pas na login. Demo-account:{' '}
-              <strong>model@class-models.local</strong> / <strong>Demo123!</strong>
+              boeken, betalen, uploads) werken pas na login met een modelaccount onder contract.
             </p>
             <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link className="nieuw-btn" href="/nieuw/modellen">
                 Naar inloggen
               </Link>
               <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen/registreren">
-                Registreer
+                Modellenaccount maken
               </Link>
             </div>
           </div>
@@ -442,7 +469,7 @@ export default function NieuwModellenPage() {
         </div>
       </section>
     );
-  } else if (user && (isModel || preview)) {
+  } else if (user && (canEnterPortal || preview)) {
     const portalUser = user;
     const displayName = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ').trim() || portalUser.email;
     const isPremium = portalUser.isPremium;
@@ -450,7 +477,22 @@ export default function NieuwModellenPage() {
 
     let main: ReactNode = null;
 
-    if (tab === 'home') {
+    if (isAdminUser && !isModel && tab === 'home') {
+      main = (
+        <div className="nieuw-panel" style={{ borderColor: 'var(--n-gold-hair)' }}>
+          <span className="nieuw-label">Administrator</span>
+          <p className="nieuw-lead" style={{ marginTop: 10 }}>
+            U hebt toegang tot het Modellenportaal als admin. Open de tab Modellen, bekijk een
+            fiche en kies <strong>Als model</strong> om alle acties in naam van dat model uit te voeren.
+          </p>
+          <div style={{ marginTop: 18 }}>
+            <Link className="nieuw-btn" href="/nieuw/modellen?tab=modellen">
+              Naar modellenoverzicht
+            </Link>
+          </div>
+        </div>
+      );
+    } else if (tab === 'home') {
       main = (
         <div style={{ display: 'grid', gap: 28 }}>
           <ModelPortalHomeContent
@@ -636,10 +678,17 @@ export default function NieuwModellenPage() {
         <div className="nieuw-wrap">
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16, alignItems: 'center' }}>
             <span style={{ fontSize: 13, color: 'var(--n-mut)' }}>{displayName}</span>
+            {isAdminUser && !isModel ? (
+              <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--n-gold)' }}>
+                Admin
+              </span>
+            ) : null}
             <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={() => logout()}>
               Uitloggen
             </button>
           </div>
+
+          <ImpersonationBanner />
 
           <div className="nieuw-panel nieuw-themed" style={{ padding: 22, minWidth: 0 }}>
             {main}
