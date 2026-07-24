@@ -38,7 +38,9 @@ function StepNum({ n }: { n: number }) {
   );
 }
 
-const tab = (id: string) => `/portal/model?tab=${id}`;
+function defaultHrefForTab(id: string) {
+  return id === 'home' ? '/portal/model' : `/portal/model?tab=${id}`;
+}
 
 function AsideInfoCard({
   titleKey,
@@ -52,17 +54,17 @@ function AsideInfoCard({
   bodyFallback: string;
 }) {
   return (
-    <div className="border border-zinc-300 bg-white">
-      <div className="border-b-2 border-burgundy bg-burgundy px-3 py-2.5 md:px-2 md:py-0.5">
+    <div className="portal-aside-card border border-zinc-300 bg-white">
+      <div className="border-b-2 border-burgundy bg-burgundy px-3 py-2.5">
         <CmText
           contentKey={titleKey}
           as="h3"
-          className="text-sm font-bold uppercase leading-snug tracking-wide text-white md:text-[10px] md:leading-tight"
+          className="text-[13.5px] font-semibold uppercase leading-snug tracking-wide text-white"
           fallback={titleFallback}
         />
       </div>
-      <div className="space-y-2 px-3 py-3 text-[15px] leading-relaxed text-ink/90 md:space-y-1.5 md:px-2 md:py-1.5 md:text-[11px] md:leading-snug">
-        <CmText contentKey={bodyKey} as="div" className="space-y-2 md:space-y-1.5" fallback={bodyFallback} />
+      <div className="space-y-2 px-3 py-3.5 text-[13.5px] leading-relaxed text-ink/90">
+        <CmText contentKey={bodyKey} as="div" className="space-y-2" fallback={bodyFallback} />
       </div>
     </div>
   );
@@ -72,21 +74,26 @@ export function ModelPortalHomeContent({
   userEmail,
   premiumReturn,
   pushUnreadCount = 0,
+  hrefForTab = defaultHrefForTab,
 }: {
   userEmail: string;
   premiumReturn: boolean;
   /** Aantal ongelezen pushberichten — badge bij "Berichten voor u". */
   pushUnreadCount?: number;
+  /** Tab-links — op de nieuwe site: `/nieuw/modellen?tab=…`. */
+  hrefForTab?: (tabId: string) => string;
 }) {
+  const tab = hrefForTab;
+
   return (
-    <div className="space-y-5">
+    <div className="model-portal-home space-y-5">
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(260px,34%)] lg:items-start">
-        <div className="min-w-0 space-y-4 text-[15px] leading-relaxed text-ink/90 md:text-[13px] md:leading-snug">
+        <div className="min-w-0 space-y-4 text-[13.5px] leading-relaxed text-ink/90">
           <SectionBlock>
             <CmText
               contentKey="portal.model.home.welcome.small"
               as="p"
-              className="text-[15px] font-medium leading-relaxed text-ink md:text-[13px] md:leading-snug"
+              className="text-[13.5px] font-medium leading-relaxed text-ink"
               fallback="Welkom in je account."
             />
             <CmText
@@ -98,7 +105,7 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.welcome.body"
               as="p"
-              className="mt-3 text-[15px] leading-relaxed text-ink/90 md:text-[13px] md:leading-snug"
+              className="mt-3 text-[13.5px] leading-relaxed text-ink/90"
               fallback="Gefeliciteerd met uw inschrijving bij Class-Models. Uw persoonlijk profiel is succesvol aangemaakt. Via dit platform beheert u als model uw gegevens, aanvragen en communicatie met het team. Een volledig en actueel profiel is essentieel om in aanmerking te komen voor opdrachten."
             />
             <div className="mt-4 rounded-cm border border-line bg-panel px-3 py-2.5">
@@ -111,7 +118,7 @@ export function ModelPortalHomeContent({
               <CmText
                 contentKey="portal.model.home.important.body"
                 as="p"
-                className="mt-1.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90"
+                className="mt-1.5 text-[13.5px] leading-relaxed text-ink/90"
                 fallback="Om je account volledig te beheren, blijf je ingelogd. Je vindt alles in het menu links."
               />
             </div>
@@ -119,7 +126,7 @@ export function ModelPortalHomeContent({
               <CmText
                 contentKey="portal.model.home.premium.return"
                 as="p"
-                className="mt-3 rounded-cm border border-line bg-panel px-3 py-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink"
+                className="mt-3 rounded-cm border border-line bg-panel px-3 py-2 text-[13.5px] leading-relaxed text-ink"
                 fallback="U bent terug van de betalingspagina. Premium wordt geactiveerd zodra de betaling is bevestigd."
               />
             ) : null}
@@ -354,13 +361,13 @@ export function ModelPortalHomeContent({
             <div className="mt-3 space-y-2.5">
               <Link
                 href={tab('push')}
-                className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
               >
                 <span className="flex items-center justify-between gap-2">
                   <CmText
                     contentKey="portal.model.home.quick.push.title"
                     as="span"
-                    className="text-sm font-semibold text-ink"
+                    className="portal-quick-title text-[13.5px] font-semibold text-ink"
                     fallback="Berichten voor u"
                   />
                   <span
@@ -372,7 +379,7 @@ export function ModelPortalHomeContent({
                     {pushUnreadCount > 99 ? '99+' : pushUnreadCount}
                   </span>
                 </span>
-                <span className="mt-0.5 block text-xs font-normal text-muted">
+                <span className="portal-quick-sub mt-1 block text-[13.5px] font-normal text-muted">
                   {pushUnreadCount > 0
                     ? `${pushUnreadCount} ongelezen pushbericht${pushUnreadCount === 1 ? '' : 'en'}`
                     : 'Pushberichten bekijken'}
@@ -380,86 +387,86 @@ export function ModelPortalHomeContent({
               </Link>
               <Link
                 href={tab('opleiding')}
-                className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
               >
                 <CmText
                   contentKey="portal.model.home.quick.opleiding.title"
                   as="span"
-                  className="text-sm font-semibold text-ink"
+                  className="portal-quick-title text-[13.5px] font-semibold text-ink"
                   fallback="Opleiding inschrijven"
                 />
                 <CmText
                   contentKey="portal.model.home.quick.opleiding.sub"
                   as="span"
-                  className="mt-0.5 block text-xs font-normal text-muted"
+                  className="portal-quick-sub mt-1 block text-[13.5px] font-normal text-muted"
                   fallback="Verplichte eerste stap"
                 />
               </Link>
               <Link
                 href={tab('portfolio')}
-                className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
               >
                 <CmText
                   contentKey="portal.model.home.quick.portfolio.title"
                   as="span"
-                  className="text-sm font-semibold text-ink"
+                  className="portal-quick-title text-[13.5px] font-semibold text-ink"
                   fallback="Portfolio-afspraak"
                 />
                 <CmText
                   contentKey="portal.model.home.quick.portfolio.sub"
                   as="span"
-                  className="mt-0.5 block text-xs font-normal text-muted"
+                  className="portal-quick-sub mt-1 block text-[13.5px] font-normal text-muted"
                   fallback="Professioneel portfolio"
                 />
               </Link>
               <Link
                 href={tab('opdrachten')}
-                className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
               >
                 <CmText
                   contentKey="portal.model.home.quick.opdrachten.title"
                   as="span"
-                  className="text-sm font-semibold text-ink"
+                  className="portal-quick-title text-[13.5px] font-semibold text-ink"
                   fallback="Opdrachten"
                 />
                 <CmText
                   contentKey="portal.model.home.quick.opdrachten.sub"
                   as="span"
-                  className="mt-0.5 block text-xs font-normal text-muted"
+                  className="portal-quick-sub mt-1 block text-[13.5px] font-normal text-muted"
                   fallback="Openstaande aanvragen"
                 />
               </Link>
               <Link
                 href={tab('bericht')}
-                className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
               >
                 <CmText
                   contentKey="portal.model.home.quick.bericht.title"
                   as="span"
-                  className="text-sm font-semibold text-ink"
+                  className="portal-quick-title text-[13.5px] font-semibold text-ink"
                   fallback="Bericht naar het team"
                 />
                 <CmText
                   contentKey="portal.model.home.quick.bericht.sub"
                   as="span"
-                  className="mt-0.5 block text-xs font-normal text-muted"
+                  className="portal-quick-sub mt-1 block text-[13.5px] font-normal text-muted"
                   fallback="Direct contact"
                 />
               </Link>
               <Link
                 href={tab('profiel')}
-                className="block rounded-cm border border-line bg-panel px-4 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
               >
                 <CmText
                   contentKey="portal.model.home.quick.profiel.title"
                   as="span"
-                  className="text-sm font-semibold text-ink"
+                  className="portal-quick-title text-[13.5px] font-semibold text-ink"
                   fallback="Modellenfiche bijwerken"
                 />
                 <CmText
                   contentKey="portal.model.home.quick.profiel.sub"
                   as="span"
-                  className="mt-0.5 block text-xs font-normal text-muted"
+                  className="portal-quick-sub mt-1 block text-[13.5px] font-normal text-muted"
                   fallback="Gegevens en maten"
                 />
               </Link>
@@ -500,17 +507,17 @@ Let op: een groot deel van de opdrachten wordt rechtstreeks door klanten toegewe
             <CmText contentKey="portal.model.home.loggedIn.prefix" as="span" fallback="Ingelogd als" /> {userEmail}.
           </p>
 
-          <div className="border border-burgundy/25 bg-zinc-50 px-3 py-2.5 md:px-2 md:py-1.5">
+          <div className="portal-remember-card border border-burgundy/25 bg-zinc-50 px-3 py-2.5">
             <CmText
               contentKey="portal.model.home.remember.kicker"
               as="p"
-              className="text-xs font-bold uppercase leading-snug tracking-wide text-burgundy md:text-[10px] md:leading-tight"
+              className="text-xs font-bold uppercase leading-snug tracking-wide text-burgundy"
               fallback="Onthouden"
             />
             <CmText
               contentKey="portal.model.home.remember.body"
               as="p"
-              className="mt-1.5 text-[15px] leading-relaxed text-ink/85 md:mt-1 md:text-[11px] md:leading-snug"
+              className="portal-remember-body mt-1.5 text-[13.5px] leading-relaxed text-ink"
               fallback="Controleer regelmatig uw dashboard en houd uw profiel up-to-date — dat vergroot uw kansen op passende opdrachten."
             />
           </div>

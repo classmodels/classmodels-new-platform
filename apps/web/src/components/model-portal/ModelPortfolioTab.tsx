@@ -118,22 +118,42 @@ export function ModelPortfolioTab({
   }, [token, can, load]);
 
   const headerBtn = useCallback(
-    (label: string, onClick: () => void, primary?: boolean, danger?: boolean) => (
-      <button
-        type="button"
-        onClick={onClick}
-        className={
-          danger
-            ? 'border border-white/70 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/20'
-            : primary
-              ? 'border border-white bg-white px-3 py-1.5 text-[11px] font-semibold text-burgundy hover:bg-zinc-100'
-              : 'border border-white/60 bg-white/0 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/10'
-        }
-      >
-        {label}
-      </button>
-    ),
-    [],
+    (label: string, onClick: () => void, primary?: boolean, danger?: boolean) => {
+      const inline = !onHeaderRightChange;
+      if (inline) {
+        return (
+          <button
+            type="button"
+            onClick={onClick}
+            className={
+              danger
+                ? 'nieuw-btn nieuw-btn-ghost'
+                : primary
+                  ? 'nieuw-btn'
+                  : 'nieuw-btn nieuw-btn-ghost'
+            }
+          >
+            {label}
+          </button>
+        );
+      }
+      return (
+        <button
+          type="button"
+          onClick={onClick}
+          className={
+            danger
+              ? 'border border-white/70 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/20'
+              : primary
+                ? 'border border-white bg-white px-3 py-1.5 text-[11px] font-semibold text-burgundy hover:bg-zinc-100'
+                : 'border border-white/60 bg-white/0 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-white/10'
+          }
+        >
+          {label}
+        </button>
+      );
+    },
+    [onHeaderRightChange],
   );
 
   const computedHeaderRight = useMemo(() => {
@@ -160,6 +180,9 @@ export function ModelPortfolioTab({
 
   return (
     <div className="space-y-3">
+      {!onHeaderRightChange ? (
+        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
+      ) : null}
       {downloadProgress ? (
         <CmProgressOverlay
           label="Portfolio downloaden…"

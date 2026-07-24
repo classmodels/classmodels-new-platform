@@ -1,0 +1,655 @@
+'use client';
+
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { NieuwShell } from '@/components/nieuw/NieuwShell';
+import { NieuwModelsGallery } from '@/components/nieuw/NieuwModelsGallery';
+import { useAuth } from '@/context/auth-context';
+import { apiFetch, getApiBase } from '@/lib/api';
+import { uploadWithProgress } from '@/lib/upload-with-progress';
+import {
+  MODEL_PORTAL_TABS,
+  parseModelPortalTab,
+  type ModelPortalTabId,
+} from '@/components/model-portal/model-portal-nav';
+import { ModelPortalHomeContent } from '@/components/model-portal/ModelPortalHomeContent';
+import { ModelPremiumTab } from '@/components/model-portal/ModelPremiumTab';
+import { ModelPortalProfile, type ProfileMediaRow } from '@/components/model-portal/ModelPortalProfile';
+import { ModelPortfolioTab } from '@/components/model-portal/ModelPortfolioTab';
+import { ModelOpleidingTab } from '@/components/model-portal/ModelOpleidingTab';
+import { ModelPortalHistoriekTab } from '@/components/model-portal/ModelPortalHistoriekTab';
+import { ModelPortalPushTab } from '@/components/model-portal/ModelPortalPushTab';
+import { ModelTryoutModeshowTab } from '@/components/model-portal/ModelTryoutModeshowTab';
+import { ModelModeshowDownloadsTab } from '@/components/model-portal/ModelModeshowDownloadsTab';
+import { ModelSetCardTab } from '@/components/model-portal/ModelSetCardTab';
+import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalReviewTab';
+import { PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
+
+type PremiumInfo = {
+  currency: string;
+  amount: string;
+  premiumDurationDays: number;
+  promoActive?: boolean;
+  promoEndsAt?: string;
+  promoPrice?: string;
+  yearlyPrice?: string;
+  billingLabel?: string;
+};
+
+type CheckoutOk = { checkoutUrl: string; paymentId: string; subscriptionId: string };
+type CheckoutSkip = {
+  skipCheckout: true;
+  reason: string;
+  isPremium?: boolean;
+  premiumUntil?: string;
+};
+
+function tabHref(id: ModelPortalTabId): string {
+  return id === 'home' ? '/nieuw/modellen' : `/nieuw/modellen?tab=${id}`;
+}
+
+function ClassicPortalLink({ tab, label }: { tab: ModelPortalTabId; label: string }) {
+  return (
+    <div className="nieuw-panel" style={{ textAlign: 'center' }}>
+      <p className="nieuw-lead" style={{ margin: '0 auto', textAlign: 'center' }}>
+        Deze module ({label}) is volledig beschikbaar in het klassieke modellenportaal.
+      </p>
+      <div style={{ marginTop: 28 }}>
+        <Link className="nieuw-btn" href={`/portal/model?tab=${tab}`}>
+          Open klassieke module
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function LoginForm() {
+  const { login } = useAuth();
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await login(identifier.trim(), password, { rememberMe: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Inloggen mislukt.';
+      setError(
+        /database|server|mis/i.test(msg)
+          ? 'Inloggen lukt niet: de lokale database draait niet (of de API kan er niet bij). Gebruik hieronder “Voorbeeld bekijken” om de pagina’s toch te zien, of start Docker/MySQL.'
+          : msg,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const fillDemo = () => {
+    setIdentifier('model@class-models.local');
+    setPassword('Demo123!');
+    setError(null);
+  };
+
+  return (
+    <section className="nieuw-sectie">
+      <div className="nieuw-wrap" style={{ maxWidth: 520 }}>
+        <h1 className="nieuw-h1" style={{ fontSize: 'clamp(32px, 4vw, 48px)' }}>
+          Welkom <em>terug</em>
+        </h1>
+        <p className="nieuw-lead">
+          Log in om uw portaal te openen — of bekijk eerst een voorbeeld van alle pagina’s zonder
+          account.
+        </p>
+
+        <div className="nieuw-panel" style={{ marginTop: 22, borderColor: 'var(--n-gold-hair)' }}>
+          <span className="nieuw-label">Lokaal demo-account</span>
+          <p style={{ margin: '10px 0 0', color: 'var(--n-mut)', fontSize: 14 }}>
+            E-mail: <strong style={{ color: 'var(--n-ink)' }}>model@class-models.local</strong>
+            <br />
+            Wachtwoord: <strong style={{ color: 'var(--n-ink)' }}>Demo123!</strong>
+          </p>
+          <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" className="nieuw-btn" onClick={fillDemo}>
+              Vul demo-gegevens in
+            </button>
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen?preview=1">
+              Voorbeeld bekijken (zonder login)
+            </Link>
+          </div>
+        </div>
+
+        <form className="nieuw-panel" style={{ marginTop: 18 }} onSubmit={onSubmit}>
+          <label style={{ display: 'block', marginBottom: 16 }}>
+            <span
+              style={{
+                display: 'block',
+                fontSize: 11,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--n-dim)',
+                marginBottom: 8,
+              }}
+            >
+              E-mail of gebruikersnaam
+            </span>
+            <input
+              type="text"
+              autoComplete="username"
+              required
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'var(--n-bg)',
+                border: '1px solid var(--n-hair)',
+                color: 'var(--n-ink)',
+                padding: '12px 14px',
+                fontSize: 14,
+              }}
+            />
+          </label>
+          <label style={{ display: 'block', marginBottom: 20 }}>
+            <span
+              style={{
+                display: 'block',
+                fontSize: 11,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--n-dim)',
+                marginBottom: 8,
+              }}
+            >
+              Wachtwoord
+            </span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'var(--n-bg)',
+                border: '1px solid var(--n-hair)',
+                color: 'var(--n-ink)',
+                padding: '12px 14px',
+                fontSize: 14,
+              }}
+            />
+          </label>
+          {error ? (
+            <p style={{ color: '#e8a0a0', fontSize: 13, margin: '0 0 16px' }}>{error}</p>
+          ) : null}
+          <button className="nieuw-btn" type="submit" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
+            {busy ? 'Bezig…' : 'Inloggen'}
+          </button>
+          <div
+            style={{
+              marginTop: 20,
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 14,
+              justifyContent: 'space-between',
+              fontSize: 13,
+            }}
+          >
+            <Link className="nieuw-link" href="/nieuw/modellen/wachtwoord-vergeten">
+              Wachtwoord vergeten?
+            </Link>
+            <Link className="nieuw-link" href="/nieuw/modellen/registreren">
+              Nog geen account? Registreer
+            </Link>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function WrongRolePanel() {
+  const { logout } = useAuth();
+  return (
+    <section className="nieuw-uc">
+      <div className="nieuw-wrap">
+        <h1 className="nieuw-h1">
+          Alleen voor <em>modellen</em>
+        </h1>
+        <p className="nieuw-lead" style={{ margin: '18px auto 0', textAlign: 'center' }}>
+          U bent ingelogd, maar dit account heeft geen modelrol. Het Modellenportaal is uitsluitend bedoeld
+          voor geregistreerde modellen van Class-Models.
+        </p>
+        <div style={{ marginTop: 36, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button type="button" className="nieuw-btn" onClick={() => logout()}>
+            Uitloggen
+          </button>
+          <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/gasten">
+            Naar gastenportaal
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export default function NieuwModellenPage() {
+  const { user, loading, token, logout, refreshMe, can } = useAuth();
+  const searchParams = useSearchParams();
+  const tab = parseModelPortalTab(searchParams.get('tab'));
+  const premiumReturn = searchParams.get('premium') === 'return';
+
+  const [premiumInfo, setPremiumInfo] = useState<PremiumInfo | null>(null);
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [checkoutErr, setCheckoutErr] = useState<string | null>(null);
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [media, setMedia] = useState<ProfileMediaRow[]>([]);
+  const [mediaBusy, setMediaBusy] = useState(false);
+
+  const isModel = Boolean(user?.roles?.includes('model'));
+
+  useEffect(() => {
+    if (!isModel) return;
+    apiFetch<PremiumInfo>('/payments/premium/info')
+      .then(setPremiumInfo)
+      .catch(() => setPremiumInfo(null));
+  }, [isModel, tab]);
+
+  const loadMedia = useCallback(async (): Promise<ProfileMediaRow[]> => {
+    if (!token || !can('portal.model.media.read')) return [];
+    try {
+      const rows = await apiFetch<ProfileMediaRow[]>('/portal/model/media', { token });
+      setMedia(rows);
+      return rows;
+    } catch {
+      setMedia([]);
+      return [];
+    }
+  }, [token, can]);
+
+  useEffect(() => {
+    if (!isModel) return;
+    void loadMedia();
+  }, [isModel, loadMedia]);
+
+  useEffect(() => {
+    if (tab !== 'profiel') setProfileEditing(false);
+  }, [tab]);
+
+  const startPremium = useCallback(async () => {
+    if (!token) return;
+    setCheckoutErr(null);
+    setCheckoutBusy(true);
+    try {
+      const res = await apiFetch<CheckoutOk | CheckoutSkip>('/payments/premium/checkout', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({}),
+      });
+      if ('skipCheckout' in res && res.skipCheckout) {
+        setCheckoutErr(res.reason);
+        return;
+      }
+      if ('checkoutUrl' in res && res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+        return;
+      }
+      setCheckoutErr('Onverwacht antwoord van de server.');
+    } catch (e) {
+      setCheckoutErr(e instanceof Error ? e.message : 'Betaling starten mislukt.');
+    } finally {
+      setCheckoutBusy(false);
+    }
+  }, [token]);
+
+  const uploadMedia = async (
+    file: File | null,
+    opts?: { setAsProfilePhoto?: boolean; folderSlug?: 'models' | 'tijdelijke-uploads' | 'setkaarten' },
+  ): Promise<{ id: string } | null> => {
+    if (!file || !token || !can('portal.model.media.upload')) return null;
+    setMediaBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const folderSlug = opts?.setAsProfilePhoto ? 'models' : (opts?.folderSlug ?? 'models');
+      const text = await uploadWithProgress(
+        `${getApiBase()}/portal/model/media/upload?folderSlug=${encodeURIComponent(folderSlug)}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+          onProgress: () => undefined,
+          onUploadBytesComplete: () => undefined,
+        },
+      );
+      const row = JSON.parse(text) as { id?: string; error?: string };
+      if (row?.error) throw new Error(row.error);
+      await loadMedia();
+      if (opts?.setAsProfilePhoto && row?.id) {
+        await apiFetch('/users/me', {
+          method: 'PATCH',
+          token,
+          body: JSON.stringify({ profilePhotoAssetId: row.id }),
+        });
+        await refreshMe();
+      }
+      return row?.id ? { id: row.id } : null;
+    } finally {
+      setMediaBusy(false);
+    }
+  };
+
+  const setProfilePhotoFromAsset = async (assetId: string) => {
+    if (!token) return;
+    setMediaBusy(true);
+    try {
+      await apiFetch('/users/me', {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify({ profilePhotoAssetId: assetId }),
+      });
+      await refreshMe();
+    } finally {
+      setMediaBusy(false);
+    }
+  };
+
+  const preview = searchParams.get('preview') === '1';
+
+  let body: ReactNode;
+
+  if (loading && !preview) {
+    body = (
+      <section className="nieuw-uc">
+        <p className="nieuw-lead">Laden…</p>
+      </section>
+    );
+  } else if (!user && !preview) {
+    body = <LoginForm />;
+  } else if (user && !isModel && !preview) {
+    body = <WrongRolePanel />;
+  } else if (preview && !user) {
+    const activeLabel = MODEL_PORTAL_TABS.find((t) => t.id === tab)?.label ?? 'Home';
+    let main: ReactNode = null;
+    if (tab === 'home' || tab === 'modellen') {
+      main = (
+        <div style={{ display: 'grid', gap: 24 }}>
+          <div className="nieuw-panel" style={{ borderColor: 'var(--n-gold-hair)' }}>
+            <span className="nieuw-label">Voorbeeldmodus</span>
+            <p className="nieuw-lead" style={{ marginTop: 8 }}>
+              U bekijkt het Modellenportaal zonder inloggen. Interactieve functies (opdrachten
+              boeken, betalen, uploads) werken pas na login. Demo-account:{' '}
+              <strong>model@class-models.local</strong> / <strong>Demo123!</strong>
+            </p>
+            <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Link className="nieuw-btn" href="/nieuw/modellen">
+                Naar inloggen
+              </Link>
+              <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen/registreren">
+                Registreer
+              </Link>
+            </div>
+          </div>
+          <NieuwModelsGallery title="Overzicht onze modellen" />
+        </div>
+      );
+    } else {
+      main = (
+        <div className="nieuw-panel">
+          <p className="nieuw-lead" style={{ marginTop: 0 }}>
+            Dit is hoe de sectie “{activeLabel}” in het Modellenportaal eruitziet. De echte inhoud
+            (uw opdrachten, fiche, betalingen…) verschijnt na inloggen met een modelaccount.
+          </p>
+          <ul className="nieuw-checklist" style={{ marginTop: 20 }}>
+            <li>
+              <span className="v">✓</span>
+              <span>Zelfde menu en navigatie als na login</span>
+            </li>
+            <li>
+              <span className="v">✓</span>
+              <span>Zakelijke, donkere stijl van de nieuwe site</span>
+            </li>
+            <li>
+              <span className="v">✓</span>
+              <span>Na login: volledige werking met database</span>
+            </li>
+          </ul>
+          <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Link className="nieuw-btn" href="/nieuw/modellen">
+              Inloggen
+            </Link>
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen?preview=1">
+              Terug naar home (voorbeeld)
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    body = (
+      <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
+        <div className="nieuw-wrap">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <Link className="nieuw-btn" href="/nieuw/modellen">
+              Inloggen
+            </Link>
+          </div>
+          <div className="nieuw-panel nieuw-themed" style={{ padding: 22, minWidth: 0 }}>
+            {main}
+          </div>
+        </div>
+      </section>
+    );
+  } else if (user && (isModel || preview)) {
+    const portalUser = user;
+    const displayName = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ').trim() || portalUser.email;
+    const isPremium = portalUser.isPremium;
+    const activeLabel = MODEL_PORTAL_TABS.find((t) => t.id === tab)?.label ?? 'Home';
+
+    let main: ReactNode = null;
+
+    if (tab === 'home') {
+      main = (
+        <div style={{ display: 'grid', gap: 28 }}>
+          <ModelPortalHomeContent
+            userEmail={portalUser.email}
+            premiumReturn={premiumReturn}
+            pushUnreadCount={portalUser.push?.unreadCount ?? 0}
+            hrefForTab={(id) => tabHref(id as Parameters<typeof tabHref>[0])}
+          />
+        </div>
+      );
+    } else if (tab === 'premium') {
+      main = (
+        <ModelPremiumTab
+          user={portalUser}
+          premiumInfo={premiumInfo}
+          checkoutBusy={checkoutBusy}
+          checkoutErr={checkoutErr}
+          premiumReturn={premiumReturn}
+          canCheckout={can('payments.checkout')}
+          onStartCheckout={() => void startPremium()}
+        />
+      );
+    } else if (tab === 'opdrachten') {
+      main = (
+        <div className="nieuw-panel" style={{ textAlign: 'center' }}>
+          <h2 className="nieuw-h2" style={{ fontSize: 28 }}>
+            Opdrachten zijn beschikbaar
+          </h2>
+          <p className="nieuw-lead" style={{ margin: '14px auto 0', textAlign: 'center' }}>
+            De volledige brief-UI (filters, inschrijven, criteria) staat in het klassieke modellenportaal.
+            Open die module om te reageren op openstaande opdrachten.
+          </p>
+          <div style={{ marginTop: 28 }}>
+            <Link className="nieuw-btn" href="/portal/model?tab=opdrachten">
+              Open opdrachtmodule
+            </Link>
+          </div>
+        </div>
+      );
+    } else if (tab === 'profiel') {
+      if (!token) {
+        main = <p className="nieuw-lead">Laden…</p>;
+      } else {
+        main = (
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className={profileEditing ? 'nieuw-btn nieuw-btn-ghost' : 'nieuw-btn'}
+                onClick={() => setProfileEditing((v) => !v)}
+              >
+                {profileEditing ? 'Terug naar overzicht' : 'Profiel bewerken'}
+              </button>
+            </div>
+            <ModelPortalProfile
+              user={portalUser}
+              token={token}
+              refreshMe={refreshMe}
+              editing={profileEditing}
+              canReadMedia={can('portal.model.media.read')}
+              canUploadMedia={can('portal.model.media.upload')}
+              media={media}
+              mediaBusy={mediaBusy}
+              uploadMedia={uploadMedia}
+              setProfilePhotoFromAsset={setProfilePhotoFromAsset}
+              reloadMedia={loadMedia}
+              premiumSection={null}
+            />
+          </div>
+        );
+      }
+    } else if (tab === 'portfolio') {
+      main = <ModelPortfolioTab />;
+    } else if (tab === 'opleiding') {
+      main = <ModelOpleidingTab />;
+    } else if (tab === 'historiek') {
+      if (!can('portal.model.history.read')) {
+        main = <ClassicPortalLink tab="historiek" label="Historiek" />;
+      } else {
+        main = (
+          <ModelPortalHistoriekTab
+            token={token}
+            lastLoginAt={portalUser.lastLoginAt ?? null}
+            blurDetails={!isPremium}
+          />
+        );
+      }
+    } else if (tab === 'push') {
+      if (!isPremium) {
+        main = (
+          <PremiumUpsellPanel
+            premiumHref="/nieuw/modellen?tab=premium"
+            title="Pushberichten zijn premium"
+            body="Ontvang meldingen op je telefoon of computer zodra er een opdracht past bij jouw profiel — alleen beschikbaar met premium."
+          />
+        );
+      } else {
+        main = (
+          <ModelPortalPushTab
+            token={token}
+            refreshMe={refreshMe}
+            canRead={can('portal.model.push.read')}
+            canSubscribe={can('portal.model.push.subscribe')}
+            pushSummary={portalUser.push}
+          />
+        );
+      }
+    } else if (tab === 'tryout-modeshow') {
+      main = can('portal.model.briefs.read') ? (
+        <ModelTryoutModeshowTab />
+      ) : (
+        <ClassicPortalLink tab="tryout-modeshow" label="Try-out modeshow" />
+      );
+    } else if (tab === 'modeshow-28') {
+      main = can('portal.model.media.read') ? (
+        <ModelModeshowDownloadsTab />
+      ) : (
+        <ClassicPortalLink tab="modeshow-28" label="Download try-out" />
+      );
+    } else if (tab === 'setkaarten') {
+      if (!can('portal.model.media.read')) {
+        main = <ClassicPortalLink tab="setkaarten" label="Setkaarten bestellen" />;
+      } else {
+        main = (
+          <ModelSetCardTab
+            token={token}
+            canRead={can('portal.model.media.read')}
+            canUpload={can('portal.model.media.upload')}
+            media={media}
+            mediaBusy={mediaBusy}
+            reloadMedia={loadMedia}
+            uploadMedia={uploadMedia}
+          />
+        );
+      }
+    } else if (tab === 'review-schrijven') {
+      main = <ModelPortalReviewTab token={token} user={portalUser} />;
+    } else if (tab === 'modellen') {
+      main = (
+        <NieuwModelsGallery title="Overzicht onze modellen" />
+      );
+    } else if (tab === 'bericht') {
+      if (!isPremium) {
+        main = (
+          <PremiumUpsellPanel
+            premiumHref="/nieuw/modellen?tab=premium"
+            title="Berichten sturen is premium"
+            body="Stuur rechtstreeks een bericht naar Class-Models vanuit je portaal — alleen beschikbaar met premium."
+          />
+        );
+      } else {
+        const subject = encodeURIComponent('Bericht Class-Models (model)');
+        const name = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ') || 'Model';
+        const bodyText = encodeURIComponent(
+          `\n\n---\nNaam: ${name}\nE-mail: ${portalUser.email}\nGSM: ${portalUser.phone ?? '—'}`,
+        );
+        main = (
+          <div className="nieuw-panel" style={{ textAlign: 'center' }}>
+            <h2 className="nieuw-h2" style={{ fontSize: 28 }}>
+              Contacteer Class-Models
+            </h2>
+            <p className="nieuw-lead" style={{ margin: '14px auto 0', textAlign: 'center' }}>
+              Open uw e-mailprogramma om een bericht te sturen naar info@class-models.be. Uw gegevens worden
+              vooringevuld in het bericht.
+            </p>
+            <div style={{ marginTop: 28 }}>
+              <a
+                className="nieuw-btn"
+                href={`mailto:info@class-models.be?subject=${subject}&body=${bodyText}`}
+              >
+                E-mail openen
+              </a>
+            </div>
+          </div>
+        );
+      }
+    } else {
+      main = <ClassicPortalLink tab={tab} label={activeLabel} />;
+    }
+
+    body = (
+      <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
+        <div className="nieuw-wrap">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16, alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--n-mut)' }}>{displayName}</span>
+            <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={() => logout()}>
+              Uitloggen
+            </button>
+          </div>
+
+          <div className="nieuw-panel nieuw-themed" style={{ padding: 22, minWidth: 0 }}>
+            {main}
+          </div>
+        </div>
+      </section>
+    );
+  } else {
+    body = <LoginForm />;
+  }
+
+  return <NieuwShell portal="modellen">{body}</NieuwShell>;
+}

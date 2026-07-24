@@ -1,0 +1,1486 @@
+/* Class-Models — nieuwe site (/nieuw) */
+.nieuw-root {
+  --n-bg: #0d0d11;
+  --n-bg-2: #121218;
+  --n-bg-3: #18181f;
+  --n-ink: #eee9df;
+  --n-mut: #a49d90;
+  --n-dim: #6f6a5f;
+  --n-gold: #c8a662;
+  --n-hair: rgba(238, 233, 223, 0.12);
+  --n-gold-hair: rgba(200, 166, 98, 0.35);
+  --n-serif: 'Cormorant Garamond', Georgia, serif;
+  --n-display: 'Montserrat', Inter, -apple-system, 'Segoe UI', sans-serif;
+  --n-sans: Inter, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--n-bg);
+  color: var(--n-ink);
+  font-family: var(--n-sans);
+  font-size: 15px;
+  line-height: 1.7;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.nieuw-root * { box-sizing: border-box; }
+.nieuw-wrap { width: min(1180px, 92vw); margin: 0 auto; }
+.nieuw-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+}
+.nieuw-h1 {
+  font-family: var(--n-serif);
+  font-size: clamp(40px, 5.2vw, 68px);
+  line-height: 1.08;
+  font-weight: 600;
+  margin: 0;
+}
+.nieuw-h1 em { font-style: italic; color: var(--n-gold); font-weight: 500; }
+.nieuw-h2 {
+  font-family: var(--n-serif);
+  font-size: clamp(28px, 3.4vw, 42px);
+  line-height: 1.15;
+  font-weight: 600;
+  margin: 0;
+}
+.nieuw-h2 em { font-style: italic; color: var(--n-gold); font-weight: 500; }
+.nieuw-h3 {
+  font-family: var(--n-serif);
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.2;
+  font-weight: 600;
+  margin: 0;
+  color: var(--n-ink);
+}
+.nieuw-h3 em { font-style: italic; color: var(--n-gold); font-weight: 500; }
+.nieuw-lead { color: var(--n-mut); font-size: 14.5px; max-width: 58ch; margin: 14px 0 0; }
+.nieuw-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--n-gold);
+  color: #14110a;
+  text-decoration: none;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 14px 28px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.nieuw-btn:hover { background: #dcbd7c; transform: translateY(-1px); }
+.nieuw-btn-ghost {
+  background: transparent;
+  color: var(--n-ink);
+  border: 1px solid var(--n-hair);
+}
+.nieuw-btn-ghost:hover { border-color: var(--n-gold); color: var(--n-gold); background: transparent; }
+.nieuw-link {
+  color: var(--n-gold);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.nieuw-link:hover { color: #dcbd7c; }
+
+/* Header — 100% breed; logo links, 3 pijlers gecentreerd, acties rechts */
+.nieuw-kop {
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  width: 100%;
+  background: #000;
+  border-bottom: 1px solid var(--n-hair);
+}
+.nieuw-kop-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 16px 30px;
+  box-sizing: border-box;
+}
+.nieuw-merk {
+  text-decoration: none;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-self: start;
+  flex: none;
+  z-index: 1;
+}
+.nieuw-merk-logo {
+  display: block;
+  height: 44px;
+  width: auto;
+  max-width: min(360px, 28vw);
+  object-fit: contain;
+  object-position: left center;
+}
+.nieuw-merk-naam {
+  font-family: var(--n-serif);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--n-ink);
+}
+.nieuw-merk-naam b { color: var(--n-gold); font-weight: 600; }
+.nieuw-merk-sub {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: var(--n-dim);
+}
+
+/* Drie pijlers in de kop: lichte kader + overlay */
+.nieuw-kop-pillars,
+.nieuw-kop-pillars-spacer {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  justify-self: center;
+  gap: 12px;
+  z-index: 1;
+}
+.nieuw-pillar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid rgba(238, 233, 223, 0.38);
+  padding: 11px 18px;
+  min-height: 42px;
+  color: var(--n-mut);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nieuw-pillar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(238, 233, 223, 0.07);
+  transition: background 0.2s;
+  pointer-events: none;
+}
+.nieuw-pillar > span {
+  position: relative;
+  z-index: 1;
+}
+.nieuw-pillar:hover {
+  color: var(--n-ink);
+  border-color: rgba(238, 233, 223, 0.55);
+}
+.nieuw-pillar:hover::before {
+  background: rgba(238, 233, 223, 0.12);
+}
+.nieuw-pillar.actief {
+  color: var(--n-gold);
+  border-color: rgba(200, 166, 98, 0.65);
+}
+.nieuw-pillar.actief::before {
+  background: rgba(200, 166, 98, 0.22);
+}
+
+.nieuw-kop-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-self: end;
+  flex: none;
+  z-index: 1;
+}
+.nieuw-kop-actions a,
+.nieuw-kop-actions .nieuw-back-btn {
+  color: var(--n-mut);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.2s;
+}
+.nieuw-kop-actions a:hover,
+.nieuw-kop-actions .nieuw-back-btn:hover {
+  color: var(--n-gold);
+}
+.nieuw-kop-actions .nieuw-back-btn {
+  border: 1px solid var(--n-hair);
+  color: var(--n-ink);
+  padding: 7px 14px;
+}
+.nieuw-kop-actions .nieuw-back-btn:hover {
+  border-color: var(--n-gold);
+  color: var(--n-gold);
+}
+
+/* Tweede menubalk: smaller tekst, overlay begrensd tot contentbreedte */
+.nieuw-subnav-outer {
+  background: transparent;
+  padding: 28px 0 14px;
+  border-bottom: none;
+}
+.nieuw-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  position: relative;
+  border: 1px solid rgba(238, 233, 223, 0.22);
+  background:
+    linear-gradient(180deg, rgba(238, 233, 223, 0.09) 0%, rgba(238, 233, 223, 0.035) 100%),
+    #121218;
+  padding: 6px 8px;
+  overflow-x: auto;
+}
+.nieuw-subnav::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(200, 166, 98, 0.07) 0%,
+    transparent 18%,
+    transparent 82%,
+    rgba(200, 166, 98, 0.05) 100%
+  );
+}
+.nieuw-subnav a {
+  position: relative;
+  z-index: 1;
+  color: var(--n-dim);
+  text-decoration: none;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.nieuw-subnav a:hover {
+  color: var(--n-ink);
+  background: rgba(238, 233, 223, 0.06);
+}
+.nieuw-subnav a.actief {
+  color: var(--n-gold);
+  background: rgba(200, 166, 98, 0.14);
+  border-color: rgba(200, 166, 98, 0.35);
+  box-shadow: none;
+}
+
+/* Oude portal-strip behouden als fallback-styling, niet meer in layout */
+.nieuw-portal-strip { display: none; }
+
+/* Cards / lists — drie pijlers met lucht ertussen */
+.nieuw-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  border: none;
+}
+.nieuw-card {
+  border: 1px solid var(--n-hair);
+  background: var(--n-bg-2);
+  display: flex;
+  flex-direction: column;
+  transition: background 0.3s, border-color 0.3s, transform 0.3s;
+  overflow: hidden;
+}
+.nieuw-card:first-child { border-left: 1px solid var(--n-hair); }
+.nieuw-card:hover {
+  background: #101017;
+  border-color: var(--n-gold-hair);
+  transform: translateY(-3px);
+}
+.nieuw-card img {
+  width: 100%;
+  aspect-ratio: 16/10;
+  object-fit: cover;
+  filter: saturate(0.88) brightness(0.88);
+  transition: transform 0.6s, filter 0.4s;
+}
+.nieuw-card:hover img { transform: scale(1.04); filter: saturate(1) brightness(0.95); }
+.nieuw-card-body { padding: 26px 28px 28px; display: flex; flex-direction: column; flex: 1; }
+.nieuw-card-body h3 {
+  font-family: var(--n-serif);
+  font-size: clamp(24px, 2.4vw, 28px);
+  font-weight: 600;
+  margin: 8px 0 0;
+  color: var(--n-ink);
+}
+.nieuw-card-body p { color: var(--n-dim); font-size: 13.5px; margin: 10px 0 22px; flex: 1; }
+
+.nieuw-menu-list { list-style: none; padding: 0; margin: 0; }
+.nieuw-menu-list a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 0;
+  border-top: 1px solid var(--n-hair);
+  color: var(--n-mut);
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.2s, padding-left 0.2s;
+}
+.nieuw-menu-list a:hover { color: var(--n-ink); padding-left: 8px; }
+.nieuw-menu-list .n {
+  font-size: 10px;
+  color: var(--n-dim);
+  letter-spacing: 0.08em;
+  width: 22px;
+}
+.nieuw-menu-list a:hover .n { color: var(--n-gold); }
+.nieuw-menu-list .pijl { margin-left: auto; color: var(--n-gold); opacity: 0; transition: 0.2s; }
+.nieuw-menu-list a:hover .pijl { opacity: 1; }
+
+/* Model cards — professional */
+.nieuw-models-page-title {
+  margin: 0 0 22px;
+  font-family: var(--n-serif);
+  font-size: clamp(26px, 3vw, 34px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--n-gold);
+}
+.nieuw-models-toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.nieuw-models-toolbar-label,
+.nieuw-models-count {
+  color: var(--n-dim);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.nieuw-models-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.nieuw-models-filters {
+  position: sticky;
+  top: 90px;
+  border: 1px solid var(--n-hair);
+  background: var(--n-bg-2);
+  padding: 20px 18px;
+}
+.nieuw-models-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.nieuw-models-field:last-of-type {
+  margin-bottom: 0;
+}
+.nieuw-models-field > span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--n-dim);
+}
+.nieuw-models-field input[type='search'],
+.nieuw-models-field input[type='number'] {
+  width: 100%;
+  box-sizing: border-box;
+  background: #141419;
+  border: 1px solid rgba(238, 233, 223, 0.12);
+  color: var(--n-ink);
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.nieuw-models-age {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nieuw-models-age input {
+  flex: 1;
+  min-width: 0;
+}
+.nieuw-models-age span {
+  color: var(--n-dim);
+}
+.nieuw-models-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.nieuw-models-checks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--n-mut);
+  cursor: pointer;
+}
+.nieuw-models-checks input[type='checkbox'] {
+  accent-color: var(--n-gold);
+  width: 14px;
+  height: 14px;
+}
+.nieuw-models-main {
+  min-width: 0;
+}
+.nieuw-models {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1200px) {
+  .nieuw-models { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .nieuw-models { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.nieuw-model {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  background: var(--n-bg-2);
+  border: 1px solid var(--n-hair);
+  overflow: hidden;
+  text-decoration: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+}
+.nieuw-model:hover {
+  border-color: var(--n-gold-hair);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+}
+.nieuw-model-foto {
+  position: relative;
+  aspect-ratio: 3/4;
+  overflow: hidden;
+  background: #1a1a22;
+  flex: none;
+}
+.nieuw-model-foto img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.55s ease;
+}
+.nieuw-model:hover .nieuw-model-foto img { transform: scale(1.05); }
+.nieuw-model-placeholder {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #6f6a5f;
+  font-family: var(--n-serif);
+  font-size: 42px;
+}
+.nieuw-model-meta {
+  padding: 10px 10px 12px;
+  border-top: 1px solid var(--n-hair);
+  min-width: 0;
+}
+.nieuw-model-meta h4 {
+  font-family: var(--n-serif);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nieuw-model-meta p {
+  margin: 3px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--n-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nieuw-model-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  background: rgba(13,13,17,0.82);
+  color: var(--n-gold);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 5px 9px;
+  border: 1px solid var(--n-gold-hair);
+}
+
+/* Donkere modeldetail-fiche (nieuw portaal) */
+.nieuw-model-detail-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+  padding: 12px;
+}
+.nieuw-model-detail {
+  width: 100%;
+  max-width: 64rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #121218;
+  border: 1px solid rgba(238, 233, 223, 0.14);
+  padding: 22px;
+  color: #eee9df;
+}
+.nieuw-model-detail-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.nieuw-model-detail-brand {
+  margin: 0;
+  font-family: var(--n-serif);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+}
+.nieuw-model-detail-close {
+  border: 1px solid rgba(238, 233, 223, 0.2);
+  background: #1a1a22;
+  color: #eee9df;
+  width: 34px;
+  height: 34px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nieuw-model-detail-close:hover {
+  border-color: var(--n-gold-hair);
+  color: var(--n-gold);
+}
+.nieuw-model-detail-grid {
+  display: grid;
+  gap: 24px;
+}
+@media (min-width: 1024px) {
+  .nieuw-model-detail-grid {
+    grid-template-columns: minmax(0, 300px) 1fr;
+    align-items: start;
+  }
+}
+.nieuw-model-detail-photo {
+  overflow: hidden;
+  border: 1px solid rgba(238, 233, 223, 0.14);
+  background: #0d0d11;
+}
+.nieuw-model-detail-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(92vh, 960px);
+  object-fit: contain;
+  margin: 0 auto;
+}
+.nieuw-model-detail-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(238, 233, 223, 0.12);
+  background: #1a1a22;
+  padding: 8px 10px;
+  color: #eee9df;
+}
+.nieuw-model-detail-nav button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.nieuw-model-detail-nav button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.nieuw-model-detail-title {
+  margin: 0;
+  font-family: var(--n-serif);
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--n-gold);
+}
+.nieuw-model-detail-title span {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--n-mut);
+}
+.nieuw-model-detail-fields {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+@media (min-width: 640px) {
+  .nieuw-model-detail-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.nieuw-model-detail-field {
+  border: 1px solid rgba(238, 233, 223, 0.12);
+  background: #1a1a22;
+  padding: 10px 12px;
+}
+.nieuw-model-detail-field span {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+}
+.nieuw-model-detail-field p {
+  margin: 6px 0 0;
+  font-family: var(--n-serif);
+  font-size: 15px;
+  line-height: 1.35;
+  color: #eee9df;
+  white-space: pre-wrap;
+}
+.nieuw-model-detail-actions {
+  margin-top: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Sections / booking frame */
+.nieuw-sectie { padding: 64px 0; }
+
+/* Compact portal hero: foto + zachte fade naar titel/tekst */
+.nieuw-portal-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  min-height: 280px;
+  max-height: 310px;
+  overflow: hidden;
+  border: 1px solid var(--n-hair);
+  background: #0d0d11;
+}
+.nieuw-portal-hero-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+.nieuw-portal-hero-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left center;
+  display: block;
+  filter: saturate(0.92) brightness(0.95);
+}
+.nieuw-portal-hero-media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(13, 13, 17, 0.02) 0%,
+    rgba(13, 13, 17, 0.1) 34%,
+    rgba(13, 13, 17, 0.6) 48%,
+    rgba(13, 13, 17, 0.94) 58%,
+    #0d0d11 68%
+  );
+  pointer-events: none;
+}
+.nieuw-portal-hero-copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 280px;
+  padding: 40px 40px 52px;
+  padding-left: clamp(48%, 52vw, 560px);
+  box-sizing: border-box;
+}
+.nieuw-portal-hero--banner {
+  min-height: 300px;
+  max-height: 320px;
+}
+.nieuw-portal-hero--banner .nieuw-portal-hero-copy {
+  justify-content: center;
+  min-height: 300px;
+  padding: 32px 48px 36px;
+  padding-left: clamp(53%, 55vw, 620px);
+}
+.nieuw-portal-hero-copy .nieuw-h1 {
+  font-size: clamp(40px, 5vw, 58px);
+  margin: 0;
+  max-width: 14ch;
+  line-height: 1.05;
+}
+.nieuw-portal-hero-title-block {
+  position: relative;
+  margin: 0;
+  align-self: flex-start;
+  padding: 2px 0 2px 18px;
+  border-left: 2px solid var(--n-gold);
+  font-family: var(--n-display);
+  font-style: normal;
+  font-weight: 700;
+  font-size: clamp(24px, 2.8vw, 34px);
+  line-height: 1.28;
+  color: #f2eee6;
+  text-transform: uppercase;
+  max-width: none;
+}
+.nieuw-portal-hero-title-block .lijn1,
+.nieuw-portal-hero-title-block .lijn2,
+.nieuw-portal-hero-title-block .lijn3 {
+  display: block;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  word-spacing: 0.1em;
+  white-space: nowrap;
+}
+.nieuw-portal-hero-title-block .lijn2 {
+  margin-top: 0.2em;
+}
+.nieuw-portal-hero-title-block .lijn2:last-child,
+.nieuw-portal-hero-title-block .lijn3 {
+  margin-top: 0.2em;
+  color: var(--n-gold);
+  letter-spacing: 0.16em;
+}
+.nieuw-portal-hero-lead-banner .nieuw-hero-brand {
+  color: var(--n-gold);
+  font-weight: 600;
+}
+.nieuw-portal-hero-copy .nieuw-lead {
+  margin-top: 22px;
+  max-width: 38ch;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--n-mut);
+}
+.nieuw-portal-hero-lead-banner {
+  margin: 40px 0 0 176px !important;
+  align-self: flex-start;
+  max-width: 42ch !important;
+  text-align: left;
+  font-family: var(--n-serif) !important;
+  font-size: 16px !important;
+  line-height: 1.75 !important;
+  color: #e8e2d6 !important;
+  font-weight: 500;
+}
+
+@media (max-width: 960px) {
+  .nieuw-portal-hero,
+  .nieuw-portal-hero--banner {
+    max-height: none;
+    min-height: 0;
+  }
+  .nieuw-portal-hero-media {
+    position: relative;
+    min-height: 180px;
+    max-height: 200px;
+  }
+  .nieuw-portal-hero-media::after {
+    background: linear-gradient(
+      180deg,
+      rgba(13, 13, 17, 0.05) 0%,
+      rgba(13, 13, 17, 0.45) 55%,
+      #0d0d11 100%
+    );
+  }
+  .nieuw-portal-hero-copy,
+  .nieuw-portal-hero--banner .nieuw-portal-hero-copy {
+    min-height: 0;
+    padding: 28px 20px 36px;
+    padding-left: 20px;
+    justify-content: flex-start;
+    gap: 28px;
+  }
+  .nieuw-portal-hero-title-block {
+    margin-left: 0;
+    font-size: clamp(20px, 5vw, 26px);
+    font-weight: 700;
+  }
+  .nieuw-portal-hero-lead-banner {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    align-self: stretch !important;
+    text-align: left !important;
+    max-width: none !important;
+  }
+}
+.nieuw-panel {
+  background: var(--n-bg-2);
+  border: 1px solid var(--n-hair);
+  padding: 28px;
+  color: var(--n-ink);
+}
+.nieuw-booking {
+  background: var(--n-bg-2);
+  color: var(--n-ink);
+  border: 1px solid var(--n-gold-hair);
+  padding: 8px 8px 14px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.nieuw-booking .nieuw-booking-title {
+  font-family: var(--n-serif);
+  font-size: clamp(24px, 2.4vw, 30px);
+  margin: 14px 18px 6px;
+  color: var(--n-ink);
+  font-weight: 600;
+}
+.nieuw-booking .nieuw-booking-sub {
+  margin: 0 18px 16px;
+  color: var(--n-mut);
+  font-size: 13.5px;
+}
+.nieuw-booking .nieuw-booking-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 10px 14px;
+  min-height: 0;
+}
+
+/* ---------- Uniforme theming van oude (lichte) componenten binnen /nieuw ---------- */
+.nieuw-root .nieuw-themed,
+.nieuw-root .nieuw-booking,
+.nieuw-root .nieuw-panel {
+  --ink: var(--n-ink);
+  --muted: var(--n-mut);
+  --panel: var(--n-bg-3);
+  --line: var(--n-hair);
+}
+
+.nieuw-root .nieuw-themed :is(
+  .bg-white,
+  .bg-panel,
+  .bg-zinc-50,
+  .bg-zinc-50\/80,
+  .bg-zinc-50\/90,
+  .bg-amber-50,
+  .bg-amber-50\/90
+),
+.nieuw-root .nieuw-booking :is(
+  .bg-white,
+  .bg-panel,
+  .bg-zinc-50,
+  .bg-zinc-50\/80,
+  .bg-zinc-50\/90,
+  .bg-amber-50,
+  .bg-amber-50\/90
+),
+.nieuw-root .nieuw-panel :is(
+  .bg-white,
+  .bg-panel,
+  .bg-zinc-50,
+  .bg-zinc-50\/80,
+  .bg-zinc-50\/90,
+  .bg-amber-50,
+  .bg-amber-50\/90
+) {
+  background-color: var(--n-bg-3) !important;
+  color: var(--n-ink) !important;
+  box-shadow: none !important;
+}
+
+.nieuw-root .nieuw-themed :is(.text-ink, .text-ink\/90, .text-zinc-900, .text-zinc-800, .text-zinc-700),
+.nieuw-root .nieuw-booking :is(.text-ink, .text-ink\/90, .text-zinc-900, .text-zinc-800, .text-zinc-700),
+.nieuw-root .nieuw-panel :is(.text-ink, .text-ink\/90, .text-zinc-900, .text-zinc-800, .text-zinc-700) {
+  color: var(--n-ink) !important;
+}
+
+.nieuw-root .nieuw-themed :is(.text-muted, .text-zinc-500, .text-zinc-600),
+.nieuw-root .nieuw-booking :is(.text-muted, .text-zinc-500, .text-zinc-600),
+.nieuw-root .nieuw-panel :is(.text-muted, .text-zinc-500, .text-zinc-600) {
+  color: var(--n-mut) !important;
+}
+
+.nieuw-root .nieuw-themed :is(
+  .border-line,
+  .border-zinc-100,
+  .border-zinc-200,
+  .border-zinc-200\/80,
+  .border-zinc-300,
+  .border-amber-200
+),
+.nieuw-root .nieuw-booking :is(
+  .border-line,
+  .border-zinc-100,
+  .border-zinc-200,
+  .border-zinc-200\/80,
+  .border-zinc-300,
+  .border-amber-200
+),
+.nieuw-root .nieuw-panel :is(
+  .border-line,
+  .border-zinc-100,
+  .border-zinc-200,
+  .border-zinc-200\/80,
+  .border-zinc-300,
+  .border-amber-200
+) {
+  border-color: var(--n-hair) !important;
+}
+
+.nieuw-root .nieuw-themed :is(.shadow-sm, .shadow, .shadow-md),
+.nieuw-root .nieuw-booking :is(.shadow-sm, .shadow, .shadow-md),
+.nieuw-root .nieuw-panel :is(.shadow-sm, .shadow, .shadow-md) {
+  box-shadow: none !important;
+}
+
+/* Agenda / formulier-inputs in donkere stijl */
+.nieuw-root .nieuw-booking input,
+.nieuw-root .nieuw-booking select,
+.nieuw-root .nieuw-booking textarea,
+.nieuw-root .nieuw-themed input:not([type='checkbox']):not([type='radio']),
+.nieuw-root .nieuw-themed select,
+.nieuw-root .nieuw-themed textarea,
+.nieuw-root .nieuw-panel input:not([type='checkbox']):not([type='radio']),
+.nieuw-root .nieuw-panel select,
+.nieuw-root .nieuw-panel textarea {
+  background: var(--n-bg) !important;
+  color: var(--n-ink) !important;
+  border-color: var(--n-hair) !important;
+}
+
+.nieuw-root .nieuw-booking label,
+.nieuw-root .nieuw-themed label,
+.nieuw-root .nieuw-panel label {
+  color: var(--n-mut) !important;
+}
+
+.nieuw-root .nieuw-booking button,
+.nieuw-root .nieuw-themed button:not(.nieuw-btn):not(.nieuw-btn-ghost) {
+  border-color: var(--n-hair) !important;
+}
+
+/* Geselecteerde agenda-slot: goud i.p.v. zwart/wit */
+.nieuw-root .nieuw-booking .border-zinc-900,
+.nieuw-root .nieuw-booking .ring-zinc-900,
+.nieuw-root .nieuw-booking .bg-zinc-900 {
+  border-color: var(--n-gold) !important;
+  --tw-ring-color: var(--n-gold) !important;
+}
+.nieuw-root .nieuw-booking button.bg-zinc-900,
+.nieuw-root .nieuw-booking .bg-zinc-900.text-white {
+  background: var(--n-gold) !important;
+  color: #14110a !important;
+}
+
+.nieuw-root .nieuw-themed .font-serif,
+.nieuw-root .nieuw-panel .font-serif,
+.nieuw-root .nieuw-booking .font-serif {
+  font-family: var(--n-serif) !important;
+  color: var(--n-ink) !important;
+}
+
+.nieuw-root .nieuw-themed h1,
+.nieuw-root .nieuw-themed h2,
+.nieuw-root .nieuw-themed h3,
+.nieuw-root .nieuw-panel h1,
+.nieuw-root .nieuw-panel h2,
+.nieuw-root .nieuw-panel h3 {
+  font-family: var(--n-serif);
+  color: var(--n-ink);
+  font-weight: 600;
+}
+
+/* Burgundy accent → goud in nieuwe site */
+.nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep),
+.nieuw-root .nieuw-panel :is(.bg-burgundy, .bg-burgundyDeep),
+.nieuw-root .nieuw-booking :is(.bg-burgundy, .bg-burgundyDeep) {
+  background: var(--n-gold) !important;
+  color: #14110a !important;
+}
+.nieuw-root .nieuw-themed :is(.text-burgundy, .text-red-700, .text-red-800),
+.nieuw-root .nieuw-booking :is(.text-burgundy, .text-red-700, .text-red-800),
+.nieuw-root .nieuw-panel :is(.text-burgundy, .text-red-700, .text-red-800) {
+  color: var(--n-gold) !important;
+}
+.nieuw-root .nieuw-themed :is(.border-burgundy, .border-burgundy\/30, .border-burgundy\/40),
+.nieuw-root .nieuw-panel :is(.border-burgundy, .border-burgundy\/30, .border-burgundy\/40),
+.nieuw-root .nieuw-themed .border-l-4 {
+  border-color: var(--n-gold) !important;
+}
+.nieuw-root .nieuw-themed :is(.text-amber-950, .text-amber-900),
+.nieuw-root .nieuw-panel :is(.text-amber-950, .text-amber-900) {
+  color: var(--n-ink) !important;
+}
+
+.nieuw-root .nieuw-themed a.text-burgundy,
+.nieuw-root .nieuw-panel a.text-burgundy {
+  color: var(--n-gold) !important;
+}
+
+/* Modellenportaal home: Direct regelen + info-kadertjes uniform */
+.nieuw-root .model-portal-home,
+.nieuw-root .model-portal-home :is(p, span, li, div) {
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+.nieuw-root .model-portal-home :is(h3, .font-serif) {
+  font-family: var(--n-serif) !important;
+  font-size: clamp(20px, 2vw, 24px) !important;
+  color: var(--n-ink) !important;
+  line-height: 1.25 !important;
+}
+.nieuw-root .model-portal-home .portal-quick-link {
+  background: var(--n-bg-3) !important;
+  border-color: var(--n-hair) !important;
+  color: var(--n-ink) !important;
+  padding: 18px 16px !important;
+  min-height: 76px;
+  box-shadow: none !important;
+}
+.nieuw-root .model-portal-home .portal-quick-link:hover {
+  border-color: var(--n-gold-hair) !important;
+  background: #15151c !important;
+}
+.nieuw-root .model-portal-home .portal-quick-title,
+.nieuw-root .model-portal-home .portal-quick-sub {
+  font-family: var(--n-sans) !important;
+  font-size: 13.5px !important;
+  line-height: 1.45 !important;
+}
+.nieuw-root .model-portal-home .portal-quick-title {
+  color: var(--n-ink) !important;
+  font-weight: 600 !important;
+}
+.nieuw-root .model-portal-home .portal-quick-sub {
+  color: var(--n-mut) !important;
+  font-weight: 400 !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card {
+  background: var(--n-bg-3) !important;
+  border-color: var(--n-hair) !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card > div:first-child {
+  background: rgba(200, 166, 98, 0.14) !important;
+  border-bottom: 1px solid var(--n-gold-hair) !important;
+  padding: 12px 14px !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card > div:first-child :is(h3, span, p) {
+  color: var(--n-gold) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.14em;
+}
+.nieuw-root .model-portal-home .portal-aside-card > div:last-child {
+  padding: 16px 14px !important;
+  color: var(--n-ink) !important;
+  font-size: 13.5px !important;
+}
+.nieuw-root .model-portal-home .push-menu-badge.bg-burgundy {
+  background: var(--n-gold) !important;
+  color: #14110a !important;
+}
+.nieuw-root .model-portal-home .push-menu-badge.bg-zinc-200 {
+  background: var(--n-bg) !important;
+  color: var(--n-mut) !important;
+}
+.nieuw-root .model-portal-home .portal-remember-card {
+  background: var(--n-bg-3) !important;
+  border-color: var(--n-gold-hair) !important;
+}
+.nieuw-root .model-portal-home .portal-remember-card :is(p, span, .portal-remember-body),
+.nieuw-root .model-portal-home .portal-remember-body {
+  color: var(--n-ink) !important;
+}
+.nieuw-root .model-portal-home .portal-remember-card .text-burgundy {
+  color: var(--n-gold) !important;
+}
+
+/* Tab-content (opleiding/portfolio/…) uniform donker */
+.nieuw-root .nieuw-themed :is(.text-zinc-900, .text-zinc-800, .text-zinc-700, .text-ink),
+.nieuw-root .nieuw-panel :is(.text-zinc-900, .text-zinc-800, .text-zinc-700) {
+  color: var(--n-ink) !important;
+}
+.nieuw-root .nieuw-themed :is(.text-zinc-600, .text-zinc-500, .text-muted),
+.nieuw-root .nieuw-panel :is(.text-zinc-600, .text-zinc-500) {
+  color: var(--n-mut) !important;
+}
+.nieuw-root .nieuw-themed :is(.bg-zinc-50, .bg-white),
+.nieuw-root .nieuw-panel :is(.bg-zinc-50, .bg-white) {
+  background: var(--n-bg-3) !important;
+}
+.nieuw-root .nieuw-themed :is(.border-zinc-300, .border-zinc-200, .border-zinc-100),
+.nieuw-root .nieuw-panel :is(.border-zinc-300, .border-zinc-200, .border-zinc-100) {
+  border-color: var(--n-hair) !important;
+}
+
+/* Extra: overal in nieuw-root lichte kaarten forceren naar donker (veiligheidsnet) */
+.nieuw-root [class*="bg-white"],
+.nieuw-root [class*="bg-panel"] {
+  background-color: var(--n-bg-3) !important;
+  color: var(--n-ink) !important;
+  box-shadow: none !important;
+}
+
+.nieuw-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  counter-reset: stap;
+}
+.nieuw-stap {
+  border: 1px solid var(--n-hair);
+  background: var(--n-bg-2);
+  padding: 22px 18px;
+  counter-increment: stap;
+}
+.nieuw-stap::before {
+  content: '0' counter(stap);
+  font-family: var(--n-serif);
+  font-style: italic;
+  color: var(--n-gold);
+  font-size: 26px;
+  display: block;
+  margin-bottom: 10px;
+}
+.nieuw-stap p { margin: 0; color: var(--n-mut); font-size: 13.5px; }
+.nieuw-stap strong { color: var(--n-ink); }
+
+/* Drie startopties: knoppen altijd op dezelfde hoogte */
+.nieuw-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.nieuw-choice-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 100%;
+}
+.nieuw-choice-card .nieuw-btn {
+  margin-top: auto;
+  align-self: stretch;
+  justify-content: center;
+}
+
+/* Agenda-kader start op dezelfde lijn als de linker checklist-kaders */
+.nieuw-agenda-align {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-rows: auto auto;
+  column-gap: 40px;
+  row-gap: 16px;
+  align-items: stretch;
+  margin-top: 36px;
+}
+.nieuw-agenda-align .nieuw-agenda-title {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+}
+.nieuw-agenda-align .nieuw-agenda-booking-title {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  align-self: end;
+}
+.nieuw-agenda-align .nieuw-agenda-frames {
+  grid-column: 1;
+  grid-row: 2;
+  height: 100%;
+}
+.nieuw-agenda-align .nieuw-booking {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: stretch;
+  height: 100%;
+  margin: 0;
+}
+
+.nieuw-reviews-grid {
+  list-style: none;
+  padding: 0;
+  margin: 40px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.nieuw-review-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.nieuw-review-meta {
+  margin-top: auto;
+  padding-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.nieuw-review-meta .auteur {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--n-ink);
+}
+.nieuw-stars {
+  letter-spacing: 0.06em;
+  font-size: 13px;
+}
+.nieuw-stars .on { color: var(--n-gold); }
+.nieuw-stars .off { color: var(--n-dim); }
+
+.nieuw-checklist { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.nieuw-checklist li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  border: 1px solid var(--n-hair);
+  background: var(--n-bg-2);
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--n-mut);
+}
+.nieuw-checklist .v {
+  color: #14110a;
+  background: var(--n-gold);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex: none;
+  margin-top: 1px;
+}
+.nieuw-checklist strong { color: var(--n-ink); display: block; }
+
+.nieuw-faq details {
+  border: 1px solid var(--n-hair);
+  background: var(--n-bg-2);
+  margin-bottom: 8px;
+}
+.nieuw-faq summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 16px 18px;
+  font-weight: 600;
+  font-size: 14.5px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.nieuw-faq summary::-webkit-details-marker { display: none; }
+.nieuw-faq summary::after { content: '+'; color: var(--n-gold); font-size: 20px; }
+.nieuw-faq details[open] summary::after { content: '−'; }
+.nieuw-faq .a { padding: 0 18px 16px; color: var(--n-mut); font-size: 13.5px; }
+
+.nieuw-uc {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 80px 20px;
+}
+.nieuw-footer {
+  border-top: 1px solid var(--n-hair);
+  padding: 48px 0 32px;
+  margin-top: 90px;
+}
+.nieuw-footer .nieuw-merk {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.nieuw-footer .nieuw-merk-naam {
+  font-size: 26px;
+  line-height: 1.05;
+}
+.nieuw-footer .nieuw-merk-sub {
+  margin-top: 1px;
+}
+.nieuw-footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+  gap: 32px;
+  margin-bottom: 32px;
+}
+.nieuw-footer-grid > div + div {
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  padding-left: 32px;
+}
+.nieuw-footer h5 {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--n-dim);
+  margin: 0 0 12px;
+}
+.nieuw-footer a, .nieuw-footer p {
+  color: var(--n-mut);
+  font-size: 12px;
+  text-decoration: none;
+  line-height: 1.9;
+  margin: 0;
+}
+.nieuw-footer a:hover { color: var(--n-gold); }
+.nieuw-footer-bottom {
+  border-top: 1px solid var(--n-hair);
+  padding-top: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--n-dim);
+}
+
+.nieuw-sidebar-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.nieuw-sidebar {
+  border: 1px solid var(--n-hair);
+  background: var(--n-bg-2);
+  position: sticky;
+  top: 90px;
+}
+.nieuw-sidebar a {
+  display: block;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--n-hair);
+  color: var(--n-mut);
+  text-decoration: none;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+}
+.nieuw-sidebar a:last-child { border-bottom: none; }
+.nieuw-sidebar a:hover, .nieuw-sidebar a.actief {
+  color: var(--n-ink);
+  background: rgba(200,166,98,0.07);
+}
+.nieuw-sidebar a.actief { box-shadow: inset 2px 0 0 var(--n-gold); }
+
+@media (max-width: 960px) {
+  .nieuw-grid-3,
+  .nieuw-steps,
+  .nieuw-footer-grid,
+  .nieuw-sidebar-layout,
+  .nieuw-models-layout,
+  .nieuw-choice-grid,
+  .nieuw-agenda-align,
+  .nieuw-reviews-grid { grid-template-columns: 1fr; }
+  .nieuw-models-filters { position: static; }
+  .nieuw-models { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .nieuw-footer-grid > div + div {
+    border-left: none;
+    padding-left: 0;
+  }
+  .nieuw-agenda-align .nieuw-agenda-title,
+  .nieuw-agenda-align .nieuw-agenda-booking-title,
+  .nieuw-agenda-align .nieuw-agenda-frames,
+  .nieuw-agenda-align .nieuw-booking {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .nieuw-card { border: 1px solid var(--n-hair); }
+  .nieuw-sidebar { position: static; }
+  .nieuw-kop-inner {
+    grid-template-columns: 1fr;
+    padding: 14px 30px;
+    gap: 12px;
+  }
+  .nieuw-merk,
+  .nieuw-kop-pillars,
+  .nieuw-kop-actions {
+    justify-self: stretch;
+  }
+  .nieuw-merk { justify-content: flex-start; }
+  .nieuw-kop-pillars {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .nieuw-pillar {
+    flex: 1 1 auto;
+    padding: 10px 12px;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    white-space: normal;
+  }
+  .nieuw-merk-logo {
+    height: 36px;
+    max-width: min(280px, 70vw);
+  }
+  .nieuw-kop-actions {
+    justify-content: flex-end;
+  }
+  .nieuw-kop-actions a,
+  .nieuw-kop-actions .nieuw-back-btn {
+    font-size: 9px;
+    padding: 5px 8px;
+    letter-spacing: 0.1em;
+  }
+}

@@ -16,14 +16,15 @@ export function AppChrome({ children }: { children: ReactNode }) {
     pathname === '' ||
     (!!basePath && (pathname === basePath || pathname === `${basePath}/`));
   const isFullBleedGallery = pathname?.includes('/portal/model/gallery-3d');
+  const onNieuwSite = pathname?.startsWith('/nieuw') ?? false;
   const showBar = !!user && (hasBackofficeAccess || can('content.strings.write'));
 
   return (
     <div className="flex min-h-screen flex-col">
       <AdminBar />
       {showBar ? <div className="h-10 shrink-0" aria-hidden /> : null}
-      {/* Beginpagina op de gsm heeft een eigen app-balk; daar geen dubbele zwarte balk. */}
-      {!onAdmin && !isFullBleedGallery ? (
+      {/* Nieuwe site (/nieuw) heeft eigen navigatie; beginpagina op gsm heeft eigen app-balk. */}
+      {!onAdmin && !isFullBleedGallery && !onNieuwSite ? (
         <div className={onBeginPage ? 'hidden md:block' : undefined}>
           <SiteHeader />
         </div>

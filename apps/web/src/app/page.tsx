@@ -2,8 +2,8 @@ import { Suspense } from 'react';
 import { BeginHome } from '@/components/BeginHome';
 
 /**
- * Beginpagina: op de pc de filmervaring (lift → hal → kamers), op de gsm de
- * eenvoudige mobiele startpagina zonder films of foto's.
+ * Beginpagina: op de pc/tablet de nieuwe site (/nieuw),
+ * op de gsm de ongewijzigde mobiele startpagina.
  */
 export default function BeginPage() {
   return (

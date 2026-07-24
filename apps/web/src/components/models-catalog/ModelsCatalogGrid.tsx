@@ -20,7 +20,6 @@ import { startImpersonationSession, clearImpersonationSession } from '@/lib/impe
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 import { GalleryCanvasFrame } from '@/components/model-portal/GalleryCanvasFrame';
 import { ModelGallerySheet } from '@/components/model-portal/ModelGallerySheet';
-import { SHOWROOM_MODEL_SESSION_KEY } from '@/components/model-portal/model-gallery-3d/useShowroomGallery';
 
 export type CatalogModel = {
   id: string;
@@ -186,8 +185,24 @@ function printModelSheet(m: CatalogModel, photoSrc: string, isAdmin: boolean) {
   }, 200);
 }
 
-function FieldBox({ label, value }: { label: string; value: string }) {
+function FieldBox({
+  label,
+  value,
+  theme = 'light',
+}: {
+  label: string;
+  value: string;
+  theme?: 'light' | 'dark';
+}) {
   const v = value.trim() || '—';
+  if (theme === 'dark') {
+    return (
+      <div className="nieuw-model-detail-field">
+        <span>{label}</span>
+        <p>{v}</p>
+      </div>
+    );
+  }
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-2.5 shadow-sm">
       <p className="font-serif text-[10px] font-bold uppercase tracking-wide text-zinc-600">{label}</p>
@@ -241,18 +256,20 @@ function friendlyCatalogError(raw: string): string {
   return parseApiErrorBody(t);
 }
 
-function ModelDetailDialog({
+export function ModelDetailDialog({
   m,
   initialPhotoSrc,
   isAdmin,
   token,
   onClose,
+  theme = 'light',
 }: {
   m: CatalogModel;
   initialPhotoSrc: string;
   isAdmin: boolean;
   token: string | null;
   onClose: () => void;
+  theme?: 'light' | 'dark';
 }) {
   const [detail, setDetail] = useState<CatalogModel | null>(m.sheet ? m : null);
   const [detailErr, setDetailErr] = useState<string | null>(null);
@@ -333,6 +350,147 @@ function ModelDetailDialog({
     if (dx < 0) goNextPhoto();
     else goPrevPhoto();
   };
+
+  const dark = theme === 'dark';
+  const fields = (
+    <>
+      <FieldBox theme={theme} label="Gemeente" value={v('gemeente')} />
+      <FieldBox theme={theme} label="Geslacht" value={genderNl(active.gender)} />
+      <FieldBox theme={theme} label="Nationaliteit" value={v('nationaliteit')} />
+      <FieldBox theme={theme} label="Lengte" value={v('lengte')} />
+      <FieldBox theme={theme} label="Maat" value={v('maat')} />
+      <FieldBox theme={theme} label="Confectiemaat" value={v('confectiemaat')} />
+      <FieldBox theme={theme} label="Schoenmaat" value={v('schoenmaat')} />
+      <FieldBox theme={theme} label="BH-maat" value={v('bhMaat')} />
+      <FieldBox theme={theme} label="Borstomtrek" value={v('borstomtrek')} />
+      <FieldBox theme={theme} label="Taille" value={v('taille')} />
+      <FieldBox theme={theme} label="Heupomtrek" value={v('heupomtrek')} />
+      <FieldBox theme={theme} label="Jeansmaat" value={v('jeansmaat')} />
+      <FieldBox theme={theme} label="Haarkleur" value={v('haarkleur')} />
+      <FieldBox theme={theme} label="Kleur ogen" value={v('kleurOgen')} />
+      <FieldBox theme={theme} label="Ervaring" value={v('ervaringen')} />
+      <FieldBox theme={theme} label="Over mij" value={v('overMij')} />
+      <FieldBox theme={theme} label="Geboortedatum" value={v('geboortedatum')} />
+      <div className={dark ? undefined : 'sm:col-span-2'} style={dark ? { gridColumn: '1 / -1' } : undefined}>
+        <FieldBox
+          theme={theme}
+          label="Beschikbaar voor"
+          value={active.beschikbaar.length ? active.beschikbaar.join(', ') : '—'}
+        />
+      </div>
+    </>
+  );
+
+  if (dark) {
+    return (
+      <div className="nieuw-model-detail-backdrop" role="presentation" onClick={onClose}>
+        <div
+          className="nieuw-model-detail"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="model-detail-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {detailLoading ? (
+            <div className="mb-4 px-1">
+              <CmProgressBar label="Modellenfiche laden…" />
+            </div>
+          ) : null}
+          {detailErr ? (
+            <p className="mb-3 text-sm" style={{ color: '#d4a0a0' }}>
+              Sommige gegevens konden niet worden geladen.
+            </p>
+          ) : null}
+          <div className="nieuw-model-detail-top">
+            <p className="nieuw-model-detail-brand">Class-Models</p>
+            <button
+              type="button"
+              className="nieuw-model-detail-close"
+              onClick={onClose}
+              aria-label="Sluiten"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="nieuw-model-detail-grid">
+            <div>
+              {photoSrc ? (
+                <div className="nieuw-model-detail-photo">
+                  <div
+                    className="flex w-full touch-pan-y select-none justify-center"
+                    onTouchStart={onPhotoTouchStart}
+                    onTouchEnd={onPhotoTouchEnd}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoSrc} alt="" />
+                  </div>
+                  {photoKeys.length > 0 ? (
+                    <div className="nieuw-model-detail-nav">
+                      <button type="button" disabled={thumbNavDisabled} aria-label="Vorige foto" onClick={goPrevPhoto}>
+                        ‹
+                      </button>
+                      <span style={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                        {slideIndex + 1} / {photoKeys.length}
+                      </span>
+                      <button type="button" disabled={thumbNavDisabled} aria-label="Volgende foto" onClick={goNextPhoto}>
+                        ›
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div
+                  className="nieuw-model-detail-photo"
+                  style={{
+                    aspectRatio: '3 / 4',
+                    display: 'grid',
+                    placeItems: 'center',
+                    color: '#6f6a5f',
+                    fontSize: 13,
+                  }}
+                >
+                  Geen foto
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h2 id="model-detail-title" className="nieuw-model-detail-title">
+                {title}
+                {active.age != null ? <span> — {active.age} jaar</span> : null}
+              </h2>
+
+              <div className="nieuw-model-detail-fields">{fields}</div>
+
+              <div className="nieuw-model-detail-actions">
+                <button
+                  type="button"
+                  className="nieuw-btn"
+                  onClick={() => printModelSheet(active, photoSrc, isAdmin)}
+                  disabled={detailLoading}
+                >
+                  Afdrukken
+                </button>
+                <button
+                  type="button"
+                  className="nieuw-btn nieuw-btn-ghost"
+                  onClick={() => {
+                    window.location.href = `mailto:?subject=${encodeURIComponent(`Model: ${title}`)}&body=${encodeURIComponent(buildMailBody(active, isAdmin))}`;
+                  }}
+                >
+                  Doorsturen per mail
+                </button>
+                <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={onClose}>
+                  Sluiten
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -449,28 +607,7 @@ function ModelDetailDialog({
               </div>
             ) : null}
 
-            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <FieldBox label="Gemeente" value={v('gemeente')} />
-              <FieldBox label="Geslacht" value={genderNl(active.gender)} />
-              <FieldBox label="Nationaliteit" value={v('nationaliteit')} />
-              <FieldBox label="Lengte" value={v('lengte')} />
-              <FieldBox label="Maat" value={v('maat')} />
-              <FieldBox label="Confectiemaat" value={v('confectiemaat')} />
-              <FieldBox label="Schoenmaat" value={v('schoenmaat')} />
-              <FieldBox label="BH-maat" value={v('bhMaat')} />
-              <FieldBox label="Borstomtrek" value={v('borstomtrek')} />
-              <FieldBox label="Taille" value={v('taille')} />
-              <FieldBox label="Heupomtrek" value={v('heupomtrek')} />
-              <FieldBox label="Jeansmaat" value={v('jeansmaat')} />
-              <FieldBox label="Haarkleur" value={v('haarkleur')} />
-              <FieldBox label="Kleur ogen" value={v('kleurOgen')} />
-              <FieldBox label="Ervaring" value={v('ervaringen')} />
-              <FieldBox label="Over mij" value={v('overMij')} />
-              <FieldBox label="Geboortedatum" value={v('geboortedatum')} />
-              <div className="sm:col-span-2">
-                <FieldBox label="Beschikbaar voor" value={active.beschikbaar.length ? active.beschikbaar.join(', ') : '—'} />
-              </div>
-            </div>
+            <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">{fields}</div>
 
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               {isAdmin && token ? (
@@ -675,17 +812,6 @@ export function ModelsCatalogGrid({
   const [ageMax, setAgeMax] = useState('');
   const [q, setQ] = useState('');
   const [modal, setModal] = useState<CatalogModel | null>(null);
-
-  const openGalleryShowroom = useCallback(
-    (m: CatalogModel) => {
-      if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(SHOWROOM_MODEL_SESSION_KEY, m.id);
-      }
-      const base = (process.env.NEXT_PUBLIC_BASE_PATH ?? '').replace(/\/$/, '');
-      router.push(`${base}/portal/model/gallery-3d?model=${encodeURIComponent(m.id)}`);
-    },
-    [router],
-  );
 
   const openModelSheet = useCallback((m: CatalogModel) => {
     setModal(m);
@@ -1104,7 +1230,7 @@ export function ModelsCatalogGrid({
                     ? 'group w-full cursor-pointer text-left outline-none transition focus-visible:ring-2 focus-visible:ring-amber-200/50'
                     : 'w-full cursor-pointer rounded-lg border border-zinc-700 bg-zinc-900 p-1.5 text-left shadow-sm outline-none transition hover:border-zinc-500 focus-visible:ring-2 focus-visible:ring-lime-300/50'
                 }
-                onClick={() => openGalleryShowroom(m)}
+                onClick={() => openModelSheet(m)}
               >
                 {m.profileThumbKey ? (
                   isGallery ? (
