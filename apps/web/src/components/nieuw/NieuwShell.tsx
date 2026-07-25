@@ -126,20 +126,6 @@ export function NieuwShell({
           <nav className="nieuw-kop-actions" aria-label="Snelle acties">
             <Link href="/nieuw/reviews">Reviews</Link>
             <Link href="/nieuw/gasten/contact">Contact</Link>
-            <span className="nieuw-kop-actions-end">
-              {!loading && user ? (
-                <button type="button" className="nieuw-back-btn" onClick={() => logout()}>
-                  Uitloggen
-                </button>
-              ) : !loading ? (
-                <Link href="/nieuw/modellen" className="nieuw-back-btn">
-                  Inloggen
-                </Link>
-              ) : null}
-              <button type="button" className="nieuw-back-btn" onClick={goBack}>
-                ← Back
-              </button>
-            </span>
           </nav>
         </div>
       </header>
@@ -167,7 +153,25 @@ export function NieuwShell({
         </div>
       ) : null}
 
-      <main>{children}</main>
+      <main>
+        <div className="nieuw-wrap">
+          <div className="nieuw-content-actions" aria-label="Account">
+            {!loading && user ? (
+              <button type="button" className="nieuw-back-btn" onClick={() => logout()}>
+                Uitloggen
+              </button>
+            ) : !loading ? (
+              <Link href="/nieuw/modellen" className="nieuw-back-btn">
+                Inloggen
+              </Link>
+            ) : null}
+            <button type="button" className="nieuw-back-btn" onClick={goBack}>
+              ← Back
+            </button>
+          </div>
+        </div>
+        {children}
+      </main>
 
       <footer className="nieuw-footer">
         <div className="nieuw-wrap">

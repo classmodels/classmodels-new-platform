@@ -245,6 +245,37 @@
   color: var(--n-gold);
 }
 
+/* Inloggen / Back: rechtsboven in de contentkader-zone (onder de headerlijn) */
+.nieuw-content-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 18px 0 0;
+}
+.nieuw-content-actions .nieuw-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--n-ink);
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid rgba(238, 233, 223, 0.45);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nieuw-content-actions .nieuw-back-btn:hover {
+  border-color: var(--n-gold);
+  color: var(--n-gold);
+}
+
 /* Tweede menubalk: smaller tekst, overlay begrensd tot contentbreedte */
 .nieuw-subnav-outer {
   background: transparent;
