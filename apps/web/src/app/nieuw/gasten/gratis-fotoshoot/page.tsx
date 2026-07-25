@@ -22,7 +22,7 @@ export default function GratisFotoshootPage() {
 
           <div className="nieuw-agenda-align" style={{ marginTop: 40 }}>
             <h2 className="nieuw-h3 nieuw-agenda-title">{GRATIS_FOTOSHOOT_PAGE.expectTitle}</h2>
-            <h2 className="nieuw-h3 nieuw-agenda-booking-title">Kies een beschikbaar moment</h2>
+            <h2 className="nieuw-h3 nieuw-agenda-booking-title">Online afspraak maken testshoot</h2>
             <ul className="nieuw-checklist nieuw-agenda-frames">
               {GRATIS_FOTOSHOOT_PAGE.expectBullets.map((b) => (
                 <li key={b}>

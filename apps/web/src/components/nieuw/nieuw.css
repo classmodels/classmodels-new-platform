@@ -1295,9 +1295,7 @@
   grid-column: 2;
   grid-row: 1;
   margin: 0;
-  align-self: start;
-  font-size: clamp(26px, 2.6vw, 34px);
-  line-height: 1.15;
+  align-self: end;
 }
 .nieuw-agenda-align .nieuw-agenda-frames {
   grid-column: 1;
