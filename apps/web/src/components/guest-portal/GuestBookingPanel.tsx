@@ -183,14 +183,15 @@ export function GuestBookingPanel({
       setForm({});
       setCancelUrl(null);
       setStep('slots');
-      const dateSet = new Set<string>();
-      for (const s of sJson.slots ?? []) dateSet.add(s.slotDate);
-      for (const d of sJson.openDates ?? []) dateSet.add(d);
-      const sorted = [...dateSet].sort();
+      // Alleen dagen met boekbare (of bezette) sloten in de pager — geen lege “open” dagen.
+      const bookableDates = [
+        ...new Set((sJson.slots ?? []).map((s) => s.slotDate)),
+      ].sort();
       const todayYmd = ymdEuropeBrussels(new Date());
-      const todayIdx = sorted.indexOf(todayYmd);
-      if (todayIdx >= 0 && sorted.length > daysPerPage) {
-        setDayPage(Math.floor(todayIdx / daysPerPage));
+      let startIdx = bookableDates.findIndex((d) => d >= todayYmd);
+      if (startIdx < 0) startIdx = 0;
+      if (bookableDates.length > daysPerPage) {
+        setDayPage(Math.floor(startIdx / daysPerPage));
       } else {
         setDayPage(0);
       }
@@ -208,12 +209,9 @@ export function GuestBookingPanel({
   }, [loadData]);
 
   const sortedDates = useMemo(() => {
-    const withSlots = new Set<string>();
-    for (const x of slots) withSlots.add(x.slotDate);
-    // Toon eerst dagen met klikbare momenten; open dagen zonder sloten daarna.
-    const onlyOpen = openDates.filter((d) => !withSlots.has(d));
-    return [...[...withSlots].sort(), ...onlyOpen.sort()];
-  }, [slots, openDates]);
+    // Alleen dagen met zichtbare sloten (vrij of bezet) — zo geen “open dag” zonder klikbare uren.
+    return [...new Set(slots.map((s) => s.slotDate))].sort();
+  }, [slots]);
 
   const totalPages = Math.max(1, Math.ceil(sortedDates.length / daysPerPage));
 
