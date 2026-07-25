@@ -23,7 +23,7 @@ export default function ModelWordenPage() {
                 begeleid, persoonlijk en toegankelijk voor iedereen.
               </>
             }
-            imageSrc="/nieuw/hero-2.png"
+            imageSrc="/nieuw/hero-2.jpg"
             imageAlt="Model worden bij Class-Models"
             imagePosition="left top"
           />

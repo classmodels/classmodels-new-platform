@@ -1508,3 +1508,99 @@
     letter-spacing: 0.1em;
   }
 }
+
+/* Login-box: knoppen naast elkaar */
+.nieuw-login-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: stretch;
+}
+.nieuw-login-actions > a {
+  flex: 1 1 200px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 46px;
+}
+
+/* Welkom + naam in modellenportaal */
+.nieuw-welcome {
+  margin: 0 0 12px;
+  color: var(--n-gold);
+  font-family: var(--n-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+/* Profiel: labels en rijen leesbaar op donker */
+.nieuw-root .nieuw-themed :is(.text-ink\/80, .text-ink\/70, .text-ink\/60),
+.nieuw-root .nieuw-themed [class*='text-ink/'],
+.nieuw-root .nieuw-panel :is(.text-ink\/80, .text-ink\/70, .text-ink\/60),
+.nieuw-root .nieuw-booking :is(.text-ink\/80, .text-ink\/70, .text-ink\/60) {
+  color: var(--n-mut) !important;
+}
+
+.nieuw-root .nieuw-themed :is(.bg-zinc-100, .bg-zinc-200, .bg-neutral-100),
+.nieuw-root .nieuw-panel :is(.bg-zinc-100, .bg-zinc-200, .bg-neutral-100) {
+  background: var(--n-bg) !important;
+  color: var(--n-mut) !important;
+}
+
+/* Sectiekoppen (goud) → donkere tekst i.p.v. wit */
+.nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep) :is(h3, span, p, label),
+.nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep).text-white,
+.nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep) .text-white {
+  color: #14110a !important;
+}
+
+/* Agenda: «Bezet»-sloten in goud/muted i.p.v. roze/rood */
+.nieuw-root .nieuw-booking :is(.bg-red-50, .bg-red-100),
+.nieuw-root .nieuw-themed :is(.bg-red-50, .bg-red-100) {
+  background: rgba(200, 166, 98, 0.12) !important;
+  color: var(--n-gold) !important;
+}
+.nieuw-root .nieuw-booking :is(.bg-red-200, .bg-red-300),
+.nieuw-root .nieuw-themed :is(.bg-red-200, .bg-red-300) {
+  background: rgba(200, 166, 98, 0.45) !important;
+}
+.nieuw-root .nieuw-booking :is(.border-red-200, .border-red-300, .border-red-400),
+.nieuw-root .nieuw-themed :is(.border-red-200, .border-red-300, .border-red-400) {
+  border-color: var(--n-gold-hair) !important;
+}
+.nieuw-root .nieuw-booking :is(.text-red-700, .text-red-800, .text-red-900),
+.nieuw-root .nieuw-themed :is(.text-red-700, .text-red-800, .text-red-900) {
+  color: var(--n-gold) !important;
+}
+
+/* Profiel overzicht/bewerken: ademruimte */
+.nieuw-root .nieuw-profile-view .nieuw-profile-row,
+.nieuw-root .nieuw-themed .nieuw-profile-row {
+  padding-top: 0.85rem !important;
+  padding-bottom: 0.85rem !important;
+}
+.nieuw-root .nieuw-profile-edit .nieuw-profile-section + .nieuw-profile-section,
+.nieuw-root .nieuw-themed .nieuw-profile-section {
+  margin-top: 0;
+}
+
+/* Profielwaarden: nooit zwarte tekst op donker */
+.nieuw-root .nieuw-themed dd,
+.nieuw-root .nieuw-panel dd {
+  color: var(--n-ink) !important;
+}
+.nieuw-root .nieuw-themed dt,
+.nieuw-root .nieuw-panel dt {
+  color: var(--n-mut) !important;
+}
+
+/* Opslaan-knop e.d. in themed: goud i.p.v. zwart/wit mismatch */
+.nieuw-root .nieuw-themed button.bg-ink,
+.nieuw-root .nieuw-themed label.bg-ink,
+.nieuw-root .nieuw-themed .bg-ink {
+  background: var(--n-gold) !important;
+  color: #14110a !important;
+  border-color: var(--n-gold) !important;
+}

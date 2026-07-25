@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { useAuth } from '@/context/auth-context';
 import './nieuw.css';
 
 export type NieuwPortal = 'home' | 'gasten' | 'modellen' | 'klanten';
@@ -66,11 +67,15 @@ export function NieuwShell({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, logout, loading } = useAuth();
   const activePortal = portal ?? portalFromPath(pathname);
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
 
   const subNav =
     activePortal === 'gasten' ? GASTEN_NAV : activePortal === 'modellen' ? MODELLEN_NAV : null;
+
+  const displayName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || '';
 
   function goBack() {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -121,6 +126,15 @@ export function NieuwShell({
           <nav className="nieuw-kop-actions" aria-label="Snelle acties">
             <Link href="/nieuw/reviews">Reviews</Link>
             <Link href="/nieuw/gasten/contact">Contact</Link>
+            {!loading && user ? (
+              <button type="button" className="nieuw-back-btn" onClick={() => logout()}>
+                Uitloggen
+              </button>
+            ) : !loading ? (
+              <Link href="/nieuw/modellen" className="nieuw-back-btn">
+                Inloggen
+              </Link>
+            ) : null}
             <button type="button" className="nieuw-back-btn" onClick={goBack}>
               Back
             </button>
@@ -131,6 +145,11 @@ export function NieuwShell({
       {subNav && activePortal !== 'home' ? (
         <div className="nieuw-subnav-outer">
           <div className="nieuw-wrap">
+            {activePortal === 'modellen' && user ? (
+              <p className="nieuw-welcome">
+                Welkom{displayName ? `, ${displayName}` : ''}
+              </p>
+            ) : null}
             <nav className="nieuw-subnav" aria-label="Portaalmenu">
               {subNav.map((item) => (
                 <Link

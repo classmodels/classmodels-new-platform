@@ -16,7 +16,7 @@ export default function GratisFotoshootPage() {
           <NieuwPortalHero
             titleLines={['plan uw gratis', 'testshoot']}
             lead={GRATIS_FOTOSHOOT_PAGE.whyParagraph}
-            imageSrc="/nieuw/hero-1.png"
+            imageSrc="/nieuw/hero-1.jpg"
             imageAlt="Gratis fotoshoot"
           />
 

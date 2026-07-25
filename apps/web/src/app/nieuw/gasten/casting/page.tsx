@@ -13,7 +13,7 @@ export default function CastingPage() {
           <NieuwPortalHero
             titleLines={['doe mee aan de', 'casting']}
             lead={CASTING_PAGE.whyParagraph}
-            imageSrc="/nieuw/hero-6.png"
+            imageSrc="/nieuw/hero-6.jpg"
             imageAlt="Casting"
             imagePosition="left top"
           />

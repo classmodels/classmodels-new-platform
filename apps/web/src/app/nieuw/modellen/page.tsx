@@ -114,7 +114,7 @@ function LoginForm() {
             Het is onnodig een account aan te maken als u geen overeenkomst heeft met Class-Models.
             Geen overeenkomst? Ga dan naar het gastenportaal.
           </p>
-          <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div className="nieuw-login-actions" style={{ marginTop: 18 }}>
             <Link className="nieuw-btn" href="/nieuw/gasten/model-worden">
               Naar gastenportaal
             </Link>
@@ -677,15 +677,11 @@ export default function NieuwModellenPage() {
       <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
         <div className="nieuw-wrap">
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--n-mut)' }}>{displayName}</span>
             {isAdminUser && !isModel ? (
               <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--n-gold)' }}>
                 Admin
               </span>
             ) : null}
-            <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={() => logout()}>
-              Uitloggen
-            </button>
           </div>
 
           <ImpersonationBanner />

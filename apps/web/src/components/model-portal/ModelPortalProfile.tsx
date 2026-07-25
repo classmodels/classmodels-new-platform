@@ -195,8 +195,8 @@ function ProfileSection({
   children: ReactNode;
 }) {
   return (
-    <div className="border border-line bg-white shadow-sm">
-      <div className="flex items-center justify-between border-b-2 border-burgundy bg-burgundy px-2.5 py-1.5 md:px-3">
+    <div className="nieuw-profile-section border border-line bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b-2 border-burgundy bg-burgundy px-3 py-2.5 md:px-4">
         <h3 className="text-xs font-bold uppercase leading-none tracking-wide text-white">{title}</h3>
         {complete ? (
           <span className="text-xs font-bold text-white" aria-hidden>
@@ -204,13 +204,13 @@ function ProfileSection({
           </span>
         ) : null}
       </div>
-      <div className="px-2 py-2 md:px-3 md:py-2.5">{children}</div>
+      <div className="px-3 py-4 md:px-4 md:py-5">{children}</div>
     </div>
   );
 }
 
 function fieldClass() {
-  return 'mt-0 w-full border border-line bg-white px-2 py-1.5 font-serif text-sm leading-snug text-ink outline-none focus:border-burgundy focus:ring-1 focus:ring-burgundy/25';
+  return 'mt-1.5 w-full border border-line bg-white px-3 py-2.5 font-serif text-sm leading-snug text-ink outline-none focus:border-burgundy focus:ring-1 focus:ring-burgundy/25';
 }
 
 function labelClass() {
@@ -414,9 +414,9 @@ export function ModelPortalProfile({
   );
 
   const row = (label: string, value: string) => (
-    <div className="flex flex-col gap-0 border-b border-line py-1.5 last:border-b-0 sm:grid sm:grid-cols-[1fr_auto] sm:items-baseline sm:gap-4 sm:py-1.5">
+    <div className="nieuw-profile-row flex flex-col gap-1 border-b border-line py-3 last:border-b-0 sm:grid sm:grid-cols-[1fr_auto] sm:items-baseline sm:gap-4">
       <dt className="text-[11px] font-normal uppercase tracking-wide text-ink/80">{label}</dt>
-      <dd className="min-w-0 text-right text-xs leading-snug text-ink">{value || '—'}</dd>
+      <dd className="min-w-0 text-right text-sm leading-snug text-ink">{value || '—'}</dd>
     </div>
   );
 
@@ -432,9 +432,9 @@ export function ModelPortalProfile({
     const photoBarIndex = photoBarTotal > 0 ? slideIndex + 1 : 0;
 
     return (
-      <div className="space-y-5 font-serif text-sm">
+      <div className="nieuw-profile-view space-y-6 font-serif text-sm">
         <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-          <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-5">
             {canReadMedia ? (
               <div className="overflow-hidden border border-line bg-white shadow-sm">
                 {heroPublicKey ? (
@@ -494,32 +494,32 @@ export function ModelPortalProfile({
               </div>
             )}
             {sheet.overMij.trim() || sheet.ervaringen.trim() ? (
-              <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
-                <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
+              <div className="border border-line bg-white px-4 py-4 shadow-sm">
+                <h3 className="border-b border-burgundy pb-2 text-sm font-bold uppercase tracking-wide text-burgundy">
                   Over mij en ervaring
                 </h3>
                 {sheet.overMij.trim() ? (
-                  <div className="mt-2">
+                  <div className="mt-3">
                     <p className="text-[11px] font-normal uppercase tracking-wide text-ink/80">Over mij</p>
-                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink">{sheet.overMij}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink">{sheet.overMij}</p>
                   </div>
                 ) : null}
                 {sheet.ervaringen.trim() ? (
-                  <div className={sheet.overMij.trim() ? 'mt-3 border-t border-line pt-3' : 'mt-2'}>
+                  <div className={sheet.overMij.trim() ? 'mt-4 border-t border-line pt-4' : 'mt-3'}>
                     <p className="text-[11px] font-normal uppercase tracking-wide text-ink/80">Ervaring</p>
-                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-ink">{sheet.ervaringen}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-ink">{sheet.ervaringen}</p>
                   </div>
                 ) : null}
               </div>
             ) : null}
           </div>
 
-          <div className="min-w-0 space-y-4 font-serif text-sm">
-            <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
-              <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
+          <div className="min-w-0 grid gap-5 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 font-serif text-sm">
+            <div className="border border-line bg-white px-4 py-4 shadow-sm sm:col-span-2 xl:col-span-1">
+              <h3 className="border-b border-burgundy pb-2 text-sm font-bold uppercase tracking-wide text-burgundy">
                 Overzicht
               </h3>
-              <dl className="mt-1">{row('Naam', [user.firstName, user.lastName].filter(Boolean).join(' '))}</dl>
+              <dl className="mt-2">{row('Naam', [user.firstName, user.lastName].filter(Boolean).join(' '))}</dl>
               <dl>{row('E-mail', user.email)}</dl>
               <dl>{row('Telefoon', sheet.gsmModel || user.phone || '')}</dl>
               <dl>{row('Gemeente', sheet.gemeente)}</dl>
@@ -529,31 +529,37 @@ export function ModelPortalProfile({
               <dl>{row('Geslacht', geslachtLabel)}</dl>
             </div>
 
-            <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
-              <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
+            <div className="border border-line bg-white px-4 py-4 shadow-sm sm:col-span-2 xl:col-span-1">
+              <h3 className="border-b border-burgundy pb-2 text-sm font-bold uppercase tracking-wide text-burgundy">
                 Beschikbaar voor
               </h3>
-              <p className="mt-2 text-xs leading-relaxed text-ink">{beschikbaarTekst || '—'}</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink">{beschikbaarTekst || '—'}</p>
             </div>
 
-            <div className="border border-line bg-white px-3 py-2.5 shadow-sm md:px-4 md:py-3">
-              <h3 className="border-b border-burgundy pb-1.5 text-sm font-bold uppercase tracking-wide text-burgundy">
+            <div className="border border-line bg-white px-4 py-4 shadow-sm sm:col-span-2">
+              <h3 className="border-b border-burgundy pb-2 text-sm font-bold uppercase tracking-wide text-burgundy">
                 Model info
               </h3>
-              <dl className="mt-1">{row('Lengte', sheet.lengte ? `${sheet.lengte} cm` : '')}</dl>
-              <dl>{row('Maat', sheet.maat)}</dl>
-              <dl>{row('Schoenmaat', sheet.schoenmaat)}</dl>
-              <dl>{row('BH-maat', sheet.bhMaat)}</dl>
-              <dl>{row('Borstomtrek', sheet.borstomtrek)}</dl>
-              <dl>{row('Confectiemaat', sheet.confectiemaat)}</dl>
-              <dl>{row('Heupomtrek', sheet.heupomtrek)}</dl>
-              <dl>{row('Jeansmaat', sheet.jeansmaat)}</dl>
-              <dl>{row('Taille', sheet.taille)}</dl>
-              <dl>{row('Haarkleur', sheet.haarkleur)}</dl>
-              <dl>{row('Kleur ogen', sheet.kleurOgen)}</dl>
-              <dl>{row('Instagram', sheet.instagram)}</dl>
-              <dl>{row('Facebook', sheet.facebook)}</dl>
-              <dl>{row('TikTok', sheet.tiktok)}</dl>
+              <div className="mt-2 grid gap-x-8 sm:grid-cols-2">
+                <div>
+                  <dl>{row('Lengte', sheet.lengte ? `${sheet.lengte} cm` : '')}</dl>
+                  <dl>{row('Maat', sheet.maat)}</dl>
+                  <dl>{row('Schoenmaat', sheet.schoenmaat)}</dl>
+                  <dl>{row('BH-maat', sheet.bhMaat)}</dl>
+                  <dl>{row('Borstomtrek', sheet.borstomtrek)}</dl>
+                  <dl>{row('Confectiemaat', sheet.confectiemaat)}</dl>
+                  <dl>{row('Heupomtrek', sheet.heupomtrek)}</dl>
+                </div>
+                <div>
+                  <dl>{row('Jeansmaat', sheet.jeansmaat)}</dl>
+                  <dl>{row('Taille', sheet.taille)}</dl>
+                  <dl>{row('Haarkleur', sheet.haarkleur)}</dl>
+                  <dl>{row('Kleur ogen', sheet.kleurOgen)}</dl>
+                  <dl>{row('Instagram', sheet.instagram)}</dl>
+                  <dl>{row('Facebook', sheet.facebook)}</dl>
+                  <dl>{row('TikTok', sheet.tiktok)}</dl>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -562,11 +568,11 @@ export function ModelPortalProfile({
   }
 
   return (
-    <form onSubmit={save} className="space-y-3 font-serif text-sm">
+    <form onSubmit={save} className="nieuw-profile-edit space-y-6 font-serif text-sm">
       {canReadMedia ? (
         <ProfileSection title="Foto's" complete={images.length > 0}>
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="space-y-3">
               <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">Hoofdfoto</p>
               <div className="flex flex-wrap items-start gap-3">
                 {profileAsset || user.profileThumbKey ? (
@@ -576,13 +582,13 @@ export function ModelPortalProfile({
                       profileAsset ? mediaPortalDetailKey(profileAsset) : user.profileThumbKey!,
                     )}
                     alt=""
-                    className="h-24 w-auto max-w-[120px] border border-line bg-zinc-100 object-contain"
+                    className="h-28 w-auto max-w-[140px] border border-line bg-zinc-100 object-contain"
                   />
                 ) : (
                   <p className="text-xs text-muted">Nog geen hoofdfoto.</p>
                 )}
                 {canUploadMedia ? (
-                  <label className="inline-block cursor-pointer border border-ink bg-ink px-2.5 py-1 text-center text-[10px] font-bold uppercase leading-none text-white hover:bg-ink/90">
+                  <label className="inline-block cursor-pointer border border-ink bg-ink px-3 py-2 text-center text-[10px] font-bold uppercase leading-none text-white hover:bg-ink/90">
                     {mediaBusy ? 'Uploaden…' : 'Hoofdfoto uploaden'}
                     <input
                       type="file"
@@ -595,13 +601,13 @@ export function ModelPortalProfile({
               </div>
             </div>
 
-            <div className="space-y-2 border-t border-line pt-3">
+            <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">
                   Galerijfoto&apos;s (max. 8)
                 </p>
                 {canUploadMedia && galleryOnly.length < 8 ? (
-                  <label className="inline-block cursor-pointer border border-line bg-white px-2.5 py-1 text-[10px] font-bold uppercase leading-none text-ink hover:bg-panel">
+                  <label className="inline-block cursor-pointer border border-line bg-white px-3 py-2 text-[10px] font-bold uppercase leading-none text-ink hover:bg-panel">
                     {mediaBusy ? '…' : '+ Foto'}
                     <input
                       type="file"
@@ -646,142 +652,149 @@ export function ModelPortalProfile({
         </ProfileSection>
       ) : null}
 
-      <ProfileSection title="Persoonlijke info" complete={sectionContactOk}>
-        <div className="grid gap-x-2 gap-y-1.5 sm:grid-cols-2">
-          <div>
-            <label className={labelClass()}>Voornaam *</label>
-            <input
-              required
-              className={fieldClass()}
-              value={profile.firstName}
-              onChange={(e) => setProfile((p) => ({ ...p, firstName: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>Familienaam *</label>
-            <input
-              required
-              className={fieldClass()}
-              value={profile.lastName}
-              onChange={(e) => setProfile((p) => ({ ...p, lastName: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>E-mail</label>
-            <input className={fieldClass()} value={user.email} readOnly disabled title="E-mail via account" />
-          </div>
-          <div>
-            <label className={labelClass()}>Geboortedatum *</label>
-            <input
-              required
-              type="date"
-              className={fieldClass()}
-              value={sheet.geboortedatum}
-              onChange={(e) => setSheet((s) => ({ ...s, geboortedatum: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>Geslacht</label>
-            <div className="mt-0.5 flex flex-wrap gap-3">
-              {(['vrouw', 'man'] as const).map((g) => {
-                const on = sheet.geslacht.includes(g);
-                return (
-                  <label key={g} className="flex items-center gap-1.5 text-xs leading-tight">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() =>
-                        setSheet((s) => ({
-                          ...s,
-                          geslacht: on ? s.geslacht.filter((x) => x !== g) : [...s.geslacht, g],
-                        }))
-                      }
-                    />
-                    {g === 'vrouw' ? 'Vrouw' : 'Man'}
-                  </label>
-                );
-              })}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ProfileSection title="Identiteit" complete={sectionContactOk}>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div>
+              <label className={labelClass()}>Voornaam *</label>
+              <input
+                required
+                className={fieldClass()}
+                value={profile.firstName}
+                onChange={(e) => setProfile((p) => ({ ...p, firstName: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelClass()}>Familienaam *</label>
+              <input
+                required
+                className={fieldClass()}
+                value={profile.lastName}
+                onChange={(e) => setProfile((p) => ({ ...p, lastName: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelClass()}>E-mail</label>
+              <input className={fieldClass()} value={user.email} readOnly disabled title="E-mail via account" />
+            </div>
+            <div>
+              <label className={labelClass()}>Geboortedatum *</label>
+              <input
+                required
+                type="date"
+                className={fieldClass()}
+                value={sheet.geboortedatum}
+                onChange={(e) => setSheet((s) => ({ ...s, geboortedatum: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelClass()}>Geslacht</label>
+              <div className="mt-2 flex flex-wrap gap-4">
+                {(['vrouw', 'man'] as const).map((g) => {
+                  const on = sheet.geslacht.includes(g);
+                  return (
+                    <label key={g} className="flex items-center gap-2 text-sm leading-tight">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={() =>
+                          setSheet((s) => ({
+                            ...s,
+                            geslacht: on ? s.geslacht.filter((x) => x !== g) : [...s.geslacht, g],
+                          }))
+                        }
+                      />
+                      {g === 'vrouw' ? 'Vrouw' : 'Man'}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <label className={labelClass()}>Nationaliteit</label>
+              <select
+                className={fieldClass()}
+                value={sheet.nationaliteit}
+                onChange={(e) => setSheet((s) => ({ ...s, nationaliteit: e.target.value }))}
+              >
+                <option value="">Maak een keuze</option>
+                <option value="België">België</option>
+                <option value="Nederland">Nederland</option>
+                <option value="Anders">Anders</option>
+              </select>
             </div>
           </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass()}>Nationaliteit</label>
-            <select
-              className={fieldClass()}
-              value={sheet.nationaliteit}
-              onChange={(e) => setSheet((s) => ({ ...s, nationaliteit: e.target.value }))}
-            >
-              <option value="">Maak een keuze</option>
-              <option value="België">België</option>
-              <option value="Nederland">Nederland</option>
-              <option value="Anders">Anders</option>
-            </select>
+        </ProfileSection>
+
+        <ProfileSection title="Adres & contact" complete={!!sheet.straat && !!sheet.gemeente}>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label className={labelClass()}>Straat en nr *</label>
+              <input
+                required
+                className={fieldClass()}
+                value={sheet.straat}
+                onChange={(e) => setSheet((s) => ({ ...s, straat: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelClass()}>Postcode</label>
+              <input
+                className={fieldClass()}
+                value={sheet.postcode}
+                onChange={(e) => setSheet((s) => ({ ...s, postcode: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelClass()}>Gemeente</label>
+              <input
+                className={fieldClass()}
+                value={sheet.gemeente}
+                onChange={(e) => setSheet((s) => ({ ...s, gemeente: e.target.value }))}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass()}>Land</label>
+              <input
+                className={fieldClass()}
+                value={sheet.land}
+                onChange={(e) => setSheet((s) => ({ ...s, land: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className={labelClass()}>GSM model *</label>
+              <input
+                required
+                inputMode="numeric"
+                pattern="[0-9+\s]*"
+                className={fieldClass()}
+                value={sheet.gsmModel}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/[^\d+\s]/g, '');
+                  setSheet((s) => ({ ...s, gsmModel: v }));
+                  setProfile((p) => ({ ...p, phone: v }));
+                }}
+              />
+            </div>
+            <div>
+              <label className={labelClass()}>GSM moeder</label>
+              <input
+                className={fieldClass()}
+                value={sheet.gsmMoeder}
+                onChange={(e) => setSheet((s) => ({ ...s, gsmMoeder: e.target.value }))}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelClass()}>GSM vader</label>
+              <input
+                className={fieldClass()}
+                value={sheet.gsmVader}
+                onChange={(e) => setSheet((s) => ({ ...s, gsmVader: e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass()}>Straat en nr *</label>
-            <input
-              required
-              className={fieldClass()}
-              value={sheet.straat}
-              onChange={(e) => setSheet((s) => ({ ...s, straat: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>Postcode</label>
-            <input
-              className={fieldClass()}
-              value={sheet.postcode}
-              onChange={(e) => setSheet((s) => ({ ...s, postcode: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>Gemeente</label>
-            <input
-              className={fieldClass()}
-              value={sheet.gemeente}
-              onChange={(e) => setSheet((s) => ({ ...s, gemeente: e.target.value }))}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass()}>Land</label>
-            <input
-              className={fieldClass()}
-              value={sheet.land}
-              onChange={(e) => setSheet((s) => ({ ...s, land: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>GSM model *</label>
-            <input
-              required
-              inputMode="numeric"
-              pattern="[0-9+\s]*"
-              className={fieldClass()}
-              value={sheet.gsmModel}
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^\d+\s]/g, '');
-                setSheet((s) => ({ ...s, gsmModel: v }));
-                setProfile((p) => ({ ...p, phone: v }));
-              }}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>GSM moeder</label>
-            <input
-              className={fieldClass()}
-              value={sheet.gsmMoeder}
-              onChange={(e) => setSheet((s) => ({ ...s, gsmMoeder: e.target.value }))}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass()}>GSM vader</label>
-            <input
-              className={fieldClass()}
-              value={sheet.gsmVader}
-              onChange={(e) => setSheet((s) => ({ ...s, gsmVader: e.target.value }))}
-            />
-          </div>
-        </div>
-      </ProfileSection>
+        </ProfileSection>
+      </div>
 
       <ProfileSection title="Rekeningnummer" complete={!!sheet.rekeningnummer && sheet.rekeningnummer !== 'BE'}>
         <div>
@@ -794,114 +807,118 @@ export function ModelPortalProfile({
         </div>
       </ProfileSection>
 
-      <ProfileSection title="Model info" complete={sectionModelOk}>
-        <div className="grid gap-x-2 gap-y-1.5 sm:grid-cols-2">
-          {(
-            [
-              ['lengte', 'Lengte (cm)'],
-              ['maat', 'Maat'],
-              ['schoenmaat', 'Schoenmaat'],
-              ['bhMaat', 'BH-maat'],
-              ['borstomtrek', 'Borstomtrek'],
-              ['confectiemaat', 'Confectiemaat'],
-              ['heupomtrek', 'Heupomtrek'],
-              ['jeansmaat', 'Jeansmaat'],
-              ['taille', 'Taille'],
-              ['haarkleur', 'Haarkleur'],
-              ['kleurOgen', 'Kleur ogen'],
-            ] as const
-          ).map(([key, lab]) => (
-            <div key={key}>
-              <label className={labelClass()}>{lab}</label>
-              <input
-                className={fieldClass()}
-                value={sheet[key]}
-                onChange={(e) => setSheet((s) => ({ ...s, [key]: e.target.value }))}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ProfileSection title="Model info" complete={sectionModelOk}>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            {(
+              [
+                ['lengte', 'Lengte (cm)'],
+                ['maat', 'Maat'],
+                ['schoenmaat', 'Schoenmaat'],
+                ['bhMaat', 'BH-maat'],
+                ['borstomtrek', 'Borstomtrek'],
+                ['confectiemaat', 'Confectiemaat'],
+                ['heupomtrek', 'Heupomtrek'],
+                ['jeansmaat', 'Jeansmaat'],
+                ['taille', 'Taille'],
+                ['haarkleur', 'Haarkleur'],
+                ['kleurOgen', 'Kleur ogen'],
+              ] as const
+            ).map(([key, lab]) => (
+              <div key={key}>
+                <label className={labelClass()}>{lab}</label>
+                <input
+                  className={fieldClass()}
+                  value={sheet[key]}
+                  onChange={(e) => setSheet((s) => ({ ...s, [key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 space-y-4 border-t border-line pt-5">
+            <div>
+              <label className={labelClass()}>Over mij</label>
+              <textarea
+                className={`${fieldClass()} min-h-[80px]`}
+                value={sheet.overMij}
+                onChange={(e) => setSheet((s) => ({ ...s, overMij: e.target.value }))}
               />
             </div>
-          ))}
-        </div>
-        <div className="mt-3 space-y-2 border-t border-line pt-3">
-          <div>
-            <label className={labelClass()}>Over mij</label>
-            <textarea
-              className={`${fieldClass()} min-h-[64px]`}
-              value={sheet.overMij}
-              onChange={(e) => setSheet((s) => ({ ...s, overMij: e.target.value }))}
-            />
+            <div>
+              <label className={labelClass()}>Ervaring</label>
+              <textarea
+                className={`${fieldClass()} min-h-[72px]`}
+                value={sheet.ervaringen}
+                onChange={(e) => setSheet((s) => ({ ...s, ervaringen: e.target.value }))}
+              />
+            </div>
           </div>
-          <div>
-            <label className={labelClass()}>Ervaring</label>
-            <textarea
-              className={`${fieldClass()} min-h-[56px]`}
-              value={sheet.ervaringen}
-              onChange={(e) => setSheet((s) => ({ ...s, ervaringen: e.target.value }))}
-            />
-          </div>
-        </div>
-      </ProfileSection>
+        </ProfileSection>
 
-      <ProfileSection title="Social media" complete={sectionSocialOk}>
-        <div className="grid gap-x-2 gap-y-1.5 sm:grid-cols-2">
-          <div>
-            <label className={labelClass()}>Instagram</label>
-            <input
-              className={fieldClass()}
-              value={sheet.instagram}
-              onChange={(e) => setSheet((s) => ({ ...s, instagram: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className={labelClass()}>Facebook</label>
-            <input
-              className={fieldClass()}
-              value={sheet.facebook}
-              onChange={(e) => setSheet((s) => ({ ...s, facebook: e.target.value }))}
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass()}>TikTok</label>
-            <input
-              className={fieldClass()}
-              value={sheet.tiktok}
-              onChange={(e) => setSheet((s) => ({ ...s, tiktok: e.target.value }))}
-            />
-          </div>
-        </div>
-      </ProfileSection>
-
-      <ProfileSection title="Beschikbaarheid" complete={sheet.beschikbaar.length > 0}>
-        <div className="grid gap-1 sm:grid-cols-2">
-          {BESCHIKBAAR_OPTS.map((opt) => {
-            const on = sheet.beschikbaar.includes(opt);
-            return (
-              <label
-                key={opt}
-                className={`flex cursor-pointer items-center gap-2 border px-2 py-1.5 text-xs leading-snug sm:px-2.5 ${
-                  on ? 'border-burgundy bg-burgundy/10' : 'border-line bg-white'
-                }`}
-              >
+        <div className="space-y-6">
+          <ProfileSection title="Social media" complete={sectionSocialOk}>
+            <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+              <div>
+                <label className={labelClass()}>Instagram</label>
                 <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() =>
-                    setSheet((s) => ({
-                      ...s,
-                      beschikbaar: on ? s.beschikbaar.filter((x) => x !== opt) : [...s.beschikbaar, opt],
-                    }))
-                  }
+                  className={fieldClass()}
+                  value={sheet.instagram}
+                  onChange={(e) => setSheet((s) => ({ ...s, instagram: e.target.value }))}
                 />
-                {BESCHIKBAAR_LABEL[opt] ?? opt}
-              </label>
-            );
-          })}
-        </div>
-      </ProfileSection>
+              </div>
+              <div>
+                <label className={labelClass()}>Facebook</label>
+                <input
+                  className={fieldClass()}
+                  value={sheet.facebook}
+                  onChange={(e) => setSheet((s) => ({ ...s, facebook: e.target.value }))}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelClass()}>TikTok</label>
+                <input
+                  className={fieldClass()}
+                  value={sheet.tiktok}
+                  onChange={(e) => setSheet((s) => ({ ...s, tiktok: e.target.value }))}
+                />
+              </div>
+            </div>
+          </ProfileSection>
 
-      <div className="flex flex-wrap gap-2">
+          <ProfileSection title="Beschikbaarheid" complete={sheet.beschikbaar.length > 0}>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {BESCHIKBAAR_OPTS.map((opt) => {
+                const on = sheet.beschikbaar.includes(opt);
+                return (
+                  <label
+                    key={opt}
+                    className={`flex cursor-pointer items-center gap-2.5 border px-3 py-2.5 text-sm leading-snug ${
+                      on ? 'border-burgundy bg-burgundy/10' : 'border-line bg-white'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() =>
+                        setSheet((s) => ({
+                          ...s,
+                          beschikbaar: on ? s.beschikbaar.filter((x) => x !== opt) : [...s.beschikbaar, opt],
+                        }))
+                      }
+                    />
+                    {BESCHIKBAAR_LABEL[opt] ?? opt}
+                  </label>
+                );
+              })}
+            </div>
+          </ProfileSection>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 pt-2">
         <button
           type="submit"
-          className="border border-ink bg-ink px-3 py-1 text-[10px] font-bold uppercase leading-none text-white hover:bg-ink/90"
+          className="border border-ink bg-ink px-5 py-2.5 text-[11px] font-bold uppercase tracking-wide leading-none text-white hover:bg-ink/90"
         >
           Profiel opslaan
         </button>

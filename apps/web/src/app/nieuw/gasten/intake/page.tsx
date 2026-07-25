@@ -16,7 +16,7 @@ export default function IntakePage() {
           <NieuwPortalHero
             titleLines={['plan uw', 'intake gesprek']}
             lead={INTAKE_LEAD}
-            imageSrc="/nieuw/hero-4.png"
+            imageSrc="/nieuw/hero-4.jpg"
             imageAlt="Intake gesprek"
             imagePosition="left top"
           />
