@@ -1093,7 +1093,11 @@ export function GuestPortalLayout() {
             {guestNavContent}
           </aside>
 
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-cm border-y border-line bg-white shadow-sm lg:border">
+          <div
+            className={`flex min-w-0 flex-col rounded-cm border-y border-line bg-white shadow-sm lg:border ${
+              isMobile ? 'overflow-visible' : 'min-h-0 overflow-hidden'
+            }`}
+          >
             <div
               className={`cm-red-titlebar shrink-0 border-b border-line ${showGuestOfficeInBar ? 'cm-red-titlebar--stacked' : ''}`}
             >
@@ -1113,7 +1117,7 @@ export function GuestPortalLayout() {
                 ) : null}
               </div>
             </div>
-            <div className="min-h-0 flex-1 px-3 py-3 lg:p-6">
+            <div className={`px-3 py-3 lg:p-6 ${isMobile ? '' : 'min-h-0 flex-1'}`}>
               {bookingFlow ? (
                 <GuestBookingPanel
                   calendarSlug={bookingFlow.calendarSlug}

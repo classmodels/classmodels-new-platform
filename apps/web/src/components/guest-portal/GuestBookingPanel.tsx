@@ -208,10 +208,11 @@ export function GuestBookingPanel({
   }, [loadData]);
 
   const sortedDates = useMemo(() => {
-    const s = new Set<string>();
-    for (const x of slots) s.add(x.slotDate);
-    for (const d of openDates) s.add(d);
-    return [...s].sort();
+    const withSlots = new Set<string>();
+    for (const x of slots) withSlots.add(x.slotDate);
+    // Toon eerst dagen met klikbare momenten; open dagen zonder sloten daarna.
+    const onlyOpen = openDates.filter((d) => !withSlots.has(d));
+    return [...[...withSlots].sort(), ...onlyOpen.sort()];
   }, [slots, openDates]);
 
   const totalPages = Math.max(1, Math.ceil(sortedDates.length / daysPerPage));
@@ -323,6 +324,7 @@ export function GuestBookingPanel({
     async (pickedSlotId: string) => {
       setBusy(true);
       setErr(null);
+      setSlotId(pickedSlotId);
       try {
         const fd = new FormData();
         fd.append('slotId', pickedSlotId);
@@ -349,13 +351,14 @@ export function GuestBookingPanel({
         setTravelInfo(parsed.travel ?? null);
         setBookNotifications(parsed.notifications ?? null);
         if (onBookingSuccess) {
-          await Promise.resolve(onBookingSuccess());
-          await loadData();
+          // UI is al aangevinkt; refresh op de achtergrond.
+          void Promise.resolve(onBookingSuccess()).then(() => loadData());
           return;
         }
         setStep('success');
       } catch (e: unknown) {
         setErr(e instanceof Error ? e.message : 'Boeken mislukt');
+        setSlotId(null);
       } finally {
         setBusy(false);
       }
@@ -368,11 +371,13 @@ export function GuestBookingPanel({
 
   const renderSlotButton = (s: SlotDto, sel: boolean, compact?: boolean) => {
     const occupied = isSlotOccupied(s);
+    const pending = busy && sel;
     return (
       <button
         key={s.id}
         type="button"
-        disabled={occupied || busy}
+        disabled={occupied || (busy && !sel)}
+        aria-pressed={sel}
         className={[
           'flex w-full min-w-0 items-center gap-2 rounded-md border px-3 py-2 text-left text-xs font-medium tabular-nums transition',
           compact ? 'px-2 py-1.5' : '',
@@ -385,9 +390,10 @@ export function GuestBookingPanel({
               : compact
                 ? 'border-zinc-200 bg-white hover:border-zinc-400'
                 : 'border-line bg-panel hover:border-burgundy/45',
+          busy && !sel ? 'opacity-50' : '',
         ].join(' ')}
         onClick={() => {
-          if (occupied) return;
+          if (occupied || busy) return;
           if (autoBookOnPick) {
             void quickBook(s.id);
             return;
@@ -418,7 +424,12 @@ export function GuestBookingPanel({
           ) : (
             <>
               {slotTimeLabel(s)}
-              {authToken && typeof s.remaining === 'number' && s.remaining > 1 ? (
+              {pending ? (
+                <span className={`ml-1 text-[10px] font-normal ${compact ? 'text-zinc-500' : 'text-muted'}`}>
+                  {' '}
+                  (bezig…)
+                </span>
+              ) : authToken && typeof s.remaining === 'number' && s.remaining > 1 ? (
                 <span className={`ml-1 text-[10px] font-normal ${compact ? 'text-zinc-500' : 'text-muted'}`}>
                   {' '}
                   ({s.remaining} vrij)
@@ -935,18 +946,42 @@ export function GuestBookingPanel({
 
   const slotsBlock =
     step === 'slots' ? (
-      <div className="min-h-0 min-w-0 flex-1">
-        <div className={`flex min-h-0 flex-1 flex-col ${isMobile ? '' : 'max-h-[min(520px,62vh)]'}`}>
+      <div className={isMobile ? 'w-full' : 'min-h-0 min-w-0 flex-1'}>
+        <div
+          className={
+            isMobile
+              ? 'flex w-full flex-col gap-3'
+              : 'flex min-h-0 max-h-[min(520px,62vh)] flex-1 flex-col'
+          }
+        >
           {isMobile ? topDatePager : null}
-          <div className="grid min-h-0 w-full min-w-0 flex-1 gap-1.5 pb-1" style={dayGridStyle}>
+          <div
+            className={
+              isMobile
+                ? 'grid w-full gap-2 pb-1'
+                : 'grid min-h-0 w-full min-w-0 flex-1 gap-1.5 pb-1'
+            }
+            style={dayGridStyle}
+          >
             {visibleDates.map((ymd) => (
-              <div key={ymd} className="flex min-h-0 min-w-0 flex-col text-center">
+              <div
+                key={ymd}
+                className={
+                  isMobile
+                    ? 'flex min-w-0 flex-col text-center'
+                    : 'flex min-h-0 min-w-0 flex-col text-center'
+                }
+              >
                 <div className="shrink-0 rounded-t-md bg-zinc-900 py-2 text-[11px] font-semibold uppercase tracking-wide text-white">
                   {colHeader(ymd)}
                 </div>
-                {/* Gsm: alle uren volledig onder elkaar (geen scroll per dag). */}
+                {/* Gsm: natuurlijke hoogte + alle uren zichtbaar (niet inklappen in flex). */}
                 <div
-                  className={`min-h-0 flex-1 space-y-1.5 rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5 ${isMobile ? '' : 'overflow-y-auto'}`}
+                  className={
+                    isMobile
+                      ? 'space-y-1.5 rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5'
+                      : 'min-h-0 flex-1 space-y-1.5 overflow-y-auto rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5'
+                  }
                 >
                   {(slotsByYmd.get(ymd) ?? []).length === 0 ? (
                     <p className="px-1 py-2 text-[10px] text-zinc-500">Geen vrije momenten (meer).</p>
@@ -1010,7 +1045,7 @@ export function GuestBookingPanel({
   );
 
   return (
-    <div className="flex min-h-[min(520px,62vh)] flex-col gap-4">
+    <div className={`flex flex-col gap-4 ${isMobile ? '' : 'min-h-[min(520px,62vh)]'}`}>
       {uploadProgress ? (
         <CmProgressOverlay
           label="Afspraak versturen…"
@@ -1033,8 +1068,8 @@ export function GuestBookingPanel({
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">{slotsBlock}</div>
+      <div className={`flex flex-col gap-4 ${isMobile ? '' : 'min-h-0 flex-1'}`}>
+        <div className={isMobile ? 'w-full' : 'flex min-h-0 min-w-0 flex-1 flex-col'}>{slotsBlock}</div>
       </div>
 
       {footer}

@@ -198,7 +198,7 @@ export function ModelPortalShell({
             {navContent}
           </aside>
 
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden border-y border-line bg-white shadow-sm lg:border">
+          <div className="flex min-w-0 flex-col overflow-visible border-y border-line bg-white shadow-sm lg:min-h-0 lg:overflow-hidden lg:border">
             <div
               className={`cm-red-titlebar shrink-0 border-b border-line ${sectionTitleBarClassName ?? ''}`}
             >
@@ -227,7 +227,7 @@ export function ModelPortalShell({
                 )}
               </div>
             </div>
-            <div className="min-h-0 flex-1 px-3 py-3 lg:p-6">{children}</div>
+            <div className="px-3 py-3 lg:min-h-0 lg:flex-1 lg:p-6">{children}</div>
           </div>
         </div>
       </div>
