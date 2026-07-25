@@ -102,7 +102,7 @@ function colHeader(ymd: string): string {
 
 export function GuestBookingPanel({
   calendarSlug,
-  heading,
+  heading: _heading,
   onClose,
   variant = 'default',
   authToken,
@@ -110,6 +110,7 @@ export function GuestBookingPanel({
   onBookingSuccess,
   autoBookOnPick = false,
   showOccupiedSlots = false,
+  hideSlotTitle = false,
 }: {
   calendarSlug: string;
   heading: string;
@@ -124,6 +125,8 @@ export function GuestBookingPanel({
   autoBookOnPick?: boolean;
   /** Volle sloten tonen als «Bezet» (portfolio). */
   showOccupiedSlots?: boolean;
+  /** Titel staat buiten het kader (gasten-agenda’s). */
+  hideSlotTitle?: boolean;
 }) {
   const isMobile = useIsMobile() === true;
   const daysPerPage = isMobile ? DAYS_PER_PAGE_MOBILE : DAYS_PER_PAGE_DESKTOP;
@@ -131,7 +134,6 @@ export function GuestBookingPanel({
   const [step, setStep] = useState<Step>('slots');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [calTitle, setCalTitle] = useState('');
   const [fields, setFields] = useState<FieldDto[]>([]);
   const [slots, setSlots] = useState<SlotDto[]>([]);
   const [openDates, setOpenDates] = useState<string[]>([]);
@@ -172,7 +174,6 @@ export function GuestBookingPanel({
         openDates?: string[];
         calendar?: { showEndTimeOnPublic?: boolean };
       };
-      setCalTitle(fJson.calendar?.title ?? '');
       setFields(fJson.fields ?? []);
       setSlots(sJson.slots ?? []);
       setOpenDates(sJson.openDates ?? []);
@@ -830,15 +831,17 @@ export function GuestBookingPanel({
       <div className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
           <div className="min-w-0 flex-1">
-            {heading ? (
-              <p className="text-[11px] font-bold uppercase tracking-wide text-muted">{heading}</p>
+            {!hideSlotTitle ? (
+              <h2 className="mt-0 font-serif text-xl font-semibold text-ink">
+                {step === 'slots' ? 'Kies een beschikbaar moment' : 'Uw gegevens'}
+              </h2>
+            ) : step === 'form' ? (
+              <h2 className="mt-0 font-serif text-xl font-semibold text-ink">Uw gegevens</h2>
             ) : null}
-            <h2 className={`${heading ? 'mt-1' : 'mt-0'} font-serif text-xl font-semibold text-ink`}>
-              {step === 'slots' ? 'Kies een moment' : 'Uw gegevens'}
-              {calTitle ? <span className="block text-sm font-normal text-muted">{calTitle}</span> : null}
-            </h2>
             {step === 'slots' && showGuestOffice ? (
-              <p className="mt-4 text-[13px] leading-snug text-muted">{GUEST_APPOINTMENT_OFFICE_LINE}</p>
+              <p className={`${hideSlotTitle ? 'mt-0' : 'mt-4'} text-[13px] leading-snug text-muted`}>
+                {GUEST_APPOINTMENT_OFFICE_LINE}
+              </p>
             ) : null}
           </div>
           <button
@@ -1017,10 +1020,8 @@ export function GuestBookingPanel({
       ) : null}
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 pb-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">{heading}</p>
-          <h2 className="mt-0.5 text-base font-semibold tracking-tight text-zinc-900">
-            {step === 'slots' ? 'Online afspraak' : 'Uw gegevens'}
-            {calTitle ? <span className="mt-0.5 block text-xs font-normal text-zinc-500">{calTitle}</span> : null}
+          <h2 className="mt-0 text-base font-semibold tracking-tight text-zinc-900">
+            {step === 'slots' ? 'Kies een beschikbaar moment' : 'Uw gegevens'}
           </h2>
           {showGuestOffice ? (
             <p className="mt-2 text-[11px] leading-snug text-zinc-600">{GUEST_APPOINTMENT_OFFICE_LINE}</p>

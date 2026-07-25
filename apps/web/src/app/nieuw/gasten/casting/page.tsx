@@ -20,7 +20,7 @@ export default function CastingPage() {
 
           <div className="nieuw-agenda-align" style={{ marginTop: 40 }}>
             <h2 className="nieuw-h3 nieuw-agenda-title">{CASTING_PAGE.expectTitle}</h2>
-            <h2 className="nieuw-h3 nieuw-agenda-booking-title">Online inschrijving casting</h2>
+            <h2 className="nieuw-h3 nieuw-agenda-booking-title">Kies een beschikbaar moment</h2>
             <ul className="nieuw-checklist nieuw-agenda-frames">
               {CASTING_PAGE.expectBullets.map((b) => (
                 <li key={b}>
@@ -29,10 +29,7 @@ export default function CastingPage() {
                 </li>
               ))}
             </ul>
-            <NieuwBookingBlock
-              slug={CASTING_PAGE.agendaSlug}
-              subtitle="Boek uw castingmoment. Bij een match kunt u worden opgenomen voor toekomstige boekingen."
-            />
+            <NieuwBookingBlock slug={CASTING_PAGE.agendaSlug} />
           </div>
 
           <div

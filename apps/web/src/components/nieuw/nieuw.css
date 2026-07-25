@@ -103,10 +103,10 @@
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 16px;
-  width: 100%;
+  width: min(1180px, 92vw);
   max-width: none;
-  margin: 0;
-  padding: 16px 30px;
+  margin: 0 auto;
+  padding: 16px 0;
   box-sizing: border-box;
 }
 .nieuw-merk {
@@ -209,6 +209,12 @@
   justify-self: end;
   flex: none;
   z-index: 1;
+}
+.nieuw-kop-actions-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 8px;
 }
 .nieuw-kop-actions a,
 .nieuw-kop-actions .nieuw-back-btn {
@@ -1264,7 +1270,9 @@
   grid-column: 2;
   grid-row: 1;
   margin: 0;
-  align-self: end;
+  align-self: start;
+  font-size: clamp(26px, 2.6vw, 34px);
+  line-height: 1.15;
 }
 .nieuw-agenda-align .nieuw-agenda-frames {
   grid-column: 1;
@@ -1474,7 +1482,7 @@
   .nieuw-sidebar { position: static; }
   .nieuw-kop-inner {
     grid-template-columns: 1fr;
-    padding: 14px 30px;
+    padding: 14px 0;
     gap: 12px;
   }
   .nieuw-merk,

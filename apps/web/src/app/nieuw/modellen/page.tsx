@@ -390,7 +390,7 @@ export default function NieuwModellenPage() {
 
   if (loading && !preview) {
     body = (
-      <section className="nieuw-uc">
+      <section className="nieuw-uc" style={{ background: 'var(--n-bg)', minHeight: '50vh' }}>
         <p className="nieuw-lead">Laden…</p>
       </section>
     );

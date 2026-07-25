@@ -25,6 +25,7 @@ export function NieuwBookingBlock({
           key={resetKey}
           calendarSlug={slug}
           heading=""
+          hideSlotTitle
           variant="default"
           onClose={() => setResetKey((k) => k + 1)}
         />
