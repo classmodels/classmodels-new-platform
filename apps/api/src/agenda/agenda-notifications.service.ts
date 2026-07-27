@@ -899,7 +899,7 @@ export class AgendaNotificationService {
     const st = String(b.slot.startTime ?? '').slice(0, 5);
     const et = String(b.slot.endTime ?? '').slice(0, 5);
     const timeLabel =
-      cal.showEndTimeOnPublic !== false ? `${st} – ${et}` : st;
+      cal.showEndTimeOnPublic === true ? `${st} – ${et}` : st;
 
     const displayName =
       (b.name ?? '').trim() ||

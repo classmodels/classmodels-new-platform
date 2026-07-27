@@ -137,7 +137,7 @@ export function GuestBookingPanel({
   const [fields, setFields] = useState<FieldDto[]>([]);
   const [slots, setSlots] = useState<SlotDto[]>([]);
   const [openDates, setOpenDates] = useState<string[]>([]);
-  const [showEndTimeOnPublic, setShowEndTimeOnPublic] = useState(true);
+  const [showEndTimeOnPublic, setShowEndTimeOnPublic] = useState(false);
   const [slotId, setSlotId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, File | undefined>>({});
@@ -178,7 +178,7 @@ export function GuestBookingPanel({
       setSlots(sJson.slots ?? []);
       setOpenDates(sJson.openDates ?? []);
       const endVis = sJson.calendar?.showEndTimeOnPublic ?? fJson.calendar?.showEndTimeOnPublic;
-      setShowEndTimeOnPublic(endVis !== false);
+      setShowEndTimeOnPublic(endVis === true);
       setSlotId(null);
       setForm({});
       setCancelUrl(null);

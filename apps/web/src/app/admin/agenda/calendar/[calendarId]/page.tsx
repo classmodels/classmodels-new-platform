@@ -110,7 +110,7 @@ export default function AdminAgendaCalendarDetailPage() {
   const [publicBooking, setPublicBooking] = useState(true);
   const [restrictOnlyOpen, setRestrictOnlyOpen] = useState(true);
   const [weekdayMask, setWeekdayMask] = useState(0);
-  const [showEndTimeOnPublic, setShowEndTimeOnPublic] = useState(true);
+  const [showEndTimeOnPublic, setShowEndTimeOnPublic] = useState(false);
   const [durationMinutes, setDurationMinutes] = useState('60');
   const [slotStepMinutes, setSlotStepMinutes] = useState('');
   const [capacity, setCapacity] = useState('1');
@@ -138,7 +138,7 @@ export default function AdminAgendaCalendarDetailPage() {
     setPublicBooking(c.publicBooking);
     setRestrictOnlyOpen(c.restrictToOpenDays !== false);
     setWeekdayMask(typeof c.weekdayOpenMask === 'number' ? c.weekdayOpenMask : 0);
-    setShowEndTimeOnPublic(c.showEndTimeOnPublic !== false);
+    setShowEndTimeOnPublic(c.showEndTimeOnPublic === true);
     setDurationMinutes(String(c.durationMinutes));
     setSlotStepMinutes(c.slotStepMinutes != null ? String(c.slotStepMinutes) : '');
     setCapacity(String(c.capacity));
@@ -272,7 +272,7 @@ export default function AdminAgendaCalendarDetailPage() {
       publicBooking !== cal.publicBooking ||
       restrictOnlyOpen !== savedOpen ||
       weekdayMask !== savedMask ||
-      showEndTimeOnPublic !== (cal.showEndTimeOnPublic !== false) ||
+      showEndTimeOnPublic !== (cal.showEndTimeOnPublic === true) ||
       durationMinutes !== String(cal.durationMinutes) ||
       slotStepMinutes !== (cal.slotStepMinutes != null ? String(cal.slotStepMinutes) : '') ||
       capacity !== String(cal.capacity) ||
@@ -534,8 +534,9 @@ export default function AdminAgendaCalendarDetailPage() {
         <label className="flex items-start gap-2 text-xs">
           <input type="checkbox" checked={showEndTimeOnPublic} onChange={(e) => setShowEndTimeOnPublic(e.target.checked)} />
           <span>
-            <strong>Per agenda:</strong> einduur tonen bij online boeken in het gastenportaal (uit = alleen startuur
-            zichtbaar).
+            <strong>Einduur tonen bij online boeken</strong> — geldt voor deze agenda overal waar geboekt wordt
+            (gastenportaal én modellenportaal, bv. portfolio). Standaard uit: bezoekers zien alleen het startuur.
+            Aanvinken = startuur–einduur (bv. 09:00 – 11:00).
           </span>
         </label>
 

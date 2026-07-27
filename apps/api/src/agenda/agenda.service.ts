@@ -1209,7 +1209,7 @@ export class AgendaService implements OnModuleInit {
       }
       const st = String(slot.startTime ?? '');
       const et = String(slot.endTime ?? '');
-      const showEnd = cal.showEndTimeOnPublic !== false;
+      const showEnd = cal.showEndTimeOnPublic === true;
       const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
 
       const dispatchCtx = {
@@ -1717,7 +1717,7 @@ export class AgendaService implements OnModuleInit {
         breakEnd: dto.breakEnd ? normTime(dto.breakEnd) : undefined,
         slotStepMinutes: dto.slotStepMinutes ?? undefined,
         optionalSlotStarts: dto.optionalSlotStarts?.trim() ? dto.optionalSlotStarts.trim() : undefined,
-        showEndTimeOnPublic: dto.showEndTimeOnPublic ?? true,
+        showEndTimeOnPublic: dto.showEndTimeOnPublic ?? false,
         weekdayOpenMask: dto.weekdayOpenMask ?? 0,
         planningTextOnColor: dto.planningTextOnColor === 'black' ? 'black' : 'white',
       },
@@ -1929,7 +1929,7 @@ export class AgendaService implements OnModuleInit {
         }).format(slotDate);
         const st = String(slot.startTime ?? '');
         const et = String(slot.endTime ?? '');
-        const showEnd = cal.showEndTimeOnPublic !== false;
+        const showEnd = cal.showEndTimeOnPublic === true;
         const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
         const cancelUrl = `${webPublicBase()}/portal/guest/annuleer?token=${encodeURIComponent(cancelToken)}`;
         const confirmUrl = `${webPublicBase()}/portal/guest/bevestig?token=${encodeURIComponent(cancelToken)}`;
@@ -2392,7 +2392,7 @@ export class AgendaService implements OnModuleInit {
           })
         : beforeSnap;
       const changeLines = diffBookingSnapshots(beforeSnap, afterSnap, {
-        showEndTime: afterRow?.slot.calendar.showEndTimeOnPublic !== false,
+        showEndTime: afterRow?.slot.calendar.showEndTimeOnPublic === true,
       });
       await this.notifications.notifyBookingUpdated(id, {
         email: !!dto.notifyUpdateEmail,

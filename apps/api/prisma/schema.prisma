@@ -576,8 +576,8 @@ model AgendaCalendar {
   slotStepMinutes     Int?
   /// Alleen deze starttijden (HH:mm per regel) bij auto-sloten op open dagen; leeg = alle starttijden volgens stap.
   optionalSlotStarts  String?        @db.Text
-  /// Gastenkalender: einduur tonen (bv. casting uit).
-  showEndTimeOnPublic Boolean        @default(true)
+  /// Einduur tonen bij online boeken (gasten- én modellenportaal). Standaard uit; per agenda inschakelen.
+  showEndTimeOnPublic Boolean        @default(false)
   /// Admin planning: tekst op gekleurde blokken (`white` of `black`).
   planningTextOnColor String         @default("white")
   /// Bit 0=zo … 6=za: op welke weekdagen ontbrekende sloten automatisch worden aangemaakt (lazy). 0 = uit.
