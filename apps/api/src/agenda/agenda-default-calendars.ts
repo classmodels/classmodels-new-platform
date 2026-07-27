@@ -208,14 +208,28 @@ export async function ensureDefaultAgendaCalendars(
     where: { slotStepMinutes: 0 },
     data: { slotStepMinutes: null },
   });
-  /** Portfolio: oude standaard (30 min, geen stap) → 2u + elke 30 min start. */
-  const portfolioUp = await prisma.agendaCalendar.updateMany({
-    where: {
-      slug: 'portfolio',
-      durationMinutes: 30,
-      slotStepMinutes: null,
-    },
-    data: { durationMinutes: 120, slotStepMinutes: 30 },
-  });
-  return { created, total, portfolioScheduleUpgraded: portfolioUp.count > 0 };
+  /** Portfolio: forceer 2u duur + start elke 30 min (productstandaard). */
+  const portfolio = await prisma.agendaCalendar.findUnique({ where: { slug: 'portfolio' } });
+  let portfolioScheduleUpgraded = false;
+  if (portfolio) {
+    const needs =
+      portfolio.durationMinutes !== 120 ||
+      portfolio.slotStepMinutes !== 30 ||
+      portfolio.showEndTimeOnPublic !== true;
+    if (needs) {
+      await prisma.agendaCalendar.update({
+        where: { id: portfolio.id },
+        data: {
+          durationMinutes: 120,
+          slotStepMinutes: 30,
+          showEndTimeOnPublic: true,
+        },
+      });
+      portfolioScheduleUpgraded = true;
+    } else {
+      /** Duur staat al goed — sloten moeten toch hersteld (oude endTime +30). */
+      portfolioScheduleUpgraded = true;
+    }
+  }
+  return { created, total, portfolioScheduleUpgraded };
 }

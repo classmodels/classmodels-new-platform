@@ -368,9 +368,9 @@ export class AgendaService implements OnModuleInit {
       }
       if (r.portfolioScheduleUpgraded) {
         const cal = await this.prisma.agendaCalendar.findUnique({ where: { slug: 'portfolio' } });
-        if (cal && usesOpenDayMode(cal.restrictToOpenDays)) {
+        if (cal) {
           void this.reconcileOpenDaySlotsAfterScheduleChange(cal.id, cal)
-            .then(() => this.log.log('Agenda: portfolio-uren bijgewerkt naar 2u / start elke 30 min.'))
+            .then(() => this.log.log('Agenda: portfolio-sloten hersteld naar duur 120 min / start elke 30 min.'))
             .catch((err) =>
               this.log.warn(
                 `Agenda portfolio-reconcile bij start mislukt: ${err instanceof Error ? err.message : String(err)}`,
@@ -564,10 +564,16 @@ export class AgendaService implements OnModuleInit {
       for (const ymd of [...openYmdSet].sort()) {
         if (closedSet.has(ymd)) continue;
         const dateOnly = parseYmd(ymd);
-        if (cal.slug === 'opleiding') {
-          await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
-        } else {
-          await this.reconcileCalendarDaySlots(cal.id, dateOnly, cal);
+        try {
+          if (cal.slug === 'opleiding') {
+            await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
+          } else {
+            await this.reconcileCalendarDaySlots(cal.id, dateOnly, cal);
+          }
+        } catch (e) {
+          this.log.warn(
+            `materialize ${cal.slug} ${ymd}: ${e instanceof Error ? e.message : String(e)}`,
+          );
         }
       }
     } else if (!restrictOpen && mask !== 0) {
@@ -579,10 +585,16 @@ export class AgendaService implements OnModuleInit {
         const bit = 1 << dow;
         if ((mask & bit) !== 0 && !closedSet.has(ymd)) {
           const dateOnly = parseYmd(ymd);
-          if (cal.slug === 'opleiding') {
-            await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
-          } else {
-            await this.reconcileCalendarDaySlots(cal.id, dateOnly, cal);
+          try {
+            if (cal.slug === 'opleiding') {
+              await this.reconcileOpleidingDaySlots(cal.id, dateOnly, cal);
+            } else {
+              await this.reconcileCalendarDaySlots(cal.id, dateOnly, cal);
+            }
+          } catch (e) {
+            this.log.warn(
+              `materialize ${cal.slug} ${ymd}: ${e instanceof Error ? e.message : String(e)}`,
+            );
           }
         }
         cursor.setUTCDate(cursor.getUTCDate() + 1);
@@ -596,7 +608,7 @@ export class AgendaService implements OnModuleInit {
 
   /** Zelfde filters als publieke slotlijst: sluitingen, open dagen, capaciteit, dedupe op dag+startuur. */
   private async collectGuestVisibleBookableSlotsDeduped(
-    cal: { id: string; capacity: number; slug?: string },
+    cal: { id: string; capacity: number; slug?: string; durationMinutes?: number },
     from: Date,
     to: Date,
     now: Date,
@@ -623,7 +635,7 @@ export class AgendaService implements OnModuleInit {
           lte: parseYmdDayEnd(slotDateToYmd(to)),
         },
       },
-      orderBy: [{ slotDate: 'asc' }, { startTime: 'asc' }],
+      orderBy: [{ slotDate: 'asc' }, { startTime: 'asc' }, { updatedAt: 'desc' }],
     });
 
     const slotIds = rows.map((s) => s.id);
@@ -667,24 +679,47 @@ export class AgendaService implements OnModuleInit {
       });
     }
 
-    const seenKeys = new Set<string>();
-    const deduped: typeof withCap = [];
+    const wantDur = Math.max(1, cal.durationMinutes || 0);
+    const slotDurationMin = (s: (typeof withCap)[number]): number => {
+      try {
+        return timeToMinutes(s.endTime) - timeToMinutes(s.startTime);
+      } catch {
+        return -1;
+      }
+    };
+
+    /** Per dag+start: verkies slot met juiste duur (bv. 120 i.p.v. oude 30). */
+    const bestByKey = new Map<string, (typeof withCap)[number]>();
     for (const s of withCap) {
       const k = this.dedupeKeyForSlot(s.slotDate, s.startTime);
-      if (seenKeys.has(k)) continue;
-      seenKeys.add(k);
-      deduped.push(s);
+      const prev = bestByKey.get(k);
+      if (!prev) {
+        bestByKey.set(k, s);
+        continue;
+      }
+      const dNew = slotDurationMin(s);
+      const dOld = slotDurationMin(prev);
+      const newMatch = wantDur > 0 && dNew === wantDur;
+      const oldMatch = wantDur > 0 && dOld === wantDur;
+      if (newMatch && !oldMatch) bestByKey.set(k, s);
+      else if (newMatch === oldMatch && dNew > dOld) bestByKey.set(k, s);
     }
 
-    return deduped.map((s) => ({
-      id: s.id,
-      slotDate: s.slotDate,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      capacity: s.capacity,
-      booked: s.booked,
-      remaining: s.remaining,
-    }));
+    return [...bestByKey.values()]
+      .sort((a, b) => {
+        const da = slotDateToYmd(a.slotDate).localeCompare(slotDateToYmd(b.slotDate));
+        if (da !== 0) return da;
+        return String(a.startTime).localeCompare(String(b.startTime));
+      })
+      .map((s) => ({
+        id: s.id,
+        slotDate: s.slotDate,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        capacity: s.capacity,
+        booked: s.booked,
+        remaining: s.remaining,
+      }));
   }
 
   private async countGuestBookableSlotStarts(
@@ -723,8 +758,10 @@ export class AgendaService implements OnModuleInit {
   }
 
   /**
-   * Zorgt dat sloten overeenkomen met agenda-uren. Voegt ontbrekende toe, verwijdert verkeerde
-   * sloten zonder boeking (per startuur — boekingen blokkeren niet de hele dag).
+   * Zorgt dat sloten overeenkomen met agenda-uren.
+   * Belangrijk: bij gewijzigde duur (bv. 30→120) wordt endTime IN PLACE bijgewerkt
+   * (ook bij sloten met boekingen) — delete+create faalde door FK Restrict / actieve boekingen
+   * en liet oude 30‑min sloten permanent staan.
    */
   private async reconcileCalendarDaySlots(
     calendarId: string,
@@ -738,6 +775,7 @@ export class AgendaService implements OnModuleInit {
     const existing = await this.prisma.agendaSlot.findMany({
       where: { calendarId, slotDate: { gte: dayGte, lte: dayLte } },
       select: { id: true, startTime: true, endTime: true },
+      orderBy: [{ startTime: 'asc' }, { createdAt: 'asc' }],
     });
 
     /** Planning-sloten behouden als het rooster geen geldige tijden oplevert. */
@@ -749,40 +787,86 @@ export class AgendaService implements OnModuleInit {
       expected.map((r) => [normTime(r.startTime), { startTime: normTime(r.startTime), endTime: normTime(r.endTime) }]),
     );
 
-    const candidateDeleteIds: string[] = [];
+    const byStart = new Map<string, typeof existing>();
     for (const s of existing) {
-      let startNorm: string;
+      let startNorm = '';
       try {
         startNorm = normTime(s.startTime);
       } catch {
         startNorm = '';
       }
-      let endNorm = '';
-      try {
-        endNorm = normTime(s.endTime);
-      } catch {
-        endNorm = '';
-      }
-      const exp = expectedByStart.get(startNorm);
-      const endMatches = exp ? endNorm === exp.endTime : false;
-      if (exp && endMatches) {
-        expectedByStart.delete(startNorm);
-        continue;
-      }
-      candidateDeleteIds.push(s.id);
+      const list = byStart.get(startNorm) ?? [];
+      list.push(s);
+      byStart.set(startNorm, list);
     }
 
-    if (candidateDeleteIds.length) {
-      const booked = await this.prisma.agendaBooking.findMany({
-        where: { slotId: { in: candidateDeleteIds }, ...activeBookingFilter },
-        select: { slotId: true },
-        distinct: ['slotId'],
+    const allIds = existing.map((s) => s.id);
+    const bookingCounts = new Map<string, number>();
+    if (allIds.length) {
+      const grouped = await this.prisma.agendaBooking.groupBy({
+        by: ['slotId'],
+        where: { slotId: { in: allIds } },
+        _count: { _all: true },
       });
-      const bookedIds = new Set(booked.map((b) => b.slotId));
-      const deleteIds = candidateDeleteIds.filter((id) => !bookedIds.has(id));
-      if (deleteIds.length) {
-        await this.prisma.agendaSlot.deleteMany({ where: { id: { in: deleteIds } } });
+      for (const g of grouped) bookingCounts.set(g.slotId, g._count._all);
+    }
+
+    const syncBookingsEndAt = async (slotId: string, slotDateVal: Date, startT: string, endT: string) => {
+      const startAt = combineBrusselsLocalToUtc(slotDateVal, startT);
+      const endAt = combineBrusselsLocalToUtc(slotDateVal, endT);
+      await this.prisma.agendaBooking.updateMany({
+        where: { slotId },
+        data: { startAt, endAt },
+      });
+    };
+
+    const orphanDeleteIds: string[] = [];
+
+    for (const [startNorm, slotsAtStart] of byStart) {
+      const exp = startNorm ? expectedByStart.get(startNorm) : undefined;
+      if (exp) {
+        // Primair slot = die met boekingen, anders de oudste.
+        const primary =
+          slotsAtStart.find((s) => (bookingCounts.get(s.id) ?? 0) > 0) ?? slotsAtStart[0];
+        let primaryEnd = '';
+        try {
+          primaryEnd = normTime(primary.endTime);
+        } catch {
+          primaryEnd = '';
+        }
+        if (primaryEnd !== exp.endTime) {
+          await this.prisma.agendaSlot.update({
+            where: { id: primary.id },
+            data: { endTime: exp.endTime },
+          });
+          await syncBookingsEndAt(primary.id, dateOnly, exp.startTime, exp.endTime);
+        }
+        for (const extra of slotsAtStart) {
+          if (extra.id === primary.id) continue;
+          const nBook = bookingCounts.get(extra.id) ?? 0;
+          if (nBook > 0) {
+            // Boekingen verplaatsen naar het primaire slot, daarna extra wissen.
+            await this.prisma.agendaBooking.updateMany({
+              where: { slotId: extra.id },
+              data: { slotId: primary.id },
+            });
+            await syncBookingsEndAt(primary.id, dateOnly, exp.startTime, exp.endTime);
+            orphanDeleteIds.push(extra.id);
+          } else {
+            orphanDeleteIds.push(extra.id);
+          }
+        }
+        expectedByStart.delete(startNorm);
+      } else {
+        // Startuur hoort niet meer in het rooster.
+        for (const s of slotsAtStart) {
+          if ((bookingCounts.get(s.id) ?? 0) === 0) orphanDeleteIds.push(s.id);
+        }
       }
+    }
+
+    if (orphanDeleteIds.length) {
+      await this.prisma.agendaSlot.deleteMany({ where: { id: { in: orphanDeleteIds } } });
     }
 
     const toCreate = [...expectedByStart.values()];
@@ -807,14 +891,35 @@ export class AgendaService implements OnModuleInit {
       where: { calendarId },
       select: { openDate: true, repeatYearly: true },
     });
-    if (!openRows.length) return;
     const from = parseYmd(todayYmd);
-    /** Genoeg voor planning vooruit; 400 dagen + fijnmazige stappen gaf timeouts (500). */
     const to = new Date(from.getTime() + 120 * 24 * 60 * 60 * 1000);
-    const ymdSet = this.openDayYmdSetInRange(from, to, openRows);
-    const days = [...ymdSet].filter((ymd) => ymd >= todayYmd).sort();
+
+    const days: string[] = [];
+    if (openRows.length) {
+      const ymdSet = this.openDayYmdSetInRange(from, to, openRows);
+      days.push(...[...ymdSet].filter((ymd) => ymd >= todayYmd).sort());
+    } else {
+      const futureSlots = await this.prisma.agendaSlot.findMany({
+        where: {
+          calendarId,
+          slotDate: { gte: parseYmdDayStart(todayYmd) },
+        },
+        select: { slotDate: true },
+        distinct: ['slotDate'],
+        orderBy: { slotDate: 'asc' },
+        take: 200,
+      });
+      days.push(...futureSlots.map((r) => slotDateToYmd(r.slotDate)));
+    }
+
     for (const ymd of days) {
-      await this.reconcileCalendarDaySlots(calendarId, parseYmd(ymd), cal);
+      try {
+        await this.reconcileCalendarDaySlots(calendarId, parseYmd(ymd), cal);
+      } catch (e) {
+        this.log.warn(
+          `reconcile day ${ymd}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
     }
   }
 
@@ -1786,13 +1891,14 @@ export class AgendaService implements OnModuleInit {
       dto.optionalSlotStarts !== undefined ||
       dto.durationMinutes !== undefined;
 
-    if (scheduleChanged && usesOpenDayMode(updated.restrictToOpenDays)) {
-      /** Niet blokkeren op lange reconcile (anders 500/timeout bij opslaan). */
-      void this.reconcileOpenDaySlotsAfterScheduleChange(updated.id, updated).catch((e) => {
+    if (scheduleChanged) {
+      try {
+        await this.reconcileOpenDaySlotsAfterScheduleChange(updated.id, updated);
+      } catch (e) {
         this.log.error(
           `Agenda slot-reconcile na opslaan mislukt (${updated.slug}): ${e instanceof Error ? e.message : String(e)}`,
         );
-      });
+      }
     }
 
     if (dto.slug !== undefined && dto.slug !== cal.slug) {
