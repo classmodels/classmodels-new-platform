@@ -6,7 +6,10 @@ export const DEFAULT_AGENDA_CALENDAR_DEFS = [
     slug: 'portfolio',
     title: 'Portfolio afspraak',
     color: '#070414',
-    durationMinutes: 30,
+    /** Sessieduur (min); starts mogen dichter via slotStepMinutes. */
+    durationMinutes: 120,
+    /** Elke 30 min een nieuwe start → overlappende 2-uurs afspraken. */
+    slotStepMinutes: 30,
     capacity: 1,
     sortOrder: 10,
     defaultDayStartTime: '08:00:00',
@@ -135,44 +138,48 @@ export const DEFAULT_GENERIC_AGENDA_FIELDS: DefaultAgendaFieldSeed[] = [
   },
 ];
 
-/** Zorg dat portfolio/casting/… bestaan (idempotent). */
-export async function ensureDefaultAgendaCalendars(prisma: PrismaClient): Promise<{ created: number; total: number }> {
+/** Zorg dat portfolio/casting/… bestaan (idempotent). Bestaande uren/duur niet overschrijven. */
+export async function ensureDefaultAgendaCalendars(
+  prisma: PrismaClient,
+): Promise<{ created: number; total: number; portfolioScheduleUpgraded: boolean }> {
   let created = 0;
   for (const d of DEFAULT_AGENDA_CALENDAR_DEFS) {
     const existing = await prisma.agendaCalendar.findUnique({ where: { slug: d.slug } });
-    const cal = await prisma.agendaCalendar.upsert({
-      where: { slug: d.slug },
-      update: {
-        title: d.title,
-        color: d.color,
-        durationMinutes: Math.max(1, d.durationMinutes),
-        capacity: Math.max(1, d.capacity),
-        sortOrder: d.sortOrder,
-        active: true,
-        publicBooking: true,
-        restrictToOpenDays: true,
-        weekdayOpenMask: 0,
-        defaultDayStartTime: d.defaultDayStartTime,
-        defaultDayEndTime: d.defaultDayEndTime,
-      },
-      create: {
-        slug: d.slug,
-        title: d.title,
-        description: '',
-        color: d.color,
-        durationMinutes: Math.max(1, d.durationMinutes),
-        capacity: Math.max(1, d.capacity),
-        active: true,
-        publicBooking: true,
-        sortOrder: d.sortOrder,
-        restrictToOpenDays: true,
-        weekdayOpenMask: 0,
-        defaultDayStartTime: d.defaultDayStartTime,
-        defaultDayEndTime: d.defaultDayEndTime,
-      },
-    });
-    if (!existing) created += 1;
+    if (existing) {
+      await prisma.agendaCalendar.update({
+        where: { slug: d.slug },
+        data: {
+          title: d.title,
+          color: d.color,
+          capacity: Math.max(1, d.capacity),
+          sortOrder: d.sortOrder,
+          active: true,
+          publicBooking: true,
+        },
+      });
+    } else {
+      await prisma.agendaCalendar.create({
+        data: {
+          slug: d.slug,
+          title: d.title,
+          description: '',
+          color: d.color,
+          durationMinutes: Math.max(1, d.durationMinutes),
+          slotStepMinutes: 'slotStepMinutes' in d && d.slotStepMinutes != null ? d.slotStepMinutes : undefined,
+          capacity: Math.max(1, d.capacity),
+          active: true,
+          publicBooking: true,
+          sortOrder: d.sortOrder,
+          restrictToOpenDays: true,
+          weekdayOpenMask: 0,
+          defaultDayStartTime: d.defaultDayStartTime,
+          defaultDayEndTime: d.defaultDayEndTime,
+        },
+      });
+      created += 1;
+    }
 
+    const cal = await prisma.agendaCalendar.findUniqueOrThrow({ where: { slug: d.slug } });
     const fieldCount = await prisma.agendaField.count({ where: { calendarId: cal.id } });
     if (fieldCount === 0) {
       await prisma.agendaField.createMany({
@@ -201,5 +208,14 @@ export async function ensureDefaultAgendaCalendars(prisma: PrismaClient): Promis
     where: { slotStepMinutes: 0 },
     data: { slotStepMinutes: null },
   });
-  return { created, total };
+  /** Portfolio: oude standaard (30 min, geen stap) → 2u + elke 30 min start. */
+  const portfolioUp = await prisma.agendaCalendar.updateMany({
+    where: {
+      slug: 'portfolio',
+      durationMinutes: 30,
+      slotStepMinutes: null,
+    },
+    data: { durationMinutes: 120, slotStepMinutes: 30 },
+  });
+  return { created, total, portfolioScheduleUpgraded: portfolioUp.count > 0 };
 }

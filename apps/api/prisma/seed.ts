@@ -72,6 +72,7 @@ async function seedAgenda(p: PrismaClient) {
     title: string;
     color: string;
     durationMinutes: number;
+    slotStepMinutes?: number;
     capacity: number;
     legacyType: string;
     sortOrder: number;
@@ -82,7 +83,8 @@ async function seedAgenda(p: PrismaClient) {
       slug: 'portfolio',
       title: 'Portfolio afspraak',
       color: '#070414',
-      durationMinutes: 30,
+      durationMinutes: 120,
+      slotStepMinutes: 30,
       capacity: 1,
       legacyType: 'portfolio',
       sortOrder: 10,
@@ -136,6 +138,7 @@ async function seedAgenda(p: PrismaClient) {
         title: d.title,
         color: d.color,
         durationMinutes: d.durationMinutes,
+        slotStepMinutes: d.slotStepMinutes ?? null,
         capacity: d.capacity,
         sortOrder: d.sortOrder,
         active: true,
@@ -151,6 +154,7 @@ async function seedAgenda(p: PrismaClient) {
         description: '',
         color: d.color,
         durationMinutes: d.durationMinutes,
+        slotStepMinutes: d.slotStepMinutes ?? undefined,
         capacity: d.capacity,
         active: true,
         publicBooking: true,

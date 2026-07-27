@@ -440,16 +440,20 @@ export class UpdateAdminBookingDto {
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   slotDate?: string;
 
-  /** Startuur HH:mm */
+  /** Startuur HH:mm (optioneel met :ss) */
   @IsOptional()
   @IsString()
-  @Matches(/^\d{1,2}:\d{2}$/)
+  @Matches(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, {
+    message: 'Startuur moet HH:mm zijn (bv. 09:30)',
+  })
   startTime?: string;
 
   /** Einduur HH:mm (admin kan afwijken van standaardduur) */
   @IsOptional()
   @IsString()
-  @Matches(/^\d{1,2}:\d{2}$/)
+  @Matches(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, {
+    message: 'Einduur moet HH:mm zijn (bv. 11:30)',
+  })
   endTime?: string;
 
   /** Admin: stuur annulatie per e-mail na opslaan (status geannuleerd). */
@@ -503,13 +507,17 @@ export class CreateManualBookingDto {
 
   /** Startuur HH:mm (lokaal volgens opgeslagen slot-datum). */
   @IsString()
-  @Matches(/^\d{1,2}:\d{2}$/)
+  @Matches(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, {
+    message: 'Startuur moet HH:mm zijn (bv. 09:30)',
+  })
   startTime!: string;
 
   /** Optioneel einduur HH:mm; anders agenda-duur vanaf start. */
   @IsOptional()
   @IsString()
-  @Matches(/^\d{1,2}:\d{2}$/)
+  @Matches(/^([01]?\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, {
+    message: 'Einduur moet HH:mm zijn (bv. 11:30)',
+  })
   endTime?: string;
 
   @IsOptional()

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
+import { normalizeHm } from '@/components/admin-agenda/normalize-hm';
 import {
   planningHideCancelledBooking,
   isAgendaBookingPast,
@@ -533,8 +534,8 @@ export default function AdminAgendaPlanningPage() {
           fieldsJson: preparedFj,
           calendarId: schedCalId,
           slotDate: schedYmd,
-          startTime: schedStart,
-          endTime: schedEnd,
+          startTime: normalizeHm(schedStart),
+          endTime: normalizeHm(schedEnd),
           notifyCancelEmail,
           notifyCancelSms,
           notifyUpdateEmail,
@@ -624,8 +625,8 @@ export default function AdminAgendaPlanningPage() {
         body: JSON.stringify({
           calendarId: draft.calendarId,
           slotDate: draft.slotDate,
-          startTime: draft.startTime,
-          endTime: draft.endTime,
+          startTime: normalizeHm(draft.startTime),
+          endTime: normalizeHm(draft.endTime),
           name: draft.name.trim() || 'Handmatig (admin)',
           email: draft.email.trim() || undefined,
           firstname: draft.firstname.trim() || undefined,

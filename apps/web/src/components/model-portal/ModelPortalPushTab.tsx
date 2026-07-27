@@ -488,8 +488,10 @@ export function ModelPortalPushTab({
             {filteredInbox.map((row) => (
               <li
                 key={row.id}
-                className={`border px-3 py-2 shadow-sm ${
-                  row.readAt ? 'border-zinc-100 bg-zinc-50/50' : 'border-burgundy/25 bg-burgundy/[0.04]'
+                className={`push-inbox-row border px-3 py-2 shadow-sm ${
+                  row.readAt
+                    ? 'border-zinc-100 bg-zinc-50/50'
+                    : 'border-[rgba(138,106,59,0.4)] bg-[rgba(138,106,59,0.1)]'
                 }`}
               >
                 <div className="flex flex-wrap items-start gap-2">
@@ -508,7 +510,7 @@ export function ModelPortalPushTab({
                   </label>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-ink">{row.title}</p>
-                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-700">{row.body}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-800">{row.body}</p>
                     <p className="mt-1 text-[10px] text-muted">
                       {new Date(row.createdAt).toLocaleString('nl-BE')} — {row.source === 'agency' ? 'Bureau' : 'Historiek'}
                     </p>

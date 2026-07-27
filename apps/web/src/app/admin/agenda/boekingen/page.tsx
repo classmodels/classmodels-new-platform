@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
+import { normalizeHm } from '@/components/admin-agenda/normalize-hm';
 import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
@@ -364,8 +365,8 @@ export default function AdminAgendaBoekingenPage() {
         fieldsJson: preparedFj,
         calendarId: schedCalId,
         slotDate: schedYmd,
-        startTime: schedStart,
-        endTime: schedEnd,
+        startTime: normalizeHm(schedStart),
+        endTime: normalizeHm(schedEnd),
         notifyCancelEmail,
         notifyCancelSms,
         notifyUpdateEmail,

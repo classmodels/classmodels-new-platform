@@ -184,17 +184,30 @@ export default function AdminAgendaCalendarDetailPage() {
     const dur = parseInt(durationMinutes, 10);
     const cap = parseInt(capacity, 10);
     const sort = parseInt(sortOrder, 10);
+    if (!Number.isFinite(dur) || dur < 5) {
+      setMsg('Afspraakduur moet minstens 5 minuten zijn (bv. 120 voor 2 uur).');
+      return;
+    }
     if (restrictStarts && selectedStartsMin.size === 0) {
       setMsg('Selecteer minstens één startuur, of schakel “alleen deze starturen” uit.');
       return;
     }
     const stepRaw = slotStepMinutes.trim();
     const stepParsed = stepRaw ? parseInt(stepRaw, 10) : null;
+    if (stepRaw && (!Number.isFinite(stepParsed) || (stepParsed as number) < 5)) {
+      setMsg('“Start elke … min” moet leeg zijn of minstens 5 (bv. 30 voor elk halfuur).');
+      return;
+    }
     let optionalStarts: string | null = null;
     if (restrictStarts) {
       const lines = [...selectedStartsMin].sort((a, b) => a - b).map(minToLabel);
       optionalStarts = lines.length ? lines.join('\n') : null;
     }
+    /** type=time kan soms HH:mm:ss geven — API/normTime verwachten HH:mm(+ss). */
+    const hm = (t: string) => {
+      const m = t.trim().match(/^(\d{1,2}):(\d{2})/);
+      return m ? `${m[1].padStart(2, '0')}:${m[2]}` : t.trim();
+    };
     try {
       await adminFetch(`/admin/agenda/calendars/${cal.id}`, token, {
         method: 'PATCH',
@@ -213,10 +226,10 @@ export default function AdminAgendaCalendarDetailPage() {
           sortOrder: sort,
           color,
           planningTextOnColor,
-          defaultDayStartTime: dayStart || undefined,
-          defaultDayEndTime: dayEnd || undefined,
-          breakStart: breakStart.trim() ? breakStart : null,
-          breakEnd: breakEnd.trim() ? breakEnd : null,
+          defaultDayStartTime: dayStart ? hm(dayStart) : undefined,
+          defaultDayEndTime: dayEnd ? hm(dayEnd) : undefined,
+          breakStart: breakStart.trim() ? hm(breakStart) : null,
+          breakEnd: breakEnd.trim() ? hm(breakEnd) : null,
         }),
       });
       setMsg('Instellingen opgeslagen.');
@@ -323,7 +336,13 @@ export default function AdminAgendaCalendarDetailPage() {
       </div>
 
       {msg ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
+        <p
+          className={`rounded-md border px-3 py-2 text-xs font-medium ${
+            msg.startsWith('Instellingen opgeslagen')
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+              : 'border-red-200 bg-red-50 text-red-900'
+          }`}
+        >
           {msg}
         </p>
       ) : null}
@@ -335,8 +354,9 @@ export default function AdminAgendaCalendarDetailPage() {
       >
         <h3 className="text-sm font-semibold text-ink">Uren &amp; boekingen</h3>
         <p className="max-w-xl text-xs text-muted">
-          <strong>Duur</strong> = lengte van één afspraak (slot). <strong>Stap</strong> = elke hoeveel minuten een
-          nieuwe start (kleiner dan de duur = overlappende blokken). Leeg bij stap = zelfde als duur.
+          <strong>Duur</strong> = lengte van één afspraak (bv. 120 = 2 uur). <strong>Start elke … min</strong> = hoe
+          dicht starts bij elkaar staan (bv. 30). Kleiner dan de duur = overlappende afspraken — bv. elk halfuur een
+          opening van 2 uur. Leeg bij stap = zelfde als duur (geen overlap).
         </p>
         <label className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50/70 p-3 text-xs">
           <input

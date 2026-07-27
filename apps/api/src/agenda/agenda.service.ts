@@ -366,6 +366,18 @@ export class AgendaService implements OnModuleInit {
       if (r.created > 0) {
         this.log.log(`Agenda: ${r.created} standaardagenda('s) aangemaakt (totaal ${r.total}).`);
       }
+      if (r.portfolioScheduleUpgraded) {
+        const cal = await this.prisma.agendaCalendar.findUnique({ where: { slug: 'portfolio' } });
+        if (cal && usesOpenDayMode(cal.restrictToOpenDays)) {
+          void this.reconcileOpenDaySlotsAfterScheduleChange(cal.id, cal)
+            .then(() => this.log.log('Agenda: portfolio-uren bijgewerkt naar 2u / start elke 30 min.'))
+            .catch((err) =>
+              this.log.warn(
+                `Agenda portfolio-reconcile bij start mislukt: ${err instanceof Error ? err.message : String(err)}`,
+              ),
+            );
+        }
+      }
     } catch (e) {
       this.log.warn(
         `Agenda standaardagenda's bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
@@ -469,16 +481,26 @@ export class AgendaService implements OnModuleInit {
     openRows: { openDate: Date; repeatYearly: boolean }[],
   ): Set<string> {
     const set = new Set<string>();
+    if (!openRows.length) return set;
+    const fixed = new Set<string>();
+    const yearlyMd = new Set<string>();
+    for (const o of openRows) {
+      const openYmd = slotDateToYmd(o.openDate);
+      if (o.repeatYearly) {
+        const [, om, od] = openYmd.split('-');
+        yearlyMd.add(`${om}-${od}`);
+      } else {
+        fixed.add(openYmd);
+      }
+    }
     eachYmdInRange(from, to, (ymd) => {
-      const [, cm, cd] = ymd.split('-');
-      for (const o of openRows) {
-        const openYmd = slotDateToYmd(o.openDate);
-        if (o.repeatYearly) {
-          const [, om, od] = openYmd.split('-');
-          if (cm === om && cd === od) set.add(ymd);
-        } else if (openYmd === ymd) {
-          set.add(ymd);
-        }
+      if (fixed.has(ymd)) {
+        set.add(ymd);
+        return;
+      }
+      if (yearlyMd.size) {
+        const [, cm, cd] = ymd.split('-');
+        if (yearlyMd.has(`${cm}-${cd}`)) set.add(ymd);
       }
     });
     return set;
@@ -727,6 +749,7 @@ export class AgendaService implements OnModuleInit {
       expected.map((r) => [normTime(r.startTime), { startTime: normTime(r.startTime), endTime: normTime(r.endTime) }]),
     );
 
+    const candidateDeleteIds: string[] = [];
     for (const s of existing) {
       let startNorm: string;
       try {
@@ -734,45 +757,63 @@ export class AgendaService implements OnModuleInit {
       } catch {
         startNorm = '';
       }
+      let endNorm = '';
+      try {
+        endNorm = normTime(s.endTime);
+      } catch {
+        endNorm = '';
+      }
       const exp = expectedByStart.get(startNorm);
-      const endMatches = exp ? normTime(s.endTime) === exp.endTime : false;
+      const endMatches = exp ? endNorm === exp.endTime : false;
       if (exp && endMatches) {
         expectedByStart.delete(startNorm);
         continue;
       }
-      const bc = await this.prisma.agendaBooking.count({
-        where: { slotId: s.id, ...activeBookingFilter },
-      });
-      if (bc > 0) continue;
-      await this.prisma.agendaSlot.delete({ where: { id: s.id } });
+      candidateDeleteIds.push(s.id);
     }
 
-    for (const row of expectedByStart.values()) {
-      await this.prisma.agendaSlot.create({
-        data: {
+    if (candidateDeleteIds.length) {
+      const booked = await this.prisma.agendaBooking.findMany({
+        where: { slotId: { in: candidateDeleteIds }, ...activeBookingFilter },
+        select: { slotId: true },
+        distinct: ['slotId'],
+      });
+      const bookedIds = new Set(booked.map((b) => b.slotId));
+      const deleteIds = candidateDeleteIds.filter((id) => !bookedIds.has(id));
+      if (deleteIds.length) {
+        await this.prisma.agendaSlot.deleteMany({ where: { id: { in: deleteIds } } });
+      }
+    }
+
+    const toCreate = [...expectedByStart.values()];
+    if (toCreate.length) {
+      await this.prisma.agendaSlot.createMany({
+        data: toCreate.map((row) => ({
           calendarId,
           slotDate: dateOnly,
           startTime: row.startTime,
           endTime: row.endTime,
           capacity: cal.capacity,
           status: 'open',
-        },
+        })),
       });
     }
   }
 
-  /** Vernieuwt sloten voor alle open dagen (vanaf vandaag) na wijziging agenda-uren. */
+  /** Vernieuwt sloten voor open dagen (beperkt venster) na wijziging agenda-uren. */
   private async reconcileOpenDaySlotsAfterScheduleChange(calendarId: string, cal: CalSlotSchedule) {
     const todayYmd = ymdEuropeBrussels(new Date());
     const openRows = await this.prisma.agendaOpenDay.findMany({
       where: { calendarId },
       select: { openDate: true, repeatYearly: true },
     });
+    if (!openRows.length) return;
     const from = parseYmd(todayYmd);
-    const to = new Date(from.getTime() + 400 * 24 * 60 * 60 * 1000);
+    /** Genoeg voor planning vooruit; 400 dagen + fijnmazige stappen gaf timeouts (500). */
+    const to = new Date(from.getTime() + 120 * 24 * 60 * 60 * 1000);
     const ymdSet = this.openDayYmdSetInRange(from, to, openRows);
-    for (const ymd of [...ymdSet].sort()) {
-      if (ymd < todayYmd) continue;
+    const days = [...ymdSet].filter((ymd) => ymd >= todayYmd).sort();
+    for (const ymd of days) {
       await this.reconcileCalendarDaySlots(calendarId, parseYmd(ymd), cal);
     }
   }
@@ -1746,7 +1787,12 @@ export class AgendaService implements OnModuleInit {
       dto.durationMinutes !== undefined;
 
     if (scheduleChanged && usesOpenDayMode(updated.restrictToOpenDays)) {
-      await this.reconcileOpenDaySlotsAfterScheduleChange(updated.id, updated);
+      /** Niet blokkeren op lange reconcile (anders 500/timeout bij opslaan). */
+      void this.reconcileOpenDaySlotsAfterScheduleChange(updated.id, updated).catch((e) => {
+        this.log.error(
+          `Agenda slot-reconcile na opslaan mislukt (${updated.slug}): ${e instanceof Error ? e.message : String(e)}`,
+        );
+      });
     }
 
     if (dto.slug !== undefined && dto.slug !== cal.slug) {

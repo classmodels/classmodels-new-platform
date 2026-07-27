@@ -189,8 +189,11 @@ body {
     background-color: #f1eee8 !important;
   }
 
-  /* Bordeauxrode vlakken en knoppen worden warm donkerbruin. */
-  [class*='bg-burgundy'] {
+  /* Bordeauxrode vlakken en knoppen worden warm donkerbruin.
+     Alleen solide fills — niet opacity-tinten (bg-burgundy/5, bg-burgundy/[0.04], …),
+     anders worden ongelezen pushberichten e.d. donkerbruin met zwarte tekst. */
+  .bg-burgundy,
+  .bg-burgundyDeep {
     background-color: #372c1f !important;
   }
   [class*='text-burgundy'] {
