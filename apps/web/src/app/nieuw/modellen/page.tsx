@@ -26,6 +26,7 @@ import { ModelSetCardTab } from '@/components/model-portal/ModelSetCardTab';
 import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalReviewTab';
 import { PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
+import { ModelOpdrachtenTab } from '@/components/nieuw/ModelOpdrachtenTab';
 import { isLocalHost } from '@/lib/is-local-host';
 
 type PremiumInfo = {
@@ -508,22 +509,25 @@ export default function NieuwModellenPage() {
         />
       );
     } else if (tab === 'opdrachten') {
-      main = (
-        <div className="nieuw-panel" style={{ textAlign: 'center' }}>
-          <h2 className="nieuw-h2" style={{ fontSize: 28 }}>
-            Opdrachten zijn beschikbaar
-          </h2>
-          <p className="nieuw-lead" style={{ margin: '14px auto 0', textAlign: 'center' }}>
-            De volledige brief-UI (filters, inschrijven, criteria) staat in het klassieke modellenportaal.
-            Open die module om te reageren op openstaande opdrachten.
-          </p>
-          <div style={{ marginTop: 28 }}>
-            <Link className="nieuw-btn" href="/portal/model?tab=opdrachten">
-              Open opdrachtmodule
-            </Link>
+      if (!can('portal.model.briefs.read')) {
+        main = (
+          <div className="nieuw-panel" style={{ textAlign: 'center' }}>
+            <p className="nieuw-lead" style={{ margin: '0 auto', textAlign: 'center' }}>
+              U heeft geen toegang tot opdrachten. Neem contact op met Class-Models als dit onverwacht is.
+            </p>
           </div>
-        </div>
-      );
+        );
+      } else {
+        main = (
+          <ModelOpdrachtenTab
+            token={token}
+            modelUserId={portalUser.id}
+            canRespond={can('portal.model.briefs.respond')}
+            isPremium={!!isPremium}
+            premiumHref="/nieuw/modellen?tab=premium"
+          />
+        );
+      }
     } else if (tab === 'profiel') {
       if (!token) {
         main = <p className="nieuw-lead">Laden…</p>;
