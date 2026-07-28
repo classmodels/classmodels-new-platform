@@ -100,16 +100,38 @@ function forward(req, res, port) {
 
 function waitGet(port, pth, ok) {
   return new Promise((resolve, reject) => {
+    let settled = false;
     const deadline = Date.now() + maxBootMs;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(tick);
+      if (err) reject(err);
+      else resolve();
+    };
+    /** Hard deadline: ook als een hangende TCP-connect geen error/response geeft. */
+    const tick = setInterval(() => {
+      if (Date.now() > deadline) {
+        finish(new Error(`Timeout wachten op :${port}${pth}`));
+      }
+    }, 1000);
+
     const tryOnce = () => {
+      if (settled) return;
+      if (Date.now() > deadline) {
+        finish(new Error(`Timeout wachten op :${port}${pth}`));
+        return;
+      }
       const r = http.get(`http://127.0.0.1:${port}${pth}`, (res) => {
         res.resume();
-        if (ok(res.statusCode)) return resolve();
-        if (Date.now() > deadline) return reject(new Error(`Timeout wachten op :${port}${pth}`));
+        if (ok(res.statusCode)) return finish(null);
         setTimeout(tryOnce, 400);
       });
+      r.setTimeout(5000, () => {
+        r.destroy();
+      });
       r.on('error', () => {
-        if (Date.now() > deadline) return reject(new Error(`Timeout wachten op :${port}${pth}`));
+        if (settled) return;
         setTimeout(tryOnce, 400);
       });
     };
@@ -125,6 +147,7 @@ function spawnNext() {
       ...process.env,
       NODE_ENV: process.env.NODE_ENV || 'production',
       PORT: String(webPort),
+      HOSTNAME: '0.0.0.0',
       COMBELL_HOST_ROUTER: '0',
       CM_API_INTERNAL_URL: `http://127.0.0.1:${nestPort}`,
     },
@@ -317,12 +340,7 @@ async function waitNestHealthBackground() {
   }
 }
 
-async function bootBackends() {
-  console.error(
-    `[combell-dual] publiek PORT=${publicPort}, intern Nest=${nestPort}, intern Next=${webPort}, strictNest=${strictNest}`,
-  );
-
-  runCombellDbSetup(root);
+function prepareMediaEnv() {
   const boot = bootstrapMediaStorage(root);
   const mediaRoot = boot.mediaRoot || resolvePersistentMediaDest(root);
   process.env.MEDIA_ROOT = mediaRoot;
@@ -330,13 +348,42 @@ async function bootBackends() {
     `[combell-dual] MEDIA_ROOT=${mediaRoot} (bron ${boot.srcCount ?? '?'} → schijf ${boot.destCount ?? '?'})`,
   );
   syncHostingMediaToApp(root, mediaRoot);
+  return mediaRoot;
+}
 
-  const hadNest = spawnNest();
+async function bootBackends() {
+  console.error(
+    `[combell-dual] publiek PORT=${publicPort}, intern Nest=${nestPort}, intern Next=${webPort}, strictNest=${strictNest}`,
+  );
+
+  /**
+   * Eerst Next starten — website moet niet wachten op prisma/media (dat gaf permanent "OK").
+   * Zodra Next reageert → proxyReady (ook terwijl DB/media nog lopen).
+   */
   spawnNext();
 
-  try {
-    await waitGet(webPort, '/', (c) => c < 500);
+  const nextReady = waitGet(webPort, '/', (c) => c < 500).then(() => {
     console.error('[combell-dual] Next (intern) reageert');
+    proxyReady = true;
+    console.error('[combell-dual] proxy routeert (website live; API volgt /health)');
+  });
+
+  try {
+    runCombellDbSetup(root);
+  } catch (e) {
+    console.error('[combell-dual] prisma setup fout (site gaat door):', e.message || e);
+  }
+
+  try {
+    prepareMediaEnv();
+  } catch (e) {
+    console.error('[combell-dual] media bootstrap fout (site gaat door):', e.message || e);
+  }
+
+  const hadNest = spawnNest();
+
+  try {
+    await nextReady;
   } catch (e) {
     console.error('[combell-dual] Next start niet op tijd:', e.message || e);
     process.exit(1);
@@ -358,16 +405,32 @@ async function bootBackends() {
   } else if (hadNest) {
     void waitNestHealthBackground();
   }
+}
 
-  proxyReady = true;
-  console.error('[combell-dual] proxy routeert (API pas live na /health)');
+function wantsBrowserHtml(req) {
+  const accept = String(req.headers.accept || '');
+  return accept.includes('text/html');
 }
 
 const server = http.createServer((req, res) => {
   if (!proxyReady) {
-    if (req.method === 'GET' || req.method === 'HEAD') {
+    const pathOnly = String(req.url || '').split('?')[0];
+    const healthish =
+      pathOnly === '/health' ||
+      pathOnly.startsWith('/health/') ||
+      pathOnly === '/' ||
+      pathOnly === '';
+    if ((req.method === 'GET' || req.method === 'HEAD') && healthish && !wantsBrowserHtml(req)) {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       if (req.method === 'GET') res.end('OK');
+      else res.end();
+      return;
+    }
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      const html =
+        '<!doctype html><html lang="nl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Class-Models start op…</title></head><body style="font-family:system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;line-height:1.5"><h1>Even geduld</h1><p>De website start nog op. Vernieuw deze pagina over een minuut.</p></body></html>';
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      if (req.method === 'GET') res.end(html);
       else res.end();
       return;
     }
