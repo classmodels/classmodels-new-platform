@@ -363,10 +363,6 @@ function ModelPortalPageInner() {
     if (!token) return;
     setBriefErr(null);
     const message = briefNote[briefId]?.trim() || '';
-    if (message.length < 5) {
-      setBriefErr('Motivatie minimaal 5 tekens.');
-      return;
-    }
     try {
       await apiFetch(`/portal/model/briefs/${briefId}/responses`, {
         method: 'POST',
@@ -463,8 +459,14 @@ function ModelPortalPageInner() {
 
   const myId = user?.id ?? '';
 
+  const isAdminViewer = Boolean(
+    user?.roles?.includes('admin') ||
+      can('*') ||
+      user?.permissions?.some((p) => p.startsWith('admin.')),
+  );
+
   const briefCounts = useMemo(() => {
-    const eligible = briefs.filter((b) => b.eligibility?.eligible);
+    const eligible = briefs.filter((b) => isAdminViewer || b.eligibility?.eligible);
     const available = briefs.filter((b) => !b.responses.some((r) => r.modelUserId === myId));
     const subscribed = briefs.filter((b) => b.responses.some((r) => r.modelUserId === myId));
     return {
@@ -473,17 +475,23 @@ function ModelPortalPageInner() {
       available: available.length,
       subscribed: subscribed.length,
     };
-  }, [briefs, myId]);
+  }, [briefs, myId, isAdminViewer]);
 
   const filteredBriefs = useMemo(() => {
     if (briefFilter === 'all') return briefs;
-    if (briefFilter === 'eligible') return briefs.filter((b) => b.eligibility?.eligible);
+    if (briefFilter === 'eligible') {
+      return briefs.filter((b) => isAdminViewer || b.eligibility?.eligible);
+    }
     if (briefFilter === 'available')
       return briefs.filter((b) => !b.responses.some((r) => r.modelUserId === myId));
     return briefs.filter((b) => b.responses.some((r) => r.modelUserId === myId));
-  }, [briefs, briefFilter, myId]);
+  }, [briefs, briefFilter, myId, isAdminViewer]);
 
-  const isPremium = portalUser?.isPremium ?? false;
+  const isPremium = (portalUser?.isPremium ?? false) || Boolean(
+    user?.roles?.includes('admin') ||
+      can('*') ||
+      user?.permissions?.some((p) => p.startsWith('admin.')),
+  );
   const menuTabs = allPortalTabs;
 
   const sendMessageMailto = async () => {
@@ -593,7 +601,7 @@ function ModelPortalPageInner() {
               'Class-Models';
             const sub = formatBriefSubtitle(b);
             const elig = b.eligibility;
-            const inAanmerking = elig?.eligible === true;
+            const inAanmerking = isAdminViewer || elig?.eligible === true;
             const canRespond =
               can('portal.model.briefs.respond') && b.status === 'open' && !mine && inAanmerking;
             const blocked = mine?.status === 'declined';
@@ -730,7 +738,7 @@ function ModelPortalPageInner() {
                     <div className="flex flex-col gap-2 sm:mx-auto sm:max-w-lg sm:flex-row sm:items-end">
                       <textarea
                         className="min-h-[72px] flex-1 rounded-lg border border-zinc-200 px-3 py-2 text-xs"
-                        placeholder="Korte motivatie (min. 5 tekens)"
+                        placeholder="Extra info (optioneel)"
                         value={briefNote[b.id] ?? ''}
                         onChange={(e) => setBriefNote((n) => ({ ...n, [b.id]: e.target.value }))}
                       />

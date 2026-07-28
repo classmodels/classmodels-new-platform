@@ -124,12 +124,15 @@ export function ModelOpdrachtenTab({
   modelUserId,
   canRespond,
   isPremium,
+  forceEligible = false,
   premiumHref = '/nieuw/modellen?tab=premium',
 }: {
   token: string | null;
   modelUserId: string;
   canRespond: boolean;
   isPremium: boolean;
+  /** Admin: behandel alle open opdrachten als match. */
+  forceEligible?: boolean;
   premiumHref?: string;
 }) {
   const [briefs, setBriefs] = useState<OpenBrief[]>([]);
@@ -166,7 +169,9 @@ export function ModelOpdrachtenTab({
   }, [loadBriefs]);
 
   const counts = useMemo(() => {
-    const eligible = briefs.filter((b) => b.eligibility?.eligible);
+    const eligible = briefs.filter(
+      (b) => forceEligible || b.eligibility?.eligible,
+    );
     const available = briefs.filter((b) => !b.responses.some((r) => r.modelUserId === modelUserId));
     const subscribed = briefs.filter((b) => b.responses.some((r) => r.modelUserId === modelUserId));
     return {
@@ -175,27 +180,24 @@ export function ModelOpdrachtenTab({
       available: available.length,
       subscribed: subscribed.length,
     };
-  }, [briefs, modelUserId]);
+  }, [briefs, modelUserId, forceEligible]);
 
   const filtered = useMemo(() => {
     if (briefFilter === 'all') return briefs;
-    if (briefFilter === 'eligible') return briefs.filter((b) => b.eligibility?.eligible);
+    if (briefFilter === 'eligible') {
+      return briefs.filter((b) => forceEligible || b.eligibility?.eligible);
+    }
     if (briefFilter === 'available') {
       return briefs.filter((b) => !b.responses.some((r) => r.modelUserId === modelUserId));
     }
     return briefs.filter((b) => b.responses.some((r) => r.modelUserId === modelUserId));
-  }, [briefs, briefFilter, modelUserId]);
+  }, [briefs, briefFilter, modelUserId, forceEligible]);
 
   const submitInterest = async (briefId: string) => {
     if (!token) return;
     setBriefErr(null);
     setOkMsg(null);
     const message = briefNote[briefId]?.trim() || '';
-    if (message.length < 5) {
-      setBriefErr('Motivatie minimaal 5 tekens.');
-      setExpandedId(briefId);
-      return;
-    }
     setBusyId(briefId);
     try {
       await apiFetch(`/portal/model/briefs/${briefId}/responses`, {
@@ -249,8 +251,7 @@ export function ModelOpdrachtenTab({
           </h2>
           <p className="nieuw-lead" style={{ marginTop: 12, maxWidth: '62ch' }}>
             Opdrachten staan op datum gesorteerd. Vul uw modellenfiche aan (geboortedatum als JJJJ-MM-DD en
-            geslacht) voor een correcte match. Schrijf u in met een korte motivatie wanneer u in aanmerking
-            komt.
+            geslacht) voor een correcte match. Extra info bij inschrijven is optioneel.
           </p>
         </div>
         <div className="nieuw-opdrachten-stats" aria-label="Samenvatting">
@@ -339,7 +340,7 @@ export function ModelOpdrachtenTab({
               [b.client.firstName, b.client.lastName].filter(Boolean).join(' ') ||
               'Class-Models';
             const sub = formatBriefSubtitle(b);
-            const inAanmerking = b.eligibility?.eligible === true;
+            const inAanmerking = forceEligible || b.eligibility?.eligible === true;
             const canApply =
               canRespond && b.status === 'open' && !mine && inAanmerking;
             const blocked = mine?.status === 'declined';
@@ -502,14 +503,14 @@ export function ModelOpdrachtenTab({
                         </p>
                       ) : canApply ? (
                         <div className="nieuw-opdracht-apply">
-                          <label className="nieuw-opdracht-apply-label" htmlFor={`motivatie-${b.id}`}>
-                            Korte motivatie
+                          <label className="nieuw-opdracht-apply-label" htmlFor={`extra-${b.id}`}>
+                            Extra info <span style={{ color: 'var(--n-mut)', fontWeight: 500 }}>(optioneel)</span>
                           </label>
                           <textarea
-                            id={`motivatie-${b.id}`}
+                            id={`extra-${b.id}`}
                             className="nieuw-opdracht-textarea"
                             rows={3}
-                            placeholder="Waarom past deze opdracht bij u? (min. 5 tekens)"
+                            placeholder="Optioneel: opmerking of extra info voor Class-Models"
                             value={briefNote[b.id] ?? ''}
                             onChange={(e) =>
                               setBriefNote((n) => ({ ...n, [b.id]: e.target.value }))
@@ -517,7 +518,7 @@ export function ModelOpdrachtenTab({
                           />
                           <div className="nieuw-opdracht-apply-footer">
                             <p className="nieuw-lead" style={{ margin: 0, fontSize: 12 }}>
-                              Uw inschrijving gaat naar Class-Models. U ziet de status hier terug.
+                              U kunt direct inschrijven. Extra info is niet verplicht.
                             </p>
                             <button
                               type="button"

@@ -8,7 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -16,9 +16,19 @@ import type { JwtPayload } from '../auth/jwt.strategy';
 import { BriefsService } from './briefs.service';
 
 class RespondDto {
+  /** Optioneel — lege string is toegestaan. */
+  @IsOptional()
   @IsString()
-  @MinLength(5)
-  message!: string;
+  @MaxLength(4000)
+  message?: string;
+}
+
+function bypassBriefEligibility(user: JwtPayload): boolean {
+  return (
+    user.roles.includes('admin') ||
+    user.permissions.includes('*') ||
+    user.permissions.some((p) => p.startsWith('admin.'))
+  );
 }
 
 @Controller('portal/model/briefs')
@@ -29,7 +39,9 @@ export class PortalModelBriefsController {
   @Get()
   @Permissions('portal.model.briefs.read')
   list(@Req() req: { user: JwtPayload }) {
-    return this.briefs.listOpenForModelUser(req.user.sub);
+    return this.briefs.listOpenForModelUser(req.user.sub, {
+      treatAsEligible: bypassBriefEligibility(req.user),
+    });
   }
 
   @Get(':id')
@@ -45,7 +57,9 @@ export class PortalModelBriefsController {
     @Param('id', ParseUUIDPipe) briefId: string,
     @Body() dto: RespondDto,
   ) {
-    return this.briefs.respondToBrief(briefId, req.user.sub, dto.message);
+    return this.briefs.respondToBrief(briefId, req.user.sub, dto.message ?? '', {
+      bypassEligibility: bypassBriefEligibility(req.user),
+    });
   }
 
   @Post(':id/responses/withdraw')

@@ -262,7 +262,11 @@ export default function NieuwModellenPage() {
   const [mediaBusy, setMediaBusy] = useState(false);
 
   const isModel = Boolean(user?.roles?.includes('model'));
-  const isAdminUser = Boolean(user?.roles?.includes('admin') || can('*'));
+  const isAdminUser = Boolean(
+    user?.roles?.includes('admin') ||
+      can('*') ||
+      user?.permissions?.some((p) => p.startsWith('admin.')),
+  );
   const canEnterPortal = isModel || isAdminUser;
 
   useEffect(() => {
@@ -385,7 +389,7 @@ export default function NieuwModellenPage() {
   } else if (user && canEnterPortal) {
     const portalUser = user;
     const displayName = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ').trim() || portalUser.email;
-    const isPremium = portalUser.isPremium;
+    const isPremium = Boolean(portalUser.isPremium || isAdminUser);
     const activeLabel = MODEL_PORTAL_TABS.find((t) => t.id === tab)?.label ?? 'Home';
 
     let main: ReactNode = null;
@@ -428,7 +432,8 @@ export default function NieuwModellenPage() {
             token={token}
             modelUserId={portalUser.id}
             canRespond={can('portal.model.briefs.respond')}
-            isPremium={!!isPremium}
+            isPremium={isPremium}
+            forceEligible={isAdminUser}
             premiumHref="/nieuw/modellen?tab=premium"
           />
         );

@@ -333,7 +333,10 @@ export class BriefsService {
   }
 
   /** Open opdrachten voor modellen: eerstvolgende datum bovenaan + eligibility voor dit profiel. */
-  async listOpenForModelUser(modelUserId: string) {
+  async listOpenForModelUser(
+    modelUserId: string,
+    opts?: { treatAsEligible?: boolean },
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: modelUserId },
       select: { modelSheet: true },
@@ -360,7 +363,9 @@ export class BriefsService {
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
     return sorted.map((b) => {
-      const elig = computeBriefEligibility(briefEligibilityShape(b), user?.modelSheet ?? null);
+      const elig = opts?.treatAsEligible
+        ? { eligible: true, reason: 'Admin: volledige toegang tot alle open opdrachten.' }
+        : computeBriefEligibility(briefEligibilityShape(b), user?.modelSheet ?? null);
       const sanitized = sanitizeBriefForModelPortal(b);
       return {
         ...sanitized,
@@ -389,23 +394,33 @@ export class BriefsService {
     return sanitizeBriefForModelPortal(b);
   }
 
-  async respondToBrief(briefId: string, modelUserId: string, message: string) {
+  async respondToBrief(
+    briefId: string,
+    modelUserId: string,
+    message: string,
+    opts?: { bypassEligibility?: boolean },
+  ) {
     const brief = await this.prisma.clientBrief.findFirst({
       where: { id: briefId, status: 'open' },
     });
     if (!brief) throw new NotFoundException();
-    const model = await this.prisma.user.findUnique({
-      where: { id: modelUserId },
-      select: { modelSheet: true },
-    });
-    const { eligible } = computeBriefEligibility(briefEligibilityShape(brief), model?.modelSheet ?? null);
-    if (!eligible) {
-      throw new ForbiddenException('Uw profiel komt niet in aanmerking voor deze opdracht.');
+    if (!opts?.bypassEligibility) {
+      const model = await this.prisma.user.findUnique({
+        where: { id: modelUserId },
+        select: { modelSheet: true },
+      });
+      const { eligible } = computeBriefEligibility(
+        briefEligibilityShape(brief),
+        model?.modelSheet ?? null,
+      );
+      if (!eligible) {
+        throw new ForbiddenException('Uw profiel komt niet in aanmerking voor deze opdracht.');
+      }
     }
     const row = await this.prisma.modelBriefResponse.upsert({
       where: { briefId_modelUserId: { briefId, modelUserId } },
-      create: { briefId, modelUserId, message, status: 'submitted' },
-      update: { message, status: 'submitted' },
+      create: { briefId, modelUserId, message: message.trim(), status: 'submitted' },
+      update: { message: message.trim(), status: 'submitted' },
     });
     void this.modelHistory.log(modelUserId, 'brief_interest_submitted', {
       briefId,
