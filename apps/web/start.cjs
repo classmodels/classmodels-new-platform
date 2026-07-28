@@ -32,15 +32,62 @@ if (combellHostRouterEnabled()) {
   }
   require(dual);
 } else {
+  function ensureDirLinkOrCopy(target, source) {
+    try {
+      if (fs.existsSync(target)) return true;
+      if (!fs.existsSync(source)) return false;
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      try {
+        fs.symlinkSync(source, target, 'dir');
+        return true;
+      } catch {
+        fs.cpSync(source, target, { recursive: true });
+        return true;
+      }
+    } catch (e) {
+      console.error('[start] kon static/public niet klaarzetten:', e.message || e);
+      return false;
+    }
+  }
+
+  /**
+   * Monorepo standalone: server.js staat op `.next/standalone/apps/web/server.js`,
+   * niet op `.next/standalone/server.js`. `next start` + output:standalone hangt/misdraagt.
+   */
+  function resolveStandaloneServer() {
+    const candidates = [
+      path.join(cwd, '.next', 'standalone', 'apps', 'web', 'server.js'),
+      path.join(cwd, '.next', 'standalone', 'server.js'),
+    ];
+    for (const p of candidates) {
+      if (fs.existsSync(p)) return p;
+    }
+    return null;
+  }
+
   function runStandaloneIfPresent() {
-    if (process.env.NODE_ENV !== 'production') return false;
-    const standalone = path.join(cwd, '.next', 'standalone', 'server.js');
-    if (!fs.existsSync(standalone)) return false;
+    const standalone = resolveStandaloneServer();
+    if (!standalone) {
+      console.error('[start] geen standalone server.js gevonden — val terug op next start');
+      return false;
+    }
+
+    const standRoot = path.dirname(standalone);
+    // static + public naast de standalone server (Next vereist dit)
+    ensureDirLinkOrCopy(path.join(standRoot, '.next', 'static'), path.join(cwd, '.next', 'static'));
+    ensureDirLinkOrCopy(path.join(standRoot, 'public'), path.join(cwd, 'public'));
+
     const port = process.env.PORT || '3000';
+    console.error('[start] Next standalone:', standalone, 'PORT=', port);
     const r = spawnSync(process.execPath, [standalone], {
       stdio: 'inherit',
-      cwd,
-      env: { ...process.env, PORT: String(port) },
+      cwd: standRoot,
+      env: {
+        ...process.env,
+        NODE_ENV: process.env.NODE_ENV || 'production',
+        PORT: String(port),
+        HOSTNAME: process.env.HOSTNAME || '0.0.0.0',
+      },
     });
     process.exit(r.status === null ? 1 : r.status);
   }
@@ -90,9 +137,11 @@ if (combellHostRouterEnabled()) {
     .join(path.delimiter);
   const env = {
     ...process.env,
+    NODE_ENV: process.env.NODE_ENV || 'production',
     NODE_PATH: [nodePath, process.env.NODE_PATH].filter(Boolean).join(path.delimiter),
   };
 
+  console.error('[start] WARNING: fallback next start (standalone ontbreekt) — PORT=', port);
   const r = spawnSync(process.execPath, [nextBin, 'start', '-p', String(port)], {
     stdio: 'inherit',
     cwd,

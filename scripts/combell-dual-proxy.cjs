@@ -123,6 +123,7 @@ function spawnNext() {
     stdio: 'inherit',
     env: {
       ...process.env,
+      NODE_ENV: process.env.NODE_ENV || 'production',
       PORT: String(webPort),
       COMBELL_HOST_ROUTER: '0',
       CM_API_INTERNAL_URL: `http://127.0.0.1:${nestPort}`,
