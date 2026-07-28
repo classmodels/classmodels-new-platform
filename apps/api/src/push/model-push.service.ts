@@ -211,6 +211,17 @@ export class ModelPushService {
       return rows.map((r) => r.id);
     }
 
+    if (kind === 'all_clients') {
+      const rows = await this.prisma.user.findMany({
+        where: {
+          status: 'active',
+          roles: { some: { role: { slug: 'client' } } },
+        },
+        select: { id: true },
+      });
+      return rows.map((r) => r.id);
+    }
+
     if (kind === 'premium') {
       const rows = await this.prisma.user.findMany({
         where: roleFilter,

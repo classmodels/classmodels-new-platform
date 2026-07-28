@@ -1,5 +1,4 @@
-'use client';
-
+import type { Metadata } from 'next';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { NieuwBookingBlock } from '@/components/nieuw/NieuwBookingBlock';
 import { NieuwPortalHero } from '@/components/nieuw/NieuwPortalHero';
@@ -7,6 +6,15 @@ import {
   DOELGROEPEN_CARDS,
   GRATIS_FOTOSHOOT_PAGE,
 } from '@/components/guest-portal/guest-portal-data';
+
+export const metadata: Metadata = {
+  title: 'Gratis fotoshoot voor nieuwe modellen',
+  description:
+    'Boek online een gratis fotoshoot bij Class-Models en ontdek of modellenwerk iets voor u is. Geen ervaring nodig.',
+  alternates: {
+    canonical: '/nieuw/gasten/gratis-fotoshoot',
+  },
+};
 
 export default function GratisFotoshootPage() {
   return (
@@ -20,7 +28,7 @@ export default function GratisFotoshootPage() {
             imageAlt="Gratis fotoshoot"
           />
 
-          <div className="nieuw-agenda-align" style={{ marginTop: 40 }}>
+          <div className="nieuw-agenda-align nieuw-after-hero">
             <h2 className="nieuw-h3 nieuw-agenda-title">{GRATIS_FOTOSHOOT_PAGE.expectTitle}</h2>
             <h2 className="nieuw-h3 nieuw-agenda-booking-title">Online afspraak maken testshoot</h2>
             <ul className="nieuw-checklist nieuw-agenda-frames">
@@ -62,13 +70,10 @@ export default function GratisFotoshootPage() {
         </div>
       </section>
 
-      <section
-        className="nieuw-sectie"
-        style={{ background: 'var(--n-bg-2)', borderTop: '1px solid var(--n-hair)' }}
-      >
+      <section className="nieuw-sectie nieuw-sectie-alt">
         <div className="nieuw-wrap">
           <span className="nieuw-label">Voor wie?</span>
-          <h2 className="nieuw-h2" style={{ marginTop: 12 }}>
+          <h2 className="nieuw-display nieuw-display-md">
             Uiteenlopende <em>profielen</em>
           </h2>
           <div

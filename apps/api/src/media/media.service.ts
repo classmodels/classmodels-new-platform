@@ -62,7 +62,7 @@ const WEBP_EFFORT = 4;
 const JPEG_PRIMARY_QUALITY = 82;
 
 export type SaveFileOptions = {
-  /** Extra stuk in weergavenaam, bv. model-slug: `class-models-jan-peeters-IMG.jpg` */
+  /** Extra stuk in weergavenaam, bv. model-slug: `jan-peeters-class-models.jpg` */
   fileLabel?: string;
   /** Fotograaf: koppel levering aan dit model (map `portfolio-fotograaf`). */
   linkedModelUserId?: string | null;
@@ -633,6 +633,17 @@ export class MediaService implements OnModuleInit {
     const baseRaw = basename(file.originalname, extname(file.originalname)) || 'bestand';
     const base = this.slugLabel(baseRaw).replace(/-/g, '_') || 'bestand';
     const label = this.slugLabel(opts?.fileLabel);
+
+    // SEO weergavenaam voor modelportfolio: {model-slug}-class-models.{ext}
+    // (storageKey blijft UUID — alleen originalName / downloadnaam.)
+    if (folder?.slug === 'models' && label) {
+      const shortbase = this.slugLabel(baseRaw).slice(0, 20);
+      const name =
+        shortbase && shortbase !== label
+          ? `${label}-class-models-${shortbase}.${ext}`
+          : `${label}-class-models.${ext}`;
+      return name.replace(/-+/g, '-').slice(0, 190);
+    }
 
     let prefix = 'upload';
     if (folder?.slug === 'models') prefix = 'class-models';

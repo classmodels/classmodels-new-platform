@@ -6,10 +6,36 @@ import { AppChrome } from '@/components/app-chrome';
 const base = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 
 export const metadata: Metadata = {
-  title: 'Class-Models',
-  description: 'Class Models — modellenplatform',
+  metadataBase: new URL('https://www.class-models.be'),
+  title: {
+    default: 'Class-Models | Modellenbureau in Belgie',
+    template: '%s | Class-Models',
+  },
+  description:
+    'Class-Models is een modellenbureau in Belgie voor mensen die model willen worden en voor bedrijven die modellen zoeken voor campagnes, events en fotoshoots.',
   manifest: `${base}/manifest.json`,
   applicationName: 'Class-Models',
+  keywords: [
+    'modellenbureau',
+    'model worden',
+    'modellenbureau belgie',
+    'casting bureau',
+    'gratis fotoshoot',
+    'model inschrijven',
+    'class models',
+  ],
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'nl_BE',
+    url: 'https://www.class-models.be',
+    siteName: 'Class-Models',
+    title: 'Class-Models | Modellenbureau in Belgie',
+    description:
+      'Word model via het gastenportaal van Class-Models of ontdek hoe ons modellenbureau werkt voor castings, fotoshoots en campagnes.',
+  },
   appleWebApp: {
     capable: true,
     title: 'Class-Models',

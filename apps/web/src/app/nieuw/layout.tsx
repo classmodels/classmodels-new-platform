@@ -7,7 +7,7 @@ export default function NieuwLayout({ children }: { children: ReactNode }) {
       {/* eslint-disable-next-line @next/next/no-page-custom-font */}
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&family=Montserrat:wght@500;600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800;900&display=swap"
       />
       <Suspense
         fallback={

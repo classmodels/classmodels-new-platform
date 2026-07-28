@@ -59,8 +59,8 @@ export class BroadcastPushDto {
   body!: string;
 
   @IsString()
-  @IsIn(['all_models', 'premium', 'non_premium', 'custom_list'])
-  audienceKind!: 'all_models' | 'premium' | 'non_premium' | 'custom_list';
+  @IsIn(['all_models', 'all_clients', 'premium', 'non_premium', 'custom_list'])
+  audienceKind!: 'all_models' | 'all_clients' | 'premium' | 'non_premium' | 'custom_list';
 
   @IsOptional()
   @IsUUID()

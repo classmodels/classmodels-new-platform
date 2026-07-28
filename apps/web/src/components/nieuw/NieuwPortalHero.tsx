@@ -1,15 +1,12 @@
 import type { ReactNode } from 'react';
 
 type NieuwPortalHeroProps = {
-  /** Enkele titelregel (klassiek). */
   title?: string;
   titleEm?: string;
-  /** Titelregels als blok, bv. ["plan uw gratis", "testshoot"]. */
   titleLines?: string[];
   lead: ReactNode;
   imageSrc: string;
   imageAlt?: string;
-  /** CSS object-position, bv. "left top" zodat de bovenkant zichtbaar blijft. */
   imagePosition?: string;
 };
 
@@ -44,7 +41,7 @@ export function NieuwPortalHero({
             ))}
           </h1>
         ) : (
-          <h1 className="nieuw-h1">
+          <h1 className="nieuw-display" style={{ fontSize: 'clamp(28px, 4.5vw, 48px)' }}>
             {title}
             {titleEm ? (
               <>

@@ -26,7 +26,7 @@ export default function NieuwWachtwoordVergetenPage() {
       const msg = err instanceof Error ? err.message : 'Verzoek mislukt.';
       if (/404|not found/i.test(msg)) {
         setError(
-          'Deze functie is lokaal nog niet beschikbaar. Gebruik het demo-account of registreer een nieuw account.',
+          'Wachtwoord reset is momenteel niet beschikbaar. Probeer later opnieuw of neem contact op met Class-Models.',
         );
       } else {
         setDone(true);

@@ -12,7 +12,8 @@ const GASTEN_NAV = [
   { href: '/nieuw/gasten/model-worden', label: 'Model worden' },
   { href: '/nieuw/gasten/gratis-fotoshoot', label: 'Gratis fotoshoot' },
   { href: '/nieuw/gasten/casting', label: 'Casting' },
-  { href: '/nieuw/gasten/intake', label: 'Intake gesprek' },
+  { href: '/nieuw/gasten/intake', label: 'Intake-gesprek' },
+  { href: '/nieuw/gasten/faq', label: 'FAQ' },
 ] as const;
 
 const MODELLEN_NAV = [
@@ -23,13 +24,16 @@ const MODELLEN_NAV = [
   { href: '/nieuw/modellen?tab=opleiding', label: 'Opleiding' },
   { href: '/nieuw/modellen?tab=setkaarten', label: 'Setkaarten' },
   { href: '/nieuw/modellen?tab=tryout-modeshow', label: 'Try-out modeshow' },
-  { href: '/nieuw/modellen?tab=modeshow-28', label: 'Download try-out' },
   { href: '/nieuw/modellen?tab=modellen', label: 'Modellen' },
-  { href: '/nieuw/modellen?tab=premium', label: 'Premium' },
   { href: '/nieuw/modellen?tab=historiek', label: 'Historiek' },
   { href: '/nieuw/modellen?tab=push', label: 'Pushberichten' },
   { href: '/nieuw/modellen?tab=bericht', label: 'Bericht sturen' },
-  { href: '/nieuw/modellen?tab=review-schrijven', label: 'Review' },
+] as const;
+
+const BOOKING_PATHS = [
+  '/nieuw/gasten/gratis-fotoshoot',
+  '/nieuw/gasten/casting',
+  '/nieuw/gasten/intake',
 ] as const;
 
 function portalFromPath(pathname: string | null): NieuwPortal {
@@ -55,6 +59,11 @@ function isActive(href: string, pathname: string | null, search: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function isBookingPage(pathname: string | null) {
+  if (!pathname) return false;
+  return BOOKING_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function NieuwShell({
   children,
   portal,
@@ -70,12 +79,15 @@ export function NieuwShell({
   const { user, logout, loading } = useAuth();
   const activePortal = portal ?? portalFromPath(pathname);
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
+  const onBooking = isBookingPage(pathname);
 
   const subNav =
     activePortal === 'gasten' ? GASTEN_NAV : activePortal === 'modellen' ? MODELLEN_NAV : null;
 
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || '';
+
+  const loginHref = '/nieuw/inloggen';
 
   function goBack() {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -85,6 +97,25 @@ export function NieuwShell({
     router.push('/nieuw');
   }
 
+  const cta =
+    activePortal === 'modellen' ? (
+      <Link href="/nieuw/modellen?tab=premium" className="nieuw-cta-top">
+        Wordt premium
+      </Link>
+    ) : onBooking ? (
+      <Link href="#agenda" className="nieuw-cta-top">
+        Afspraak maken
+      </Link>
+    ) : activePortal === 'klanten' ? (
+      <Link href="/nieuw/klanten/registreren" className="nieuw-cta-top">
+        Account aanmaken
+      </Link>
+    ) : (
+      <Link href="/nieuw/gasten/gratis-fotoshoot#agenda" className="nieuw-cta-top">
+        Inschrijven
+      </Link>
+    );
+
   return (
     <div className="nieuw-root">
       <header className="nieuw-kop">
@@ -93,7 +124,7 @@ export function NieuwShell({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               className="nieuw-merk-logo"
-              src="/nieuw/logo.png"
+              src="/nieuw/logo-header.png"
               alt="Class-Models — Modeling Agency"
             />
           </Link>
@@ -104,7 +135,7 @@ export function NieuwShell({
                 href="/nieuw/gasten/model-worden"
                 className={`nieuw-pillar${activePortal === 'gasten' ? ' actief' : ''}`}
               >
-                <span>Gastenportaal · model worden</span>
+                <span>Gastenportaal · schrijf u in</span>
               </Link>
               <Link
                 href="/nieuw/modellen"
@@ -123,22 +154,27 @@ export function NieuwShell({
             <span className="nieuw-kop-pillars-spacer" aria-hidden="true" />
           )}
 
-          <nav className="nieuw-kop-actions" aria-label="Snelle acties">
-            <Link href="/nieuw/reviews">Reviews</Link>
-            <Link href="/nieuw/gasten/contact">Contact</Link>
+          <nav className="nieuw-kop-actions" aria-label="Account">
+            {!loading && user ? (
+              <button type="button" className="nieuw-back-btn" onClick={() => logout()}>
+                Uitloggen
+              </button>
+            ) : !loading ? (
+              <Link href={loginHref} className="nieuw-back-btn">
+                Inloggen
+              </Link>
+            ) : null}
+            <button type="button" className="nieuw-back-btn" onClick={goBack}>
+              ← Back
+            </button>
           </nav>
         </div>
       </header>
 
-      {subNav && activePortal !== 'home' ? (
-        <div className="nieuw-subnav-outer">
-          <div className="nieuw-wrap">
-            {activePortal === 'modellen' && user ? (
-              <p className="nieuw-welcome">
-                Welkom{displayName ? `, ${displayName}` : ''}
-              </p>
-            ) : null}
-            <nav className="nieuw-subnav" aria-label="Portaalmenu">
+      <div className="nieuw-util-bar">
+        <div className="nieuw-util-bar-inner">
+          {subNav ? (
+            <nav className="nieuw-util-nav" aria-label="Portaalmenu">
               {subNav.map((item) => (
                 <Link
                   key={item.href}
@@ -149,29 +185,24 @@ export function NieuwShell({
                 </Link>
               ))}
             </nav>
-          </div>
+          ) : (
+            <span className="nieuw-util-nav-spacer" aria-hidden="true" />
+          )}
+          <nav className="nieuw-util-actions" aria-label="Snelle acties">
+            <Link href="/nieuw/reviews">Reviews</Link>
+            <Link href="/nieuw/gasten/contact">Contact</Link>
+            {cta}
+          </nav>
+        </div>
+      </div>
+
+      {activePortal === 'modellen' && user ? (
+        <div className="nieuw-wrap">
+          <p className="nieuw-welcome">Welkom{displayName ? `, ${displayName}` : ''}</p>
         </div>
       ) : null}
 
-      <main>
-        <div className="nieuw-wrap">
-          <div className="nieuw-content-actions" aria-label="Account">
-            {!loading && user ? (
-              <button type="button" className="nieuw-back-btn" onClick={() => logout()}>
-                Uitloggen
-              </button>
-            ) : !loading ? (
-              <Link href="/nieuw/modellen" className="nieuw-back-btn">
-                Inloggen
-              </Link>
-            ) : null}
-            <button type="button" className="nieuw-back-btn" onClick={goBack}>
-              ← Back
-            </button>
-          </div>
-        </div>
-        {children}
-      </main>
+      <main>{children}</main>
 
       <footer className="nieuw-footer">
         <div className="nieuw-wrap">
@@ -184,7 +215,7 @@ export function NieuwShell({
                 <span className="nieuw-merk-sub">Modeling Agency</span>
               </Link>
               <p style={{ marginTop: 14, maxWidth: '36ch' }}>
-                Meer dan 20 jaar het modellenbureau waar persoonlijkheid het verschil maakt.
+                Professioneel modellenbureau in België — model worden, casting en boekingen.
               </p>
             </div>
             <div>
@@ -196,7 +227,7 @@ export function NieuwShell({
                 <br />
                 <Link href="/nieuw/gasten/casting">Casting</Link>
                 <br />
-                <Link href="/nieuw/gasten/intake">Intake gesprek</Link>
+                <Link href="/nieuw/gasten/intake">Intake-gesprek</Link>
               </p>
             </div>
             <div>

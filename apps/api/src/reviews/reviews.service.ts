@@ -60,6 +60,28 @@ export class ReviewsService {
     });
   }
 
+  /** Bezoekersreview — wacht op goedkeuring voor publicatie. */
+  async createFromGuest(data: {
+    authorName: string;
+    title: string;
+    body: string;
+    rating?: number;
+  }) {
+    const max = await this.prisma.review.aggregate({ _max: { sortOrder: true } });
+    const sortOrder = (max._max.sortOrder ?? 0) + 1;
+    return this.prisma.review.create({
+      data: {
+        title: data.title.trim(),
+        body: data.body.trim(),
+        authorName: data.authorName.trim() || 'Bezoeker',
+        rating: data.rating ?? 5,
+        sortOrder,
+        approved: false,
+        visible: true,
+      },
+    });
+  }
+
   async update(
     id: string,
     data: Partial<{

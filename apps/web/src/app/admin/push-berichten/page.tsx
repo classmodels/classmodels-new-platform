@@ -23,7 +23,9 @@ export default function AdminPushBerichtenPage() {
   const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [audience, setAudience] = useState<'all_models' | 'premium' | 'non_premium' | 'custom_list'>('all_models');
+  const [audience, setAudience] = useState<
+    'all_models' | 'all_clients' | 'premium' | 'non_premium' | 'custom_list'
+  >('all_models');
   const [listId, setListId] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -116,6 +118,7 @@ export default function AdminPushBerichtenPage() {
             onChange={(e) => setAudience(e.target.value as typeof audience)}
           >
             <option value="all_models">Alle actieve modellen (model / newface / try-out / inactief)</option>
+            <option value="all_clients">Alle klanten</option>
             <option value="premium">Alleen premium (volgens bureau-regels)</option>
             <option value="non_premium">Alleen zonder geldig premium</option>
             <option value="custom_list">Een push-lijst (hieronder)</option>

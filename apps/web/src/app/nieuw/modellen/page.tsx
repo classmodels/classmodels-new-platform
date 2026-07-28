@@ -26,6 +26,7 @@ import { ModelSetCardTab } from '@/components/model-portal/ModelSetCardTab';
 import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalReviewTab';
 import { PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
+import { isLocalHost } from '@/lib/is-local-host';
 
 type PremiumInfo = {
   currency: string;
@@ -71,6 +72,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const local = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -100,18 +102,29 @@ function LoginForm() {
   return (
     <section className="nieuw-sectie">
       <div className="nieuw-wrap" style={{ maxWidth: 520 }}>
-        <h1 className="nieuw-h1" style={{ fontSize: 'clamp(32px, 4vw, 48px)' }}>
+        <h1 className="nieuw-display" style={{ fontSize: 'clamp(28px, 4vw, 44px)' }}>
           Welkom <em>terug</em>
         </h1>
         <p className="nieuw-lead">
           Log in met uw modelaccount om het Modellenportaal te openen.
         </p>
 
+        {local ? (
+          <div className="nieuw-panel" style={{ marginTop: 22, borderColor: 'var(--n-gold-hair)' }}>
+            <span className="nieuw-label">Localhost</span>
+            <p className="nieuw-lead" style={{ marginTop: 10 }}>
+              Op localhost kunt u het modellenportaal openen zonder wachtwoord.
+            </p>
+            <Link className="nieuw-btn" href="/nieuw/modellen?preview=1" style={{ marginTop: 16 }}>
+              Open zonder wachtwoord →
+            </Link>
+          </div>
+        ) : null}
+
         <div className="nieuw-panel" style={{ marginTop: 22, borderColor: 'var(--n-gold-hair)' }}>
           <span className="nieuw-label">Alleen voor contractmodellen</span>
-          <p style={{ margin: '12px 0 0', color: 'var(--n-mut)', fontSize: 14, lineHeight: 1.65 }}>
+          <p style={{ margin: '12px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.65 }}>
             Het modellenaccount is alleen voor modellen die onder contract staan bij Class-Models.
-            Het is onnodig een account aan te maken als u geen overeenkomst heeft met Class-Models.
             Geen overeenkomst? Ga dan naar het gastenportaal.
           </p>
           <div className="nieuw-login-actions" style={{ marginTop: 18 }}>
@@ -129,7 +142,7 @@ function LoginForm() {
             <span
               style={{
                 display: 'block',
-                fontSize: 11,
+                fontSize: 10,
                 letterSpacing: '0.18em',
                 textTransform: 'uppercase',
                 color: 'var(--n-dim)',
@@ -141,7 +154,7 @@ function LoginForm() {
             <input
               type="text"
               autoComplete="username"
-              required
+              required={!local}
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               style={{
@@ -149,46 +162,54 @@ function LoginForm() {
                 background: 'var(--n-bg)',
                 border: '1px solid var(--n-hair)',
                 color: 'var(--n-ink)',
-                padding: '12px 14px',
-                fontSize: 14,
+                padding: '11px 12px',
+                fontSize: 13,
               }}
             />
           </label>
-          <label style={{ display: 'block', marginBottom: 20 }}>
-            <span
-              style={{
-                display: 'block',
-                fontSize: 11,
-                letterSpacing: '0.18em',
-                textTransform: 'uppercase',
-                color: 'var(--n-dim)',
-                marginBottom: 8,
-              }}
-            >
-              Wachtwoord
-            </span>
-            <input
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'var(--n-bg)',
-                border: '1px solid var(--n-hair)',
-                color: 'var(--n-ink)',
-                padding: '12px 14px',
-                fontSize: 14,
-              }}
-            />
-          </label>
+          {!local ? (
+            <label style={{ display: 'block', marginBottom: 20 }}>
+              <span
+                style={{
+                  display: 'block',
+                  fontSize: 10,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: 'var(--n-dim)',
+                  marginBottom: 8,
+                }}
+              >
+                Wachtwoord
+              </span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'var(--n-bg)',
+                  border: '1px solid var(--n-hair)',
+                  color: 'var(--n-ink)',
+                  padding: '11px 12px',
+                  fontSize: 13,
+                }}
+              />
+            </label>
+          ) : (
+            <p className="nieuw-lead" style={{ marginBottom: 16 }}>
+              Wachtwoord is op localhost niet verplicht — gebruik de knop hierboven.
+            </p>
+          )}
           {error ? (
             <p style={{ color: '#e8a0a0', fontSize: 13, margin: '0 0 16px' }}>{error}</p>
           ) : null}
-          <button className="nieuw-btn" type="submit" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
-            {busy ? 'Bezig…' : 'Inloggen'}
-          </button>
+          {!local ? (
+            <button className="nieuw-btn" type="submit" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
+              {busy ? 'Bezig…' : 'Inloggen'}
+            </button>
+          ) : null}
           <div
             style={{
               marginTop: 20,
@@ -196,7 +217,7 @@ function LoginForm() {
               flexWrap: 'wrap',
               gap: 14,
               justifyContent: 'space-between',
-              fontSize: 13,
+              fontSize: 12,
             }}
           >
             <Link className="nieuw-link" href="/nieuw/modellen/wachtwoord-vergeten">
@@ -213,34 +234,20 @@ function LoginForm() {
 }
 
 function WrongRolePanel() {
-  const { logout, user, can } = useAuth();
-  const isAdmin = Boolean(user?.roles?.includes('admin') || can('*'));
+  const { logout } = useAuth();
 
   return (
     <section className="nieuw-uc">
       <div className="nieuw-wrap" style={{ maxWidth: 560 }}>
         <h1 className="nieuw-h1">
-          {isAdmin ? (
-            <>
-              Admin · <em>modellenportaal</em>
-            </>
-          ) : (
-            <>
-              Alleen voor <em>modellen</em>
-            </>
-          )}
+          Alleen voor <em>modellen</em>
         </h1>
         <p className="nieuw-lead" style={{ margin: '18px auto 0', textAlign: 'center' }}>
-          {isAdmin
-            ? 'U bent als administrator ingelogd. Open een model via “Modellen” en kies “Als model” om het portaal in naam van dat model te gebruiken — of log uit en log in met een modelaccount.'
-            : 'U bent ingelogd met een account zonder modelrol. Het Modellenportaal is alleen voor contractmodellen. Log uit en log in met uw modelaccount, of maak een account aan als u een overeenkomst heeft.'}
+          U bent ingelogd met een account zonder modelrol. Het Modellenportaal is alleen voor
+          contractmodellen. Log uit en log in met uw modelaccount, of maak een account aan als u een
+          overeenkomst heeft.
         </p>
         <div style={{ marginTop: 36, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          {isAdmin ? (
-            <Link className="nieuw-btn" href="/nieuw/modellen?tab=modellen&admin=1">
-              Naar modellen (als admin)
-            </Link>
-          ) : null}
           <button
             type="button"
             className="nieuw-btn"
@@ -384,7 +391,7 @@ export default function NieuwModellenPage() {
     }
   };
 
-  const preview = searchParams.get('preview') === '1';
+  const preview = searchParams.get('preview') === '1' && isLocalHost();
 
   let body: ReactNode;
 
@@ -407,15 +414,15 @@ export default function NieuwModellenPage() {
           <div className="nieuw-panel" style={{ borderColor: 'var(--n-gold-hair)' }}>
             <span className="nieuw-label">Voorbeeldmodus</span>
             <p className="nieuw-lead" style={{ marginTop: 8 }}>
-              U bekijkt het Modellenportaal zonder inloggen. Interactieve functies (opdrachten
-              boeken, betalen, uploads) werken pas na login met een modelaccount onder contract.
+              U bekijkt het Modellenportaal. Interactieve functies werken volledig na login met een
+              modelaccount onder contract.
             </p>
             <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <Link className="nieuw-btn" href="/nieuw/modellen">
                 Naar inloggen
               </Link>
-              <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen/registreren">
-                Modellenaccount maken
+              <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/gasten/model-worden">
+                Naar gastenportaal
               </Link>
             </div>
           </div>
@@ -477,22 +484,7 @@ export default function NieuwModellenPage() {
 
     let main: ReactNode = null;
 
-    if (isAdminUser && !isModel && tab === 'home') {
-      main = (
-        <div className="nieuw-panel" style={{ borderColor: 'var(--n-gold-hair)' }}>
-          <span className="nieuw-label">Administrator</span>
-          <p className="nieuw-lead" style={{ marginTop: 10 }}>
-            U hebt toegang tot het Modellenportaal als admin. Open de tab Modellen, bekijk een
-            fiche en kies <strong>Als model</strong> om alle acties in naam van dat model uit te voeren.
-          </p>
-          <div style={{ marginTop: 18 }}>
-            <Link className="nieuw-btn" href="/nieuw/modellen?tab=modellen">
-              Naar modellenoverzicht
-            </Link>
-          </div>
-        </div>
-      );
-    } else if (tab === 'home') {
+    if (tab === 'home') {
       main = (
         <div style={{ display: 'grid', gap: 28 }}>
           <ModelPortalHomeContent
@@ -676,14 +668,6 @@ export default function NieuwModellenPage() {
     body = (
       <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
         <div className="nieuw-wrap">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16, alignItems: 'center' }}>
-            {isAdminUser && !isModel ? (
-              <span style={{ fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--n-gold)' }}>
-                Admin
-              </span>
-            ) : null}
-          </div>
-
           <ImpersonationBanner />
 
           <div className="nieuw-panel nieuw-themed" style={{ padding: 22, minWidth: 0 }}>

@@ -1,6 +1,5 @@
-'use client';
-
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { NieuwPortalHero } from '@/components/nieuw/NieuwPortalHero';
 import {
@@ -10,16 +9,25 @@ import {
   WAAROM_PARAGRAPHS,
 } from '@/components/guest-portal/guest-portal-data';
 
+export const metadata: Metadata = {
+  title: 'Model worden in België',
+  description:
+    'Lees hoe model worden bij Class-Models werkt. Kies tussen gratis fotoshoot, casting of intake-gesprek en schrijf u eenvoudig online in.',
+  alternates: {
+    canonical: '/nieuw/gasten/model-worden',
+  },
+};
+
 export default function ModelWordenPage() {
   return (
     <NieuwShell portal="gasten">
       <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
         <div className="nieuw-wrap">
           <NieuwPortalHero
-            titleLines={['iedereen', 'verdient het om', 'te schitteren']}
+            titleLines={['iedereen', 'verdient het', 'te schitteren']}
             lead={
               <>
-                Word model bij <span className="nieuw-hero-brand">Class-Models</span> – professioneel
+                Word model bij <span className="nieuw-hero-brand">Class-Models</span> — professioneel
                 begeleid, persoonlijk en toegankelijk voor iedereen.
               </>
             }
@@ -30,7 +38,7 @@ export default function ModelWordenPage() {
         </div>
       </section>
 
-      <section style={{ paddingBottom: 40 }}>
+      <section style={{ paddingBottom: 28 }}>
         <div
           className="nieuw-wrap"
           style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}
@@ -56,9 +64,9 @@ export default function ModelWordenPage() {
         </div>
       </section>
 
-      <section style={{ paddingBottom: 48 }}>
+      <section style={{ paddingTop: 28, paddingBottom: 48 }}>
         <div className="nieuw-wrap">
-          <h2 className="nieuw-h2" style={{ marginBottom: 22 }}>
+          <h2 className="nieuw-display nieuw-display-md" style={{ marginBottom: 22 }}>
             Drie manieren om te <em>starten</em>
           </h2>
           <div className="nieuw-choice-grid">
@@ -108,7 +116,7 @@ export default function ModelWordenPage() {
         >
           <div>
             <span className="nieuw-label">Waarom Class-Models</span>
-            <h2 className="nieuw-h2" style={{ marginTop: 14 }}>
+            <h2 className="nieuw-display nieuw-display-md" style={{ marginTop: 14 }}>
               Toegankelijk. Transparant. <em>Professioneel.</em>
             </h2>
             {WAAROM_PARAGRAPHS.map((p) => (

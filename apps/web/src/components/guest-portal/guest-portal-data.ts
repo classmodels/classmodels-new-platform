@@ -14,7 +14,7 @@ export const GUEST_MENU: { id: GuestMenuId; label: string }[] = [
   { id: 'model-worden', label: 'Model worden' },
   { id: 'gratis-fotoshoot', label: 'Gratis fotoshoot' },
   { id: 'casting', label: 'Casting' },
-  { id: 'intake-gesprek', label: 'Intake gesprek' },
+  { id: 'intake-gesprek', label: 'Intake-gesprek' },
   { id: 'doelgroepen', label: 'Doelgroepen' },
   { id: 'veelgestelde-vragen', label: 'Veelgestelde vragen' },
   { id: 'contact', label: 'Contact' },
@@ -35,7 +35,7 @@ export const CARD_MODEL_WORDEN = [
       'Ervaar hoe het is om voor de camera te staan.',
       'Geen ervaring nodig, wij begeleiden je stap voor stap.',
       "Je ontvangt je foto's zonder kosten.",
-      'Wil je daarna als model aan de slag, dan krijg je een vrijblijvend intakegesprek.',
+      'Wil je daarna als model aan de slag, dan krijg je een vrijblijvend intake-gesprek.',
     ],
     cta: 'Plan je gratis fotoshoot',
   },
@@ -53,15 +53,15 @@ export const CARD_MODEL_WORDEN = [
   },
   {
     kicker: 'PERSOONLIJK ADVIES',
-    title: 'Intake gesprek',
+    title: 'Intake-gesprek',
     bullets: [
-      'Kom langs voor een vrijblijvend intakegesprek.',
+      'Kom langs voor een vrijblijvend intake-gesprek.',
       'Ontdek of jij het potentieel hebt om als model aan de slag te gaan.',
       'We bespreken jouw uitstraling, profiel en mogelijkheden.',
       'Samen bekijken we welke kansen het best bij jou passen.',
       'Zo begin je goed voorbereid aan jouw eerste stappen als model.',
     ],
-    cta: 'Boek nu je intake gesprek',
+    cta: 'Boek nu je intake-gesprek',
   },
 ] as const;
 
@@ -118,7 +118,7 @@ export const GUEST_FAQ = [
     a: 'Mannen, vrouwen, tieners, kinderen, 60-plussers en mensen met een maatje meer. Uitstraling, motivatie en authenticiteit zijn belangrijker dan perfecte maten.',
   },
   {
-    q: 'Wat kan ik verwachten tijdens een intake of casting?',
+    q: 'Wat kan ik verwachten tijdens een intake-gesprek of casting?',
     a: 'Je wordt vriendelijk ontvangen, krijgt uitleg over mogelijke opdrachten en samen bekijken we welke kansen het best bij jou passen.',
   },
   {
@@ -137,8 +137,8 @@ export const INTAKE_GESPREK_PAGE = {
   agendaSlug: 'intake-gesprek',
   howTitle: 'Hoe werkt het?',
   whyTitle: 'Waarom kiezen voor Class-Models?',
-  bookingSubject: 'Afspraak intakegesprek',
-  ctaButton: 'Online afspraak maken intake gesprek',
+  bookingSubject: 'Afspraak intake-gesprek',
+  ctaButton: 'Online afspraak maken intake-gesprek',
   steps: [
     'Boek eenvoudig online een afspraak via de knop hieronder.',
     'We leren jou en jouw uitstraling beter kennen.',
@@ -164,7 +164,7 @@ export const GRATIS_FOTOSHOOT_PAGE = {
     "Je ontvangt je foto's zonder kosten.",
     'Geschikt voor kinderen, tieners, volwassenen, 60-plussers en maatje meer.',
     'Perfect om te ontdekken of modellenwerk iets voor jou is.',
-    'Na de shoot kunnen we, indien jij dat wil, een vrijblijvend intakegesprek plannen.',
+    'Na de shoot kunnen we, indien jij dat wil, een vrijblijvend intake-gesprek plannen.',
   ],
   whyTitle: 'Waarom deelnemen?',
   whyParagraph:
@@ -189,6 +189,13 @@ export const CASTING_PAGE = {
     'Bij Class-Models focussen we op charisma en authenticiteit in plaats van perfecte maten. We geloven dat jouw persoonlijkheid en spontaniteit het verschil maken.',
   bookingSubject: 'Inschrijving casting',
   ctaButton: 'Online afspraak maken casting',
+  howTitle: 'Hoe werkt het?',
+  steps: [
+    'Schrijf je eenvoudig online in voor de casting via de agenda hierboven.',
+    'We bekijken jouw uitstraling en of die past bij lopende of komende opdrachten.',
+    'Je krijgt eerlijk en professioneel feedback over jouw kansen bij castings.',
+    'Bij een match word je uitgenodigd voor verdere stappen of boekingen.',
+  ],
 } as const;
 
 /**

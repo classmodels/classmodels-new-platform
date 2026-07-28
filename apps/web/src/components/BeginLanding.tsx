@@ -49,17 +49,21 @@ export function BeginLanding() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const nextAfterLogin = searchParams.get('next');
+  const tabParam = searchParams.get('tab');
+  const openedViaQuery =
+    tabParam === 'model' || tabParam === 'client' || tabParam === 'photographer';
+  const fromNieuw =
+    searchParams.get('from') === 'nieuw' || Boolean(nextAfterLogin?.startsWith('/nieuw'));
   const { t } = useI18n();
   const { user, login, register: registerUser } = useAuth();
   const [tab, setTab] = useState<Tab | null>(null);
 
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
     if (tabParam === 'model' || tabParam === 'client' || tabParam === 'photographer') {
       setTab(tabParam);
       setSubMode('login');
     }
-  }, [searchParams]);
+  }, [tabParam]);
   const [subMode, setSubMode] = useState<SubMode>('login');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -99,6 +103,27 @@ export function BeginLanding() {
 
   const [fEmail, setFEmail] = useState('');
   const [fPass, setFPass] = useState('');
+
+  /** Sluit login-overlay: geen lege lobby als men via /nieuw of deeplink kwam. */
+  const closeAuthOverlay = useCallback(() => {
+    setErr(null);
+    setForgotMsg(null);
+    setSubMode('login');
+    if (openedViaQuery) {
+      if (fromNieuw || nextAfterLogin?.startsWith('/nieuw')) {
+        router.push(nextAfterLogin?.startsWith('/nieuw') ? nextAfterLogin : '/nieuw');
+        return;
+      }
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        router.back();
+        return;
+      }
+      router.replace('/lobby');
+      setTab(null);
+      return;
+    }
+    setTab(null);
+  }, [openedViaQuery, fromNieuw, nextAfterLogin, router]);
 
   const goGuest = useCallback(() => {
     router.push('/portal/guest');
@@ -516,15 +541,10 @@ export function BeginLanding() {
                   ) : null}
                 </div>
 
-                {/* Terug naar de lobby. */}
+                {/* Terug: niet naar lege lobby als men via deeplink kwam. */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setTab(null);
-                    setSubMode('login');
-                    setErr(null);
-                    setForgotMsg(null);
-                  }}
+                  onClick={closeAuthOverlay}
                   className="absolute left-[2.5%] top-[5%] rounded-full bg-black/45 px-3 py-1 text-[clamp(9px,1.2vw,13px)] text-white/85 backdrop-blur-sm transition hover:bg-black/70 hover:text-white"
                 >
                   ← Terug
@@ -541,10 +561,7 @@ export function BeginLanding() {
           <div className="relative w-full max-w-md">
             <button
               type="button"
-              onClick={() => {
-                setTab(null);
-                setErr(null);
-              }}
+              onClick={closeAuthOverlay}
               aria-label="Sluiten"
               className="absolute -top-3 -right-2 z-10 rounded-full bg-black/60 px-2.5 py-1 text-sm text-white/85 hover:text-white"
             >

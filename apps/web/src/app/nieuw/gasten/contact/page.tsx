@@ -1,7 +1,15 @@
-'use client';
-
+import type { Metadata } from 'next';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data';
+
+export const metadata: Metadata = {
+  title: 'Contact Class-Models',
+  description:
+    'Contacteer Class-Models in Hulshout voor vragen over model worden, castings, gratis fotoshoots en inschrijvingen.',
+  alternates: {
+    canonical: '/nieuw/gasten/contact',
+  },
+};
 
 export default function ContactPage() {
   const c = GUEST_CONTACT_INFO;
