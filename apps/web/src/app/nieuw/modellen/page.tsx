@@ -27,7 +27,6 @@ import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalRevie
 import { PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { ModelOpdrachtenTab } from '@/components/nieuw/ModelOpdrachtenTab';
-import { isLocalHost } from '@/lib/is-local-host';
 
 type PremiumInfo = {
   currency: string;
@@ -73,7 +72,6 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const local = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(window.location.hostname);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -110,18 +108,6 @@ function LoginForm() {
           Log in met uw modelaccount om het Modellenportaal te openen.
         </p>
 
-        {local ? (
-          <div className="nieuw-panel" style={{ marginTop: 22, borderColor: 'var(--n-gold-hair)' }}>
-            <span className="nieuw-label">Localhost</span>
-            <p className="nieuw-lead" style={{ marginTop: 10 }}>
-              Op localhost kunt u het modellenportaal openen zonder wachtwoord.
-            </p>
-            <Link className="nieuw-btn" href="/nieuw/modellen?preview=1" style={{ marginTop: 16 }}>
-              Open zonder wachtwoord →
-            </Link>
-          </div>
-        ) : null}
-
         <div className="nieuw-panel" style={{ marginTop: 22, borderColor: 'var(--n-gold-hair)' }}>
           <span className="nieuw-label">Alleen voor contractmodellen</span>
           <p style={{ margin: '12px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.65 }}>
@@ -155,7 +141,7 @@ function LoginForm() {
             <input
               type="text"
               autoComplete="username"
-              required={!local}
+              required
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               style={{
@@ -168,49 +154,41 @@ function LoginForm() {
               }}
             />
           </label>
-          {!local ? (
-            <label style={{ display: 'block', marginBottom: 20 }}>
-              <span
-                style={{
-                  display: 'block',
-                  fontSize: 10,
-                  letterSpacing: '0.18em',
-                  textTransform: 'uppercase',
-                  color: 'var(--n-dim)',
-                  marginBottom: 8,
-                }}
-              >
-                Wachtwoord
-              </span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'var(--n-bg)',
-                  border: '1px solid var(--n-hair)',
-                  color: 'var(--n-ink)',
-                  padding: '11px 12px',
-                  fontSize: 13,
-                }}
-              />
-            </label>
-          ) : (
-            <p className="nieuw-lead" style={{ marginBottom: 16 }}>
-              Wachtwoord is op localhost niet verplicht — gebruik de knop hierboven.
-            </p>
-          )}
+          <label style={{ display: 'block', marginBottom: 20 }}>
+            <span
+              style={{
+                display: 'block',
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--n-dim)',
+                marginBottom: 8,
+              }}
+            >
+              Wachtwoord
+            </span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'var(--n-bg)',
+                border: '1px solid var(--n-hair)',
+                color: 'var(--n-ink)',
+                padding: '11px 12px',
+                fontSize: 13,
+              }}
+            />
+          </label>
           {error ? (
             <p style={{ color: '#e8a0a0', fontSize: 13, margin: '0 0 16px' }}>{error}</p>
           ) : null}
-          {!local ? (
-            <button className="nieuw-btn" type="submit" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
-              {busy ? 'Bezig…' : 'Inloggen'}
-            </button>
-          ) : null}
+          <button className="nieuw-btn" type="submit" disabled={busy} style={{ width: '100%', justifyContent: 'center' }}>
+            {busy ? 'Bezig…' : 'Inloggen'}
+          </button>
           <div
             style={{
               marginTop: 20,
@@ -392,92 +370,19 @@ export default function NieuwModellenPage() {
     }
   };
 
-  const preview = searchParams.get('preview') === '1' && isLocalHost();
-
   let body: ReactNode;
 
-  if (loading && !preview) {
+  if (loading) {
     body = (
       <section className="nieuw-uc" style={{ background: 'var(--n-bg)', minHeight: '50vh' }}>
         <p className="nieuw-lead">Laden…</p>
       </section>
     );
-  } else if (!user && !preview) {
+  } else if (!user) {
     body = <LoginForm />;
-  } else if (user && !canEnterPortal && !preview) {
+  } else if (!canEnterPortal) {
     body = <WrongRolePanel />;
-  } else if (preview && !user) {
-    const activeLabel = MODEL_PORTAL_TABS.find((t) => t.id === tab)?.label ?? 'Home';
-    let main: ReactNode = null;
-    if (tab === 'home' || tab === 'modellen') {
-      main = (
-        <div style={{ display: 'grid', gap: 24 }}>
-          <div className="nieuw-panel" style={{ borderColor: 'var(--n-gold-hair)' }}>
-            <span className="nieuw-label">Voorbeeldmodus</span>
-            <p className="nieuw-lead" style={{ marginTop: 8 }}>
-              U bekijkt het Modellenportaal. Interactieve functies werken volledig na login met een
-              modelaccount onder contract.
-            </p>
-            <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Link className="nieuw-btn" href="/nieuw/modellen">
-                Naar inloggen
-              </Link>
-              <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/gasten/model-worden">
-                Naar gastenportaal
-              </Link>
-            </div>
-          </div>
-          <NieuwModelsGallery title="Overzicht onze modellen" />
-        </div>
-      );
-    } else {
-      main = (
-        <div className="nieuw-panel">
-          <p className="nieuw-lead" style={{ marginTop: 0 }}>
-            Dit is hoe de sectie “{activeLabel}” in het Modellenportaal eruitziet. De echte inhoud
-            (uw opdrachten, fiche, betalingen…) verschijnt na inloggen met een modelaccount.
-          </p>
-          <ul className="nieuw-checklist" style={{ marginTop: 20 }}>
-            <li>
-              <span className="v">✓</span>
-              <span>Zelfde menu en navigatie als na login</span>
-            </li>
-            <li>
-              <span className="v">✓</span>
-              <span>Zakelijke, donkere stijl van de nieuwe site</span>
-            </li>
-            <li>
-              <span className="v">✓</span>
-              <span>Na login: volledige werking met database</span>
-            </li>
-          </ul>
-          <div style={{ marginTop: 24, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <Link className="nieuw-btn" href="/nieuw/modellen">
-              Inloggen
-            </Link>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen?preview=1">
-              Terug naar home (voorbeeld)
-            </Link>
-          </div>
-        </div>
-      );
-    }
-
-    body = (
-      <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
-        <div className="nieuw-wrap">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-            <Link className="nieuw-btn" href="/nieuw/modellen">
-              Inloggen
-            </Link>
-          </div>
-          <div className="nieuw-panel nieuw-themed" style={{ padding: 22, minWidth: 0 }}>
-            {main}
-          </div>
-        </div>
-      </section>
-    );
-  } else if (user && (canEnterPortal || preview)) {
+  } else if (user && canEnterPortal) {
     const portalUser = user;
     const displayName = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ').trim() || portalUser.email;
     const isPremium = portalUser.isPremium;

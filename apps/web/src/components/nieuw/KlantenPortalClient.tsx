@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
-import { isLocalHost } from '@/lib/is-local-host';
 
 const PACKAGES = [
   {
@@ -71,9 +70,7 @@ const DEMO_MODELS = [
 ] as const;
 
 export function KlantenPortalClient() {
-  const { user, token, loading, can } = useAuth();
-  const local = useMemo(() => isLocalHost(), []);
-  const [entered, setEntered] = useState(false);
+  const { user, token, loading, can, logout } = useAuth();
   const [selected, setSelected] = useState<string[]>([]);
   const [form, setForm] = useState({
     company: '',
@@ -90,8 +87,13 @@ export function KlantenPortalClient() {
   const [loginHint, setLoginHint] = useState(false);
 
   const isClient = Boolean(user?.roles?.includes('client'));
-  const isAdmin = Boolean(user?.roles?.includes('admin') || can('*'));
-  const canSubmitCasting = Boolean(user && token && (isClient || isAdmin));
+  const isAdmin = Boolean(
+    user?.roles?.includes('admin') ||
+      can('*') ||
+      user?.permissions?.some((p) => p.startsWith('admin.')),
+  );
+  const canEnter = Boolean(user && (isClient || isAdmin));
+  const canSubmitCasting = Boolean(user && token && canEnter);
 
   const toggle = (name: string) => {
     setSelected((prev) =>
@@ -150,28 +152,49 @@ export function KlantenPortalClient() {
     );
   }
 
-  if (local && !entered && !user) {
+  if (!user) {
     return (
       <section className="nieuw-sectie" style={{ paddingTop: 36 }}>
-        <div className="nieuw-wrap" style={{ maxWidth: 640 }}>
+        <div className="nieuw-wrap" style={{ maxWidth: 560 }}>
           <span className="nieuw-label">Klantenportaal</span>
-          <h1 className="nieuw-display" style={{ marginTop: 4 }}>
-            Open zonder <em>wachtwoord</em>
+          <h1 className="nieuw-display" style={{ marginTop: 4, fontSize: 'clamp(28px, 4vw, 44px)' }}>
+            Welkom <em>terug</em>
           </h1>
           <p className="nieuw-lead">
-            Lokaal kunt u het klantenportaal bekijken zonder inloggen. Tarieven en de
-            castingflow zijn zichtbaar; verzenden van een aanvraag vereist een klantenaccount.
+            Log in met uw klantenaccount om castingaanvragen en tarieven te beheren.
           </p>
           <div className="nieuw-hero-actions" style={{ marginTop: 24 }}>
-            <button type="button" className="nieuw-btn" onClick={() => setEntered(true)}>
-              Portaal openen →
-            </button>
+            <Link className="nieuw-btn" href="/nieuw/inloggen">
+              Inloggen
+            </Link>
             <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/klanten/registreren">
               Klantenaccount aanmaken
             </Link>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/inloggen">
-              Inloggen als klant
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (!canEnter) {
+    return (
+      <section className="nieuw-sectie" style={{ paddingTop: 36 }}>
+        <div className="nieuw-wrap" style={{ maxWidth: 560 }}>
+          <span className="nieuw-label">Klantenportaal</span>
+          <h1 className="nieuw-display" style={{ marginTop: 4, fontSize: 'clamp(28px, 4vw, 44px)' }}>
+            Geen <em>toegang</em>
+          </h1>
+          <p className="nieuw-lead">
+            Dit portaal is bestemd voor klantenaccounts. U bent momenteel met een ander type
+            account ingelogd.
+          </p>
+          <div className="nieuw-hero-actions" style={{ marginTop: 24 }}>
+            <Link className="nieuw-btn" href="/nieuw">
+              Naar home
             </Link>
+            <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={() => void logout()}>
+              Uitloggen
+            </button>
           </div>
         </div>
       </section>
@@ -201,16 +224,6 @@ export function KlantenPortalClient() {
               <a className="nieuw-btn nieuw-btn-ghost" href="#tarieven">
                 Bekijk tarieven
               </a>
-              {!user ? (
-                <>
-                  <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/inloggen">
-                    Inloggen
-                  </Link>
-                  <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/klanten/registreren">
-                    Account aanmaken
-                  </Link>
-                </>
-              ) : null}
             </div>
           </div>
           <aside className="nieuw-hero-card">
@@ -321,22 +334,6 @@ export function KlantenPortalClient() {
           <h2 className="nieuw-display nieuw-display-md">
             Casting <em>aanvragen</em>
           </h2>
-          {!user ? (
-            <div className="nieuw-panel" style={{ marginTop: 24, borderColor: 'var(--n-gold-hair)' }}>
-              <p className="nieuw-lead" style={{ marginTop: 0 }}>
-                Om een castingaanvraag te versturen, log in met uw klantenaccount of maak er een
-                aan.
-              </p>
-              <div className="nieuw-hero-actions" style={{ marginTop: 18 }}>
-                <Link className="nieuw-btn" href="/nieuw/inloggen">
-                  Inloggen
-                </Link>
-                <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/klanten/registreren">
-                  Account aanmaken
-                </Link>
-              </div>
-            </div>
-          ) : null}
           {sent ? (
             <div className="nieuw-panel" style={{ marginTop: 24, borderColor: 'var(--n-gold-hair)' }}>
               <h3 className="nieuw-h3">Aanvraag ontvangen</h3>
