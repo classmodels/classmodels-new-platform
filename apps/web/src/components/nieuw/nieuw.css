@@ -2540,3 +2540,76 @@
     margin-top: 8px;
   }
 }
+
+/* Ruimte tussen util-menubalk en content (alle /nieuw-pagina’s) */
+.nieuw-main {
+  padding-top: 48px;
+  min-height: 50vh;
+}
+.nieuw-wrap:has(.nieuw-welcome) + .nieuw-main {
+  padding-top: 28px;
+}
+
+/* Klantenportaal helpers */
+.nieuw-klant-can-do {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  max-width: 42ch;
+}
+.nieuw-klant-can-do li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--n-mut);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.nieuw-klant-can-do li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  background: var(--n-gold);
+}
+.nieuw-klant-can-do a {
+  color: var(--n-gold);
+  text-decoration: none;
+  font-weight: 600;
+}
+.nieuw-klant-can-do a:hover {
+  color: var(--n-gold-2);
+}
+.nieuw-klant-models-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin: 22px 0 8px;
+}
+.nieuw-klant-briefs {
+  list-style: none;
+  margin: 24px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.nieuw-klant-brief-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.nieuw-klant-brief-status {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+  border: 1px solid var(--n-gold-hair);
+  padding: 5px 10px;
+}
