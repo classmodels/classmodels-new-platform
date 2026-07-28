@@ -30,6 +30,15 @@ const MODELLEN_NAV = [
   { href: '/nieuw/modellen?tab=bericht', label: 'Bericht sturen' },
 ] as const;
 
+const KLANTEN_NAV = [
+  { href: '/nieuw/klanten', label: 'Home' },
+  { href: '/nieuw/klanten?tab=tarieven', label: 'Tarieven' },
+  { href: '/nieuw/klanten?tab=modellen', label: 'Modellen' },
+  { href: '/nieuw/klanten?tab=gekozen', label: 'Gekozen' },
+  { href: '/nieuw/klanten?tab=aanvraag', label: 'Casting aanvragen' },
+  { href: '/nieuw/klanten?tab=aanvragen', label: 'Mijn aanvragen' },
+] as const;
+
 const BOOKING_PATHS = [
   '/nieuw/gasten/gratis-fotoshoot',
   '/nieuw/gasten/casting',
@@ -51,6 +60,9 @@ function isActive(href: string, pathname: string | null, search: string) {
     return pathname === path && search.includes(q);
   }
   if (href === '/nieuw/modellen') {
+    return pathname === href && !search.includes('tab=');
+  }
+  if (href === '/nieuw/klanten') {
     return pathname === href && !search.includes('tab=');
   }
   if (href === '/nieuw/gasten/model-worden') {
@@ -81,8 +93,21 @@ export function NieuwShell({
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
   const onBooking = isBookingPage(pathname);
 
+  const isKlantUser = Boolean(
+    user?.roles?.includes('client') ||
+      user?.roles?.includes('admin') ||
+      user?.permissions?.includes('*') ||
+      user?.permissions?.some((p) => p.startsWith('admin.')),
+  );
+
   const subNav =
-    activePortal === 'gasten' ? GASTEN_NAV : activePortal === 'modellen' ? MODELLEN_NAV : null;
+    activePortal === 'gasten'
+      ? GASTEN_NAV
+      : activePortal === 'modellen'
+        ? MODELLEN_NAV
+        : activePortal === 'klanten' && isKlantUser
+          ? KLANTEN_NAV
+          : null;
 
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || '';
@@ -107,9 +132,15 @@ export function NieuwShell({
         Afspraak maken
       </Link>
     ) : activePortal === 'klanten' ? (
-      <Link href="/nieuw/klanten/registreren" className="nieuw-cta-top">
-        Account aanmaken
-      </Link>
+      user ? (
+        <Link href="/nieuw/klanten?tab=aanvraag" className="nieuw-cta-top">
+          Casting aanvragen
+        </Link>
+      ) : (
+        <Link href="/nieuw/inloggen" className="nieuw-cta-top">
+          Inloggen
+        </Link>
+      )
     ) : (
       <Link href="/nieuw/gasten/gratis-fotoshoot#agenda" className="nieuw-cta-top">
         Inschrijven
@@ -200,9 +231,13 @@ export function NieuwShell({
         <div className="nieuw-wrap">
           <p className="nieuw-welcome">Welkom{displayName ? `, ${displayName}` : ''}</p>
         </div>
+      ) : activePortal === 'klanten' && user ? (
+        <div className="nieuw-wrap">
+          <p className="nieuw-welcome">Welkom{displayName ? `, ${displayName}` : ''}</p>
+        </div>
       ) : null}
 
-      <main>{children}</main>
+      <main className="nieuw-main">{children}</main>
 
       <footer className="nieuw-footer">
         <div className="nieuw-wrap">

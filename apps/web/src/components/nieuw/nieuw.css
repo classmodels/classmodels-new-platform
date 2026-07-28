@@ -2042,9 +2042,9 @@
   min-height: 46px;
 }
 
-/* Welkom + naam in modellenportaal */
+/* Welkom + naam in portalen */
 .nieuw-welcome {
-  margin: 14px 0 0;
+  margin: 28px 0 0;
   color: var(--n-gold);
   font-family: var(--n-sans);
   font-size: 13px;
