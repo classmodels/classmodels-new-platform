@@ -144,6 +144,17 @@ export default function AdminMediaPage() {
     hint?: string;
   } | null>(null);
   const [r2AuditBusy, setR2AuditBusy] = useState(false);
+  const [r2BackfillBusy, setR2BackfillBusy] = useState(false);
+  const [r2Backfill, setR2Backfill] = useState<{
+    dryRun: boolean;
+    scannedAssets: number;
+    migrated: number;
+    alreadyOnR2: number;
+    missingOnDisk: number;
+    nextSkip?: number;
+    done?: boolean;
+    errors?: string[];
+  } | null>(null);
   /** Tijdens upload: map vastzetten zodat de UI niet springt. */
   const [pinnedFolderId, setPinnedFolderId] = useState<string | null>(null);
   const loadSeqRef = useRef(0);
@@ -429,6 +440,71 @@ export default function AdminMediaPage() {
       alert(e instanceof Error ? e.message : 'R2-controle mislukt');
     } finally {
       setR2AuditBusy(false);
+    }
+  };
+
+  const runR2Backfill = async (dryRun: boolean) => {
+    if (!token || r2BackfillBusy) return;
+    if (
+      !dryRun &&
+      !window.confirm(
+        'Bestanden van schijf naar R2 kopiëren (alleen wat nog ontbreekt)? Dit kan enkele minuten duren.',
+      )
+    ) {
+      return;
+    }
+    setR2BackfillBusy(true);
+    setR2Backfill(null);
+    try {
+      let skip = 0;
+      let totalMigrated = 0;
+      let totalAlready = 0;
+      let totalMissingDisk = 0;
+      let lastErrors: string[] = [];
+      let scannedTotal = 0;
+      // Kleine batches — Combell time-out bij te grote runs.
+      for (let i = 0; i < 40; i++) {
+        const q = new URLSearchParams({
+          limit: '80',
+          skip: String(skip),
+          dryRun: dryRun ? '1' : '0',
+          onlyMissing: '1',
+        });
+        const r = await adminFetch<{
+          dryRun: boolean;
+          scannedAssets: number;
+          migrated: number;
+          alreadyOnR2: number;
+          missingOnDisk: number;
+          nextSkip?: number;
+          done?: boolean;
+          errors?: string[];
+        }>(`/media/admin/backfill-r2?${q}`, token, {
+          method: 'POST',
+          loadingLabel: dryRun ? 'R2-backfill proefrun…' : `R2-backfill batch ${i + 1}…`,
+        });
+        scannedTotal += r.scannedAssets;
+        totalMigrated += r.migrated;
+        totalAlready += r.alreadyOnR2;
+        totalMissingDisk += r.missingOnDisk;
+        if (r.errors?.length) lastErrors = r.errors;
+        skip = r.nextSkip ?? skip + r.scannedAssets;
+        setR2Backfill({
+          dryRun,
+          scannedAssets: scannedTotal,
+          migrated: totalMigrated,
+          alreadyOnR2: totalAlready,
+          missingOnDisk: totalMissingDisk,
+          nextSkip: skip,
+          done: Boolean(r.done),
+          errors: lastErrors,
+        });
+        if (r.done || r.scannedAssets === 0) break;
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'R2-backfill mislukt');
+    } finally {
+      setR2BackfillBusy(false);
     }
   };
 
@@ -930,6 +1006,24 @@ export default function AdminMediaPage() {
                   {r2AuditBusy ? 'Controleren…' : `R2-controle map «${activeFolder.label}»`}
                 </button>
               ) : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={r2BackfillBusy}
+                  onClick={() => void runR2Backfill(true)}
+                  className="rounded border border-line bg-white px-2 py-1 text-[11px] font-medium text-ink hover:bg-panel disabled:opacity-50"
+                >
+                  {r2BackfillBusy ? 'Bezig…' : 'R2-backfill proefrun'}
+                </button>
+                <button
+                  type="button"
+                  disabled={r2BackfillBusy}
+                  onClick={() => void runR2Backfill(false)}
+                  className="rounded border border-burgundy bg-burgundy px-2 py-1 text-[11px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  R2-backfill uitvoeren
+                </button>
+              </div>
               {r2Audit ? (
                 <p className={r2Audit.missingOnR2 > 0 ? 'text-amber-950' : 'text-green-900'}>
                   {r2Audit.onR2} op R2, {r2Audit.missingOnR2} ontbreken (van {r2Audit.scanned} gescand).
@@ -938,6 +1032,17 @@ export default function AdminMediaPage() {
                       .slice(0, 3)
                       .map((s) => s.originalName)
                       .join(', ')}…`
+                  : null}
+                </p>
+              ) : null}
+              {r2Backfill ? (
+                <p className="text-ink">
+                  Backfill{r2Backfill.dryRun ? ' (proef)' : ''}: {r2Backfill.migrated} gekopieerd,{' '}
+                  {r2Backfill.alreadyOnR2} stonden al op R2, {r2Backfill.missingOnDisk} niet op schijf
+                  (gescand {r2Backfill.scannedAssets}
+                  {r2Backfill.done ? ', klaar' : ''}).
+                  {r2Backfill.errors?.length ?
+                    ` Fouten: ${r2Backfill.errors.slice(0, 2).join(' | ')}`
                   : null}
                 </p>
               ) : null}

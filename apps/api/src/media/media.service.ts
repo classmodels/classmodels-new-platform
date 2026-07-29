@@ -2523,8 +2523,9 @@ export class MediaService implements OnModuleInit {
 
   /** Eenmalige migratie: bestaande lokale media-assets naar R2 kopieren. */
   async backfillExistingAssetsToR2(
-    opts: { limit: number; dryRun: boolean; onlyMissing: boolean } = {
+    opts: { limit: number; skip?: number; dryRun: boolean; onlyMissing: boolean } = {
       limit: 500,
+      skip: 0,
       dryRun: true,
       onlyMissing: true,
     },
@@ -2533,6 +2534,7 @@ export class MediaService implements OnModuleInit {
       throw new BadRequestException('MEDIA_BACKEND=r2 is niet actief op deze server.');
     }
     const limit = Math.min(5000, Math.max(1, Math.floor(opts.limit || 500)));
+    const skip = Math.max(0, Math.floor(opts.skip || 0));
     const dryRun = Boolean(opts.dryRun);
     const onlyMissing = opts.onlyMissing !== false;
     const root = this.root();
@@ -2540,6 +2542,7 @@ export class MediaService implements OnModuleInit {
     const rows = await this.prisma.mediaAsset.findMany({
       where: { hardDeleted: false },
       orderBy: { createdAt: 'asc' },
+      skip,
       take: limit,
       select: { id: true, storageKey: true, webpKey: true, thumbKey: true },
     });
@@ -2586,6 +2589,8 @@ export class MediaService implements OnModuleInit {
       ok: true,
       dryRun,
       onlyMissing,
+      skip,
+      limit,
       mediaRoot: root,
       scannedAssets,
       candidateKeys,
@@ -2593,6 +2598,8 @@ export class MediaService implements OnModuleInit {
       alreadyOnR2,
       missingOnDisk,
       errors,
+      nextSkip: skip + scannedAssets,
+      done: scannedAssets < limit,
     };
   }
 

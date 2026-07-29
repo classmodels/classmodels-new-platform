@@ -296,15 +296,20 @@ export class MediaController {
     });
   }
 
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
   @Post('admin/backfill-r2')
   backfillR2(
     @Query('limit') limit?: string,
+    @Query('skip') skip?: string,
     @Query('dryRun') dryRun?: string,
     @Query('onlyMissing') onlyMissing?: string,
   ) {
     const lim = limit ? parseInt(limit, 10) : 500;
+    const sk = skip ? parseInt(skip, 10) : 0;
     return this.media.backfillExistingAssetsToR2({
       limit: Number.isFinite(lim) ? lim : 500,
+      skip: Number.isFinite(sk) && sk > 0 ? sk : 0,
       dryRun: dryRun !== '0' && dryRun !== 'false',
       onlyMissing: onlyMissing !== '0' && onlyMissing !== 'false',
     });
