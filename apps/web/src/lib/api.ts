@@ -103,8 +103,10 @@ export function getApiBase() {
  * Downloads/ZIP’s blijven via de API.
  */
 export function getMediaCdnBaseUrl(): string | null {
-  const cdn = process.env.NEXT_PUBLIC_MEDIA_CDN_URL?.trim();
+  let cdn = process.env.NEXT_PUBLIC_MEDIA_CDN_URL?.trim() || '';
   if (!cdn) return null;
+  // Vercel/env: soms per ongeluk `https:/host` i.p.v. `https://host`.
+  cdn = cdn.replace(/^https:\/(?!\/)/i, 'https://').replace(/^http:\/(?!\/)/i, 'http://');
   return stripTrailingSlash(cdn);
 }
 
