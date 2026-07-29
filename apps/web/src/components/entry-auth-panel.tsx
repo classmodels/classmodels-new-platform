@@ -74,7 +74,7 @@ export function EntryAuthPanel({
   const [cPhone, setCPhone] = useState('');
 
   const goGuest = useCallback(() => {
-    router.push('/portal/guest');
+    router.push('/nieuw');
   }, [router]);
 
   const onPhotographerLogin = async (e: React.FormEvent) => {

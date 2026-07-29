@@ -18,8 +18,6 @@ import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
-import { GalleryCanvasFrame } from '@/components/model-portal/GalleryCanvasFrame';
-import { ModelGallerySheet } from '@/components/model-portal/ModelGallerySheet';
 
 export type CatalogModel = {
   id: string;
@@ -1233,17 +1231,11 @@ export function ModelsCatalogGrid({
                 onClick={() => openModelSheet(m)}
               >
                 {m.profileThumbKey ? (
-                  isGallery ? (
-                    <GalleryCanvasFrame>
-                      <CatalogModelThumb
-                        src={imgUrl(m.profileThumbKey)}
-                        priority={idx < 12}
-                        className="h-full w-full rounded-none object-cover"
-                      />
-                    </GalleryCanvasFrame>
-                  ) : (
-                    <CatalogModelThumb src={imgUrl(m.profileThumbKey)} priority={idx < 12} />
-                  )
+                  <CatalogModelThumb
+                    src={imgUrl(m.profileThumbKey)}
+                    priority={idx < 12}
+                    className={isGallery ? 'h-full w-full rounded-none object-cover' : undefined}
+                  />
                 ) : (
                   <div
                     className={
@@ -1334,24 +1326,13 @@ export function ModelsCatalogGrid({
       ) : null}
 
       {modal ? (
-        isGallery ? (
-          <ModelGallerySheet
-            m={modal}
-            initialPhotoSrc={modalPhoto}
-            isAdmin={isAdmin}
-            token={token}
-            onClose={() => setModal(null)}
-            onPrint={(model, photoSrc) => printModelSheet(model, photoSrc, isAdmin)}
-          />
-        ) : (
-          <ModelDetailDialog
-            m={modal}
-            initialPhotoSrc={modalPhoto}
-            isAdmin={isAdmin}
-            token={token}
-            onClose={() => setModal(null)}
-          />
-        )
+        <ModelDetailDialog
+          m={modal}
+          initialPhotoSrc={modalPhoto}
+          isAdmin={isAdmin}
+          token={token}
+          onClose={() => setModal(null)}
+        />
       ) : null}
     </div>
   );

@@ -685,7 +685,7 @@ export function GuestPortalLayout() {
       setBookingFlow(null);
       setMenuHighlight(id);
       if (id === 'model-worden') {
-        router.replace('/portal/guest', { scroll: false });
+        router.replace('/nieuw', { scroll: false });
       } else {
         router.replace(`/portal/guest?p=${encodeURIComponent(id)}`, { scroll: false });
       }

@@ -167,11 +167,11 @@ export function ModelPremiumTab({
       </section>
 
       <p className="text-center text-xs text-muted">
-        <Link href="/portal/model?tab=profiel" className="text-burgundy underline hover:text-burgundyDeep">
+        <Link href="/nieuw/modellen?tab=profiel" className="text-burgundy underline hover:text-burgundyDeep">
           Terug naar profiel
         </Link>
         {' · '}
-        <Link href="/portal/model?tab=home" className="text-burgundy underline hover:text-burgundyDeep">
+        <Link href="/nieuw/modellen?tab=home" className="text-burgundy underline hover:text-burgundyDeep">
           Home portaal
         </Link>
       </p>

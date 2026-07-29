@@ -177,7 +177,7 @@ export function ModelOpleidingTab({
             heading="Opleiding"
             variant="pro"
             authToken={token}
-            bookUrl="/portal/model/agenda/book-form"
+            bookUrl="/nieuw/modellen?tab=portfolio"
             autoBookOnPick
             onBookingSuccess={async () => {
               await load();

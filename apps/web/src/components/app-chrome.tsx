@@ -15,7 +15,6 @@ export function AppChrome({ children }: { children: ReactNode }) {
     pathname === '/' ||
     pathname === '' ||
     (!!basePath && (pathname === basePath || pathname === `${basePath}/`));
-  const isFullBleedGallery = pathname?.includes('/portal/model/gallery-3d');
   const onNieuwSite = pathname?.startsWith('/nieuw') ?? false;
   const showBar = !!user && (hasBackofficeAccess || can('content.strings.write'));
 
@@ -23,14 +22,13 @@ export function AppChrome({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen flex-col">
       <AdminBar />
       {showBar ? <div className="h-10 shrink-0" aria-hidden /> : null}
-      {/* Nieuwe site (/nieuw) heeft eigen navigatie; beginpagina op gsm heeft eigen app-balk. */}
-      {!onAdmin && !isFullBleedGallery && !onNieuwSite ? (
+      {/* Nieuwe site (/nieuw) heeft eigen navigatie. */}
+      {!onAdmin && !onNieuwSite ? (
         <div className={onBeginPage ? 'hidden md:block' : undefined}>
           <SiteHeader />
         </div>
       ) : null}
-      {/* Beginpagina: main als flex-kolom; op de gsm licht, op de pc zwart (filmervaring). */}
-      <main className={`relative z-0 min-h-0 flex-1 ${onBeginPage ? 'flex flex-col bg-[#f1eee8] md:bg-black' : ''}`}>
+      <main className={`relative z-0 min-h-0 flex-1 ${onBeginPage ? 'flex flex-col bg-[#0d0d11]' : ''}`}>
         {children}
       </main>
     </div>

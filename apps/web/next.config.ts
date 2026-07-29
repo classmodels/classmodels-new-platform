@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: '/__cm_api/:path*', destination: `${apiInternal}/:path*` }];
   },
-  /** Klassieke begin/lobby-routes → nieuwe site. Oude mail/Mollie-links blijven werken via redirect. */
+  /** Klassieke portal/lobby → nieuwe site. Oude bookmarks en mail-links blijven werken. */
   async redirects() {
     return [
       { source: '/lobby', destination: '/nieuw/inloggen', permanent: false },
@@ -39,6 +39,18 @@ const nextConfig: NextConfig = {
         destination: '/nieuw/modellen/betaling/bedankt',
         permanent: false,
       },
+      { source: '/portal/guest', destination: '/nieuw', permanent: false },
+      { source: '/portal/guest/:path*', destination: '/nieuw', permanent: false },
+      { source: '/portal/client', destination: '/nieuw/klanten', permanent: false },
+      { source: '/portal/client/:path*', destination: '/nieuw/klanten', permanent: false },
+      { source: '/portal/model/showroom', destination: '/nieuw/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model/gallery-3d', destination: '/nieuw/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model/modellenwand', destination: '/nieuw/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model/fiche-preview', destination: '/nieuw/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model', destination: '/nieuw/modellen', permanent: false },
+      { source: '/portal/model/:path*', destination: '/nieuw/modellen', permanent: false },
+      { source: '/portal', destination: '/nieuw', permanent: false },
+      { source: '/portal/:path*', destination: '/nieuw', permanent: false },
     ];
   },
 };
