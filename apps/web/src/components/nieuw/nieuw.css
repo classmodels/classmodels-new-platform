@@ -763,6 +763,13 @@
   object-fit: cover;
   transition: transform 0.55s ease;
 }
+.nieuw-model-foto .nieuw-model-thumb {
+  height: 100%;
+  border-radius: 0 !important;
+}
+.nieuw-model-foto .nieuw-model-thumb img {
+  transition: transform 0.55s ease;
+}
 .nieuw-model:hover .nieuw-model-foto img { transform: scale(1.05); }
 .nieuw-model-placeholder {
   height: 100%;

@@ -8,6 +8,7 @@ import {
   ModelDetailDialog,
   type CatalogModel,
 } from '@/components/models-catalog/ModelsCatalogGrid';
+import { CatalogModelThumb } from '@/components/models-catalog/CatalogModelThumb';
 import {
   clearImpersonationSession,
   startImpersonationSession,
@@ -269,7 +270,7 @@ export function NieuwModelsGallery({
           {!loading && !error ? (
             <>
               <div className="nieuw-models">
-                {filtered.map((m) => {
+                {filtered.map((m, idx) => {
                   const src = m.profileThumbKey ? publicMediaUrl(m.profileThumbKey) : null;
                   const meta = [m.age != null ? `${m.age} j.` : null, m.gemeente || null]
                     .filter(Boolean)
@@ -283,8 +284,12 @@ export function NieuwModelsGallery({
                       >
                         <div className="nieuw-model-foto">
                           {src ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={src} alt={m.displayName} />
+                            <CatalogModelThumb
+                              src={src}
+                              alt={m.displayName}
+                              priority={idx < 8}
+                              className="nieuw-model-thumb"
+                            />
                           ) : (
                             <div className="nieuw-model-placeholder">
                               {(m.displayName || '?').slice(0, 1).toUpperCase()}

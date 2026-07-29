@@ -56,7 +56,7 @@ import type { R2StreamMulterFile } from './media-r2-stream-multer';
  * Het **originele uploadbestand** blijft op schijf; WebP + thumb zijn service-kopieën.
  */
 const WEBP_FULL_QUALITY = 78;
-const WEBP_THUMB_QUALITY = 72;
+const WEBP_THUMB_QUALITY = 78;
 const WEBP_EFFORT = 4;
 /** Primair JPEG i.p.v. zware RAW/PNG/WebP-opslag (hosting). */
 const JPEG_PRIMARY_QUALITY = 82;
@@ -971,7 +971,7 @@ export class MediaService implements OnModuleInit {
         thumbKey = `${id}_thumb.webp`;
         const thumbBuf = await sharp(webpBuf)
           .rotate()
-          .resize(360, 360, { fit: 'inside' })
+          .resize(480, 480, { fit: 'inside' })
           .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
           .toBuffer();
         await r2PutBuffer(storageKey, webpBuf, 'image/webp');
@@ -995,7 +995,7 @@ export class MediaService implements OnModuleInit {
           thumbKey = `${id}_thumb.webp`;
           const thumbBuf = await sharp(webpBuf)
             .rotate()
-            .resize(360, 360, { fit: 'inside' })
+            .resize(480, 480, { fit: 'inside' })
             .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
             .toBuffer();
           await r2PutBuffer(thumbKey, thumbBuf, 'image/webp');
@@ -1112,7 +1112,7 @@ export class MediaService implements OnModuleInit {
         thumbKey = `${id}_thumb.webp`;
         await sharp(full)
           .rotate()
-          .resize(360, 360, { fit: 'inside' })
+          .resize(480, 480, { fit: 'inside' })
           .webp({
             quality: WEBP_THUMB_QUALITY,
             effort: WEBP_EFFORT,
@@ -1158,7 +1158,7 @@ export class MediaService implements OnModuleInit {
           thumbKey = `${id}_thumb.webp`;
           await sharp(full)
             .rotate()
-            .resize(360, 360, { fit: 'inside' })
+            .resize(480, 480, { fit: 'inside' })
             .webp({
               quality: WEBP_THUMB_QUALITY,
               effort: WEBP_EFFORT,
@@ -1658,7 +1658,7 @@ export class MediaService implements OnModuleInit {
           .toFile(join(root, webpKey));
         await sharp(src)
           .rotate()
-          .resize(360, 360, { fit: 'inside' })
+          .resize(480, 480, { fit: 'inside' })
           .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
           .toFile(join(root, thumbKey));
         await this.prisma.mediaAsset.update({
@@ -1716,7 +1716,7 @@ export class MediaService implements OnModuleInit {
           .toFile(join(root, newWebpKey));
         await sharp(jpgFull)
           .rotate()
-          .resize(360, 360, { fit: 'inside' })
+          .resize(480, 480, { fit: 'inside' })
           .webp({ quality: WEBP_THUMB_QUALITY, effort: WEBP_EFFORT })
           .toFile(join(root, newThumbKey));
 

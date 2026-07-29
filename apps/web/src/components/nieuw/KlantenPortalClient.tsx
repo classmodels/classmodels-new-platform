@@ -117,7 +117,15 @@ function GuestLanding() {
         </div>
         <aside className="nieuw-hero-card">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/nieuw/klantenportaal.jpg" alt="Klantenoverleg bij Class-Models" />
+          <img
+            src="/nieuw/klantenportaal.jpg"
+            alt="Klantenoverleg bij Class-Models"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            width={800}
+            height={600}
+          />
           <div className="nieuw-hero-card-body">
             <h2>Wat u krijgt</h2>
             <ul>
@@ -161,7 +169,14 @@ function ModelCard({
       <div className="nieuw-model-foto">
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt={m.displayName} />
+          <img
+            src={src}
+            alt={m.displayName}
+            loading="lazy"
+            decoding="async"
+            width={360}
+            height={480}
+          />
         ) : (
           <div className="nieuw-model-placeholder">
             {(m.displayName || '?').slice(0, 1).toUpperCase()}
@@ -728,7 +743,15 @@ export function KlantenPortalClient() {
         </div>
         <aside className="nieuw-hero-card">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/nieuw/klantenportaal.jpg" alt="Klantenoverleg bij Class-Models" />
+          <img
+            src="/nieuw/klantenportaal.jpg"
+            alt="Klantenoverleg bij Class-Models"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            width={800}
+            height={600}
+          />
           <div className="nieuw-hero-card-body">
             <h2>Wat u krijgt</h2>
             <ul>

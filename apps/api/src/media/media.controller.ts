@@ -76,6 +76,15 @@ export class MediaController {
     const { safe } = await this.resolvePublicFile(filename);
     const mime = PUBLIC_FILE_MIME[extname(safe).toLowerCase()];
     if (mime) res.setHeader('Content-Type', mime);
+    // Storage keys zijn immutable (UUID-achtig); browsers/CDN mogen lang cachen.
+    const isVideo = Boolean(mime?.startsWith('video/'));
+    res.setHeader(
+      'Cache-Control',
+      isVideo
+        ? 'public, max-age=604800, stale-while-revalidate=86400'
+        : 'public, max-age=31536000, immutable',
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
     const stream = await this.media.openAssetReadStream(safe);
     return new Promise<void>((resolve, reject) => {
       stream.on('error', reject);

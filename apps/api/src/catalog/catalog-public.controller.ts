@@ -24,7 +24,7 @@ export class CatalogPublicController {
 
   /** Publiek modellenrooster (+ admin-velden als Bearer admin). */
   @Get('models')
-  @Header('Cache-Control', 'private, max-age=30')
+  @Header('Cache-Control', 'private, max-age=60, stale-while-revalidate=120')
   async models(@Headers('authorization') authorization?: string) {
     const u = this.parseUser(authorization);
     return this.catalog.listModels(

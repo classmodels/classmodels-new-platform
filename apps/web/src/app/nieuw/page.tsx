@@ -95,7 +95,15 @@ export default function NieuwHomePage() {
 
           <aside className="nieuw-hero-card">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/nieuw/hero-home.jpg" alt="Modellen van Class-Models" />
+            <img
+              src="/nieuw/hero-home.jpg"
+              alt="Modellen van Class-Models"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              width={800}
+              height={1000}
+            />
             <div className="nieuw-hero-card-body">
               <h2>Gastenportaal</h2>
               <p>
@@ -125,7 +133,14 @@ export default function NieuwHomePage() {
           <div className="nieuw-grid-3">
             <article className="nieuw-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/nieuw/gastenportaal.jpg" alt="Gastenportaal Class-Models" />
+              <img
+                src="/nieuw/gastenportaal.jpg"
+                alt="Gastenportaal Class-Models"
+                loading="lazy"
+                decoding="async"
+                width={640}
+                height={480}
+              />
               <div className="nieuw-card-body">
                 <h3>Gastenportaal</h3>
                 <p>
@@ -138,7 +153,14 @@ export default function NieuwHomePage() {
             </article>
             <article className="nieuw-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/nieuw/modellenportaal.jpg" alt="Modellenportaal Class-Models" />
+              <img
+                src="/nieuw/modellenportaal.jpg"
+                alt="Modellenportaal Class-Models"
+                loading="lazy"
+                decoding="async"
+                width={640}
+                height={480}
+              />
               <div className="nieuw-card-body">
                 <h3>Modellenportaal</h3>
                 <p>
@@ -152,7 +174,14 @@ export default function NieuwHomePage() {
             </article>
             <article className="nieuw-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/nieuw/klantenportaal.jpg" alt="Klantenportaal Class-Models" />
+              <img
+                src="/nieuw/klantenportaal.jpg"
+                alt="Klantenportaal Class-Models"
+                loading="lazy"
+                decoding="async"
+                width={640}
+                height={480}
+              />
               <div className="nieuw-card-body">
                 <h3>Klantenportaal</h3>
                 <p>

@@ -28,6 +28,9 @@ export function NieuwPortalHero({
         <img
           src={imageSrc}
           alt={imageAlt}
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
           style={imagePosition ? { objectPosition: imagePosition } : undefined}
         />
       </div>
