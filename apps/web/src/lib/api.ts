@@ -98,10 +98,22 @@ export function getApiBase() {
 }
 
 /**
- * Basis-URL voor **publieke** mediabestanden (`GET /media/public/{key}` — geen JWT).
+ * Publieke Cloudflare R2 / CDN-host (objecten op root: `{cdn}/{storageKey}`).
+ * Alleen zetten als de bucket publiek (of custom domain) de keys rechtstreeks serveert.
+ * Downloads/ZIP’s blijven via de API.
+ */
+export function getMediaCdnBaseUrl(): string | null {
+  const cdn = process.env.NEXT_PUBLIC_MEDIA_CDN_URL?.trim();
+  if (!cdn) return null;
+  return stripTrailingSlash(cdn);
+}
+
+/**
+ * Basis-URL voor **publieke** mediabestanden via de API (`GET /media/public/{key}` — geen JWT).
  * Standaard: `NEXT_PUBLIC_API_URL` als dat een publiek https/http-domein is (bv. api.*),
  * zodat `<img src>` niet afhangt van www-rewrites. Optioneel: `NEXT_PUBLIC_MEDIA_BASE_URL`.
  * SSR zonder die env: relatief `/__cm_api` (browser lost op t.o.v. www).
+ * Voor directe R2/CDN: zie `NEXT_PUBLIC_MEDIA_CDN_URL` + `publicMediaUrl`.
  */
 export function getMediaPublicBaseUrl(): string {
   const mediaOnly = process.env.NEXT_PUBLIC_MEDIA_BASE_URL?.trim();
@@ -157,10 +169,18 @@ export function agendaUploadUrl(stored: string | null | undefined): string {
 export function publicMediaUrl(key: string | null | undefined): string {
   const k = key?.trim();
   if (!k) return '';
+  if (/^https?:\/\//i.test(k)) return k;
+  const cdn = getMediaCdnBaseUrl();
+  if (cdn) {
+    // R2 public / custom domain: object key op de root (geen /media/public/).
+    return `${cdn}/${encodeURIComponent(k)}`;
+  }
   return `${getMediaPublicBaseUrl()}/media/public/${encodeURIComponent(k)}`;
 }
 
-/** Zelfde bestand, maar browser start download i.p.v. inline weergave. */
+/**
+ * Download-URL (Content-Disposition). Blijft via API — R2 public bucket heeft geen download-force.
+ */
 export function publicMediaDownloadUrl(key: string | null | undefined): string {
   const k = key?.trim();
   if (!k) return '';
