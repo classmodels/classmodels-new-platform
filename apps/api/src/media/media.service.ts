@@ -17,6 +17,7 @@ import {
   readFileSync,
   accessSync,
   constants as fsConstants,
+  rmSync,
 } from 'fs';
 import type { Dirent } from 'fs';
 import { basename, extname, join, resolve } from 'path';
@@ -2600,6 +2601,128 @@ export class MediaService implements OnModuleInit {
       errors,
       nextSkip: skip + scannedAssets,
       done: scannedAssets < limit,
+    };
+  }
+
+  /**
+   * Rommel opruimen: prullenbak + mappen die niet nodig zijn voor site-catalogus/setkaarten.
+   * Raakt NOOIT: models, setkaarten, site, casting, gratis-fotoshoot.
+   */
+  async purgeJunkMedia(opts: { limit?: number; dryRun?: boolean } = {}) {
+    const limit = Math.min(300, Math.max(1, Math.floor(opts.limit ?? 80)));
+    const dryRun = Boolean(opts.dryRun);
+    const keep = new Set([
+      'models',
+      'setkaarten',
+      'site',
+      'casting',
+      'gratis-fotoshoot',
+    ]);
+    const junkSlugs = [
+      'verwijderde',
+      'testshoot',
+      'fotomodeshow-klein',
+      'film-modeshow',
+      'portfolio-fotograaf',
+      'portfolio-divers',
+      'tijdelijke-uploads',
+      'uploads',
+      'opdrachten',
+      'reviews',
+      'gratis-fotoshoot-documenten',
+      'agenda-afspraken',
+      'testmap',
+    ];
+
+    const byFolder: Record<string, number> = {};
+    let deleted = 0;
+    let scanned = 0;
+    const errors: string[] = [];
+
+    // Prullenbak eerst (alleen als die in junkSlugs zit)
+    if (!dryRun && junkSlugs.includes('verwijderde')) {
+      try {
+        const trashRes = await this.emptyTrash();
+        byFolder.verwijderde = trashRes.deleted;
+        deleted += trashRes.deleted;
+      } catch (e) {
+        errors.push(`verwijderde: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    } else if (dryRun && junkSlugs.includes('verwijderde')) {
+      const trash = await this.ensureTrashFolder();
+      const n = await this.prisma.mediaAsset.count({
+        where: { folderId: trash.id, hardDeleted: false },
+      });
+      byFolder.verwijderde = n;
+      scanned += n;
+    }
+
+    for (const slug of junkSlugs) {
+      if (slug === 'verwijderde') continue;
+      if (keep.has(slug)) continue;
+      const folder = await this.prisma.mediaFolder.findUnique({ where: { slug } });
+      if (!folder) continue;
+      const rows = await this.prisma.mediaAsset.findMany({
+        where: { folderId: folder.id, hardDeleted: false },
+        take: Math.max(0, limit - scanned),
+        select: { id: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!rows.length) continue;
+      byFolder[slug] = (byFolder[slug] ?? 0) + rows.length;
+      for (const row of rows) {
+        scanned += 1;
+        if (dryRun) {
+          deleted += 1;
+          continue;
+        }
+        try {
+          await this.removeAsset(row.id, true);
+          deleted += 1;
+        } catch (e) {
+          errors.push(`${slug}:${row.id} -> ${e instanceof Error ? e.message : String(e)}`);
+          if (errors.length >= 30) break;
+        }
+        if (scanned >= limit) break;
+      }
+      if (scanned >= limit || errors.length >= 30) break;
+    }
+
+    const tempCleared: string[] = [];
+    if (!dryRun) {
+      const root = this.root();
+      for (const rel of ['inbox', 'photographer-tmp', '.zip-upload-tmp']) {
+        const dir = join(root, rel);
+        if (!existsSync(dir)) continue;
+        try {
+          rmSync(dir, { recursive: true, force: true });
+          mkdirSync(dir, { recursive: true });
+          tempCleared.push(rel);
+        } catch (e) {
+          errors.push(`${rel}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+
+    const remainingJunk = await this.prisma.mediaAsset.count({
+      where: {
+        hardDeleted: false,
+        folder: { slug: { in: junkSlugs.filter((s) => !keep.has(s)) } },
+      },
+    });
+
+    return {
+      ok: true,
+      dryRun,
+      keep: [...keep],
+      junkSlugs,
+      scanned,
+      deleted,
+      byFolder,
+      tempCleared,
+      remainingJunk,
+      done: remainingJunk === 0,
+      errors,
     };
   }
 

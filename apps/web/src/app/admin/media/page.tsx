@@ -155,6 +155,15 @@ export default function AdminMediaPage() {
     done?: boolean;
     errors?: string[];
   } | null>(null);
+  const [junkPurgeBusy, setJunkPurgeBusy] = useState(false);
+  const [junkPurge, setJunkPurge] = useState<{
+    dryRun: boolean;
+    deleted: number;
+    remainingJunk: number;
+    done?: boolean;
+    byFolder?: Record<string, number>;
+    errors?: string[];
+  } | null>(null);
   /** Tijdens upload: map vastzetten zodat de UI niet springt. */
   const [pinnedFolderId, setPinnedFolderId] = useState<string | null>(null);
   const loadSeqRef = useRef(0);
@@ -505,6 +514,59 @@ export default function AdminMediaPage() {
       alert(e instanceof Error ? e.message : 'R2-backfill mislukt');
     } finally {
       setR2BackfillBusy(false);
+    }
+  };
+
+  const runJunkPurge = async (dryRun: boolean) => {
+    if (!token || junkPurgeBusy) return;
+    if (
+      !dryRun &&
+      !window.confirm(
+        'Rommel wissen? Behoudt: Modellen, Setkaarten, Site, Casting, Gratis fotoshoot. ' +
+          'Wist o.a. Verwijderde, testshoot, modeshow/portfolio-mappen, uploads, tijdelijke mappen. Doorgaan?',
+      )
+    ) {
+      return;
+    }
+    setJunkPurgeBusy(true);
+    setJunkPurge(null);
+    try {
+      let totalDeleted = 0;
+      let last: {
+        dryRun: boolean;
+        deleted: number;
+        remainingJunk: number;
+        done?: boolean;
+        byFolder?: Record<string, number>;
+        errors?: string[];
+      } | null = null;
+      for (let i = 0; i < 60; i++) {
+        const q = new URLSearchParams({
+          limit: '80',
+          dryRun: dryRun ? '1' : '0',
+        });
+        const r = await adminFetch<{
+          dryRun: boolean;
+          deleted: number;
+          remainingJunk: number;
+          done?: boolean;
+          byFolder?: Record<string, number>;
+          errors?: string[];
+        }>(`/media/admin/purge-junk?${q}`, token, {
+          method: 'POST',
+          loadingLabel: dryRun ? 'Rommel proefrun…' : `Rommel wissen batch ${i + 1}…`,
+        });
+        totalDeleted += r.deleted;
+        last = { ...r, deleted: totalDeleted };
+        setJunkPurge(last);
+        if (r.done || r.deleted === 0) break;
+      }
+      void load();
+      void loadStorageInfo();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Rommel wissen mislukt');
+    } finally {
+      setJunkPurgeBusy(false);
     }
   };
 
@@ -1023,6 +1085,22 @@ export default function AdminMediaPage() {
                 >
                   R2-backfill uitvoeren
                 </button>
+                <button
+                  type="button"
+                  disabled={junkPurgeBusy}
+                  onClick={() => void runJunkPurge(true)}
+                  className="rounded border border-line bg-white px-2 py-1 text-[11px] font-medium text-ink hover:bg-panel disabled:opacity-50"
+                >
+                  {junkPurgeBusy ? 'Bezig…' : 'Rommel proefrun'}
+                </button>
+                <button
+                  type="button"
+                  disabled={junkPurgeBusy}
+                  onClick={() => void runJunkPurge(false)}
+                  className="rounded border border-amber-800 bg-amber-800 px-2 py-1 text-[11px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  Rommel wissen
+                </button>
               </div>
               {r2Audit ? (
                 <p className={r2Audit.missingOnR2 > 0 ? 'text-amber-950' : 'text-green-900'}>
@@ -1043,6 +1121,19 @@ export default function AdminMediaPage() {
                   {r2Backfill.done ? ', klaar' : ''}).
                   {r2Backfill.errors?.length ?
                     ` Fouten: ${r2Backfill.errors.slice(0, 2).join(' | ')}`
+                  : null}
+                </p>
+              ) : null}
+              {junkPurge ? (
+                <p className={junkPurge.done ? 'text-green-900' : 'text-amber-950'}>
+                  Rommel{junkPurge.dryRun ? ' (proef)' : ''}: {junkPurge.deleted} gewist
+                  {junkPurge.remainingJunk != null ? `, nog ${junkPurge.remainingJunk} over` : ''}
+                  {junkPurge.done ? ', klaar' : ''}.
+                  {junkPurge.byFolder ?
+                    ` (${Object.entries(junkPurge.byFolder)
+                      .map(([k, v]) => `${k}:${v}`)
+                      .slice(0, 6)
+                      .join(', ')})`
                   : null}
                 </p>
               ) : null}

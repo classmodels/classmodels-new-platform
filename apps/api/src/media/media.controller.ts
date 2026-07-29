@@ -317,6 +317,17 @@ export class MediaController {
 
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.media.write')
+  @Post('admin/purge-junk')
+  purgeJunk(@Query('limit') limit?: string, @Query('dryRun') dryRun?: string) {
+    const lim = limit ? parseInt(limit, 10) : 80;
+    return this.media.purgeJunkMedia({
+      limit: Number.isFinite(lim) ? lim : 80,
+      dryRun: dryRun !== '0' && dryRun !== 'false',
+    });
+  }
+
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @Permissions('admin.media.write')
   @Post('register-disk-orphans')
   registerDiskOrphans(
     @Req() req: { user: JwtPayload },
