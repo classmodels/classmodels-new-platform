@@ -46,15 +46,15 @@ export function redirectAfterPortalAuth(
   }
   if (u.roles.includes('model')) {
     if (opts.fromRegister) {
-      router.replace('/nieuw/modellen?tab=profiel&welcome=1');
+      router.replace('/modellen?tab=profiel&welcome=1');
       return;
     }
-    router.replace('/nieuw/modellen');
+    router.replace('/modellen');
     return;
   }
   if (u.roles.includes('client')) {
-    router.replace('/nieuw/klanten');
+    router.replace('/klanten');
     return;
   }
-  router.replace('/nieuw');
+  router.replace('/');
 }

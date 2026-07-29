@@ -80,7 +80,7 @@ export function ModelPortalHomeContent({
   premiumReturn: boolean;
   /** Aantal ongelezen pushberichten — badge bij "Berichten voor u". */
   pushUnreadCount?: number;
-  /** Tab-links — op de nieuwe site: `/nieuw/modellen?tab=…`. */
+  /** Tab-links — op de nieuwe site: `/modellen?tab=…`. */
   hrefForTab?: (tabId: string) => string;
 }) {
   const tab = hrefForTab;

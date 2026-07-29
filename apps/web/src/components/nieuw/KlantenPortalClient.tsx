@@ -104,7 +104,7 @@ function GuestLanding() {
             productshoots. Duidelijke selectie, snelle shortlists en professionele opvolging.
           </p>
           <div className="nieuw-hero-actions">
-            <Link className="nieuw-btn" href="/nieuw/inloggen">
+            <Link className="nieuw-btn" href="/inloggen">
               Inloggen
             </Link>
           </div>
@@ -384,7 +384,7 @@ export function KlantenPortalClient() {
             ingelogd.
           </p>
           <div className="nieuw-hero-actions" style={{ marginTop: 24 }}>
-            <Link className="nieuw-btn" href="/nieuw">
+            <Link className="nieuw-btn" href="/">
               Naar home
             </Link>
             <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={() => void logout()}>
@@ -428,7 +428,7 @@ export function KlantenPortalClient() {
             ))}
           </div>
           <div style={{ marginTop: 28 }}>
-            <Link className="nieuw-btn" href="/nieuw/klanten?tab=aanvraag">
+            <Link className="nieuw-btn" href="/klanten?tab=aanvraag">
               Casting aanvragen
             </Link>
           </div>
@@ -458,7 +458,7 @@ export function KlantenPortalClient() {
                 placeholder="Naam of gemeente…"
               />
             </label>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/klanten?tab=gekozen">
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=gekozen">
               Gekozen ({selectedIds.length})
             </Link>
           </div>
@@ -509,10 +509,10 @@ export function KlantenPortalClient() {
             uw castingaanvraag.
           </p>
           <div className="nieuw-hero-actions" style={{ marginTop: 20 }}>
-            <Link className="nieuw-btn" href="/nieuw/klanten?tab=modellen">
+            <Link className="nieuw-btn" href="/klanten?tab=modellen">
               Meer modellen kiezen
             </Link>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/klanten?tab=aanvraag">
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=aanvraag">
               Casting aanvragen
             </Link>
           </div>
@@ -523,7 +523,7 @@ export function KlantenPortalClient() {
                 Nog geen modellen gekozen.
               </p>
               <div style={{ marginTop: 20 }}>
-                <Link className="nieuw-btn" href="/nieuw/klanten?tab=modellen">
+                <Link className="nieuw-btn" href="/klanten?tab=modellen">
                   Naar modellen
                 </Link>
               </div>
@@ -563,7 +563,7 @@ export function KlantenPortalClient() {
           <p className="nieuw-lead">
             Shortlist: {selectedModels.length ? selectedModels.map((m) => m.displayName).join(', ') : 'nog geen selectie'}{' '}
             ·{' '}
-            <Link className="nieuw-link" href="/nieuw/klanten?tab=modellen">
+            <Link className="nieuw-link" href="/klanten?tab=modellen">
               Modellen kiezen
             </Link>
           </p>
@@ -572,10 +572,10 @@ export function KlantenPortalClient() {
               <h3 className="nieuw-h3">Aanvraag ontvangen</h3>
               <p className="nieuw-lead">Bedankt. We hebben uw aanvraag ontvangen.</p>
               <div className="nieuw-hero-actions" style={{ marginTop: 18 }}>
-                <Link className="nieuw-btn" href="/nieuw/klanten?tab=aanvragen">
+                <Link className="nieuw-btn" href="/klanten?tab=aanvragen">
                   Mijn aanvragen
                 </Link>
-                <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/klanten">
+                <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten">
                   Naar home
                 </Link>
               </div>
@@ -670,7 +670,7 @@ export function KlantenPortalClient() {
                 Nog geen aanvragen.
               </p>
               <div style={{ marginTop: 20 }}>
-                <Link className="nieuw-btn" href="/nieuw/klanten?tab=aanvraag">
+                <Link className="nieuw-btn" href="/klanten?tab=aanvraag">
                   Nieuwe aanvraag
                 </Link>
               </div>
@@ -715,29 +715,29 @@ export function KlantenPortalClient() {
             Welkom. Via het menu hierboven beheert u tarieven, uw modelselectie en castingaanvragen.
           </p>
           <div className="nieuw-hero-actions">
-            <Link className="nieuw-btn" href="/nieuw/klanten?tab=modellen">
+            <Link className="nieuw-btn" href="/klanten?tab=modellen">
               Modellen kiezen
             </Link>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/klanten?tab=aanvraag">
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=aanvraag">
               Casting aanvragen
             </Link>
           </div>
           <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen">
             <li>
-              <Link href="/nieuw/klanten?tab=tarieven">Tarieven</Link> — castingformules bekijken
+              <Link href="/klanten?tab=tarieven">Tarieven</Link> — castingformules bekijken
             </li>
             <li>
-              <Link href="/nieuw/klanten?tab=modellen">Modellen</Link> — alle modellen aanvinken
+              <Link href="/klanten?tab=modellen">Modellen</Link> — alle modellen aanvinken
             </li>
             <li>
-              <Link href="/nieuw/klanten?tab=gekozen">Gekozen</Link> — uw shortlist beheren (
+              <Link href="/klanten?tab=gekozen">Gekozen</Link> — uw shortlist beheren (
               {selectedIds.length})
             </li>
             <li>
-              <Link href="/nieuw/klanten?tab=aanvraag">Casting aanvragen</Link> — briefing versturen
+              <Link href="/klanten?tab=aanvraag">Casting aanvragen</Link> — briefing versturen
             </li>
             <li>
-              <Link href="/nieuw/klanten?tab=aanvragen">Mijn aanvragen</Link> — status opvolgen
+              <Link href="/klanten?tab=aanvragen">Mijn aanvragen</Link> — status opvolgen
             </li>
           </ul>
         </div>

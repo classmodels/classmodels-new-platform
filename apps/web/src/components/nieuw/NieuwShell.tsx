@@ -9,47 +9,47 @@ import './nieuw.css';
 export type NieuwPortal = 'home' | 'gasten' | 'modellen' | 'klanten';
 
 const GASTEN_NAV = [
-  { href: '/nieuw/gasten/model-worden', label: 'Model worden' },
-  { href: '/nieuw/gasten/gratis-fotoshoot', label: 'Gratis fotoshoot' },
-  { href: '/nieuw/gasten/casting', label: 'Casting' },
-  { href: '/nieuw/gasten/intake', label: 'Intake-gesprek' },
-  { href: '/nieuw/gasten/faq', label: 'FAQ' },
+  { href: '/gasten/model-worden', label: 'Model worden' },
+  { href: '/gasten/gratis-fotoshoot', label: 'Gratis fotoshoot' },
+  { href: '/gasten/casting', label: 'Casting' },
+  { href: '/gasten/intake', label: 'Intake-gesprek' },
+  { href: '/gasten/faq', label: 'FAQ' },
 ] as const;
 
 const MODELLEN_NAV = [
-  { href: '/nieuw/modellen', label: 'Home' },
-  { href: '/nieuw/modellen?tab=opdrachten', label: 'Opdrachten' },
-  { href: '/nieuw/modellen?tab=profiel', label: 'Mijn profiel' },
-  { href: '/nieuw/modellen?tab=portfolio', label: 'Portfolio afspraak' },
-  { href: '/nieuw/modellen?tab=opleiding', label: 'Opleiding' },
-  { href: '/nieuw/modellen?tab=setkaarten', label: 'Setkaarten' },
-  { href: '/nieuw/modellen?tab=tryout-modeshow', label: 'Try-out modeshow' },
-  { href: '/nieuw/modellen?tab=modellen', label: 'Modellen' },
-  { href: '/nieuw/modellen?tab=historiek', label: 'Historiek' },
-  { href: '/nieuw/modellen?tab=push', label: 'Pushberichten' },
-  { href: '/nieuw/modellen?tab=bericht', label: 'Bericht sturen' },
+  { href: '/modellen', label: 'Home' },
+  { href: '/modellen?tab=opdrachten', label: 'Opdrachten' },
+  { href: '/modellen?tab=profiel', label: 'Mijn profiel' },
+  { href: '/modellen?tab=portfolio', label: 'Portfolio afspraak' },
+  { href: '/modellen?tab=opleiding', label: 'Opleiding' },
+  { href: '/modellen?tab=setkaarten', label: 'Setkaarten' },
+  { href: '/modellen?tab=tryout-modeshow', label: 'Try-out modeshow' },
+  { href: '/modellen?tab=modellen', label: 'Modellen' },
+  { href: '/modellen?tab=historiek', label: 'Historiek' },
+  { href: '/modellen?tab=push', label: 'Pushberichten' },
+  { href: '/modellen?tab=bericht', label: 'Bericht sturen' },
 ] as const;
 
 const KLANTEN_NAV = [
-  { href: '/nieuw/klanten', label: 'Home' },
-  { href: '/nieuw/klanten?tab=tarieven', label: 'Tarieven' },
-  { href: '/nieuw/klanten?tab=modellen', label: 'Modellen' },
-  { href: '/nieuw/klanten?tab=gekozen', label: 'Gekozen' },
-  { href: '/nieuw/klanten?tab=aanvraag', label: 'Casting aanvragen' },
-  { href: '/nieuw/klanten?tab=aanvragen', label: 'Mijn aanvragen' },
+  { href: '/klanten', label: 'Home' },
+  { href: '/klanten?tab=tarieven', label: 'Tarieven' },
+  { href: '/klanten?tab=modellen', label: 'Modellen' },
+  { href: '/klanten?tab=gekozen', label: 'Gekozen' },
+  { href: '/klanten?tab=aanvraag', label: 'Casting aanvragen' },
+  { href: '/klanten?tab=aanvragen', label: 'Mijn aanvragen' },
 ] as const;
 
 const BOOKING_PATHS = [
-  '/nieuw/gasten/gratis-fotoshoot',
-  '/nieuw/gasten/casting',
-  '/nieuw/gasten/intake',
+  '/gasten/gratis-fotoshoot',
+  '/gasten/casting',
+  '/gasten/intake',
 ] as const;
 
 function portalFromPath(pathname: string | null): NieuwPortal {
   if (!pathname) return 'home';
-  if (pathname.startsWith('/nieuw/gasten')) return 'gasten';
-  if (pathname.startsWith('/nieuw/modellen')) return 'modellen';
-  if (pathname.startsWith('/nieuw/klanten')) return 'klanten';
+  if (pathname.startsWith('/gasten')) return 'gasten';
+  if (pathname.startsWith('/modellen')) return 'modellen';
+  if (pathname.startsWith('/klanten')) return 'klanten';
   return 'home';
 }
 
@@ -59,14 +59,14 @@ function isActive(href: string, pathname: string | null, search: string) {
     const [path, q] = href.split('?');
     return pathname === path && search.includes(q);
   }
-  if (href === '/nieuw/modellen') {
+  if (href === '/modellen') {
     return pathname === href && !search.includes('tab=');
   }
-  if (href === '/nieuw/klanten') {
+  if (href === '/klanten') {
     return pathname === href && !search.includes('tab=');
   }
-  if (href === '/nieuw/gasten/model-worden') {
-    return pathname === href || pathname === '/nieuw/gasten';
+  if (href === '/gasten/model-worden') {
+    return pathname === href || pathname === '/gasten';
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -112,19 +112,19 @@ export function NieuwShell({
   const displayName =
     [user?.firstName, user?.lastName].filter(Boolean).join(' ').trim() || user?.email || '';
 
-  const loginHref = '/nieuw/inloggen';
+  const loginHref = '/inloggen';
 
   function goBack() {
     if (typeof window !== 'undefined' && window.history.length > 1) {
       router.back();
       return;
     }
-    router.push('/nieuw');
+    router.push('/');
   }
 
   const cta =
     activePortal === 'modellen' ? (
-      <Link href="/nieuw/modellen?tab=premium" className="nieuw-cta-top">
+      <Link href="/modellen?tab=premium" className="nieuw-cta-top">
         Wordt premium
       </Link>
     ) : onBooking ? (
@@ -133,16 +133,16 @@ export function NieuwShell({
       </Link>
     ) : activePortal === 'klanten' ? (
       user ? (
-        <Link href="/nieuw/klanten?tab=aanvraag" className="nieuw-cta-top">
+        <Link href="/klanten?tab=aanvraag" className="nieuw-cta-top">
           Casting aanvragen
         </Link>
       ) : (
-        <Link href="/nieuw/inloggen" className="nieuw-cta-top">
+        <Link href="/inloggen" className="nieuw-cta-top">
           Inloggen
         </Link>
       )
     ) : (
-      <Link href="/nieuw/gasten/gratis-fotoshoot#agenda" className="nieuw-cta-top">
+      <Link href="/gasten/gratis-fotoshoot#agenda" className="nieuw-cta-top">
         Inschrijven
       </Link>
     );
@@ -151,7 +151,7 @@ export function NieuwShell({
     <div className="nieuw-root">
       <header className="nieuw-kop">
         <div className="nieuw-kop-inner">
-          <Link className="nieuw-merk" href="/nieuw">
+          <Link className="nieuw-merk" href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               className="nieuw-merk-logo"
@@ -163,19 +163,19 @@ export function NieuwShell({
           {!hidePortalNav ? (
             <nav className="nieuw-kop-pillars" aria-label="Portalen">
               <Link
-                href="/nieuw/gasten/model-worden"
+                href="/gasten/model-worden"
                 className={`nieuw-pillar${activePortal === 'gasten' ? ' actief' : ''}`}
               >
                 <span>Gastenportaal · schrijf u in</span>
               </Link>
               <Link
-                href="/nieuw/modellen"
+                href="/modellen"
                 className={`nieuw-pillar${activePortal === 'modellen' ? ' actief' : ''}`}
               >
                 <span>Modellenportaal</span>
               </Link>
               <Link
-                href="/nieuw/klanten"
+                href="/klanten"
                 className={`nieuw-pillar${activePortal === 'klanten' ? ' actief' : ''}`}
               >
                 <span>Klantenportaal</span>
@@ -220,8 +220,8 @@ export function NieuwShell({
             <span className="nieuw-util-nav-spacer" aria-hidden="true" />
           )}
           <nav className="nieuw-util-actions" aria-label="Snelle acties">
-            <Link href="/nieuw/reviews">Reviews</Link>
-            <Link href="/nieuw/gasten/contact">Contact</Link>
+            <Link href="/reviews">Reviews</Link>
+            <Link href="/gasten/contact">Contact</Link>
             {cta}
           </nav>
         </div>
@@ -243,7 +243,7 @@ export function NieuwShell({
         <div className="nieuw-wrap">
           <div className="nieuw-footer-grid">
             <div>
-              <Link className="nieuw-merk" href="/nieuw">
+              <Link className="nieuw-merk" href="/">
                 <span className="nieuw-merk-naam">
                   Class<b>-</b>Models
                 </span>
@@ -256,23 +256,23 @@ export function NieuwShell({
             <div>
               <h5>Gastenportaal</h5>
               <p>
-                <Link href="/nieuw/gasten/model-worden">Model worden</Link>
+                <Link href="/gasten/model-worden">Model worden</Link>
                 <br />
-                <Link href="/nieuw/gasten/gratis-fotoshoot">Gratis fotoshoot</Link>
+                <Link href="/gasten/gratis-fotoshoot">Gratis fotoshoot</Link>
                 <br />
-                <Link href="/nieuw/gasten/casting">Casting</Link>
+                <Link href="/gasten/casting">Casting</Link>
                 <br />
-                <Link href="/nieuw/gasten/intake">Intake-gesprek</Link>
+                <Link href="/gasten/intake">Intake-gesprek</Link>
               </p>
             </div>
             <div>
               <h5>Portalen</h5>
               <p>
-                <Link href="/nieuw/modellen">Modellenportaal</Link>
+                <Link href="/modellen">Modellenportaal</Link>
                 <br />
-                <Link href="/nieuw/klanten">Klantenportaal</Link>
+                <Link href="/klanten">Klantenportaal</Link>
                 <br />
-                <Link href="/nieuw/reviews">Reviews</Link>
+                <Link href="/reviews">Reviews</Link>
               </p>
             </div>
             <div>

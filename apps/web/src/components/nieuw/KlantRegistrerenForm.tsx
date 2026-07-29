@@ -45,7 +45,7 @@ export function KlantRegistrerenForm() {
         lastName: lastName.trim() || undefined,
         phone: phone.trim() || undefined,
       });
-      router.push('/nieuw/klanten');
+      router.push('/klanten');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registreren mislukt.');
     } finally {
@@ -185,7 +185,7 @@ export function KlantRegistrerenForm() {
 
             <p style={{ marginTop: 18, fontSize: 13, color: 'var(--n-mut)' }}>
               Heeft u al een klantenaccount?{' '}
-              <Link className="nieuw-link" href="/nieuw/inloggen">
+              <Link className="nieuw-link" href="/inloggen">
                 Inloggen
               </Link>
             </p>

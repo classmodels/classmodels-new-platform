@@ -47,7 +47,7 @@ export function NieuwLoginSplit() {
           setModelErr('Dit is een klantenaccount. Gebruik het formulier rechts.');
           return;
         }
-        router.replace('/nieuw/modellen');
+        router.replace('/modellen');
       } catch (err) {
         setModelErr(parseApiError(err, 'Inloggen als model mislukt.'));
       } finally {
@@ -64,7 +64,7 @@ export function NieuwLoginSplit() {
         setClientErr('Dit is een modellenaccount. Gebruik het formulier links.');
         return;
       }
-      router.replace('/nieuw/klanten');
+      router.replace('/klanten');
     } catch (err) {
       setClientErr(parseApiError(err, 'Inloggen als klant mislukt.'));
     } finally {
@@ -135,12 +135,12 @@ export function NieuwLoginSplit() {
                 </button>
               </form>
               <div className="nieuw-login-meta">
-                <Link className="nieuw-link" href="/nieuw/modellen/wachtwoord-vergeten">
+                <Link className="nieuw-link" href="/modellen/wachtwoord-vergeten">
                   Wachtwoord vergeten?
                 </Link>
                 <p>
                   Nog geen account?{' '}
-                  <Link className="nieuw-link" href="/nieuw/modellen/registreren">
+                  <Link className="nieuw-link" href="/modellen/registreren">
                     Maak hier één aan
                   </Link>
                 </p>
@@ -196,12 +196,12 @@ export function NieuwLoginSplit() {
                 </button>
               </form>
               <div className="nieuw-login-meta">
-                <Link className="nieuw-link" href="/nieuw/modellen/wachtwoord-vergeten">
+                <Link className="nieuw-link" href="/modellen/wachtwoord-vergeten">
                   Wachtwoord vergeten?
                 </Link>
                 <p>
                   Nog geen account?{' '}
-                  <Link className="nieuw-link" href="/nieuw/klanten/registreren">
+                  <Link className="nieuw-link" href="/klanten/registreren">
                     Maak hier één aan
                   </Link>
                 </p>

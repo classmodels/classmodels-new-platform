@@ -125,7 +125,7 @@ export function ModelOpdrachtenTab({
   canRespond,
   isPremium,
   forceEligible = false,
-  premiumHref = '/nieuw/modellen?tab=premium',
+  premiumHref = '/modellen?tab=premium',
 }: {
   token: string | null;
   modelUserId: string;
@@ -536,7 +536,7 @@ export function ModelOpdrachtenTab({
                             Inschrijven is niet beschikbaar: uw profiel komt niet in aanmerking volgens de
                             criteria.
                           </p>
-                          <Link className="nieuw-btn nieuw-btn-ghost" href="/nieuw/modellen?tab=profiel">
+                          <Link className="nieuw-btn nieuw-btn-ghost" href="/modellen?tab=profiel">
                             Profiel controleren
                           </Link>
                         </div>

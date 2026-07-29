@@ -29,7 +29,7 @@ export default function AdminTryoutModeshowPage() {
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-zinc-600">
           Overzicht van inschrijvingen, betalingen (Mollie) en modellen die geen deelname wensen. De modellen zelf
           schrijven zich in via het{' '}
-          <Link href="/nieuw/modellen?tab=tryout-modeshow" className="text-zinc-900 underline hover:text-zinc-700">
+          <Link href="/modellen?tab=tryout-modeshow" className="text-zinc-900 underline hover:text-zinc-700">
             modellenportaal
           </Link>
           ; deze pagina is alleen voor de backsite.

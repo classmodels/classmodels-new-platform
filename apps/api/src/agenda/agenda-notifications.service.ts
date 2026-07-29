@@ -134,8 +134,8 @@ export class AgendaNotificationService {
       calendarTitle: 'Portfolio afspraak',
       dateLabel: 'dinsdag 13 mei 2026',
       timeLabel: '10:00 – 10:30',
-      cancelUrl: 'https://voorbeeld.be/nieuw/gasten/annuleer?token=demo-token',
-      confirmUrl: 'https://voorbeeld.be/nieuw/gasten/bevestig?token=demo-token',
+      cancelUrl: 'https://voorbeeld.be/gasten/annuleer?token=demo-token',
+      confirmUrl: 'https://voorbeeld.be/gasten/bevestig?token=demo-token',
     });
   }
 
@@ -882,8 +882,8 @@ export class AgendaNotificationService {
       process.env.APP_PUBLIC_URL ||
       'https://www.class-models.be'
     ).replace(/\/$/, '');
-    const cancelUrl = hideCancel || !token ? '' : `${webBase}/nieuw/gasten/annuleer?token=${encodeURIComponent(token)}`;
-    const confirmUrl = token ? `${webBase}/nieuw/gasten/bevestig?token=${encodeURIComponent(token)}` : '';
+    const cancelUrl = hideCancel || !token ? '' : `${webBase}/gasten/annuleer?token=${encodeURIComponent(token)}`;
+    const confirmUrl = token ? `${webBase}/gasten/bevestig?token=${encodeURIComponent(token)}` : '';
 
     let dateLabel: string;
     try {
@@ -1140,8 +1140,8 @@ export class AgendaNotificationService {
       calendarSlug: 'test',
       dateLabel: 'dinsdag 13 mei 2026',
       timeLabel: '10:00 – 10:30',
-      cancelUrl: 'https://www.class-models.be/nieuw/gasten/annuleer?token=demo-token',
-      confirmUrl: 'https://www.class-models.be/nieuw/gasten/bevestig?token=demo-token',
+      cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',
+      confirmUrl: 'https://www.class-models.be/gasten/bevestig?token=demo-token',
       officeAddress: CLASS_MODELS_OFFICE.fullAddress,
       distanceLabel: 'ca. 12 km',
       cancelReason: 'Voorbeeldreden van annulatie (testmail)',

@@ -15,15 +15,22 @@ export function AppChrome({ children }: { children: ReactNode }) {
     pathname === '/' ||
     pathname === '' ||
     (!!basePath && (pathname === basePath || pathname === `${basePath}/`));
-  const onNieuwSite = pathname?.startsWith('/nieuw') ?? false;
+  /** Publieke site + portalen: eigen NieuwShell-nav, geen klassieke SiteHeader. */
+  const onPublicSite =
+    onBeginPage ||
+    !!pathname?.startsWith('/modellen') ||
+    !!pathname?.startsWith('/klanten') ||
+    !!pathname?.startsWith('/gasten') ||
+    !!pathname?.startsWith('/inloggen') ||
+    !!pathname?.startsWith('/reviews');
   const showBar = !!user && (hasBackofficeAccess || can('content.strings.write'));
 
   return (
     <div className="flex min-h-screen flex-col">
       <AdminBar />
       {showBar ? <div className="h-10 shrink-0" aria-hidden /> : null}
-      {/* Nieuwe site (/nieuw) heeft eigen navigatie. */}
-      {!onAdmin && !onNieuwSite ? (
+      {/* Publieke site heeft eigen navigatie (NieuwShell). */}
+      {!onAdmin && !onPublicSite ? (
         <div className={onBeginPage ? 'hidden md:block' : undefined}>
           <SiteHeader />
         </div>

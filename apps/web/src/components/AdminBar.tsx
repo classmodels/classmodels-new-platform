@@ -22,9 +22,9 @@ export function AdminBar() {
   };
 
   const onPortal = (p: string) => {
-    if (p === 'guest') router.push('/nieuw/gasten/model-worden');
-    if (p === 'model') router.push('/nieuw/modellen');
-    if (p === 'client') router.push('/nieuw/klanten');
+    if (p === 'guest') router.push('/gasten/model-worden');
+    if (p === 'model') router.push('/modellen');
+    if (p === 'client') router.push('/klanten');
   };
 
   const flushAllInlineEdits = () => {

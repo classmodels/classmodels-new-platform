@@ -236,7 +236,7 @@ export function ModelPortfolioTab({
             heading="Portfolio"
             variant="default"
             authToken={token}
-            bookUrl="/nieuw/modellen?tab=portfolio"
+            bookUrl="/modellen?tab=portfolio"
             autoBookOnPick
             showOccupiedSlots
             onBookingSuccess={async () => {

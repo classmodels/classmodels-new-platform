@@ -23,34 +23,38 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: '/__cm_api/:path*', destination: `${apiInternal}/:path*` }];
   },
-  /** Klassieke portal/lobby → nieuwe site. Oude bookmarks en mail-links blijven werken. */
+  /**
+   * Oude URLs blijven werken:
+   * - /nieuw… → root (na drop van /nieuw-prefix)
+   * - klassieke portal/lobby → huidige site
+   */
   async redirects() {
     return [
-      { source: '/lobby', destination: '/nieuw/inloggen', permanent: false },
-      { source: '/lobby/:path*', destination: '/nieuw/inloggen', permanent: false },
-      { source: '/home', destination: '/nieuw', permanent: false },
-      { source: '/modellen', destination: '/nieuw/modellen', permanent: false },
-      { source: '/gratis-fotoshoot', destination: '/nieuw/gasten/gratis-fotoshoot', permanent: false },
-      { source: '/reviews', destination: '/nieuw/reviews', permanent: false },
-      { source: '/portal/guest/annuleer', destination: '/nieuw/gasten/annuleer', permanent: false },
-      { source: '/portal/guest/bevestig', destination: '/nieuw/gasten/bevestig', permanent: false },
+      { source: '/nieuw', destination: '/', permanent: false },
+      { source: '/nieuw/:path*', destination: '/:path*', permanent: false },
+      { source: '/lobby', destination: '/inloggen', permanent: false },
+      { source: '/lobby/:path*', destination: '/inloggen', permanent: false },
+      { source: '/home', destination: '/', permanent: false },
+      { source: '/gratis-fotoshoot', destination: '/gasten/gratis-fotoshoot', permanent: false },
+      { source: '/portal/guest/annuleer', destination: '/gasten/annuleer', permanent: false },
+      { source: '/portal/guest/bevestig', destination: '/gasten/bevestig', permanent: false },
       {
         source: '/portal/model/betaling/bedankt',
-        destination: '/nieuw/modellen/betaling/bedankt',
+        destination: '/modellen/betaling/bedankt',
         permanent: false,
       },
-      { source: '/portal/guest', destination: '/nieuw', permanent: false },
-      { source: '/portal/guest/:path*', destination: '/nieuw', permanent: false },
-      { source: '/portal/client', destination: '/nieuw/klanten', permanent: false },
-      { source: '/portal/client/:path*', destination: '/nieuw/klanten', permanent: false },
-      { source: '/portal/model/showroom', destination: '/nieuw/modellen?tab=modellen', permanent: false },
-      { source: '/portal/model/gallery-3d', destination: '/nieuw/modellen?tab=modellen', permanent: false },
-      { source: '/portal/model/modellenwand', destination: '/nieuw/modellen?tab=modellen', permanent: false },
-      { source: '/portal/model/fiche-preview', destination: '/nieuw/modellen?tab=modellen', permanent: false },
-      { source: '/portal/model', destination: '/nieuw/modellen', permanent: false },
-      { source: '/portal/model/:path*', destination: '/nieuw/modellen', permanent: false },
-      { source: '/portal', destination: '/nieuw', permanent: false },
-      { source: '/portal/:path*', destination: '/nieuw', permanent: false },
+      { source: '/portal/guest', destination: '/', permanent: false },
+      { source: '/portal/guest/:path*', destination: '/', permanent: false },
+      { source: '/portal/client', destination: '/klanten', permanent: false },
+      { source: '/portal/client/:path*', destination: '/klanten', permanent: false },
+      { source: '/portal/model/showroom', destination: '/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model/gallery-3d', destination: '/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model/modellenwand', destination: '/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model/fiche-preview', destination: '/modellen?tab=modellen', permanent: false },
+      { source: '/portal/model', destination: '/modellen', permanent: false },
+      { source: '/portal/model/:path*', destination: '/modellen', permanent: false },
+      { source: '/portal', destination: '/', permanent: false },
+      { source: '/portal/:path*', destination: '/', permanent: false },
     ];
   },
 };

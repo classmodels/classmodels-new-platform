@@ -81,8 +81,8 @@ export function buildAgendaMailPreviewDemoVars(): Record<string, string> {
       calendarTitle: 'Portfolio afspraak',
       dateLabel: 'dinsdag 13 mei 2026',
       timeLabel: '10:00 – 10:30',
-      cancelUrl: 'https://www.class-models.be/nieuw/gasten/annuleer?token=demo-token',
-      confirmUrl: 'https://www.class-models.be/nieuw/gasten/bevestig?token=demo-token',
+      cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',
+      confirmUrl: 'https://www.class-models.be/gasten/bevestig?token=demo-token',
     },
     'html',
   );
@@ -96,8 +96,8 @@ export function buildAgendaMailPreviewDemoVarsPlain(): Record<string, string> {
       calendarTitle: 'Portfolio afspraak',
       dateLabel: 'dinsdag 13 mei 2026',
       timeLabel: '10:00 – 10:30',
-      cancelUrl: 'https://www.class-models.be/nieuw/gasten/annuleer?token=demo-token',
-      confirmUrl: 'https://www.class-models.be/nieuw/gasten/bevestig?token=demo-token',
+      cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',
+      confirmUrl: 'https://www.class-models.be/gasten/bevestig?token=demo-token',
     },
     'plain',
   );

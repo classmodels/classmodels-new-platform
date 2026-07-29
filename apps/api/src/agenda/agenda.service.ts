@@ -1292,15 +1292,15 @@ export class AgendaService implements OnModuleInit {
       };
       if (notifications) out.notifications = notifications;
       if (!hideCancelLink) {
-        out.cancelUrl = `${webPublicBase()}/nieuw/gasten/annuleer?token=${encodeURIComponent(cancelToken)}`;
+        out.cancelUrl = `${webPublicBase()}/gasten/annuleer?token=${encodeURIComponent(cancelToken)}`;
       }
       return out;
     };
 
     /** Na commit: mail/SMS/labels mogen NOOIT meer een 500 geven (Nest → “Internal server error”). */
     try {
-      const cancelUrl = `${webPublicBase()}/nieuw/gasten/annuleer?token=${encodeURIComponent(cancelToken)}`;
-      const confirmUrl = `${webPublicBase()}/nieuw/gasten/bevestig?token=${encodeURIComponent(cancelToken)}`;
+      const cancelUrl = `${webPublicBase()}/gasten/annuleer?token=${encodeURIComponent(cancelToken)}`;
+      const confirmUrl = `${webPublicBase()}/gasten/bevestig?token=${encodeURIComponent(cancelToken)}`;
       let dateLabel: string;
       try {
         dateLabel = new Intl.DateTimeFormat('nl-BE', {
@@ -1443,10 +1443,10 @@ export class AgendaService implements OnModuleInit {
     const timeLabel = `${booking.slot.startTime.slice(0, 5)} – ${booking.slot.endTime.slice(0, 5)}`;
     const tok = booking.cancelToken?.trim() || '';
     const cancelUrl = tok
-      ? `${webPublicBase()}/nieuw/gasten/annuleer?token=${encodeURIComponent(tok)}`
+      ? `${webPublicBase()}/gasten/annuleer?token=${encodeURIComponent(tok)}`
       : `${webPublicBase()}/portal/guest`;
     const confirmUrl = tok
-      ? `${webPublicBase()}/nieuw/gasten/bevestig?token=${encodeURIComponent(tok)}`
+      ? `${webPublicBase()}/gasten/bevestig?token=${encodeURIComponent(tok)}`
       : `${webPublicBase()}/portal/guest`;
     void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
       bookingId: booking.id,
@@ -1535,8 +1535,8 @@ export class AgendaService implements OnModuleInit {
       year: 'numeric',
     }).format(booking.slot.slotDate);
     const timeLabel = `${booking.slot.startTime.slice(0, 5)} – ${booking.slot.endTime.slice(0, 5)}`;
-    const cancelUrl = `${webPublicBase()}/nieuw/gasten/annuleer?token=${encodeURIComponent(token)}`;
-    const confirmUrl = `${webPublicBase()}/nieuw/gasten/bevestig?token=${encodeURIComponent(token)}`;
+    const cancelUrl = `${webPublicBase()}/gasten/annuleer?token=${encodeURIComponent(token)}`;
+    const confirmUrl = `${webPublicBase()}/gasten/bevestig?token=${encodeURIComponent(token)}`;
     void this.notifications.dispatchBookingLifecycle('booking_cancelled', {
       bookingId: booking.id,
       toEmail: booking.email,
@@ -1674,8 +1674,8 @@ export class AgendaService implements OnModuleInit {
       year: 'numeric',
     }).format(booking.slot.slotDate);
     const timeLabel = `${booking.slot.startTime.slice(0, 5)} – ${booking.slot.endTime.slice(0, 5)}`;
-    const cancelUrl = `${webPublicBase()}/nieuw/gasten/annuleer?token=${encodeURIComponent(token)}`;
-    const confirmUrl = `${webPublicBase()}/nieuw/gasten/bevestig?token=${encodeURIComponent(token)}`;
+    const cancelUrl = `${webPublicBase()}/gasten/annuleer?token=${encodeURIComponent(token)}`;
+    const confirmUrl = `${webPublicBase()}/gasten/bevestig?token=${encodeURIComponent(token)}`;
     void this.notifications.dispatchBookingLifecycle('booking_confirmed', {
       bookingId: booking.id,
       toEmail: booking.email,
@@ -2037,8 +2037,8 @@ export class AgendaService implements OnModuleInit {
         const et = String(slot.endTime ?? '');
         const showEnd = cal.showEndTimeOnPublic === true;
         const timeLabel = showEnd ? `${st.slice(0, 5)} – ${et.slice(0, 5)}` : st.slice(0, 5);
-        const cancelUrl = `${webPublicBase()}/nieuw/gasten/annuleer?token=${encodeURIComponent(cancelToken)}`;
-        const confirmUrl = `${webPublicBase()}/nieuw/gasten/bevestig?token=${encodeURIComponent(cancelToken)}`;
+        const cancelUrl = `${webPublicBase()}/gasten/annuleer?token=${encodeURIComponent(cancelToken)}`;
+        const confirmUrl = `${webPublicBase()}/gasten/bevestig?token=${encodeURIComponent(cancelToken)}`;
         void this.notifications
           .dispatchBookingLifecycle('booking_created', {
             bookingId: booking.id,

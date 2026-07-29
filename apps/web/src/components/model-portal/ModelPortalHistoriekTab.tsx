@@ -113,7 +113,7 @@ export function ModelPortalHistoriekTab({
         <p className="rounded-lg border border-amber-200/90 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950">
           <strong>Premium:</strong> met een premium account kunt u de volledige historiek raadplegen (profiel,
           opdrachten, betalingen, …).{' '}
-          <Link href="/nieuw/modellen?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
+          <Link href="/modellen?tab=premium" className="font-semibold text-burgundy underline hover:text-burgundyDeep">
             Bekijk Premium
           </Link>
         </p>

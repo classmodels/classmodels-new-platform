@@ -128,7 +128,7 @@ export function NieuwModelsGallery({
       });
       await applySessionToken(res.access_token);
       setModal(null);
-      router.push('/nieuw/modellen?tab=profiel');
+      router.push('/modellen?tab=profiel');
     } catch (err) {
       clearImpersonationSession();
       window.alert(err instanceof Error ? err.message : 'Openen als model mislukt.');

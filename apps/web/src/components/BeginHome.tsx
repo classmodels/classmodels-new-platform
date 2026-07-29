@@ -11,7 +11,7 @@ export function BeginHome() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace('/nieuw');
+    router.replace('/');
   }, [router]);
 
   return <div className="min-h-[60vh] bg-[#0d0d11]" aria-hidden />;

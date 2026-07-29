@@ -329,7 +329,7 @@ export class PaymentsService {
           : process.env.SET_CARD_PAYMENT_REDIRECT_URL?.trim();
     if (envOverride) return envOverride;
     const soort = kind === 'premium' ? 'premium' : kind === 'tryout' ? 'tryout' : 'setkaart';
-    return `${base}/nieuw/modellen/betaling/bedankt?soort=${soort}`;
+    return `${base}/modellen/betaling/bedankt?soort=${soort}`;
   }
 
   async startSetCardCheckout(userId: string) {

@@ -1064,7 +1064,7 @@ export function ModelsCatalogGrid({
         body: JSON.stringify({ targetUserId: m.id }),
       });
       await applySessionToken(res.access_token);
-      router.push('/nieuw/modellen?tab=profiel');
+      router.push('/modellen?tab=profiel');
     } catch (err) {
       clearImpersonationSession();
       window.alert(err instanceof Error ? err.message : 'Openen als model mislukt.');
