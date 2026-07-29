@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Oud modellenplatform vervangen door gastenportaal. */
+/** Oud pad → nieuwe site. */
 export default function ModellenPlatformHomePage() {
-  redirect('/portal/guest');
+  redirect('/nieuw');
 }

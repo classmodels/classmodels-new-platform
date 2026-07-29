@@ -67,8 +67,8 @@ function buildAgendaMailPreviewDemoVars() {
         calendarTitle: 'Portfolio afspraak',
         dateLabel: 'dinsdag 13 mei 2026',
         timeLabel: '10:00 – 10:30',
-        cancelUrl: 'https://www.class-models.be/portal/guest/annuleer?token=demo-token',
-        confirmUrl: 'https://www.class-models.be/portal/guest/bevestig?token=demo-token',
+        cancelUrl: 'https://www.class-models.be/nieuw/gasten/annuleer?token=demo-token',
+        confirmUrl: 'https://www.class-models.be/nieuw/gasten/bevestig?token=demo-token',
     }, 'html');
 }
 /** Vaste demowaarden voor SMS-voorbeeld (platte URL’s). */
@@ -78,8 +78,8 @@ function buildAgendaMailPreviewDemoVarsPlain() {
         calendarTitle: 'Portfolio afspraak',
         dateLabel: 'dinsdag 13 mei 2026',
         timeLabel: '10:00 – 10:30',
-        cancelUrl: 'https://www.class-models.be/portal/guest/annuleer?token=demo-token',
-        confirmUrl: 'https://www.class-models.be/portal/guest/bevestig?token=demo-token',
+        cancelUrl: 'https://www.class-models.be/nieuw/gasten/annuleer?token=demo-token',
+        confirmUrl: 'https://www.class-models.be/nieuw/gasten/bevestig?token=demo-token',
     }, 'plain');
 }
 var email_layout_1 = require("./email-layout");

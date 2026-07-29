@@ -9,7 +9,7 @@ self.addEventListener('push', (event) => {
     }
   }
   const title = data.title || 'Class-Models';
-  const relativeUrl = typeof data.url === 'string' && data.url.length ? data.url : '/portal/model?tab=push';
+  const relativeUrl = typeof data.url === 'string' && data.url.length ? data.url : '/nieuw/modellen?tab=push';
   const openUrl = self.location.origin + (relativeUrl.startsWith('/') ? relativeUrl : `/${relativeUrl}`);
   const opts = {
     body: data.body || '',
@@ -43,7 +43,7 @@ self.addEventListener('notificationclick', (event) => {
   const url =
     event.notification.data && typeof event.notification.data.url === 'string'
       ? event.notification.data.url
-      : self.location.origin + '/portal/model?tab=push';
+      : self.location.origin + '/nieuw/modellen?tab=push';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const c of clientList) {

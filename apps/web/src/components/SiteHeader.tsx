@@ -15,15 +15,13 @@ export function SiteHeader() {
   const onAdmin = pathname?.startsWith('/admin');
   if (onAdmin) return null;
 
-  // Op de gsm geen filmervaring of lobby-afbeelding: rechtstreeks naar de
-  // mobiele portaalschermen (gastenportaal / modellenlogin).
-  const guestHref = isMobile ? '/?m=guest' : '/?go=guest';
-  const modelHref = user ? '/portal/model' : isMobile ? '/?m=model' : '/lobby?tab=model';
-  const loginHref = isMobile ? '/?m=model' : '/lobby?tab=model';
+  const guestHref = '/nieuw';
+  const modelHref = user ? '/nieuw/modellen' : '/nieuw/inloggen';
+  const loginHref = '/nieuw/inloggen';
 
   if (isMobile) {
     // Portaalpagina's hebben op de gsm hun eigen app-balk met Terug/Beginpagina.
-    if (pathname?.startsWith('/portal')) return null;
+    if (pathname?.startsWith('/portal') || pathname?.startsWith('/nieuw')) return null;
     // Overige gsm-pagina's: alleen '← Terug' (één stap terug) en 'Beginpagina'
     // (rechts) — geen taalknoppen, geen Inloggen, geen navigatielinks.
     // Vast bovenaan zodat de rij bij het scrollen zichtbaar blijft.
@@ -35,7 +33,7 @@ export function SiteHeader() {
               type="button"
               onClick={() => {
                 if (typeof window !== 'undefined' && window.history.length > 1) router.back();
-                else router.push('/');
+                else router.push('/nieuw');
               }}
               className="rounded-full border border-[#c9bfae] bg-white px-4 py-1.5 text-[13px] font-semibold text-[#372c1f]"
               aria-label="Terug"
@@ -43,7 +41,7 @@ export function SiteHeader() {
               ← <CmText contentKey="site.header.nav.back" as="span" fallback="Terug" />
             </button>
             <Link
-              href="/"
+              href="/nieuw"
               className="rounded-full border border-[#372c1f] bg-[#372c1f] px-4 py-1.5 text-[13px] font-semibold text-[#f6efe2]"
             >
               Beginpagina
@@ -65,7 +63,7 @@ export function SiteHeader() {
             type="button"
             onClick={() => {
               if (typeof window !== 'undefined' && window.history.length > 1) router.back();
-              else router.push('/');
+              else router.push('/nieuw');
             }}
             className="shrink-0 rounded-full border border-white/25 px-3 py-1 text-xs text-white/85 transition hover:border-white/50 hover:text-white"
             aria-label="Terug"
@@ -81,13 +79,13 @@ export function SiteHeader() {
             <Link href={modelHref} className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.model" as="span" className="text-white/90" fallback="Modellenportaal" />
             </Link>
-            <Link href="/portal/client" className="text-white/90 hover:text-white">
+            <Link href="/nieuw/klanten" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.client" as="span" className="text-white/90" fallback="Klantenportaal" />
             </Link>
-            <Link href="/reviews" className="text-white/90 hover:text-white">
+            <Link href="/nieuw/reviews" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.reviews" as="span" className="text-white/90" fallback="Reviews" />
             </Link>
-            <Link href="/portal/guest?p=contact" className="text-white/90 hover:text-white">
+            <Link href="/nieuw/gasten/contact" className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.contact" as="span" className="text-white/90" fallback="Contact" />
             </Link>
             {user ? (
@@ -95,7 +93,7 @@ export function SiteHeader() {
                 type="button"
                 onClick={() => {
                   logout();
-                  router.push('/');
+                  router.push('/nieuw');
                   router.refresh();
                 }}
                 className="text-white/80 hover:text-white"

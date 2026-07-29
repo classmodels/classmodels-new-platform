@@ -273,8 +273,6 @@ export function NieuwShell({
                 <Link href="/nieuw/klanten">Klantenportaal</Link>
                 <br />
                 <Link href="/nieuw/reviews">Reviews</Link>
-                <br />
-                <Link href="/?classic=1">Klassieke site</Link>
               </p>
             </div>
             <div>

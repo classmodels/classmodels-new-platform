@@ -51,15 +51,15 @@ function tabHref(id: ModelPortalTabId): string {
   return id === 'home' ? '/nieuw/modellen' : `/nieuw/modellen?tab=${id}`;
 }
 
-function ClassicPortalLink({ tab, label }: { tab: ModelPortalTabId; label: string }) {
+function ModuleUnavailable({ label }: { label: string }) {
   return (
     <div className="nieuw-panel" style={{ textAlign: 'center' }}>
       <p className="nieuw-lead" style={{ margin: '0 auto', textAlign: 'center' }}>
-        Deze module ({label}) is volledig beschikbaar in het klassieke modellenportaal.
+        Je hebt geen toegang tot {label} op dit account. Neem contact op met Class-Models als dit niet klopt.
       </p>
       <div style={{ marginTop: 28 }}>
-        <Link className="nieuw-btn" href={`/portal/model?tab=${tab}`}>
-          Open klassieke module
+        <Link className="nieuw-btn" href="/nieuw/modellen">
+          Terug naar overzicht
         </Link>
       </div>
     </div>
@@ -476,7 +476,7 @@ export default function NieuwModellenPage() {
       main = <ModelOpleidingTab />;
     } else if (tab === 'historiek') {
       if (!can('portal.model.history.read')) {
-        main = <ClassicPortalLink tab="historiek" label="Historiek" />;
+        main = <ModuleUnavailable label="Historiek" />;
       } else {
         main = (
           <ModelPortalHistoriekTab
@@ -510,17 +510,17 @@ export default function NieuwModellenPage() {
       main = can('portal.model.briefs.read') ? (
         <ModelTryoutModeshowTab />
       ) : (
-        <ClassicPortalLink tab="tryout-modeshow" label="Try-out modeshow" />
+        <ModuleUnavailable label="Try-out modeshow" />
       );
     } else if (tab === 'modeshow-28') {
       main = can('portal.model.media.read') ? (
         <ModelModeshowDownloadsTab />
       ) : (
-        <ClassicPortalLink tab="modeshow-28" label="Download try-out" />
+        <ModuleUnavailable label="Download try-out" />
       );
     } else if (tab === 'setkaarten') {
       if (!can('portal.model.media.read')) {
-        main = <ClassicPortalLink tab="setkaarten" label="Setkaarten bestellen" />;
+        main = <ModuleUnavailable label="Setkaarten bestellen" />;
       } else {
         main = (
           <ModelSetCardTab
@@ -576,7 +576,7 @@ export default function NieuwModellenPage() {
         );
       }
     } else {
-      main = <ClassicPortalLink tab={tab} label={activeLabel} />;
+      main = <ModuleUnavailable label={activeLabel} />;
     }
 
     body = (

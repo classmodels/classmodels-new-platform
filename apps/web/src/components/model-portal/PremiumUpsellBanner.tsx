@@ -6,7 +6,7 @@ import Link from 'next/link';
 export function PremiumUpsellBanner({
   title = 'Premium modelaccount',
   children,
-  premiumHref = '/portal/model?tab=premium',
+  premiumHref = '/nieuw/modellen?tab=premium',
 }: {
   title?: string;
   children: ReactNode;
@@ -25,7 +25,7 @@ export function PremiumUpsellBanner({
 export function PremiumUpsellPanel({
   title,
   body,
-  premiumHref = '/portal/model?tab=premium',
+  premiumHref = '/nieuw/modellen?tab=premium',
 }: {
   title: string;
   body: string;

@@ -23,6 +23,24 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [{ source: '/__cm_api/:path*', destination: `${apiInternal}/:path*` }];
   },
+  /** Klassieke begin/lobby-routes → nieuwe site. Oude mail/Mollie-links blijven werken via redirect. */
+  async redirects() {
+    return [
+      { source: '/lobby', destination: '/nieuw/inloggen', permanent: false },
+      { source: '/lobby/:path*', destination: '/nieuw/inloggen', permanent: false },
+      { source: '/home', destination: '/nieuw', permanent: false },
+      { source: '/modellen', destination: '/nieuw/modellen', permanent: false },
+      { source: '/gratis-fotoshoot', destination: '/nieuw/gasten/gratis-fotoshoot', permanent: false },
+      { source: '/reviews', destination: '/nieuw/reviews', permanent: false },
+      { source: '/portal/guest/annuleer', destination: '/nieuw/gasten/annuleer', permanent: false },
+      { source: '/portal/guest/bevestig', destination: '/nieuw/gasten/bevestig', permanent: false },
+      {
+        source: '/portal/model/betaling/bedankt',
+        destination: '/nieuw/modellen/betaling/bedankt',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
