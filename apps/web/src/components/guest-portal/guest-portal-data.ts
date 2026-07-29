@@ -198,25 +198,6 @@ export const CASTING_PAGE = {
   ],
 } as const;
 
-/**
- * Gastenportaal — video / afbeelding uit Admin → Media.
- * API serveert alleen de **bestandsnaam** (zoals op schijf in uploads).
- * Upload bijvoorbeeld je MP4 als `film22.mp4` en zet die naam hier.
- */
-export const GUEST_PORTAL_PUBLIC_MEDIA = {
-  /** Rode banner rechts: promotiefilm (MP4). Leeg laten = alleen tekstkader zoals vroeger. */
-  heroVideoBasename: 'film22.mp4',
-  /**
-   * Gratis-fotoshoot: volledige afbeelding (object-contain). Leeg = `/guest/gratis-fotoshoot-hero.png`.
-   * Zet hier de exacte bestandsnaam na upload in Admin → Media (zelfde als op schijf in uploads).
-   */
-  gratisFotoshootImageBasename: '',
-  /** Casting-pagina banner. Leeg = `/guest/casting-hero.png`. */
-  castingHeroImageBasename: '',
-  /** Intake-pagina banner. Leeg = `/guest/intake-gesprek-hero.png`. */
-  intakeGesprekHeroImageBasename: '',
-} as const;
-
 /** Publieke contactgegevens (gastenportaal). */
 export const GUEST_CONTACT_INFO = {
   company: 'Class-Models',
