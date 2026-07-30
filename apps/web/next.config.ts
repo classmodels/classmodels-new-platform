@@ -39,6 +39,12 @@ const nextConfig: NextConfig = {
       { source: '/nieuw/gasten/:path*', destination: '/gasten/:path*', permanent: false },
       { source: '/nieuw/inloggen', destination: '/inloggen', permanent: false },
       { source: '/nieuw/reviews', destination: '/reviews', permanent: false },
+      {
+        source: '/portal/guest',
+        has: [{ type: 'query', key: 'p', value: 'testshoot' }],
+        destination: '/gasten/testshoot',
+        permanent: false,
+      },
       { source: '/lobby', destination: '/inloggen', permanent: false },
       { source: '/lobby/:path*', destination: '/inloggen', permanent: false },
       { source: '/home', destination: '/', permanent: false },

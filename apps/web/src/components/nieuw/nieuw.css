@@ -2620,3 +2620,86 @@
   border: 1px solid var(--n-gold-hair);
   padding: 5px 10px;
 }
+
+/* ---------- Testshoot download (gasten) ---------- */
+.nieuw-ts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 22px;
+  margin-top: 36px;
+}
+.nieuw-ts-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.nieuw-ts-count {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--n-dim);
+  white-space: nowrap;
+}
+.nieuw-ts-thumbs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.nieuw-ts-thumb {
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--n-bg);
+  border: 1px solid var(--n-hair);
+  display: block;
+}
+.nieuw-ts-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.nieuw-ts-more {
+  display: grid;
+  place-items: center;
+  color: var(--n-dim);
+  font-size: 13px;
+  font-weight: 700;
+}
+.nieuw-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 4px;
+}
+.nieuw-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--n-ink);
+  cursor: pointer;
+}
+.nieuw-radio input {
+  accent-color: var(--n-gold);
+  width: auto;
+}
+.nieuw-ts-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(8, 8, 10, 0.72);
+  display: grid;
+  place-items: start center;
+  padding: 48px 16px 32px;
+  overflow: auto;
+}
+.nieuw-ts-form {
+  width: min(720px, 100%);
+  margin-bottom: 40px;
+}
+@media (max-width: 640px) {
+  .nieuw-ts-thumbs { grid-template-columns: repeat(3, 1fr); }
+}

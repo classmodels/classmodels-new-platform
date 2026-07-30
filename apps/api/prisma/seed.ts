@@ -559,7 +559,7 @@ async function main() {
     {
       menuId: guestHomeLeft.id,
       label: 'Testshoot',
-      href: '/portal/guest?p=testshoot',
+      href: '/gasten/testshoot',
       sortOrder: 60,
       requiresPremium: false,
       roleSlugs: [],

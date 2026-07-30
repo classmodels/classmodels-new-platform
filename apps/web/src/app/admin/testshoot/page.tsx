@@ -242,10 +242,13 @@ export default function AdminTestshootPage() {
         <h1 className="font-serif text-2xl font-semibold text-ink">Testshoot — backstage</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted">
           Upload backstage-foto’s per model-slot. Bezoekers zien ze op{' '}
-          <code className="rounded bg-zinc-200 px-1">/portal/guest?p=testshoot</code>. Eerste download vraagt
-          feedback; daarna mag de bezoeker opnieuw een zip-link aanvragen zolang er nog foto’s zijn. Na een
-          geslaagde bezoeker-download worden de bestanden van de site gehaald — gebruik{' '}
-          <strong>Zip downloaden (admin)</strong> vóór de bezoeker als je een kopie op kantoor wilt.
+          <a href="/gasten/testshoot" className="text-zinc-900 underline hover:text-zinc-700">
+            /gasten/testshoot
+          </a>
+          . Eerste download vraagt feedback; daarna mag de bezoeker opnieuw een zip-link aanvragen
+          zolang er nog foto’s zijn. Na een geslaagde bezoeker-download worden de bestanden van de
+          site gehaald — gebruik <strong>Zip downloaden (admin)</strong> vóór de bezoeker als je een
+          kopie op kantoor wilt.
         </p>
         <p className="mt-2 max-w-2xl text-sm text-muted">
           Ingevulde feedback staat onder{' '}

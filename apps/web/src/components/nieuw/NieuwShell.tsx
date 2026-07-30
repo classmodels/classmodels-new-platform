@@ -11,6 +11,7 @@ export type NieuwPortal = 'home' | 'gasten' | 'modellen' | 'klanten';
 const GASTEN_NAV = [
   { href: '/gasten/model-worden', label: 'Model worden' },
   { href: '/gasten/gratis-fotoshoot', label: 'Gratis fotoshoot' },
+  { href: '/gasten/testshoot', label: 'Testshoot-foto’s' },
   { href: '/gasten/casting', label: 'Casting' },
   { href: '/gasten/intake', label: 'Intake-gesprek' },
   { href: '/gasten/faq', label: 'FAQ' },
@@ -259,6 +260,8 @@ export function NieuwShell({
                 <Link href="/gasten/model-worden">Model worden</Link>
                 <br />
                 <Link href="/gasten/gratis-fotoshoot">Gratis fotoshoot</Link>
+                <br />
+                <Link href="/gasten/testshoot">Testshoot-foto’s</Link>
                 <br />
                 <Link href="/gasten/casting">Casting</Link>
                 <br />
