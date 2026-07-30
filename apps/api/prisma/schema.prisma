@@ -328,12 +328,15 @@ model TestshootPhoto {
 }
 
 model TestshootFeedback {
-  id        String         @id @default(uuid())
-  modelId   String
-  model     TestshootModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  id        String          @id @default(uuid())
+  modelId   String?
+  model     TestshootModel? @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  /// Snapshot van de slotnaam (blijft staan als het slot/foto’s weg zijn).
+  modelName String?
   payload   Json
   ip        String?
-  createdAt DateTime       @default(now())
+  archived  Boolean         @default(false)
+  createdAt DateTime        @default(now())
 }
 
 model Review {

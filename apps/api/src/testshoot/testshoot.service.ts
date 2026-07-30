@@ -23,6 +23,25 @@ const ZIP_SIG_SECONDS = 900;
 const OFFLINE_FOLDER_SLUG = 'testshoot-offline';
 const OFFLINE_FOLDER_LABEL = 'Testshoot — offline (door model gedownload)';
 
+/** Vaste volgorde zoals op het formulier (print, mail, popup). */
+const FEEDBACK_FIELD_ORDER = [
+  'naam',
+  'voornaam',
+  'email',
+  'gsm',
+  'ervaring',
+  'tevredenheid_fotos',
+  'ingeschreven',
+  'reden_nee_vrij',
+  'druk',
+  'ontvangst',
+  'info',
+  'toekomst_contact',
+  'opmerkingen',
+  'time',
+  'ip',
+] as const;
+
 const FEEDBACK_LABELS: Record<string, string> = {
   naam: 'Naam',
   voornaam: 'Voornaam',
@@ -164,7 +183,7 @@ export class TestshootService {
 
     await this.prisma.$transaction([
       this.prisma.testshootFeedback.create({
-        data: { modelId, payload, ip: ip ?? null },
+        data: { modelId, modelName: model.name, payload, ip: ip ?? null },
       }),
       this.prisma.testshootModel.update({
         where: { id: modelId },
@@ -365,9 +384,16 @@ export class TestshootService {
     return { restored: assetIds.length };
   }
 
+  /** Handmatig offline zetten vanuit de backsite (zelfde map als na model-download). */
+  async adminSetPhotosOffline(modelId: string) {
+    const model = await this.prisma.testshootModel.findFirst({ where: { id: modelId } });
+    if (!model) throw new NotFoundException();
+    return this.hidePublicPhotosAfterGuestDownload(modelId);
+  }
+
   async adminArchiveModel(modelId: string) {
+    // Foto’s weg; feedback blijft altijd bewaard.
     await this.adminClearPhotos(modelId);
-    await this.prisma.testshootFeedback.deleteMany({ where: { modelId } });
     await this.prisma.testshootModel.update({
       where: { id: modelId },
       data: { archived: true, downloadUnlocked: false, unlockedAt: null },
@@ -385,6 +411,14 @@ export class TestshootService {
   async adminDeleteFeedback(feedbackId: string) {
     await this.prisma.testshootFeedback.delete({ where: { id: feedbackId } });
     return { ok: true };
+  }
+
+  async adminSetFeedbackArchived(feedbackId: string, archived: boolean) {
+    await this.prisma.testshootFeedback.update({
+      where: { id: feedbackId },
+      data: { archived },
+    });
+    return { ok: true, archived };
   }
 
   async adminModelDetail(modelId: string) {
@@ -459,7 +493,11 @@ export class TestshootService {
         deletedAssets += 1;
       }
 
-      await this.prisma.testshootFeedback.deleteMany({ where: { modelId: id } });
+      // Feedback blijft bewaard (modelId → null via SetNull); snapshot-naam vullen.
+      await this.prisma.testshootFeedback.updateMany({
+        where: { modelId: id },
+        data: { modelName: model.name },
+      });
       await this.prisma.testshootModel.delete({ where: { id } });
       deletedModels += 1;
     }
@@ -472,15 +510,27 @@ export class TestshootService {
       orderBy: { createdAt: 'desc' },
       include: { model: { select: { name: true, archived: true } } },
     });
-    return rows.map((r) => ({
-      id: r.id,
-      modelId: r.modelId,
-      modelName: r.model.name,
-      modelArchived: r.model.archived,
-      createdAt: r.createdAt.toISOString(),
-      ip: r.ip,
-      summary: this.feedbackSummaryLine(r.payload as Record<string, unknown>),
-    }));
+    return rows.map((r) => {
+      const payload = this.feedbackPayload(r.payload);
+      return {
+        id: r.id,
+        modelId: r.modelId,
+        modelName: r.model?.name ?? r.modelName ?? '—',
+        modelArchived: r.model?.archived ?? false,
+        modelMissing: !r.modelId || !r.model,
+        createdAt: r.createdAt.toISOString(),
+        ip: r.ip,
+        archived: r.archived,
+        summary: this.feedbackSummaryLine(payload),
+        rows: this.feedbackOrderedRows(payload),
+      };
+    });
+  }
+
+  private feedbackPayload(raw: unknown): Record<string, unknown> {
+    return raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
   }
 
   private feedbackSummaryLine(payload: Record<string, unknown>): string {
@@ -489,6 +539,23 @@ export class TestshootService {
     const email = String(payload.email ?? '').trim();
     const base = [voornaam, naam].filter(Boolean).join(' ') || '—';
     return email ? `${base} · ${email}` : base;
+  }
+
+  /** Antwoorden in formulier-volgorde (niet alfabetisch). */
+  private feedbackOrderedRows(payload: Record<string, unknown>): { label: string; value: string }[] {
+    const used = new Set<string>();
+    const rows: { label: string; value: string }[] = [];
+    for (const key of FEEDBACK_FIELD_ORDER) {
+      used.add(key);
+      if (payload[key] == null || String(payload[key]).trim() === '') continue;
+      rows.push({ label: FEEDBACK_LABELS[key] ?? key, value: String(payload[key]) });
+    }
+    for (const key of Object.keys(payload).sort()) {
+      if (used.has(key)) continue;
+      if (payload[key] == null || String(payload[key]).trim() === '') continue;
+      rows.push({ label: FEEDBACK_LABELS[key] ?? key, value: String(payload[key]) });
+    }
+    return rows;
   }
 
   async buildFeedbackDocumentsHtml(ids: string[]): Promise<string> {
@@ -505,7 +572,9 @@ export class TestshootService {
     const order = unique.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
     if (order.length === 0) throw new BadRequestException('Geen geldige feedback gevonden.');
 
-    const pages = order.map((r) => this.feedbackA4Section(r, r.model.name));
+    const pages = order.map((r) =>
+      this.feedbackA4Section(r, r.model?.name ?? r.modelName ?? '—'),
+    );
     return `<!DOCTYPE html>
 <html lang="nl"><head><meta charset="utf-8"/>
 <title>Testshoot documenten</title>
@@ -513,8 +582,8 @@ export class TestshootService {
 @page { size: A4; margin: 14mm; }
 html, body { margin: 0; padding: 0; background: #fff; color: #111; }
 body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; line-height: 1.35; }
-.doc-page { page-break-after: always; padding: 0 2mm; min-height: 250mm; box-sizing: border-box; }
-.doc-page:last-child { page-break-after: auto; }
+.doc-page { page-break-after: always; break-after: page; padding: 0 2mm; min-height: 250mm; box-sizing: border-box; }
+.doc-page:last-child { page-break-after: auto; break-after: auto; }
 h1 { font-size: 14pt; margin: 0 0 10pt; color: #6f121b; font-family: system-ui, sans-serif; }
 .meta { font-size: 9pt; color: #555; margin-bottom: 12pt; font-family: system-ui, sans-serif; }
 table { width: 100%; border-collapse: collapse; font-family: system-ui, sans-serif; font-size: 10pt; }
@@ -531,16 +600,10 @@ ${pages.join('\n')}
     row: { id: string; createdAt: Date; ip: string | null; payload: unknown },
     modelName: string,
   ): string {
-    const payload =
-      row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
-        ? (row.payload as Record<string, unknown>)
-        : {};
-    const rowsHtml = Object.keys(payload)
-      .sort()
-      .map((key) => {
-        const label = FEEDBACK_LABELS[key] ?? key;
-        return `<tr><th>${this.esc(label)}</th><td>${this.esc(payload[key])}</td></tr>`;
-      })
+    const payload = this.feedbackPayload(row.payload);
+    const ordered = this.feedbackOrderedRows(payload);
+    const rowsHtml = ordered
+      .map((r) => `<tr><th>${this.esc(r.label)}</th><td>${this.esc(r.value)}</td></tr>`)
       .join('');
 
     const dateStr = row.createdAt.toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' });

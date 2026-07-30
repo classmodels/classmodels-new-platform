@@ -126,6 +126,12 @@ export class AdminTestshootController {
     return this.testshoot.adminRestorePublicPhotos(id);
   }
 
+  @Post('models/:id/set-offline')
+  @Permissions('admin.testshoot.write')
+  setOffline(@Param('id', ParseUUIDPipe) id: string) {
+    return this.testshoot.adminSetPhotosOffline(id);
+  }
+
   @Delete('models/:id')
   @Permissions('admin.testshoot.write')
   archive(@Param('id', ParseUUIDPipe) id: string) {
@@ -136,6 +142,15 @@ export class AdminTestshootController {
   @Permissions('admin.testshoot.read')
   feedbacks(@Param('id', ParseUUIDPipe) id: string) {
     return this.testshoot.adminListFeedback(id);
+  }
+
+  @Patch('feedbacks/:feedbackId/archive')
+  @Permissions('admin.testshoot.write')
+  archiveFeedback(
+    @Param('feedbackId', ParseUUIDPipe) feedbackId: string,
+    @Body() body: { archived?: boolean },
+  ) {
+    return this.testshoot.adminSetFeedbackArchived(feedbackId, body?.archived !== false);
   }
 
   @Delete('feedbacks/:feedbackId')

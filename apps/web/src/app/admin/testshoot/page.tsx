@@ -20,15 +20,19 @@ type ModelRow = {
 
 type DocRow = {
   id: string;
-  modelId: string;
+  modelId: string | null;
   modelName: string;
   modelArchived: boolean;
+  modelMissing?: boolean;
   createdAt: string;
   ip: string | null;
+  archived: boolean;
   summary: string;
+  rows: { label: string; value: string }[];
 };
 
 type ListFilter = 'all' | 'active' | 'archived';
+type DocFilter = 'active' | 'archived' | 'all';
 
 const btnPrimary = 'rounded-md bg-burgundy px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-burgundyDeep disabled:opacity-50';
 const btnOutline = 'rounded-md border-2 border-burgundy bg-white px-3 py-2 text-sm font-semibold text-burgundy hover:bg-burgundy/[0.06] disabled:opacity-50';
@@ -52,6 +56,8 @@ export default function AdminTestshootPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const [allDocs, setAllDocs] = useState<DocRow[]>([]);
+  const [docFilter, setDocFilter] = useState<DocFilter>('active');
+  const [viewDoc, setViewDoc] = useState<DocRow | null>(null);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [mailTo, setMailTo] = useState('');
   const [err, setErr] = useState<string | null>(null);
@@ -123,7 +129,13 @@ export default function AdminTestshootPage() {
     });
   };
 
-  const selectAllDocs = () => setSelectedDocIds(new Set(allDocs.map((d) => d.id)));
+  const filteredDocs = useMemo(() => {
+    if (docFilter === 'active') return allDocs.filter((d) => !d.archived);
+    if (docFilter === 'archived') return allDocs.filter((d) => d.archived);
+    return allDocs;
+  }, [allDocs, docFilter]);
+
+  const selectAllDocs = () => setSelectedDocIds(new Set(filteredDocs.map((d) => d.id)));
   const clearDocSelection = () => setSelectedDocIds(new Set());
 
   const doAction = async (fn: () => Promise<void>) => {
@@ -282,7 +294,7 @@ export default function AdminTestshootPage() {
                 const ids = [...selectedIds];
                 if (
                   !confirm(
-                    `Definitief ${ids.length} slot(s) verwijderen?\n\nAlle gekoppelde bestanden gaan uit de mediatheek.`,
+                    `Definitief ${ids.length} slot(s) verwijderen?\n\nFoto’s/bestanden weg. Feedbackdocumenten blijven bewaard.`,
                   )
                 )
                   return;
@@ -464,8 +476,7 @@ export default function AdminTestshootPage() {
                     OFFLINE — {selected.hiddenPhotoCount} foto’s
                   </p>
                   <p className="mt-1 text-xs text-amber-800">
-                    Het model heeft gedownload: foto’s staan niet meer op de site, maar nog wél op de
-                    server. Zet ze weer online, of verwijder ze definitief via dit slot.
+                    Foto’s staan niet op de site, wel op de server. Feedback blijft altijd bewaard.
                   </p>
                   {canWrite ? (
                     <button
@@ -489,12 +500,35 @@ export default function AdminTestshootPage() {
 
               {canWrite && !selected.archived && (
                 <div className="mt-4 flex flex-wrap gap-2">
+                  {selected._count.photos > 0 ? (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className={btnOutline}
+                      onClick={() => {
+                        if (!confirm('Foto’s offline zetten (van de site, niet van de server)?')) return;
+                        void doAction(async () => {
+                          await apiFetch(`/admin/testshoot/models/${selected.id}/set-offline`, {
+                            method: 'POST',
+                            token,
+                          });
+                        });
+                      }}
+                    >
+                      Offline zetten
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={busy}
                     className={btnOutline}
                     onClick={() => {
-                      if (!confirm('Alle foto’s van dit slot verwijderen?')) return;
+                      if (
+                        !confirm(
+                          'Alle foto’s van dit slot definitief van de server verwijderen?\n\nFeedbackdocumenten blijven bewaard.',
+                        )
+                      )
+                        return;
                       void doAction(async () => {
                         await apiFetch(`/admin/testshoot/models/${selected.id}/photos`, {
                           method: 'DELETE',
@@ -510,7 +544,12 @@ export default function AdminTestshootPage() {
                     disabled={busy}
                     className={btnDangerSolid}
                     onClick={() => {
-                      if (!confirm('Dit slot archiveren (foto’s + feedback wissen)?')) return;
+                      if (
+                        !confirm(
+                          'Dit slot archiveren?\n\nFoto’s worden gewist. Feedbackdocumenten blijven bewaard.',
+                        )
+                      )
+                        return;
                       void doAction(async () => {
                         await apiFetch(`/admin/testshoot/models/${selected.id}`, {
                           method: 'DELETE',
@@ -578,7 +617,8 @@ export default function AdminTestshootPage() {
               {canWrite && selected.archived && (
                 <div className="mt-4 border-t border-zinc-100 pt-4">
                   <p className="text-xs text-muted">
-                    Dit slot is gearchiveerd. Definitief verwijderen haalt de rij weg (mediatheek al leeg na archiveren).
+                    Dit slot is gearchiveerd. Definitief verwijderen haalt de rij weg; foto’s verdwijnen
+                    van de server. Feedbackdocumenten blijven bewaard.
                   </p>
                   <button
                     type="button"
@@ -587,7 +627,7 @@ export default function AdminTestshootPage() {
                     onClick={() => {
                       if (
                         !confirm(
-                          `“${selected.name}” definitief verwijderen?\n\nDe rij verdwijnt uit deze lijst; resterende mediakoppelingen worden verwijderd.`,
+                          `“${selected.name}” definitief verwijderen?\n\nFoto’s/bestanden weg. Feedbackdocumenten blijven bewaard.`,
                         )
                       )
                         return;
@@ -617,8 +657,8 @@ export default function AdminTestshootPage() {
       <div className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="font-serif text-lg font-semibold text-ink">Documenten — gratis fotoshoot / testshoot</h2>
         <p className="mt-1 text-xs text-muted">
-          Map in mediatheek: <strong>Gratis fotoshoot → Documenten (testshoot-feedback)</strong>. Hieronder alle
-          ingevulde formulieren; selecteer rijen voor A4-print of mail via de server (SMTP zoals agenda).
+          Ingevulde formulieren blijven altijd bewaard, ook als foto’s of het slot weg zijn. Afdrukken
+          en mailen zetten elk document op een aparte A4, in de volgorde van het formulier.
         </p>
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
@@ -646,7 +686,7 @@ export default function AdminTestshootPage() {
               Mailen (selectie)
             </button>
           )}
-          <button type="button" disabled={busy || allDocs.length === 0} className={btnNeutral} onClick={selectAllDocs}>
+          <button type="button" disabled={busy || filteredDocs.length === 0} className={btnNeutral} onClick={selectAllDocs}>
             Alle documenten selecteren
           </button>
           <button type="button" disabled={busy} className={btnNeutral} onClick={clearDocSelection}>
@@ -654,8 +694,27 @@ export default function AdminTestshootPage() {
           </button>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">Documenten:</span>
+          {(['active', 'archived', 'all'] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setDocFilter(f)}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                docFilter === f ? 'bg-burgundy text-white' : btnNeutral
+              }`}
+            >
+              {f === 'active' ? 'Actief' : f === 'archived' ? 'Gearchiveerd' : 'Alles'}
+            </button>
+          ))}
+          <span className="text-xs text-muted">
+            ({filteredDocs.length} zichtbaar · {allDocs.filter((d) => d.archived).length} gearchiveerd)
+          </span>
+        </div>
+
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+          <table className="w-full min-w-[720px] border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase text-muted">
                 {canWrite && (
@@ -665,21 +724,24 @@ export default function AdminTestshootPage() {
                 )}
                 <th className="p-2">Datum</th>
                 <th className="p-2">Model</th>
-                <th className="p-2">Samenvatting</th>
+                <th className="p-2">Ingevuld door</th>
                 <th className="p-2">IP</th>
-                {canWrite && <th className="p-2">Actie</th>}
+                <th className="p-2">Acties</th>
               </tr>
             </thead>
             <tbody>
-              {allDocs.length === 0 && (
+              {filteredDocs.length === 0 && (
                 <tr>
-                  <td colSpan={canWrite ? 6 : 4} className="p-4 text-muted">
-                    Nog geen ingevulde documenten.
+                  <td colSpan={canWrite ? 6 : 5} className="p-4 text-muted">
+                    {docFilter === 'archived' ? 'Geen gearchiveerde documenten.' : 'Nog geen ingevulde documenten.'}
                   </td>
                 </tr>
               )}
-              {allDocs.map((d) => (
-                <tr key={d.id} className="border-b border-zinc-100 hover:bg-zinc-50/60">
+              {filteredDocs.map((d) => (
+                <tr
+                  key={d.id}
+                  className={`border-b border-zinc-100 hover:bg-zinc-50/60 ${d.archived ? 'opacity-70' : ''}`}
+                >
                   {canWrite && (
                     <td className="p-2">
                       <input
@@ -696,38 +758,131 @@ export default function AdminTestshootPage() {
                   </td>
                   <td className="p-2">
                     {d.modelName}
-                    {d.modelArchived ? <span className="ml-1 text-xs text-muted">(gearchiveerd)</span> : null}
+                    {d.modelArchived ? <span className="ml-1 text-xs text-muted">(slot gearchiveerd)</span> : null}
+                    {d.modelMissing ? <span className="ml-1 text-xs text-muted">(slot weg)</span> : null}
                   </td>
-                  <td className="max-w-md p-2 text-xs">{d.summary}</td>
+                  <td className="max-w-md p-2 text-xs">
+                    {d.summary}
+                    {d.archived ? (
+                      <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-zinc-600">
+                        Gearchiveerd
+                      </span>
+                    ) : null}
+                  </td>
                   <td className="whitespace-nowrap p-2 text-xs text-muted">{d.ip ?? '—'}</td>
-                  {canWrite && (
-                    <td className="p-2">
+                  <td className="whitespace-nowrap p-2">
+                    <div className="flex flex-wrap items-center gap-3">
                       <button
                         type="button"
-                        className="text-xs font-semibold text-burgundy underline hover:text-burgundyDeep"
-                        disabled={busy}
-                        onClick={() => {
-                          if (!confirm('Dit document verwijderen?')) return;
-                          void doAction(async () => {
-                            await apiFetch(`/admin/testshoot/feedbacks/${d.id}`, { method: 'DELETE', token });
-                            setSelectedDocIds((prev) => {
-                              const n = new Set(prev);
-                              n.delete(d.id);
-                              return n;
-                            });
-                          });
-                        }}
+                        className="text-xs font-semibold text-zinc-700 underline hover:text-zinc-900"
+                        onClick={() => setViewDoc(d)}
                       >
-                        Verwijderen
+                        Bekijken
                       </button>
-                    </td>
-                  )}
+                      {canWrite && (
+                        <>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-zinc-700 underline hover:text-zinc-900"
+                            disabled={busy}
+                            onClick={() =>
+                              void doAction(async () => {
+                                await apiFetch(`/admin/testshoot/feedbacks/${d.id}/archive`, {
+                                  method: 'PATCH',
+                                  token,
+                                  body: JSON.stringify({ archived: !d.archived }),
+                                });
+                              })
+                            }
+                          >
+                            {d.archived ? 'Herstellen' : 'Archiveren'}
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-burgundy underline hover:text-burgundyDeep"
+                            disabled={busy}
+                            onClick={() => {
+                              if (!confirm('Dit document definitief verwijderen?')) return;
+                              void doAction(async () => {
+                                await apiFetch(`/admin/testshoot/feedbacks/${d.id}`, {
+                                  method: 'DELETE',
+                                  token,
+                                });
+                                setSelectedDocIds((prev) => {
+                                  const n = new Set(prev);
+                                  n.delete(d.id);
+                                  return n;
+                                });
+                              });
+                            }}
+                          >
+                            Verwijderen
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {viewDoc ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Feedbackdocument bekijken"
+          onClick={() => setViewDoc(null)}
+        >
+          <div
+            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 flex items-start justify-between gap-4 border-b border-zinc-200 bg-white px-5 py-4">
+              <div>
+                <h3 className="font-serif text-lg font-semibold text-ink">
+                  Feedback — {viewDoc.summary}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted">
+                  Model: {viewDoc.modelName} · {new Date(viewDoc.createdAt).toLocaleString('nl-BE')}
+                  {viewDoc.ip ? ` · IP: ${viewDoc.ip}` : ''}
+                  {viewDoc.archived ? ' · gearchiveerd' : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Sluiten"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-zinc-300 text-lg leading-none text-zinc-600 hover:bg-zinc-100"
+                onClick={() => setViewDoc(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              {viewDoc.rows.length > 0 ? (
+                <dl className="divide-y divide-zinc-100 rounded-md border border-zinc-200">
+                  {viewDoc.rows.map((r) => (
+                    <div key={r.label} className="grid grid-cols-[180px_minmax(0,1fr)] gap-3 px-3 py-2 text-sm">
+                      <dt className="text-xs font-medium text-muted">{r.label}</dt>
+                      <dd className="m-0 break-words text-ink">{r.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="text-sm text-muted">Geen antwoorden gevonden.</p>
+              )}
+            </div>
+            <div className="flex justify-end border-t border-zinc-200 px-5 py-3">
+              <button type="button" className={btnNeutral} onClick={() => setViewDoc(null)}>
+                Sluiten
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
