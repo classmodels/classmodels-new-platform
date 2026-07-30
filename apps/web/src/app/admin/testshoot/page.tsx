@@ -88,7 +88,11 @@ export default function AdminTestshootPage() {
   }, [token, canRead]);
 
   useEffect(() => {
-    void Promise.all([loadModels(), loadAllDocs()]).catch((e: unknown) => setErr(formatClientError(e, 'Laden mislukt')));
+    void loadModels().catch((e: unknown) => setErr(formatClientError(e, 'Laden mislukt')));
+    void loadAllDocs().catch((e: unknown) => {
+      setErr(formatClientError(e, 'Feedbackdocumenten laden mislukt'));
+      setAllDocs([]);
+    });
   }, [loadModels, loadAllDocs]);
 
   useEffect(() => {
