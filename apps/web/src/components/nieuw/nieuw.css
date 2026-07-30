@@ -2677,7 +2677,7 @@
 .nieuw-ts-modal {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 420;
   background: rgba(6, 6, 8, 0.82);
   display: grid;
   place-items: center;
@@ -2687,7 +2687,7 @@
 .nieuw-ts-modal {
   place-items: start center;
   padding: 40px 16px 48px;
-  z-index: 95;
+  z-index: 430;
 }
 .nieuw-ts-lightbox-img {
   max-width: min(920px, 94vw);
@@ -2698,9 +2698,9 @@
 }
 .nieuw-ts-close {
   position: fixed;
-  top: 18px;
+  top: 24px;
   right: 18px;
-  z-index: 100;
+  z-index: 440;
   width: 40px;
   height: 40px;
   border: 1px solid rgba(201, 169, 110, 0.35);

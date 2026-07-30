@@ -230,8 +230,12 @@ export function TestshootDownloadClient() {
       <h1 className="nieuw-h1" style={{ maxWidth: '16ch' }}>
         Jouw testshoot-<em>foto&apos;s</em>
       </h1>
-      <p className="nieuw-lead" style={{ maxWidth: '62ch' }}>
-        {TESTSHOOT_PAGE.intro}
+      <p className="nieuw-lead" style={{ maxWidth: '96ch' }}>
+        Hier vindt u de foto&apos;s van de testshoot. Deze beelden zijn gemaakt zonder make-up en met
+        eenvoudige verlichting. Ze hebben niets te maken met een portfolio-aanmaak. Een portfolio
+        wordt uitgewerkt met een topmodelfotograaf, styliste, make-upartieste, kapper en een
+        volledig andere lichtsetting. Deze foto&apos;s dienen enkel om de spontaniteit van het model
+        te beoordelen, te zien of iemand fotogeniek is en hoe het model beweegt voor de camera.
       </p>
 
       {loading ? (
