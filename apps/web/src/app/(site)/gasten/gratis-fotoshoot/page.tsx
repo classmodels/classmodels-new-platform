@@ -63,11 +63,7 @@ export default function GratisFotoshootPage() {
             </div>
             <div className="nieuw-stap">
               <p>
-                <strong>Ontvang foto&apos;s.</strong> Gratis — download ze later via{' '}
-                <a className="nieuw-link" href="/gasten/testshoot">
-                  Testshoot-foto&apos;s
-                </a>
-                .
+                <strong>Ontvang foto&apos;s.</strong> Gratis — daarna beslist u zelf.
               </p>
             </div>
           </div>

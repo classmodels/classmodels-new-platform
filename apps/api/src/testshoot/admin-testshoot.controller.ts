@@ -120,12 +120,6 @@ export class AdminTestshootController {
     return this.testshoot.adminClearPhotos(id);
   }
 
-  @Post('models/:id/restore-public')
-  @Permissions('admin.testshoot.write')
-  restorePublic(@Param('id', ParseUUIDPipe) id: string) {
-    return this.testshoot.adminRestorePublicPhotos(id);
-  }
-
   @Delete('models/:id')
   @Permissions('admin.testshoot.write')
   archive(@Param('id', ParseUUIDPipe) id: string) {
@@ -136,15 +130,6 @@ export class AdminTestshootController {
   @Permissions('admin.testshoot.read')
   feedbacks(@Param('id', ParseUUIDPipe) id: string) {
     return this.testshoot.adminListFeedback(id);
-  }
-
-  @Patch('feedbacks/:feedbackId/archive')
-  @Permissions('admin.testshoot.write')
-  archiveFeedback(
-    @Param('feedbackId', ParseUUIDPipe) feedbackId: string,
-    @Body() body: { archived?: boolean },
-  ) {
-    return this.testshoot.adminSetFeedbackArchived(feedbackId, body?.archived !== false);
   }
 
   @Delete('feedbacks/:feedbackId')

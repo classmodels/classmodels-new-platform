@@ -25,26 +25,13 @@ const nextConfig: NextConfig = {
   },
   /**
    * Oude URLs blijven werken:
-   * - /nieuw-pagina’s → root (geen catch-all: anders breken /nieuw/*.jpg|png assets)
+   * - /nieuw… → root (na drop van /nieuw-prefix)
    * - klassieke portal/lobby → huidige site
    */
   async redirects() {
     return [
       { source: '/nieuw', destination: '/', permanent: false },
-      { source: '/nieuw/modellen', destination: '/modellen', permanent: false },
-      { source: '/nieuw/modellen/:path*', destination: '/modellen/:path*', permanent: false },
-      { source: '/nieuw/klanten', destination: '/klanten', permanent: false },
-      { source: '/nieuw/klanten/:path*', destination: '/klanten/:path*', permanent: false },
-      { source: '/nieuw/gasten', destination: '/gasten', permanent: false },
-      { source: '/nieuw/gasten/:path*', destination: '/gasten/:path*', permanent: false },
-      { source: '/nieuw/inloggen', destination: '/inloggen', permanent: false },
-      { source: '/nieuw/reviews', destination: '/reviews', permanent: false },
-      {
-        source: '/portal/guest',
-        has: [{ type: 'query', key: 'p', value: 'testshoot' }],
-        destination: '/gasten/testshoot',
-        permanent: false,
-      },
+      { source: '/nieuw/:path*', destination: '/:path*', permanent: false },
       { source: '/lobby', destination: '/inloggen', permanent: false },
       { source: '/lobby/:path*', destination: '/inloggen', permanent: false },
       { source: '/home', destination: '/', permanent: false },
