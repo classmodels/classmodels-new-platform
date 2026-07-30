@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { downloadProgressSublabel, downloadWithProgress, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 import { getApiBase, parseApiErrorBody, publicMediaUrl } from '@/lib/api';
 import { TESTSHOOT_PAGE } from '@/components/guest-portal/guest-portal-data';
 
@@ -102,6 +104,7 @@ export function TestshootDownloadClient() {
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressUpdate | null>(null);
 
   const load = useCallback(async () => {
     setLoadErr(null);
@@ -145,19 +148,23 @@ export function TestshootDownloadClient() {
     setErr(null);
   };
 
-  const startZip = (modelId: string, exp: number, sig: string) => {
+  const startZip = async (modelId: string, modelName: string, exp: number, sig: string) => {
     const url = `${getApiBase()}/guest/testshoot/models/${modelId}/zip?e=${exp}&s=${encodeURIComponent(sig)}`;
-    const a = document.createElement('a');
-    a.href = url;
-    a.rel = 'noopener';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setOkMsg('Download gestart. Na een geslaagde download verdwijnen de foto’s van deze pagina.');
-    window.setTimeout(() => {
-      void load();
-    }, 3500);
+    const safeName = modelName.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot';
+    setDownloadProgress({
+      percent: null,
+      loaded: 0,
+      total: null,
+      indeterminate: true,
+      phase: 'connecting',
+    });
+    await downloadWithProgress(url, {
+      fallbackName: `${safeName}-fotos.zip`,
+      onProgress: setDownloadProgress,
+    });
+    setOkMsg('De foto’s werden volledig gedownload en verdwijnen nu van deze pagina.');
+    await load();
+    window.setTimeout(() => setDownloadProgress(null), 500);
   };
 
   const requestDownload = async (model: ModelSlot) => {
@@ -181,10 +188,11 @@ export function TestshootDownloadClient() {
       }
       if (!res.ok) throw new Error(parseApiErrorBody(text) || 'Download mislukt.');
       const { exp, sig } = JSON.parse(text) as { exp: number; sig: string };
-      startZip(model.id, exp, sig);
+      await startZip(model.id, model.name, exp, sig);
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Download mislukt.');
     } finally {
+      setDownloadProgress(null);
       setBusyId(null);
     }
   };
@@ -214,10 +222,11 @@ export function TestshootDownloadClient() {
       const { exp, sig } = JSON.parse(text) as { exp: number; sig: string };
       setFormModelId(null);
       setForm(EMPTY_FORM);
-      startZip(formModelId, exp, sig);
+      await startZip(formModelId, formModel?.name ?? 'testshoot', exp, sig);
     } catch (ex) {
       setErr(ex instanceof Error ? ex.message : 'Feedback opslaan mislukt.');
     } finally {
+      setDownloadProgress(null);
       setBusyId(null);
     }
   };
@@ -226,6 +235,14 @@ export function TestshootDownloadClient() {
 
   return (
     <div>
+      {downloadProgress ? (
+        <CmProgressOverlay
+          label="De foto’s worden gedownload"
+          sublabel={`Dit kan even duren. ${downloadProgressSublabel(downloadProgress)}`}
+          percent={downloadProgress.percent ?? undefined}
+          indeterminate={downloadProgress.indeterminate}
+        />
+      ) : null}
       <span className="nieuw-label">{TESTSHOOT_PAGE.kicker}</span>
       <h1 className="nieuw-h1" style={{ maxWidth: '16ch' }}>
         Jouw testshoot-<em>foto&apos;s</em>
