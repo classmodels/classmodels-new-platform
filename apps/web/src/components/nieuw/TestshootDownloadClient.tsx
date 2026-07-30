@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { MobileGuestAppShell } from '@/components/MobileGuestAppShell';
 import { useAuth } from '@/context/auth-context';
 import { downloadProgressSublabel, downloadWithProgress, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 import { getApiBase, parseApiErrorBody, publicMediaUrl } from '@/lib/api';
 import { TESTSHOOT_PAGE } from '@/components/guest-portal/guest-portal-data';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 type Photo = { id: string; thumbFile: string; fullFile: string };
 type ModelSlot = {
@@ -97,6 +99,7 @@ function RadioGroup({
 
 export function TestshootDownloadClient() {
   const { token, hasBackofficeAccess, can } = useAuth();
+  const isMobile = useIsMobile() === true;
   const [models, setModels] = useState<ModelSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -255,7 +258,7 @@ export function TestshootDownloadClient() {
 
   const formModel = models.find((m) => m.id === formModelId);
 
-  return (
+  const content = (
     <div>
       {downloadProgress ? (
         <CmProgressOverlay
@@ -567,4 +570,14 @@ export function TestshootDownloadClient() {
       ) : null}
     </div>
   );
+
+  if (isMobile) {
+    return (
+      <MobileGuestAppShell title="Gastenportaal" subtitle="Testshoot-foto’s downloaden">
+        <div style={{ paddingTop: 18 }}>{content}</div>
+      </MobileGuestAppShell>
+    );
+  }
+
+  return content;
 }
