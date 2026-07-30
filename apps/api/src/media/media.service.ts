@@ -625,6 +625,26 @@ export class MediaService implements OnModuleInit {
     return s;
   }
 
+  private isImageFileExt(ext: string): boolean {
+    return /^(jpe?g|png|webp|gif|heic|heif|tif{1,2})$/i.test(ext);
+  }
+
+  /**
+   * Weergave-/downloadnaam: altijd `{model}-class-models[-…].{ext}`.
+   * (storageKey blijft UUID — enkel originalName / zip-entry.)
+   */
+  brandedPhotoFileName(
+    modelLabel: string,
+    originalName: string | null | undefined,
+    index = 0,
+  ): string {
+    const label = this.slugLabel(modelLabel) || 'model';
+    const extRaw = (extname(originalName || '') || '.jpg').toLowerCase().replace(/^\./, '');
+    const ext = this.isImageFileExt(extRaw) ? extRaw.toLowerCase() : 'jpg';
+    const n = String(Math.max(0, index) + 1).padStart(2, '0');
+    return `${label}-class-models-${n}.${ext}`.replace(/-+/g, '-').slice(0, 190);
+  }
+
   private buildDisplayOriginalName(
     file: Express.Multer.File,
     folder: { slug: string } | null | undefined,
@@ -634,15 +654,17 @@ export class MediaService implements OnModuleInit {
     const baseRaw = basename(file.originalname, extname(file.originalname)) || 'bestand';
     const base = this.slugLabel(baseRaw).replace(/-/g, '_') || 'bestand';
     const label = this.slugLabel(opts?.fileLabel);
+    const brandedFolders = new Set(['models', 'testshoot', 'testshoot-offline', 'portfolio-fotograaf']);
 
-    // SEO weergavenaam voor modelportfolio: {model-slug}-class-models.{ext}
-    // (storageKey blijft UUID — alleen originalName / downloadnaam.)
-    if (folder?.slug === 'models' && label) {
+    // Foto’s: altijd model-/labelnaam + class-models in de weergavenaam.
+    if (this.isImageFileExt(ext) && (label || brandedFolders.has(folder?.slug ?? ''))) {
+      const modelPart = label || this.slugLabel(folder?.slug) || 'model';
       const shortbase = this.slugLabel(baseRaw).slice(0, 20);
+      const uniq = randomUUID().slice(0, 6);
       const name =
-        shortbase && shortbase !== label
-          ? `${label}-class-models-${shortbase}.${ext}`
-          : `${label}-class-models.${ext}`;
+        shortbase && shortbase !== modelPart
+          ? `${modelPart}-class-models-${shortbase}-${uniq}.${ext}`
+          : `${modelPart}-class-models-${uniq}.${ext}`;
       return name.replace(/-+/g, '-').slice(0, 190);
     }
 
@@ -1573,8 +1595,8 @@ export class MediaService implements OnModuleInit {
     });
     const parts = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
     const base = parts || u?.email?.split('@')[0] || 'portfolio';
-    const safe = base.replace(/[^\w\s-]/g, '').trim().slice(0, 50) || 'portfolio';
-    const filename = `${safe}-portfolio.zip`;
+    const safe = this.slugLabel(base) || 'portfolio';
+    const filename = `${safe}-class-models-portfolio.zip`;
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
 
@@ -1589,13 +1611,23 @@ export class MediaService implements OnModuleInit {
 
     const ids: string[] = [];
     let filesInZip = 0;
+    const usedNames = new Set<string>();
     await new Promise<void>((resolve, reject) => {
       archive.on('error', reject);
       archive.on('end', () => resolve());
       archive.pipe(res);
       for (const a of onDisk) {
         const full = join(root, a.storageKey);
-        archive.append(createReadStream(full), { name: a.originalName || basename(a.storageKey) });
+        let name = this.brandedPhotoFileName(base, a.originalName || a.storageKey, filesInZip);
+        if (usedNames.has(name)) {
+          const ext = extname(name) || '.jpg';
+          const stem = name.slice(0, -ext.length);
+          let n = 2;
+          while (usedNames.has(`${stem}-${n}${ext}`)) n += 1;
+          name = `${stem}-${n}${ext}`;
+        }
+        usedNames.add(name);
+        archive.append(createReadStream(full), { name });
         ids.push(a.id);
         filesInZip += 1;
       }

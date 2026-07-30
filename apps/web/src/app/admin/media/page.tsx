@@ -967,9 +967,9 @@ export default function AdminMediaPage() {
   const folderHint = useMemo(() => {
     const f = lib.find((x) => x.id === selectedFolderId);
     if (!f) return '';
-    if (f.slug === 'models') return 'Weergavenaam: class-models-[naam]-bestand.ext';
+    if (f.slug === 'models') return 'Weergavenaam: [modelnaam]-class-models-….ext';
     if (f.slug === 'testshoot')
-      return 'Testshoot: map “alleen WebP” wordt hier genegeerd — zip gebruikt het primaire bestand. Bezoeker-zip wist daarna de foto’s; gebruik “Primair → JPEG” om schijf te verkleinen.';
+      return 'Weergavenaam: [modelnaam]-class-models-….ext — zip-download gebruikt dezelfde branding. Bezoeker-zip zet foto’s offline; “Primair → JPEG” verkleint schijfgebruik.';
     return `Prefix afgeleid van map “${f.slug}”.`;
   }, [lib, selectedFolderId]);
 

@@ -6,7 +6,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { basename, join } from 'node:path';
+import { extname, join } from 'node:path';
 import type { Readable } from 'node:stream';
 import type { Response } from 'express';
 import archiver from 'archiver';
@@ -216,8 +216,15 @@ export class TestshootService {
     });
     if (!model || model.photos.length === 0) throw new NotFoundException();
 
-    const safeName = model.name.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot';
-    const filename = `${safeName}-fotos.zip`;
+    const safeName =
+      model.name
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60) || 'testshoot';
+    const filename = `${safeName}-class-models-fotos.zip`;
 
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
@@ -232,14 +239,22 @@ export class TestshootService {
     });
 
     const zipEntries: { stream: Readable; name: string }[] = [];
+    const usedNames = new Set<string>();
+    let photoIndex = 0;
     for (const p of model.photos) {
       const key = p.asset.storageKey;
       try {
         const stream = (await this.media.openAssetReadStream(key)) as Readable;
-        zipEntries.push({
-          stream,
-          name: p.asset.originalName || basename(key),
-        });
+        let name = this.media.brandedPhotoFileName(model.name, p.asset.originalName || key, photoIndex++);
+        if (usedNames.has(name)) {
+          const ext = extname(name) || '.jpg';
+          const stem = name.slice(0, -ext.length);
+          let n = 2;
+          while (usedNames.has(`${stem}-${n}${ext}`)) n += 1;
+          name = `${stem}-${n}${ext}`;
+        }
+        usedNames.add(name);
+        zipEntries.push({ stream, name });
       } catch {
         /** ontbreekt in R2/schijf */
       }
