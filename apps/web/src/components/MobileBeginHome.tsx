@@ -723,15 +723,19 @@ type ModelMode = 'login' | 'forgot' | 'register';
 
 function ModelView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next');
   const { login, register: registerUser, user, loading } = useAuth();
   const [mode, setMode] = useState<ModelMode>('login');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  /** Al ingelogd? Dan niet opnieuw inloggen maar rechtstreeks naar het portaal. */
+  /** Al ingelogd? Doorsturen op rol (admin → backsite, model → portaal). */
   useEffect(() => {
-    if (!loading && user) router.replace('/modellen');
-  }, [loading, user, router]);
+    if (!loading && user) {
+      applyPostLoginRedirect(user, router, { next });
+    }
+  }, [loading, user, router, next]);
 
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
@@ -755,7 +759,7 @@ function ModelView() {
     setBusy(true);
     try {
       const u = await login(email.trim(), pass, { rememberMe });
-      applyPostLoginRedirect(u, router, {});
+      applyPostLoginRedirect(u, router, { next });
     } catch (er) {
       setErr(parseApiError(er, 'Inloggen is niet gelukt. Controleer uw gegevens.'));
     } finally {

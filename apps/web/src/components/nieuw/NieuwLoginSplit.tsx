@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { useAuth } from '@/context/auth-context';
+import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 
 type Side = 'model' | 'client';
 
@@ -20,9 +21,16 @@ function parseApiError(err: unknown, fallback: string): string {
   return fallback;
 }
 
+function hasBackoffice(u: { permissions?: string[] }) {
+  const p = u.permissions ?? [];
+  return p.includes('*') || p.some((x) => x.startsWith('admin.'));
+}
+
 export function NieuwLoginSplit() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next');
 
   const [modelId, setModelId] = useState('');
   const [modelPass, setModelPass] = useState('');
@@ -43,11 +51,15 @@ export function NieuwLoginSplit() {
       setModelBusy(true);
       try {
         const u = await login(modelId.trim(), modelPass, { rememberMe: modelRemember });
-        if (u.roles.includes('client') && !u.roles.includes('model')) {
+        if (
+          u.roles.includes('client') &&
+          !u.roles.includes('model') &&
+          !hasBackoffice(u)
+        ) {
           setModelErr('Dit is een klantenaccount. Gebruik het formulier rechts.');
           return;
         }
-        router.replace('/modellen');
+        applyPostLoginRedirect(u, router, { next });
       } catch (err) {
         setModelErr(parseApiError(err, 'Inloggen als model mislukt.'));
       } finally {
@@ -60,11 +72,15 @@ export function NieuwLoginSplit() {
     setClientBusy(true);
     try {
       const u = await login(clientEmail.trim(), clientPass, { rememberMe: clientRemember });
-      if (u.roles.includes('model') && !u.roles.includes('client')) {
+      if (
+        u.roles.includes('model') &&
+        !u.roles.includes('client') &&
+        !hasBackoffice(u)
+      ) {
         setClientErr('Dit is een modellenaccount. Gebruik het formulier links.');
         return;
       }
-      router.replace('/klanten');
+      applyPostLoginRedirect(u, router, { next });
     } catch (err) {
       setClientErr(parseApiError(err, 'Inloggen als klant mislukt.'));
     } finally {

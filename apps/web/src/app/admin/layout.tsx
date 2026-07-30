@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
@@ -8,19 +9,58 @@ import { AdminSidebarNav } from '@/app/admin/AdminSidebarNav';
 import { MobileAppBar } from '@/components/MobileAppBar';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
-  const { user, loading, canAccessAdminShell, can } = useAuth();
+  const { user, loading, canAccessAdminShell, can, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     if (loading) return;
-    if (!user || !canAccessAdminShell) {
-      const next = pathname ? `/?next=${encodeURIComponent(pathname)}` : '/';
+    // Ingelogd zonder backsite-rechten: blijf hier met uitleg (niet stil terug naar home).
+    if (user && !canAccessAdminShell) return;
+    if (!user) {
+      const next = pathname ? `/?m=model&next=${encodeURIComponent(pathname)}` : '/?m=model';
       router.replace(next);
     }
   }, [user, loading, canAccessAdminShell, router, pathname]);
 
-  if (loading || !user || !canAccessAdminShell) {
+  if (loading) {
+    return (
+      <div className="notranslate flex min-h-screen items-center justify-center bg-[#1e2329] text-sm text-zinc-300">
+        Laden…
+      </div>
+    );
+  }
+
+  if (user && !canAccessAdminShell) {
+    return (
+      <div className="notranslate flex min-h-screen flex-col items-center justify-center gap-4 bg-[#1e2329] px-6 text-center text-zinc-200">
+        <p className="text-sm font-semibold text-white">Geen toegang tot de backsite</p>
+        <p className="max-w-md text-sm text-zinc-400">
+          Je bent nu ingelogd als <span className="text-zinc-200">{user.email}</span>
+          {user.roles?.length ? ` (${user.roles.join(', ')})` : ''}. Dit account heeft geen
+          administratorrechten. Log eerst uit en log opnieuw in met je admin-account.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            className="rounded bg-white px-4 py-2 text-sm font-medium text-zinc-900"
+            onClick={() => {
+              logout();
+              const next = pathname ? `/?m=model&next=${encodeURIComponent(pathname)}` : '/?m=model';
+              router.replace(next);
+            }}
+          >
+            Uitloggen en als admin inloggen
+          </button>
+          <Link href="/" className="text-sm text-zinc-400 underline-offset-2 hover:underline">
+            Naar home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !canAccessAdminShell) {
     return (
       <div className="notranslate flex min-h-screen items-center justify-center bg-[#1e2329] text-sm text-zinc-300">
         Laden…

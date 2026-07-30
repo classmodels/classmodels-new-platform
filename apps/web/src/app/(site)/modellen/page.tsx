@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { NieuwModelsGallery } from '@/components/nieuw/NieuwModelsGallery';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
+import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { uploadWithProgress } from '@/lib/upload-with-progress';
 import {
   MODEL_PORTAL_TABS,
@@ -68,6 +69,8 @@ function ModuleUnavailable({ label }: { label: string }) {
 
 function LoginForm() {
   const { login } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -79,7 +82,8 @@ function LoginForm() {
     setBusy(true);
     try {
       // Altijd onthouden tot uitloggen (lange JWT).
-      await login(identifier.trim(), password, { rememberMe: true });
+      const u = await login(identifier.trim(), password, { rememberMe: true });
+      applyPostLoginRedirect(u, router, { next: searchParams.get('next') });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Inloggen mislukt.';
       if (/ongeldig|credentials|wachtwoord|unauthorized/i.test(msg)) {

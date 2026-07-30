@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { NieuwLoginSplit } from '@/components/nieuw/NieuwLoginSplit';
 
 export const metadata: Metadata = {
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 };
 
 export default function NieuwInloggenPage() {
-  return <NieuwLoginSplit />;
+  return (
+    <Suspense fallback={null}>
+      <NieuwLoginSplit />
+    </Suspense>
+  );
 }
