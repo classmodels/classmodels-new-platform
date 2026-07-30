@@ -19,6 +19,10 @@ import type { TestshootFeedbackDto } from './dto/testshoot-feedback.dto';
 
 const ZIP_SIG_SECONDS = 900;
 
+/** Map waar publieke foto’s naartoe gaan nadat het model ze downloadde (offline, niet prullenbak). */
+const OFFLINE_FOLDER_SLUG = 'testshoot-offline';
+const OFFLINE_FOLDER_NAME = 'Testshoot — offline (door model gedownload)';
+
 const FEEDBACK_LABELS: Record<string, string> = {
   naam: 'Naam',
   voornaam: 'Voornaam',
@@ -36,6 +40,26 @@ const FEEDBACK_LABELS: Record<string, string> = {
   time: 'Tijdstip formulier',
   ip: 'IP-adres',
 };
+
+/** Logische volgorde/groepering voor afdrukken, mailen en de bekijk-popup. */
+const FEEDBACK_SECTIONS: { title: string; keys: string[] }[] = [
+  { title: 'Gegevens model', keys: ['naam', 'voornaam', 'email', 'gsm'] },
+  {
+    title: 'Vragen',
+    keys: [
+      'ervaring',
+      'tevredenheid_fotos',
+      'ingeschreven',
+      'reden_nee_vrij',
+      'druk',
+      'ontvangst',
+      'info',
+      'toekomst_contact',
+    ],
+  },
+  { title: 'Opmerkingen', keys: ['opmerkingen'] },
+  { title: 'Registratie', keys: ['time', 'ip'] },
+];
 
 @Injectable()
 export class TestshootService {
@@ -91,7 +115,7 @@ export class TestshootService {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
         photos: {
-          where: { asset: { hardDeleted: false } },
+          where: { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           include: { asset: true },
         },
@@ -113,7 +137,7 @@ export class TestshootService {
     const model = await this.prisma.testshootModel.findFirst({
       where: { id: modelId, archived: false },
       include: {
-        photos: { where: { asset: { hardDeleted: false } } },
+        photos: { where: { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } } },
       },
     });
     if (!model) throw new NotFoundException();
@@ -128,7 +152,7 @@ export class TestshootService {
     const model = await this.prisma.testshootModel.findFirst({
       where: { id: modelId, archived: false },
       include: {
-        photos: { where: { asset: { hardDeleted: false } } },
+        photos: { where: { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } } },
       },
     });
     if (!model) throw new NotFoundException();
@@ -177,13 +201,15 @@ export class TestshootService {
   private async streamModelPhotoZipToResponse(
     modelId: string,
     res: Response,
-    opts: { requireActive: boolean },
+    opts: { requireActive: boolean; publicOnly: boolean },
   ) {
     const model = await this.prisma.testshootModel.findFirst({
       where: opts.requireActive ? { id: modelId, archived: false } : { id: modelId },
       include: {
         photos: {
-          where: { asset: { hardDeleted: false } },
+          where: opts.publicOnly
+            ? { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } }
+            : { asset: { hardDeleted: false } },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           include: { asset: true },
         },
@@ -232,30 +258,47 @@ export class TestshootService {
     return { filesInZip };
   }
 
-  /** Bezoeker: na geslaagde zip met minstens één bestand worden alle foto’s van het slot gewist (niet bij admin-zip). */
+  /** Bezoeker: na geslaagde zip verdwijnen de foto’s van de publieke site, maar blijven backstage herstelbaar. */
   async streamZipToResponse(modelId: string, exp: number, sig: string, res: Response) {
     if (!this.verifyZipDownload(modelId, exp, sig)) {
       throw new ForbiddenException('Ongeldige of verlopen downloadlink.');
     }
-    const { filesInZip } = await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: true });
+    const { filesInZip } = await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: true, publicOnly: true });
     if (filesInZip > 0) {
-      await this.adminClearPhotos(modelId);
+      await this.hidePublicPhotosAfterGuestDownload(modelId);
     }
   }
 
   /** Admin-backup: zelfde zip als bezoeker, zonder bestanden te wissen. */
   async adminStreamZipToResponse(modelId: string, res: Response) {
-    await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: false });
+    await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: false, publicOnly: false });
   }
 
   /** --- Admin --- */
 
   async adminList() {
-    return this.prisma.testshootModel.findMany({
+    const rows = await this.prisma.testshootModel.findMany({
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
-        _count: { select: { photos: true, feedbacks: true } },
+        _count: { select: { feedbacks: true, photos: true } },
+        photos: {
+          where: { asset: { hardDeleted: false } },
+          select: { asset: { select: { folder: { select: { slug: true } } } } },
+        },
       },
+    });
+    return rows.map((m) => {
+      const publicPhotoCount = m.photos.filter((p) => p.asset.folder?.slug === 'testshoot').length;
+      return {
+        id: m.id,
+        name: m.name,
+        sortOrder: m.sortOrder,
+        archived: m.archived,
+        downloadUnlocked: m.downloadUnlocked,
+        unlockedAt: m.unlockedAt,
+        _count: { feedbacks: m._count.feedbacks, photos: publicPhotoCount },
+        hiddenPhotoCount: m.photos.length - publicPhotoCount,
+      };
     });
   }
 
@@ -323,6 +366,25 @@ export class TestshootService {
     return { removed: photos.length };
   }
 
+  async adminRestorePublicPhotos(modelId: string) {
+    const model = await this.prisma.testshootModel.findFirst({
+      where: { id: modelId },
+      include: {
+        photos: {
+          where: { asset: { hardDeleted: false } },
+          select: { assetId: true, asset: { select: { folder: { select: { slug: true } } } } },
+        },
+      },
+    });
+    if (!model) throw new NotFoundException();
+    const assetIds = model.photos.filter((p) => p.asset.folder?.slug !== 'testshoot').map((p) => p.assetId);
+    if (assetIds.length === 0) return { restored: 0 };
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'testshoot' } });
+    if (!folder) throw new ServiceUnavailableException('Map testshoot niet gevonden.');
+    await this.media.moveAssetsToFolder(assetIds, folder.id);
+    return { restored: assetIds.length };
+  }
+
   async adminArchiveModel(modelId: string) {
     await this.adminClearPhotos(modelId);
     await this.prisma.testshootFeedback.deleteMany({ where: { modelId } });
@@ -352,12 +414,47 @@ export class TestshootService {
         photos: {
           where: { asset: { hardDeleted: false } },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-          include: { asset: true },
+          include: { asset: { include: { folder: true } } },
         },
       },
     });
     if (!model) throw new NotFoundException();
-    return model;
+    const publicPhotos = model.photos.filter((p) => p.asset.folder?.slug === 'testshoot');
+    const hiddenPhotos = model.photos.filter((p) => p.asset.folder?.slug !== 'testshoot');
+    return {
+      ...model,
+      photos: publicPhotos,
+      publicPhotoCount: publicPhotos.length,
+      hiddenPhotoCount: hiddenPhotos.length,
+      hiddenPhotos,
+    };
+  }
+
+  /**
+   * Map voor offline testshoot-foto’s (na model-download). Bewust GEEN prullenbak:
+   * de prullenbak kan geleegd worden, deze foto’s moeten backstage herstelbaar blijven
+   * tot het slot definitief verwijderd wordt.
+   */
+  private async ensureOfflineFolder() {
+    let folder = await this.prisma.mediaFolder.findUnique({ where: { slug: OFFLINE_FOLDER_SLUG } });
+    if (!folder) {
+      folder = await this.prisma.mediaFolder.create({
+        data: { slug: OFFLINE_FOLDER_SLUG, label: OFFLINE_FOLDER_NAME },
+      });
+    }
+    return folder;
+  }
+
+  private async hidePublicPhotosAfterGuestDownload(modelId: string) {
+    const photos = await this.prisma.testshootPhoto.findMany({
+      where: { modelId, asset: { hardDeleted: false, folder: { slug: 'testshoot' } } },
+      select: { assetId: true },
+    });
+    const assetIds = photos.map((p) => p.assetId);
+    if (!assetIds.length) return { hidden: 0 };
+    const offline = await this.ensureOfflineFolder();
+    await this.media.moveAssetsToFolder(assetIds, offline.id);
+    return { hidden: assetIds.length };
   }
 
   /**
@@ -396,15 +493,34 @@ export class TestshootService {
       orderBy: { createdAt: 'desc' },
       include: { model: { select: { name: true, archived: true } } },
     });
-    return rows.map((r) => ({
-      id: r.id,
-      modelId: r.modelId,
-      modelName: r.model.name,
-      modelArchived: r.model.archived,
-      createdAt: r.createdAt.toISOString(),
-      ip: r.ip,
-      summary: this.feedbackSummaryLine(r.payload as Record<string, unknown>),
-    }));
+    return rows.map((r) => {
+      const payload = this.feedbackPayload(r.payload);
+      return {
+        id: r.id,
+        modelId: r.modelId,
+        modelName: r.model.name,
+        modelArchived: r.model.archived,
+        createdAt: r.createdAt.toISOString(),
+        ip: r.ip,
+        archived: r.archived,
+        summary: this.feedbackSummaryLine(payload),
+        sections: this.feedbackSections(payload),
+      };
+    });
+  }
+
+  async adminSetFeedbackArchived(feedbackId: string, archived: boolean) {
+    await this.prisma.testshootFeedback.update({
+      where: { id: feedbackId },
+      data: { archived },
+    });
+    return { ok: true, archived };
+  }
+
+  private feedbackPayload(raw: unknown): Record<string, unknown> {
+    return raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
   }
 
   private feedbackSummaryLine(payload: Record<string, unknown>): string {
@@ -413,6 +529,39 @@ export class TestshootService {
     const email = String(payload.email ?? '').trim();
     const base = [voornaam, naam].filter(Boolean).join(' ') || '—';
     return email ? `${base} · ${email}` : base;
+  }
+
+  /** Antwoorden in vaste, logische volgorde per rubriek (voor print, mail en popup). */
+  private feedbackSections(
+    payload: Record<string, unknown>,
+  ): { title: string; rows: { label: string; value: string }[] }[] {
+    const used = new Set<string>();
+    const sections = FEEDBACK_SECTIONS.map((sec) => ({
+      title: sec.title,
+      rows: sec.keys
+        .filter((key) => {
+          used.add(key);
+          return payload[key] != null && String(payload[key]).trim() !== '';
+        })
+        .map((key) => ({
+          label: FEEDBACK_LABELS[key] ?? key,
+          value: String(payload[key]),
+        })),
+    })).filter((sec) => sec.rows.length > 0);
+
+    const extraKeys = Object.keys(payload).filter(
+      (key) => !used.has(key) && payload[key] != null && String(payload[key]).trim() !== '',
+    );
+    if (extraKeys.length > 0) {
+      sections.push({
+        title: 'Overig',
+        rows: extraKeys.sort().map((key) => ({
+          label: FEEDBACK_LABELS[key] ?? key,
+          value: String(payload[key]),
+        })),
+      });
+    }
+    return sections;
   }
 
   async buildFeedbackDocumentsHtml(ids: string[]): Promise<string> {
@@ -444,6 +593,7 @@ h1 { font-size: 14pt; margin: 0 0 10pt; color: #6f121b; font-family: system-ui, 
 table { width: 100%; border-collapse: collapse; font-family: system-ui, sans-serif; font-size: 10pt; }
 th, td { border: 1px solid #ccc; padding: 6pt 8pt; text-align: left; vertical-align: top; }
 th { width: 32%; background: #f7f2f3; color: #3d2a30; font-weight: 600; }
+tr.sec th { width: auto; background: #6f121b; color: #fff; font-size: 9pt; letter-spacing: 0.08em; text-transform: uppercase; }
 .path { font-size: 8pt; color: #777; margin-bottom: 8pt; font-family: system-ui, sans-serif; }
 </style></head><body>
 <p class="path">Class Models — Documenten / Gratis fotoshoot / Testshoot-feedback</p>
@@ -455,16 +605,16 @@ ${pages.join('\n')}
     row: { id: string; createdAt: Date; ip: string | null; payload: unknown },
     modelName: string,
   ): string {
-    const payload =
-      row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
-        ? (row.payload as Record<string, unknown>)
-        : {};
-    const rowsHtml = Object.keys(payload)
-      .sort()
-      .map((key) => {
-        const label = FEEDBACK_LABELS[key] ?? key;
-        return `<tr><th>${this.esc(label)}</th><td>${this.esc(payload[key])}</td></tr>`;
-      })
+    const payload = this.feedbackPayload(row.payload);
+    const sections = this.feedbackSections(payload);
+    const rowsHtml = sections
+      .map(
+        (sec) =>
+          `<tr class="sec"><th colspan="2">${this.esc(sec.title)}</th></tr>` +
+          sec.rows
+            .map((r) => `<tr><th>${this.esc(r.label)}</th><td>${this.esc(r.value)}</td></tr>`)
+            .join(''),
+      )
       .join('');
 
     const dateStr = row.createdAt.toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' });
