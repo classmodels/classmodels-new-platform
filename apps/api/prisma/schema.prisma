@@ -333,7 +333,6 @@ model TestshootFeedback {
   model     TestshootModel @relation(fields: [modelId], references: [id], onDelete: Cascade)
   payload   Json
   ip        String?
-  archived  Boolean        @default(false)
   createdAt DateTime       @default(now())
 }
 
