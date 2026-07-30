@@ -74,9 +74,9 @@ function RadioGroup({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="nieuw-radio-group" role="radiogroup" aria-label={name}>
+    <div className="nieuw-ts-radios" role="radiogroup" aria-label={name}>
       {options.map((opt) => (
-        <label key={opt} className="nieuw-radio">
+        <label key={opt} className="nieuw-ts-radio">
           <input
             type="radio"
             name={name}
@@ -101,6 +101,7 @@ export function TestshootDownloadClient() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoadErr(null);
@@ -122,6 +123,27 @@ export function TestshootDownloadClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!lightbox && !formModelId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setLightbox(null);
+      if (!busyId) {
+        setFormModelId(null);
+        setForm(EMPTY_FORM);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox, formModelId, busyId]);
+
+  const closeForm = () => {
+    if (busyId) return;
+    setFormModelId(null);
+    setForm(EMPTY_FORM);
+    setErr(null);
+  };
 
   const startZip = (modelId: string, exp: number, sig: string) => {
     const url = `${getApiBase()}/guest/testshoot/models/${modelId}/zip?e=${exp}&s=${encodeURIComponent(sig)}`;
@@ -222,7 +244,7 @@ export function TestshootDownloadClient() {
           {loadErr}
         </p>
       ) : null}
-      {err ? (
+      {err && !formModelId ? (
         <p className="nieuw-panel" style={{ marginTop: 24, borderColor: '#c45c5c', color: '#c45c5c' }}>
           {err}
         </p>
@@ -255,16 +277,20 @@ export function TestshootDownloadClient() {
             </div>
             <div className="nieuw-ts-thumbs">
               {model.photos.slice(0, 12).map((p) => (
-                <a
+                <button
                   key={p.id}
-                  href={publicMediaUrl(p.fullFile)}
-                  target="_blank"
-                  rel="noreferrer"
+                  type="button"
                   className="nieuw-ts-thumb"
+                  onClick={() =>
+                    setLightbox({
+                      src: publicMediaUrl(p.fullFile),
+                      alt: `${model.name} — foto`,
+                    })
+                  }
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={publicMediaUrl(p.thumbFile)} alt="" loading="lazy" />
-                </a>
+                </button>
               ))}
               {model.photos.length > 12 ? (
                 <div className="nieuw-ts-thumb nieuw-ts-more">+{model.photos.length - 12}</div>
@@ -287,60 +313,107 @@ export function TestshootDownloadClient() {
         ))}
       </div>
 
+      {lightbox ? (
+        <div
+          className="nieuw-ts-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Foto"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            type="button"
+            className="nieuw-ts-close"
+            aria-label="Sluiten"
+            onClick={() => setLightbox(null)}
+          >
+            ×
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox.src}
+            alt={lightbox.alt}
+            className="nieuw-ts-lightbox-img"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
+
       {formModelId && formModel ? (
-        <div className="nieuw-ts-modal" role="dialog" aria-modal="true" aria-labelledby="ts-feedback-title">
-          <form className="nieuw-panel nieuw-ts-form" onSubmit={onSubmitFeedback}>
-            <span className="nieuw-label">Feedback</span>
-            <h2 id="ts-feedback-title" className="nieuw-h3" style={{ marginTop: 6 }}>
+        <div
+          className="nieuw-ts-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ts-feedback-title"
+          onClick={closeForm}
+        >
+          <form
+            className="nieuw-ts-form"
+            onSubmit={onSubmitFeedback}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button type="button" className="nieuw-ts-close nieuw-ts-close-form" aria-label="Sluiten" onClick={closeForm}>
+              ×
+            </button>
+
+            <p className="nieuw-ts-kicker">Feedback</p>
+            <h2 id="ts-feedback-title" className="nieuw-ts-title">
               Voor u de foto&apos;s van <em>{formModel.name}</em> downloadt
             </h2>
-            <p className="nieuw-lead" style={{ fontSize: 15, marginTop: 8 }}>
-              Vul dit korte formulier in. Uw antwoorden worden bewaard in de backsite. Daarna start
-              de zip-download automatisch.
+            <p className="nieuw-ts-intro">
+              Vul dit korte formulier in. Daarna start de zip-download automatisch.
             </p>
 
-            <div className="nieuw-form-grid" style={{ marginTop: 22 }}>
-              <label className="nieuw-field">
-                <span>Naam *</span>
-                <input
-                  required
-                  value={form.naam}
-                  onChange={(e) => setForm((f) => ({ ...f, naam: e.target.value }))}
-                  autoComplete="family-name"
-                />
-              </label>
-              <label className="nieuw-field">
-                <span>Voornaam *</span>
-                <input
-                  required
-                  value={form.voornaam}
-                  onChange={(e) => setForm((f) => ({ ...f, voornaam: e.target.value }))}
-                  autoComplete="given-name"
-                />
-              </label>
-              <label className="nieuw-field">
-                <span>E-mailadres *</span>
-                <input
-                  required
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                  autoComplete="email"
-                />
-              </label>
-              <label className="nieuw-field">
-                <span>Telefoonnummer *</span>
-                <input
-                  required
-                  type="tel"
-                  value={form.gsm}
-                  onChange={(e) => setForm((f) => ({ ...f, gsm: e.target.value }))}
-                  autoComplete="tel"
-                />
-              </label>
+            {err ? <p className="nieuw-ts-error">{err}</p> : null}
 
-              <div className="nieuw-field nieuw-field-full">
-                <span>Hoe heeft u de testshoot ervaren? *</span>
+            <section className="nieuw-ts-section">
+              <h3 className="nieuw-ts-section-title">Uw gegevens</h3>
+              <div className="nieuw-ts-grid-fields">
+                <label className="nieuw-ts-field">
+                  <span>Naam *</span>
+                  <input
+                    required
+                    value={form.naam}
+                    onChange={(e) => setForm((f) => ({ ...f, naam: e.target.value }))}
+                    autoComplete="family-name"
+                  />
+                </label>
+                <label className="nieuw-ts-field">
+                  <span>Voornaam *</span>
+                  <input
+                    required
+                    value={form.voornaam}
+                    onChange={(e) => setForm((f) => ({ ...f, voornaam: e.target.value }))}
+                    autoComplete="given-name"
+                  />
+                </label>
+                <label className="nieuw-ts-field">
+                  <span>E-mailadres *</span>
+                  <input
+                    required
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    autoComplete="email"
+                  />
+                </label>
+                <label className="nieuw-ts-field">
+                  <span>Telefoonnummer *</span>
+                  <input
+                    required
+                    type="tel"
+                    value={form.gsm}
+                    onChange={(e) => setForm((f) => ({ ...f, gsm: e.target.value }))}
+                    autoComplete="tel"
+                  />
+                </label>
+              </div>
+            </section>
+
+            <section className="nieuw-ts-section">
+              <h3 className="nieuw-ts-section-title">Ervaring &amp; foto&apos;s</h3>
+              <div className="nieuw-ts-q">
+                <p className="nieuw-ts-q-label">Hoe heeft u de testshoot ervaren? *</p>
                 <RadioGroup
                   name="ervaring"
                   value={form.ervaring}
@@ -348,8 +421,8 @@ export function TestshootDownloadClient() {
                   onChange={(v) => setForm((f) => ({ ...f, ervaring: v }))}
                 />
               </div>
-              <div className="nieuw-field nieuw-field-full">
-                <span>Wat vond u van de ontvangen foto’s? *</span>
+              <div className="nieuw-ts-q">
+                <p className="nieuw-ts-q-label">Wat vond u van de ontvangen foto’s? *</p>
                 <RadioGroup
                   name="tevredenheid_fotos"
                   value={form.tevredenheid_fotos}
@@ -357,8 +430,12 @@ export function TestshootDownloadClient() {
                   onChange={(v) => setForm((f) => ({ ...f, tevredenheid_fotos: v }))}
                 />
               </div>
-              <div className="nieuw-field nieuw-field-full">
-                <span>Heeft u zich ingeschreven bij ons bureau? *</span>
+            </section>
+
+            <section className="nieuw-ts-section">
+              <h3 className="nieuw-ts-section-title">Inschrijving</h3>
+              <div className="nieuw-ts-q">
+                <p className="nieuw-ts-q-label">Heeft u zich ingeschreven bij ons bureau? *</p>
                 <RadioGroup
                   name="ingeschreven"
                   value={form.ingeschreven}
@@ -367,7 +444,7 @@ export function TestshootDownloadClient() {
                 />
               </div>
               {form.ingeschreven === 'Nee' ? (
-                <label className="nieuw-field nieuw-field-full">
+                <label className="nieuw-ts-field nieuw-ts-field-full">
                   <span>Indien nee, wat is hiervoor de reden? *</span>
                   <input
                     required
@@ -376,8 +453,8 @@ export function TestshootDownloadClient() {
                   />
                 </label>
               ) : null}
-              <div className="nieuw-field nieuw-field-full">
-                <span>Heeft u druk ervaren om zich in te schrijven? *</span>
+              <div className="nieuw-ts-q">
+                <p className="nieuw-ts-q-label">Heeft u druk ervaren om zich in te schrijven? *</p>
                 <RadioGroup
                   name="druk"
                   value={form.druk}
@@ -385,8 +462,12 @@ export function TestshootDownloadClient() {
                   onChange={(v) => setForm((f) => ({ ...f, druk: v }))}
                 />
               </div>
-              <div className="nieuw-field nieuw-field-full">
-                <span>Hoe bent u ontvangen bij ons? *</span>
+            </section>
+
+            <section className="nieuw-ts-section">
+              <h3 className="nieuw-ts-section-title">Ontvangst &amp; contact</h3>
+              <div className="nieuw-ts-q">
+                <p className="nieuw-ts-q-label">Hoe bent u ontvangen bij ons? *</p>
                 <RadioGroup
                   name="ontvangst"
                   value={form.ontvangst}
@@ -394,8 +475,8 @@ export function TestshootDownloadClient() {
                   onChange={(v) => setForm((f) => ({ ...f, ontvangst: v }))}
                 />
               </div>
-              <div className="nieuw-field nieuw-field-full">
-                <span>Heeft u voldoende en duidelijke informatie ontvangen? *</span>
+              <div className="nieuw-ts-q">
+                <p className="nieuw-ts-q-label">Heeft u voldoende en duidelijke informatie ontvangen? *</p>
                 <RadioGroup
                   name="info"
                   value={form.info}
@@ -403,8 +484,8 @@ export function TestshootDownloadClient() {
                   onChange={(v) => setForm((f) => ({ ...f, info: v }))}
                 />
               </div>
-              <div className="nieuw-field nieuw-field-full">
-                <span>Mogen wij u in de toekomst nog contacteren? *</span>
+              <div className="nieuw-ts-q">
+                <p className="nieuw-ts-q-label">Mogen wij u in de toekomst nog contacteren? *</p>
                 <RadioGroup
                   name="toekomst_contact"
                   value={form.toekomst_contact}
@@ -412,17 +493,21 @@ export function TestshootDownloadClient() {
                   onChange={(v) => setForm((f) => ({ ...f, toekomst_contact: v }))}
                 />
               </div>
-              <label className="nieuw-field nieuw-field-full">
+            </section>
+
+            <section className="nieuw-ts-section nieuw-ts-section-last">
+              <h3 className="nieuw-ts-section-title">Opmerkingen</h3>
+              <label className="nieuw-ts-field nieuw-ts-field-full">
                 <span>Opmerkingen / suggesties</span>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={form.opmerkingen}
                   onChange={(e) => setForm((f) => ({ ...f, opmerkingen: e.target.value }))}
                 />
               </label>
-            </div>
+            </section>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginTop: 24 }}>
+            <div className="nieuw-ts-actions">
               <button type="submit" className="nieuw-btn" disabled={busyId === formModelId}>
                 {busyId === formModelId ? 'Bezig…' : 'Versturen en foto’s downloaden'}
               </button>
@@ -430,11 +515,7 @@ export function TestshootDownloadClient() {
                 type="button"
                 className="nieuw-btn nieuw-btn-ghost"
                 disabled={busyId === formModelId}
-                onClick={() => {
-                  setFormModelId(null);
-                  setForm(EMPTY_FORM);
-                  setErr(null);
-                }}
+                onClick={closeForm}
               >
                 Annuleren
               </button>

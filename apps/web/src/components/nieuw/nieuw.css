@@ -2654,6 +2654,9 @@
   background: var(--n-bg);
   border: 1px solid var(--n-hair);
   display: block;
+  padding: 0;
+  cursor: zoom-in;
+  width: 100%;
 }
 .nieuw-ts-thumb img {
   width: 100%;
@@ -2667,39 +2670,223 @@
   color: var(--n-dim);
   font-size: 13px;
   font-weight: 700;
+  cursor: default;
 }
-.nieuw-radio-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  margin-top: 4px;
-}
-.nieuw-radio {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--n-ink);
-  cursor: pointer;
-}
-.nieuw-radio input {
-  accent-color: var(--n-gold);
-  width: auto;
-}
+
+.nieuw-ts-lightbox,
 .nieuw-ts-modal {
   position: fixed;
   inset: 0;
-  z-index: 80;
-  background: rgba(8, 8, 10, 0.72);
+  z-index: 90;
+  background: rgba(6, 6, 8, 0.82);
   display: grid;
-  place-items: start center;
-  padding: 48px 16px 32px;
+  place-items: center;
+  padding: 24px 16px;
   overflow: auto;
 }
-.nieuw-ts-form {
-  width: min(720px, 100%);
-  margin-bottom: 40px;
+.nieuw-ts-modal {
+  place-items: start center;
+  padding: 40px 16px 48px;
+  z-index: 95;
 }
+.nieuw-ts-lightbox-img {
+  max-width: min(920px, 94vw);
+  max-height: 88vh;
+  object-fit: contain;
+  border: 1px solid rgba(201, 169, 110, 0.22);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.nieuw-ts-close {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 100;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(201, 169, 110, 0.35);
+  background: rgba(18, 18, 22, 0.92);
+  color: #e8e2d6;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 2px;
+}
+.nieuw-ts-close:hover {
+  color: var(--n-gold);
+  border-color: var(--n-gold);
+}
+.nieuw-ts-close-form {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.nieuw-ts-form {
+  position: relative;
+  width: min(640px, 100%);
+  margin-bottom: 24px;
+  background: #141416;
+  border: 1px solid rgba(201, 169, 110, 0.18);
+  border-radius: 4px;
+  padding: 28px 28px 24px;
+  color: #c8c2b6;
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.5);
+}
+.nieuw-ts-kicker {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #a8925c;
+}
+.nieuw-ts-title {
+  margin: 8px 0 0;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(22px, 3.2vw, 28px);
+  font-weight: 500;
+  line-height: 1.25;
+  color: #ebe6dc;
+  max-width: 22ch;
+}
+.nieuw-ts-title em {
+  font-style: italic;
+  color: #c9a96e;
+  font-weight: 500;
+}
+.nieuw-ts-intro {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #9a9488;
+  max-width: 48ch;
+  font-weight: 400;
+}
+.nieuw-ts-error {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(196, 92, 92, 0.45);
+  background: rgba(196, 92, 92, 0.08);
+  color: #e08a8a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.nieuw-ts-section {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(201, 169, 110, 0.14);
+}
+.nieuw-ts-section-last {
+  margin-bottom: 4px;
+}
+.nieuw-ts-section-title {
+  margin: 0 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #d4c4a0;
+}
+.nieuw-ts-grid-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+.nieuw-ts-field {
+  display: block;
+}
+.nieuw-ts-field-full {
+  display: block;
+  margin-top: 14px;
+}
+.nieuw-ts-field span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #8f897e;
+}
+.nieuw-ts-field input,
+.nieuw-ts-field textarea {
+  width: 100%;
+  background: #0e0e10;
+  border: 1px solid rgba(201, 169, 110, 0.16);
+  color: #e4dfd4;
+  padding: 9px 11px;
+  font-size: 13px;
+  border-radius: 2px;
+  font-weight: 400;
+}
+.nieuw-ts-field input:focus,
+.nieuw-ts-field textarea:focus {
+  outline: none;
+  border-color: rgba(201, 169, 110, 0.45);
+}
+.nieuw-ts-field textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.45;
+}
+.nieuw-ts-q {
+  margin-bottom: 16px;
+}
+.nieuw-ts-q:last-child {
+  margin-bottom: 0;
+}
+.nieuw-ts-q-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #b7b0a3;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.nieuw-ts-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.nieuw-ts-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: #9a9488;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+.nieuw-ts-radio input {
+  accent-color: #c9a96e;
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  flex-shrink: 0;
+}
+.nieuw-ts-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(201, 169, 110, 0.14);
+}
+.nieuw-ts-actions .nieuw-btn {
+  font-size: 12px;
+  padding: 11px 18px;
+}
+
 @media (max-width: 640px) {
   .nieuw-ts-thumbs { grid-template-columns: repeat(3, 1fr); }
+  .nieuw-ts-grid-fields { grid-template-columns: 1fr; }
+  .nieuw-ts-form { padding: 24px 18px 20px; }
 }
+
