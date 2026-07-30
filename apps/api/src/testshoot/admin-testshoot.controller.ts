@@ -120,6 +120,12 @@ export class AdminTestshootController {
     return this.testshoot.adminClearPhotos(id);
   }
 
+  @Post('models/:id/restore-public')
+  @Permissions('admin.testshoot.write')
+  restorePublic(@Param('id', ParseUUIDPipe) id: string) {
+    return this.testshoot.adminRestorePublicPhotos(id);
+  }
+
   @Delete('models/:id')
   @Permissions('admin.testshoot.write')
   archive(@Param('id', ParseUUIDPipe) id: string) {

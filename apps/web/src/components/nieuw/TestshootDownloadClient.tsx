@@ -325,7 +325,10 @@ export function TestshootDownloadClient() {
             type="button"
             className="nieuw-ts-close"
             aria-label="Sluiten"
-            onClick={() => setLightbox(null)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightbox(null);
+            }}
           >
             ×
           </button>

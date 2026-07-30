@@ -2746,11 +2746,12 @@
 .nieuw-ts-title {
   margin: 8px 0 0;
   font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: clamp(22px, 3.2vw, 28px);
+  font-size: clamp(20px, 2.6vw, 26px);
   font-weight: 500;
   line-height: 1.25;
-  color: #ebe6dc;
-  max-width: 22ch;
+  color: #d3af6a;
+  max-width: none;
+  white-space: nowrap;
 }
 .nieuw-ts-title em {
   font-style: italic;
@@ -2758,7 +2759,7 @@
   font-weight: 500;
 }
 .nieuw-ts-intro {
-  margin: 10px 0 0;
+  margin: 16px 0 0;
   font-size: 12.5px;
   line-height: 1.55;
   color: #9a9488;
@@ -2775,8 +2776,8 @@
   line-height: 1.45;
 }
 .nieuw-ts-section {
-  margin-top: 22px;
-  padding-top: 18px;
+  margin-top: 28px;
+  padding-top: 22px;
   border-top: 1px solid rgba(201, 169, 110, 0.14);
 }
 .nieuw-ts-section-last {
@@ -2833,13 +2834,13 @@
   line-height: 1.45;
 }
 .nieuw-ts-q {
-  margin-bottom: 16px;
+  margin-bottom: 22px;
 }
 .nieuw-ts-q:last-child {
   margin-bottom: 0;
 }
 .nieuw-ts-q-label {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.4;
@@ -2850,7 +2851,7 @@
 .nieuw-ts-radios {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 10px 18px;
 }
 .nieuw-ts-radio {
   display: inline-flex;
@@ -2888,5 +2889,6 @@
   .nieuw-ts-thumbs { grid-template-columns: repeat(3, 1fr); }
   .nieuw-ts-grid-fields { grid-template-columns: 1fr; }
   .nieuw-ts-form { padding: 24px 18px 20px; }
+  .nieuw-ts-title { white-space: normal; }
 }
 

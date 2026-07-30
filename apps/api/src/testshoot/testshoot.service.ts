@@ -91,7 +91,7 @@ export class TestshootService {
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
         photos: {
-          where: { asset: { hardDeleted: false } },
+          where: { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           include: { asset: true },
         },
@@ -113,7 +113,7 @@ export class TestshootService {
     const model = await this.prisma.testshootModel.findFirst({
       where: { id: modelId, archived: false },
       include: {
-        photos: { where: { asset: { hardDeleted: false } } },
+        photos: { where: { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } } },
       },
     });
     if (!model) throw new NotFoundException();
@@ -128,7 +128,7 @@ export class TestshootService {
     const model = await this.prisma.testshootModel.findFirst({
       where: { id: modelId, archived: false },
       include: {
-        photos: { where: { asset: { hardDeleted: false } } },
+        photos: { where: { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } } },
       },
     });
     if (!model) throw new NotFoundException();
@@ -177,13 +177,15 @@ export class TestshootService {
   private async streamModelPhotoZipToResponse(
     modelId: string,
     res: Response,
-    opts: { requireActive: boolean },
+    opts: { requireActive: boolean; publicOnly: boolean },
   ) {
     const model = await this.prisma.testshootModel.findFirst({
       where: opts.requireActive ? { id: modelId, archived: false } : { id: modelId },
       include: {
         photos: {
-          where: { asset: { hardDeleted: false } },
+          where: opts.publicOnly
+            ? { asset: { hardDeleted: false, folder: { slug: 'testshoot' } } }
+            : { asset: { hardDeleted: false } },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           include: { asset: true },
         },
@@ -232,30 +234,47 @@ export class TestshootService {
     return { filesInZip };
   }
 
-  /** Bezoeker: na geslaagde zip met minstens één bestand worden alle foto’s van het slot gewist (niet bij admin-zip). */
+  /** Bezoeker: na geslaagde zip verdwijnen de foto’s van de publieke site, maar blijven backstage herstelbaar. */
   async streamZipToResponse(modelId: string, exp: number, sig: string, res: Response) {
     if (!this.verifyZipDownload(modelId, exp, sig)) {
       throw new ForbiddenException('Ongeldige of verlopen downloadlink.');
     }
-    const { filesInZip } = await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: true });
+    const { filesInZip } = await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: true, publicOnly: true });
     if (filesInZip > 0) {
-      await this.adminClearPhotos(modelId);
+      await this.hidePublicPhotosAfterGuestDownload(modelId);
     }
   }
 
   /** Admin-backup: zelfde zip als bezoeker, zonder bestanden te wissen. */
   async adminStreamZipToResponse(modelId: string, res: Response) {
-    await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: false });
+    await this.streamModelPhotoZipToResponse(modelId, res, { requireActive: false, publicOnly: false });
   }
 
   /** --- Admin --- */
 
   async adminList() {
-    return this.prisma.testshootModel.findMany({
+    const rows = await this.prisma.testshootModel.findMany({
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
-        _count: { select: { photos: true, feedbacks: true } },
+        _count: { select: { feedbacks: true, photos: true } },
+        photos: {
+          where: { asset: { hardDeleted: false } },
+          select: { asset: { select: { folder: { select: { slug: true } } } } },
+        },
       },
+    });
+    return rows.map((m) => {
+      const publicPhotoCount = m.photos.filter((p) => p.asset.folder?.slug === 'testshoot').length;
+      return {
+        id: m.id,
+        name: m.name,
+        sortOrder: m.sortOrder,
+        archived: m.archived,
+        downloadUnlocked: m.downloadUnlocked,
+        unlockedAt: m.unlockedAt,
+        _count: { feedbacks: m._count.feedbacks, photos: publicPhotoCount },
+        hiddenPhotoCount: m.photos.length - publicPhotoCount,
+      };
     });
   }
 
@@ -323,6 +342,25 @@ export class TestshootService {
     return { removed: photos.length };
   }
 
+  async adminRestorePublicPhotos(modelId: string) {
+    const model = await this.prisma.testshootModel.findFirst({
+      where: { id: modelId },
+      include: {
+        photos: {
+          where: { asset: { hardDeleted: false } },
+          select: { assetId: true, asset: { select: { folder: { select: { slug: true } } } } },
+        },
+      },
+    });
+    if (!model) throw new NotFoundException();
+    const assetIds = model.photos.filter((p) => p.asset.folder?.slug !== 'testshoot').map((p) => p.assetId);
+    if (assetIds.length === 0) return { restored: 0 };
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'testshoot' } });
+    if (!folder) throw new ServiceUnavailableException('Map testshoot niet gevonden.');
+    await this.media.moveAssetsToFolder(assetIds, folder.id);
+    return { restored: assetIds.length };
+  }
+
   async adminArchiveModel(modelId: string) {
     await this.adminClearPhotos(modelId);
     await this.prisma.testshootFeedback.deleteMany({ where: { modelId } });
@@ -352,12 +390,31 @@ export class TestshootService {
         photos: {
           where: { asset: { hardDeleted: false } },
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-          include: { asset: true },
+          include: { asset: { include: { folder: true } } },
         },
       },
     });
     if (!model) throw new NotFoundException();
-    return model;
+    const publicPhotos = model.photos.filter((p) => p.asset.folder?.slug === 'testshoot');
+    const hiddenPhotos = model.photos.filter((p) => p.asset.folder?.slug !== 'testshoot');
+    return {
+      ...model,
+      photos: publicPhotos,
+      publicPhotoCount: publicPhotos.length,
+      hiddenPhotoCount: hiddenPhotos.length,
+      hiddenPhotos,
+    };
+  }
+
+  private async hidePublicPhotosAfterGuestDownload(modelId: string) {
+    const photos = await this.prisma.testshootPhoto.findMany({
+      where: { modelId, asset: { hardDeleted: false, folder: { slug: 'testshoot' } } },
+      select: { assetId: true },
+    });
+    const assetIds = photos.map((p) => p.assetId);
+    if (!assetIds.length) return { hidden: 0 };
+    await this.media.moveAssetsToTrash(assetIds);
+    return { hidden: assetIds.length };
   }
 
   /**

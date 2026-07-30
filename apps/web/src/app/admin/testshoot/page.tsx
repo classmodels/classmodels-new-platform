@@ -14,6 +14,7 @@ type ModelRow = {
   archived: boolean;
   downloadUnlocked: boolean;
   unlockedAt: string | null;
+  hiddenPhotoCount: number;
   _count: { photos: number; feedbacks: number };
 };
 
@@ -365,6 +366,7 @@ export default function AdminTestshootPage() {
                   <span className="font-medium">{m.name}</span>
                   <span className="text-xs text-muted">
                     {m._count.photos} foto’s · {m._count.feedbacks} feedback
+                    {m.hiddenPhotoCount ? ` · ${m.hiddenPhotoCount} verborgen` : ''}
                     {m.archived ? ' · gearchiveerd' : ''}
                   </span>
                 </button>
@@ -454,6 +456,23 @@ export default function AdminTestshootPage() {
 
               {canWrite && !selected.archived && (
                 <div className="mt-4 flex flex-wrap gap-2">
+                  {selected.hiddenPhotoCount > 0 && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      className={btnPrimary}
+                      onClick={() =>
+                        void doAction(async () => {
+                          await apiFetch(`/admin/testshoot/models/${selected.id}/restore-public`, {
+                            method: 'POST',
+                            token,
+                          });
+                        })
+                      }
+                    >
+                      Foto’s opnieuw op site zetten
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={busy}
@@ -491,10 +510,13 @@ export default function AdminTestshootPage() {
               )}
 
               <p className="mt-3 text-xs text-muted">
+                Publiek zichtbaar: {selected._count.photos} foto’s
+                {selected.hiddenPhotoCount ? ` · backstage verborgen: ${selected.hiddenPhotoCount}` : ''}
+                <br />
                 Download vrij: {selected.downloadUnlocked ? 'ja' : 'nee'}
                 {selected.unlockedAt ? ` (${new Date(selected.unlockedAt).toLocaleString('nl-BE')})` : ''}
               </p>
-              {canRead && selected._count.photos > 0 ? (
+              {canRead && selected._count.photos + selected.hiddenPhotoCount > 0 ? (
                 <div className="mt-2">
                   <button
                     type="button"
