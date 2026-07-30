@@ -325,24 +325,20 @@ export function TestshootDownloadClient() {
           aria-label="Foto"
           onClick={() => setLightbox(null)}
         >
-          <button
-            type="button"
-            className="nieuw-ts-close"
-            aria-label="Sluiten"
-            onClick={(e) => {
-              e.stopPropagation();
-              setLightbox(null);
-            }}
-          >
-            ×
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightbox.src}
-            alt={lightbox.alt}
-            className="nieuw-ts-lightbox-img"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div className="nieuw-ts-lightbox-panel" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="nieuw-ts-close nieuw-ts-close-panel"
+              aria-label="Sluiten"
+              onClick={() => setLightbox(null)}
+            >
+              ×
+            </button>
+            <div className="nieuw-ts-lightbox-scroll">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={lightbox.src} alt={lightbox.alt} className="nieuw-ts-lightbox-img" />
+            </div>
+          </div>
         </div>
       ) : null}
 

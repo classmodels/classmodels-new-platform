@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default function GastenTestshootPage() {
   return (
     <NieuwShell portal="gasten">
-      <section className="nieuw-sectie">
+      <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
         <div className="nieuw-wrap">
           <TestshootDownloadClient />
         </div>
