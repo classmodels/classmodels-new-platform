@@ -16,6 +16,7 @@ export function NieuwDesktopGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isMobile !== true) return;
     if (pathname === '/') return;
+    if (pathname.startsWith('/gasten/testshoot')) return;
 
     if (pathname.startsWith('/modellen') || pathname.startsWith('/inloggen')) {
       router.replace('/?m=model');
@@ -29,7 +30,7 @@ export function NieuwDesktopGate({ children }: { children: ReactNode }) {
     return <div className="min-h-[100dvh] bg-[#f1eee8] md:bg-[#0d0d11]" aria-hidden />;
   }
 
-  if (isMobile === true && pathname !== '/') {
+  if (isMobile === true && pathname !== '/' && !pathname.startsWith('/gasten/testshoot')) {
     return <div className="min-h-[100dvh] bg-[#f1eee8]" aria-hidden />;
   }
 

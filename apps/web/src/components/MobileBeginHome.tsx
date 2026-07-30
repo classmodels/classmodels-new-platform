@@ -78,6 +78,7 @@ const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Gastenportaal (home)', href: '/?m=guest' },
   { label: 'Model worden', href: '/gasten/model-worden' },
   { label: 'Gratis fotoshoot', href: '/gasten/gratis-fotoshoot' },
+  { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
   { label: 'Casting', href: '/gasten/casting' },
   { label: 'Intake gesprek', href: '/gasten/intake' },
   { label: 'Doelgroepen', href: '/gasten/doelgroepen' },
@@ -697,6 +698,11 @@ function GuestView() {
               href="/gasten/model-worden"
               label="Model worden"
               sub="Waarom Class-Models, wat mag je verwachten"
+            />
+            <ChevronRow
+              href="/gasten/testshoot"
+              label="Testshoot-foto’s"
+              sub="Bekijk en download uw foto’s op gsm"
             />
             <ChevronRow href="/gasten/doelgroepen" label="Doelgroepen" />
             <ChevronRow href="/gasten/faq" label="Veelgestelde vragen" />
