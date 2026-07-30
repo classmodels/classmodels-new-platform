@@ -19,6 +19,10 @@ import type { TestshootFeedbackDto } from './dto/testshoot-feedback.dto';
 
 const ZIP_SIG_SECONDS = 900;
 
+/** Map voor foto’s na model-download: offline op de site, wél herstelbaar backstage. */
+const OFFLINE_FOLDER_SLUG = 'testshoot-offline';
+const OFFLINE_FOLDER_LABEL = 'Testshoot — offline (door model gedownload)';
+
 const FEEDBACK_LABELS: Record<string, string> = {
   naam: 'Naam',
   voornaam: 'Voornaam',
@@ -406,6 +410,20 @@ export class TestshootService {
     };
   }
 
+  /**
+   * Offline-map (niet de prullenbak): foto’s blijven op de server tot je ze
+   * backstage definitief verwijdert. Prullenbak/junk-purge mag ze niet wissen.
+   */
+  private async ensureOfflineFolder() {
+    let folder = await this.prisma.mediaFolder.findUnique({ where: { slug: OFFLINE_FOLDER_SLUG } });
+    if (!folder) {
+      folder = await this.prisma.mediaFolder.create({
+        data: { slug: OFFLINE_FOLDER_SLUG, label: OFFLINE_FOLDER_LABEL },
+      });
+    }
+    return folder;
+  }
+
   private async hidePublicPhotosAfterGuestDownload(modelId: string) {
     const photos = await this.prisma.testshootPhoto.findMany({
       where: { modelId, asset: { hardDeleted: false, folder: { slug: 'testshoot' } } },
@@ -413,7 +431,8 @@ export class TestshootService {
     });
     const assetIds = photos.map((p) => p.assetId);
     if (!assetIds.length) return { hidden: 0 };
-    await this.media.moveAssetsToTrash(assetIds);
+    const offline = await this.ensureOfflineFolder();
+    await this.media.moveAssetsToFolder(assetIds, offline.id);
     return { hidden: assetIds.length };
   }
 

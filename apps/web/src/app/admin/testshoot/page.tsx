@@ -246,10 +246,10 @@ export default function AdminTestshootPage() {
           <a href="/gasten/testshoot" className="text-zinc-900 underline hover:text-zinc-700">
             /gasten/testshoot
           </a>
-          . Eerste download vraagt feedback; daarna mag de bezoeker opnieuw een zip-link aanvragen
-          zolang er nog foto’s zijn. Na een geslaagde bezoeker-download worden de bestanden van de
-          site gehaald — gebruik <strong>Zip downloaden (admin)</strong> vóór de bezoeker als je een
-          kopie op kantoor wilt.
+          . Eerste download vraagt feedback. Na een geslaagde download door het model gaan de
+          foto’s <strong>offline</strong> (weg van de site, niet van de server). Met{' '}
+          <strong>Weer online zetten</strong> zet je ze terug op de site. Pas bij{' '}
+          <strong>definitief verwijderen</strong> verdwijnen ze echt van de server.
         </p>
         <p className="mt-2 max-w-2xl text-sm text-muted">
           Ingevulde feedback staat onder{' '}
@@ -366,9 +366,13 @@ export default function AdminTestshootPage() {
                   <span className="font-medium">{m.name}</span>
                   <span className="text-xs text-muted">
                     {m._count.photos} foto’s · {m._count.feedbacks} feedback
-                    {m.hiddenPhotoCount ? ` · ${m.hiddenPhotoCount} verborgen` : ''}
                     {m.archived ? ' · gearchiveerd' : ''}
                   </span>
+                  {m.hiddenPhotoCount > 0 ? (
+                    <span className="mt-0.5 inline-flex w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                      {m.hiddenPhotoCount} foto’s offline
+                    </span>
+                  ) : null}
                 </button>
               </li>
             ))}
@@ -454,13 +458,20 @@ export default function AdminTestshootPage() {
                 </div>
               )}
 
-              {canWrite && !selected.archived && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {selected.hiddenPhotoCount > 0 && (
+              {selected.hiddenPhotoCount > 0 && !selected.archived ? (
+                <div className="mt-4 rounded-md border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-amber-900">
+                    OFFLINE — {selected.hiddenPhotoCount} foto’s
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Het model heeft gedownload: foto’s staan niet meer op de site, maar nog wél op de
+                    server. Zet ze weer online, of verwijder ze definitief via dit slot.
+                  </p>
+                  {canWrite ? (
                     <button
                       type="button"
                       disabled={busy}
-                      className={btnPrimary}
+                      className={`mt-2 ${btnPrimary}`}
                       onClick={() =>
                         void doAction(async () => {
                           await apiFetch(`/admin/testshoot/models/${selected.id}/restore-public`, {
@@ -470,9 +481,14 @@ export default function AdminTestshootPage() {
                         })
                       }
                     >
-                      Foto’s opnieuw op site zetten
+                      Weer online zetten
                     </button>
-                  )}
+                  ) : null}
+                </div>
+              ) : null}
+
+              {canWrite && !selected.archived && (
+                <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     type="button"
                     disabled={busy}
@@ -510,8 +526,10 @@ export default function AdminTestshootPage() {
               )}
 
               <p className="mt-3 text-xs text-muted">
-                Publiek zichtbaar: {selected._count.photos} foto’s
-                {selected.hiddenPhotoCount ? ` · backstage verborgen: ${selected.hiddenPhotoCount}` : ''}
+                Publiek zichtbaar (online): {selected._count.photos} foto’s
+                {selected.hiddenPhotoCount
+                  ? ` · offline (op server bewaard): ${selected.hiddenPhotoCount}`
+                  : ''}
                 <br />
                 Download vrij: {selected.downloadUnlocked ? 'ja' : 'nee'}
                 {selected.unlockedAt ? ` (${new Date(selected.unlockedAt).toLocaleString('nl-BE')})` : ''}
@@ -527,13 +545,22 @@ export default function AdminTestshootPage() {
                       void (async () => {
                         setBusy(true);
                         setErr(null);
-                        setDownloadProgress({ percent: null, loaded: 0, total: null, indeterminate: true, phase: 'connecting' });
+                        setDownloadProgress({
+                          percent: null,
+                          loaded: 0,
+                          total: null,
+                          indeterminate: true,
+                          phase: 'connecting',
+                        });
                         try {
-                          await downloadWithProgress(`${getApiBase()}/admin/testshoot/models/${selected.id}/zip`, {
-                            token,
-                            fallbackName: `${selected.name.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot'}-fotos.zip`,
-                            onProgress: setDownloadProgress,
-                          });
+                          await downloadWithProgress(
+                            `${getApiBase()}/admin/testshoot/models/${selected.id}/zip`,
+                            {
+                              token,
+                              fallbackName: `${selected.name.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot'}-fotos.zip`,
+                              onProgress: setDownloadProgress,
+                            },
+                          );
                         } catch (e: unknown) {
                           setErr(formatClientError(e, 'Zip-download mislukt'));
                         } finally {
