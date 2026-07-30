@@ -41,7 +41,7 @@ export function MobileGuestAppShell({
   const [open, setOpen] = useState(false);
 
   return (
-    <>
+    <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
       <header
         className="cm-appbar-safe sticky top-0 z-40 shadow-md"
         style={{ background: BAR, color: BAR_TEXT }}
@@ -141,7 +141,7 @@ export function MobileGuestAppShell({
         </nav>
       </aside>
 
-      <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10" style={{ background: BG }}>
+      <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
         <div
           className="sticky z-30 -mx-4 flex items-center justify-between gap-2.5 px-4 py-2.5"
           style={{
@@ -172,6 +172,6 @@ export function MobileGuestAppShell({
 
         {children}
       </div>
-    </>
+    </div>
   );
 }

@@ -93,6 +93,8 @@ export function NieuwShell({
   const activePortal = portal ?? portalFromPath(pathname);
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
   const onBooking = isBookingPage(pathname);
+  /** Op gsm: desktop-kop/footer verbergen — MobileGuestAppShell neemt over. */
+  const appMobilePage = Boolean(pathname?.startsWith('/gasten/testshoot'));
 
   const isKlantUser = Boolean(
     user?.roles?.includes('client') ||
@@ -148,9 +150,11 @@ export function NieuwShell({
       </Link>
     );
 
+  const chromeClass = appMobilePage ? ' nieuw-chrome-desktop' : '';
+
   return (
-    <div className="nieuw-root">
-      <header className="nieuw-kop">
+    <div className={`nieuw-root${appMobilePage ? ' nieuw-root--app-mobile-page' : ''}`}>
+      <header className={`nieuw-kop${chromeClass}`}>
         <div className="nieuw-kop-inner">
           <Link className="nieuw-merk" href="/">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -203,7 +207,7 @@ export function NieuwShell({
         </div>
       </header>
 
-      <div className="nieuw-util-bar">
+      <div className={`nieuw-util-bar${chromeClass}`}>
         <div className="nieuw-util-bar-inner">
           {subNav ? (
             <nav className="nieuw-util-nav" aria-label="Portaalmenu">
@@ -229,18 +233,18 @@ export function NieuwShell({
       </div>
 
       {activePortal === 'modellen' && user ? (
-        <div className="nieuw-wrap">
+        <div className={`nieuw-wrap${chromeClass}`}>
           <p className="nieuw-welcome">Welkom{displayName ? `, ${displayName}` : ''}</p>
         </div>
       ) : activePortal === 'klanten' && user ? (
-        <div className="nieuw-wrap">
+        <div className={`nieuw-wrap${chromeClass}`}>
           <p className="nieuw-welcome">Welkom{displayName ? `, ${displayName}` : ''}</p>
         </div>
       ) : null}
 
       <main className="nieuw-main">{children}</main>
 
-      <footer className="nieuw-footer">
+      <footer className={`nieuw-footer${chromeClass}`}>
         <div className="nieuw-wrap">
           <div className="nieuw-footer-grid">
             <div>

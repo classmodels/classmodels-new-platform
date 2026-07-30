@@ -27,6 +27,38 @@
 
 .nieuw-root * { box-sizing: border-box; }
 .nieuw-wrap { width: min(1140px, 92vw); margin: 0 auto; }
+
+/* Gsm/app-pagina's (testshoot e.d.): desktop-kop/footer weg, cream app-look */
+@media (max-width: 767px) {
+  .nieuw-root--app-mobile-page {
+    background: #f1eee8;
+    color: #372c1f;
+    min-height: 100dvh;
+  }
+  .nieuw-root--app-mobile-page > .nieuw-chrome-desktop {
+    display: none !important;
+  }
+  .nieuw-root--app-mobile-page .nieuw-sectie {
+    padding: 0 !important;
+  }
+  .nieuw-root--app-mobile-page .nieuw-wrap {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+  .nieuw-root--app-mobile-page .nieuw-h1,
+  .nieuw-root--app-mobile-page .nieuw-h3 {
+    color: #372c1f;
+  }
+  .nieuw-root--app-mobile-page .nieuw-lead {
+    color: rgba(55, 44, 31, 0.72);
+  }
+  .nieuw-root--app-mobile-page .nieuw-panel {
+    background: #faf8f4;
+    border-color: #ddd5c7;
+    color: #372c1f;
+  }
+}
 .nieuw-label {
   font-size: 10px;
   font-weight: 700;
