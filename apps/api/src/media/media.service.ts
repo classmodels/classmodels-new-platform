@@ -2606,7 +2606,7 @@ export class MediaService implements OnModuleInit {
 
   /**
    * Rommel opruimen: prullenbak + mappen die niet nodig zijn voor site-catalogus/setkaarten.
-   * Raakt NOOIT: models, setkaarten, site, casting, gratis-fotoshoot.
+   * Raakt NOOIT: models, setkaarten, site, casting, gratis-fotoshoot, testshoot(-offline).
    */
   async purgeJunkMedia(opts: { limit?: number; dryRun?: boolean } = {}) {
     const limit = Math.min(300, Math.max(1, Math.floor(opts.limit ?? 80)));
@@ -2617,10 +2617,11 @@ export class MediaService implements OnModuleInit {
       'site',
       'casting',
       'gratis-fotoshoot',
+      'testshoot',
+      'testshoot-offline',
     ]);
     const junkSlugs = [
       'verwijderde',
-      'testshoot',
       'fotomodeshow-klein',
       'film-modeshow',
       'portfolio-fotograaf',

@@ -19,6 +19,10 @@ import type { TestshootFeedbackDto } from './dto/testshoot-feedback.dto';
 
 const ZIP_SIG_SECONDS = 900;
 
+/** Map waar publieke foto’s naartoe gaan nadat het model ze downloadde (offline, niet prullenbak). */
+const OFFLINE_FOLDER_SLUG = 'testshoot-offline';
+const OFFLINE_FOLDER_NAME = 'Testshoot — offline (door model gedownload)';
+
 const FEEDBACK_LABELS: Record<string, string> = {
   naam: 'Naam',
   voornaam: 'Voornaam',
@@ -36,6 +40,26 @@ const FEEDBACK_LABELS: Record<string, string> = {
   time: 'Tijdstip formulier',
   ip: 'IP-adres',
 };
+
+/** Logische volgorde/groepering voor afdrukken, mailen en de bekijk-popup. */
+const FEEDBACK_SECTIONS: { title: string; keys: string[] }[] = [
+  { title: 'Gegevens model', keys: ['naam', 'voornaam', 'email', 'gsm'] },
+  {
+    title: 'Vragen',
+    keys: [
+      'ervaring',
+      'tevredenheid_fotos',
+      'ingeschreven',
+      'reden_nee_vrij',
+      'druk',
+      'ontvangst',
+      'info',
+      'toekomst_contact',
+    ],
+  },
+  { title: 'Opmerkingen', keys: ['opmerkingen'] },
+  { title: 'Registratie', keys: ['time', 'ip'] },
+];
 
 @Injectable()
 export class TestshootService {
@@ -406,6 +430,21 @@ export class TestshootService {
     };
   }
 
+  /**
+   * Map voor offline testshoot-foto’s (na model-download). Bewust GEEN prullenbak:
+   * de prullenbak kan geleegd worden, deze foto’s moeten backstage herstelbaar blijven
+   * tot het slot definitief verwijderd wordt.
+   */
+  private async ensureOfflineFolder() {
+    let folder = await this.prisma.mediaFolder.findUnique({ where: { slug: OFFLINE_FOLDER_SLUG } });
+    if (!folder) {
+      folder = await this.prisma.mediaFolder.create({
+        data: { slug: OFFLINE_FOLDER_SLUG, label: OFFLINE_FOLDER_NAME },
+      });
+    }
+    return folder;
+  }
+
   private async hidePublicPhotosAfterGuestDownload(modelId: string) {
     const photos = await this.prisma.testshootPhoto.findMany({
       where: { modelId, asset: { hardDeleted: false, folder: { slug: 'testshoot' } } },
@@ -413,7 +452,8 @@ export class TestshootService {
     });
     const assetIds = photos.map((p) => p.assetId);
     if (!assetIds.length) return { hidden: 0 };
-    await this.media.moveAssetsToTrash(assetIds);
+    const offline = await this.ensureOfflineFolder();
+    await this.media.moveAssetsToFolder(assetIds, offline.id);
     return { hidden: assetIds.length };
   }
 
@@ -453,15 +493,34 @@ export class TestshootService {
       orderBy: { createdAt: 'desc' },
       include: { model: { select: { name: true, archived: true } } },
     });
-    return rows.map((r) => ({
-      id: r.id,
-      modelId: r.modelId,
-      modelName: r.model.name,
-      modelArchived: r.model.archived,
-      createdAt: r.createdAt.toISOString(),
-      ip: r.ip,
-      summary: this.feedbackSummaryLine(r.payload as Record<string, unknown>),
-    }));
+    return rows.map((r) => {
+      const payload = this.feedbackPayload(r.payload);
+      return {
+        id: r.id,
+        modelId: r.modelId,
+        modelName: r.model.name,
+        modelArchived: r.model.archived,
+        createdAt: r.createdAt.toISOString(),
+        ip: r.ip,
+        archived: r.archived,
+        summary: this.feedbackSummaryLine(payload),
+        sections: this.feedbackSections(payload),
+      };
+    });
+  }
+
+  async adminSetFeedbackArchived(feedbackId: string, archived: boolean) {
+    await this.prisma.testshootFeedback.update({
+      where: { id: feedbackId },
+      data: { archived },
+    });
+    return { ok: true, archived };
+  }
+
+  private feedbackPayload(raw: unknown): Record<string, unknown> {
+    return raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
   }
 
   private feedbackSummaryLine(payload: Record<string, unknown>): string {
@@ -470,6 +529,39 @@ export class TestshootService {
     const email = String(payload.email ?? '').trim();
     const base = [voornaam, naam].filter(Boolean).join(' ') || '—';
     return email ? `${base} · ${email}` : base;
+  }
+
+  /** Antwoorden in vaste, logische volgorde per rubriek (voor print, mail en popup). */
+  private feedbackSections(
+    payload: Record<string, unknown>,
+  ): { title: string; rows: { label: string; value: string }[] }[] {
+    const used = new Set<string>();
+    const sections = FEEDBACK_SECTIONS.map((sec) => ({
+      title: sec.title,
+      rows: sec.keys
+        .filter((key) => {
+          used.add(key);
+          return payload[key] != null && String(payload[key]).trim() !== '';
+        })
+        .map((key) => ({
+          label: FEEDBACK_LABELS[key] ?? key,
+          value: String(payload[key]),
+        })),
+    })).filter((sec) => sec.rows.length > 0);
+
+    const extraKeys = Object.keys(payload).filter(
+      (key) => !used.has(key) && payload[key] != null && String(payload[key]).trim() !== '',
+    );
+    if (extraKeys.length > 0) {
+      sections.push({
+        title: 'Overig',
+        rows: extraKeys.sort().map((key) => ({
+          label: FEEDBACK_LABELS[key] ?? key,
+          value: String(payload[key]),
+        })),
+      });
+    }
+    return sections;
   }
 
   async buildFeedbackDocumentsHtml(ids: string[]): Promise<string> {
@@ -501,6 +593,7 @@ h1 { font-size: 14pt; margin: 0 0 10pt; color: #6f121b; font-family: system-ui, 
 table { width: 100%; border-collapse: collapse; font-family: system-ui, sans-serif; font-size: 10pt; }
 th, td { border: 1px solid #ccc; padding: 6pt 8pt; text-align: left; vertical-align: top; }
 th { width: 32%; background: #f7f2f3; color: #3d2a30; font-weight: 600; }
+tr.sec th { width: auto; background: #6f121b; color: #fff; font-size: 9pt; letter-spacing: 0.08em; text-transform: uppercase; }
 .path { font-size: 8pt; color: #777; margin-bottom: 8pt; font-family: system-ui, sans-serif; }
 </style></head><body>
 <p class="path">Class Models — Documenten / Gratis fotoshoot / Testshoot-feedback</p>
@@ -512,16 +605,16 @@ ${pages.join('\n')}
     row: { id: string; createdAt: Date; ip: string | null; payload: unknown },
     modelName: string,
   ): string {
-    const payload =
-      row.payload && typeof row.payload === 'object' && !Array.isArray(row.payload)
-        ? (row.payload as Record<string, unknown>)
-        : {};
-    const rowsHtml = Object.keys(payload)
-      .sort()
-      .map((key) => {
-        const label = FEEDBACK_LABELS[key] ?? key;
-        return `<tr><th>${this.esc(label)}</th><td>${this.esc(payload[key])}</td></tr>`;
-      })
+    const payload = this.feedbackPayload(row.payload);
+    const sections = this.feedbackSections(payload);
+    const rowsHtml = sections
+      .map(
+        (sec) =>
+          `<tr class="sec"><th colspan="2">${this.esc(sec.title)}</th></tr>` +
+          sec.rows
+            .map((r) => `<tr><th>${this.esc(r.label)}</th><td>${this.esc(r.value)}</td></tr>`)
+            .join(''),
+      )
       .join('');
 
     const dateStr = row.createdAt.toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' });

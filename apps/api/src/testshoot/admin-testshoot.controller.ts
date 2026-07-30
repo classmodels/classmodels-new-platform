@@ -138,6 +138,15 @@ export class AdminTestshootController {
     return this.testshoot.adminListFeedback(id);
   }
 
+  @Patch('feedbacks/:feedbackId/archive')
+  @Permissions('admin.testshoot.write')
+  archiveFeedback(
+    @Param('feedbackId', ParseUUIDPipe) feedbackId: string,
+    @Body() body: { archived?: boolean },
+  ) {
+    return this.testshoot.adminSetFeedbackArchived(feedbackId, body?.archived !== false);
+  }
+
   @Delete('feedbacks/:feedbackId')
   @Permissions('admin.testshoot.write')
   deleteFeedback(@Param('feedbackId', ParseUUIDPipe) feedbackId: string) {
