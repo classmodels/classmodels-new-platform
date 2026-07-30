@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
+import { useAuth } from '@/context/auth-context';
 import { downloadProgressSublabel, downloadWithProgress, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 import { getApiBase, parseApiErrorBody, publicMediaUrl } from '@/lib/api';
 import { TESTSHOOT_PAGE } from '@/components/guest-portal/guest-portal-data';
@@ -95,6 +96,7 @@ function RadioGroup({
 }
 
 export function TestshootDownloadClient() {
+  const { token, hasBackofficeAccess, can } = useAuth();
   const [models, setModels] = useState<ModelSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -172,6 +174,26 @@ export function TestshootDownloadClient() {
     setOkMsg(null);
     setBusyId(model.id);
     try {
+      const isAdminTestshoot = !!token && (hasBackofficeAccess || can('admin.testshoot.read') || can('admin.testshoot.write'));
+      if (isAdminTestshoot) {
+        const url = `${getApiBase()}/admin/testshoot/models/${model.id}/zip`;
+        const safeName = model.name.replace(/[^\w\s-]/g, '').trim().slice(0, 60) || 'testshoot';
+        setDownloadProgress({
+          percent: null,
+          loaded: 0,
+          total: null,
+          indeterminate: true,
+          phase: 'connecting',
+        });
+        await downloadWithProgress(url, {
+          token,
+          fallbackName: `${safeName}-fotos.zip`,
+          onProgress: setDownloadProgress,
+        });
+        setOkMsg('Admin-download voltooid. Deze foto’s blijven beschikbaar op de site.');
+        return;
+      }
+
       const res = await fetch(`${getApiBase()}/guest/testshoot/models/${model.id}/download-intent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
