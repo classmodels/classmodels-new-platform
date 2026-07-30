@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { MobileHomeGate } from '@/components/MobileHomeGate';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 
 export const metadata: Metadata = {
@@ -63,11 +64,12 @@ const jsonLd = {
 
 export default function NieuwHomePage() {
   return (
-    <NieuwShell portal="home">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+    <MobileHomeGate>
+      <NieuwShell portal="home">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
 
       <section className="nieuw-hero">
         <div className="nieuw-wrap nieuw-hero-grid">
@@ -253,6 +255,7 @@ export default function NieuwHomePage() {
           </div>
         </div>
       </section>
-    </NieuwShell>
+      </NieuwShell>
+    </MobileHomeGate>
   );
 }
