@@ -2706,12 +2706,17 @@
   overflow: auto;
   display: flex;
   justify-content: center;
+  align-items: flex-start;
 }
 .nieuw-ts-lightbox-img {
-  max-width: 100%;
+  width: auto;
   height: auto;
+  max-width: 100%;
+  max-height: 72vh;
+  object-fit: contain;
   border: 1px solid rgba(201, 169, 110, 0.22);
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  display: block;
 }
 .nieuw-ts-close {
   position: absolute;
