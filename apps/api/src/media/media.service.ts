@@ -645,6 +645,82 @@ export class MediaService implements OnModuleInit {
     return `${label}-class-models-${n}.${ext}`.replace(/-+/g, '-').slice(0, 190);
   }
 
+  /** Haal model-/labeldeel uit een bestaande weergavenaam. */
+  private extractLabelFromOriginalName(originalName: string | null | undefined): string | null {
+    if (!originalName?.trim()) return null;
+    const base = basename(originalName.trim(), extname(originalName.trim()));
+    const branded = base.match(/^(.+?)-class-models(?:-|$)/i);
+    if (branded?.[1]) return branded[1];
+    const testshoot = base.match(/^testshoot-(.+?)(?:-|$)/i);
+    if (testshoot?.[1] && testshoot[1].toLowerCase() !== 'class') return testshoot[1];
+    return null;
+  }
+
+  private uniqueZipEntryName(name: string, used: Set<string>): string {
+    let finalName = name;
+    let n = 2;
+    while (used.has(finalName)) {
+      const ext = extname(name) || '';
+      const stem = ext ? name.slice(0, -ext.length) : name;
+      finalName = `${stem}-${n}${ext}`;
+      n += 1;
+    }
+    used.add(finalName);
+    return finalName;
+  }
+
+  /** Label voor branding bij download (model, testshoot-slot, of map). */
+  private async resolveBrandLabelsForAssets(
+    assets: Array<{
+      id: string;
+      originalName: string;
+      linkedModelUserId: string | null;
+      mimeType: string;
+    }>,
+    folderSlug?: string | null,
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    if (!assets.length) return out;
+
+    const linkedIds = [...new Set(assets.map((a) => a.linkedModelUserId).filter(Boolean))] as string[];
+    const users =
+      linkedIds.length > 0
+        ? await this.prisma.user.findMany({
+            where: { id: { in: linkedIds } },
+            select: { id: true, firstName: true, lastName: true, email: true },
+          })
+        : [];
+    const userLabel = new Map(
+      users.map((u) => {
+        const parts = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
+        return [u.id, parts || u.email.split('@')[0] || 'model'] as const;
+      }),
+    );
+
+    const assetIds = assets.map((a) => a.id);
+    const tsLinks = await this.prisma.testshootPhoto.findMany({
+      where: { assetId: { in: assetIds } },
+      select: { assetId: true, model: { select: { name: true } } },
+    });
+    const tsLabel = new Map(
+      tsLinks.map((t) => [t.assetId, t.model.name] as const).filter(([, n]) => Boolean(n?.trim())),
+    );
+
+    for (const a of assets) {
+      const fromUser = a.linkedModelUserId ? userLabel.get(a.linkedModelUserId) : null;
+      const fromTs = tsLabel.get(a.id);
+      const fromName = this.extractLabelFromOriginalName(a.originalName);
+      const label =
+        fromUser ||
+        fromTs ||
+        fromName ||
+        (folderSlug && folderSlug !== 'uploads' ? folderSlug : null) ||
+        'model';
+      out.set(a.id, label);
+    }
+    return out;
+  }
+
   private buildDisplayOriginalName(
     file: Express.Multer.File,
     folder: { slug: string } | null | undefined,
@@ -1486,7 +1562,7 @@ export class MediaService implements OnModuleInit {
    * ZIP met primaire bestanden (`storageKey`, maximale kwaliteit op schijf).
    * Na een geslaagde stream worden de assets definitief gewist (zoals testshoot-zip).
    */
-  /** Bestandsnaam voor Content-Disposition (originele uploadnaam indien bekend). */
+  /** Bestandsnaam voor Content-Disposition (altijd model + Class-Models bij foto’s). */
   async resolveDownloadFilename(publicKey: string): Promise<string> {
     const base = basename(publicKey);
     const row = await this.prisma.mediaAsset.findFirst({
@@ -1494,11 +1570,39 @@ export class MediaService implements OnModuleInit {
         hardDeleted: false,
         OR: [{ storageKey: base }, { webpKey: base }, { thumbKey: base }],
       },
-      select: { originalName: true, storageKey: true },
+      select: {
+        id: true,
+        originalName: true,
+        storageKey: true,
+        mimeType: true,
+        linkedModelUserId: true,
+        folder: { select: { slug: true } },
+      },
     });
-    const name = row?.originalName?.trim();
-    if (name && !name.includes('..') && !name.includes('/')) return name;
-    return base;
+    if (!row) return base;
+
+    const isImage =
+      row.mimeType.startsWith('image/') ||
+      this.isImageFileExt((extname(row.originalName || row.storageKey) || '').replace(/^\./, ''));
+    if (!isImage) {
+      const name = row.originalName?.trim();
+      if (name && !name.includes('..') && !name.includes('/')) return name;
+      return base;
+    }
+
+    const labels = await this.resolveBrandLabelsForAssets(
+      [
+        {
+          id: row.id,
+          originalName: row.originalName,
+          linkedModelUserId: row.linkedModelUserId,
+          mimeType: row.mimeType,
+        },
+      ],
+      row.folder?.slug,
+    );
+    const label = labels.get(row.id) || 'model';
+    return this.brandedPhotoFileName(label, row.originalName || row.storageKey, 0);
   }
 
   /** Publieke ZIP-download voor bezoekers (alleen als map-instelling aan staat). */
@@ -1535,12 +1639,27 @@ export class MediaService implements OnModuleInit {
     const rows = await this.prisma.mediaAsset.findMany({
       where: { folderId: folder.id, hardDeleted: false },
       orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        storageKey: true,
+        originalName: true,
+        mimeType: true,
+        linkedModelUserId: true,
+      },
     });
     const root = this.root();
     const onDisk = rows.filter((a) => existsSync(join(root, a.storageKey)));
     if (!onDisk.length) throw new NotFoundException('Geen bestanden op schijf om te downloaden.');
 
-    const zipName = `${folder.slug.replace(/[^\w-]+/g, '-') || 'map'}.zip`;
+    const labels = await this.resolveBrandLabelsForAssets(onDisk, folder.slug);
+    const labelCounts = new Map<string, number>();
+    for (const a of onDisk) {
+      const lab = this.slugLabel(labels.get(a.id) || folder.slug) || 'media';
+      labelCounts.set(lab, (labelCounts.get(lab) ?? 0) + 1);
+    }
+    const dominantLabel =
+      [...labelCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || this.slugLabel(folder.slug) || 'media';
+    const zipName = `${dominantLabel}-class-models.zip`;
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(zipName)}`);
 
@@ -1554,23 +1673,34 @@ export class MediaService implements OnModuleInit {
     });
 
     const usedNames = new Set<string>();
+    const perLabelIndex = new Map<string, number>();
     await new Promise<void>((resolve, reject) => {
       archive.on('error', reject);
       archive.on('end', () => resolve());
       archive.pipe(res);
       for (const a of onDisk) {
         const full = join(root, a.storageKey);
-        let name = a.originalName?.trim() || basename(a.storageKey);
-        if (!name || name.includes('..') || name.includes('/')) name = basename(a.storageKey);
-        let finalName = name;
-        let n = 2;
-        while (usedNames.has(finalName)) {
-          const ext = extname(name);
-          const stem = ext ? name.slice(0, -ext.length) : name;
-          finalName = `${stem}-${n}${ext}`;
-          n += 1;
+        const isImage =
+          a.mimeType.startsWith('image/') ||
+          this.isImageFileExt((extname(a.originalName || a.storageKey) || '').replace(/^\./, ''));
+        let name: string;
+        if (isImage) {
+          const label = labels.get(a.id) || folder.slug || 'model';
+          const slug = this.slugLabel(label) || 'model';
+          const idx = perLabelIndex.get(slug) ?? 0;
+          perLabelIndex.set(slug, idx + 1);
+          name = this.brandedPhotoFileName(label, a.originalName || a.storageKey, idx);
+        } else {
+          name = a.originalName?.trim() || basename(a.storageKey);
+          if (!name || name.includes('..') || name.includes('/')) name = basename(a.storageKey);
+          // Niet-foto’s: Class-Models erbij als het nog ontbreekt
+          if (!/class-models/i.test(name)) {
+            const ext = extname(name);
+            const stem = ext ? name.slice(0, -ext.length) : name;
+            name = `${stem}-class-models${ext || ''}`;
+          }
         }
-        usedNames.add(finalName);
+        const finalName = this.uniqueZipEntryName(name, usedNames);
         archive.append(createReadStream(full), { name: finalName });
       }
       void archive.finalize();
