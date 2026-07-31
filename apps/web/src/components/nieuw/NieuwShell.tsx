@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { MobileGuestAppShell } from '@/components/MobileGuestAppShell';
+import { useIsMobile } from '@/lib/use-is-mobile';
 import './nieuw.css';
 
 export type NieuwPortal = 'home' | 'gasten' | 'modellen' | 'klanten';
@@ -90,11 +92,14 @@ export function NieuwShell({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, logout, loading } = useAuth();
+  const isMobile = useIsMobile();
   const activePortal = portal ?? portalFromPath(pathname);
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
   const onBooking = isBookingPage(pathname);
-  /** Op gsm: desktop-kop/footer verbergen — MobileGuestAppShell neemt over. */
-  const appMobilePage = Boolean(pathname?.startsWith('/gasten/testshoot'));
+  /** Op gsm: gastenpagina’s in de app-shell (niet de desktop-header). */
+  const appMobilePage =
+    isMobile === true &&
+    Boolean(pathname?.startsWith('/gasten') || pathname === '/reviews' || pathname?.startsWith('/reviews/'));
 
   const isKlantUser = Boolean(
     user?.roles?.includes('client') ||
@@ -152,7 +157,7 @@ export function NieuwShell({
 
   const chromeClass = appMobilePage ? ' nieuw-chrome-desktop' : '';
 
-  return (
+  const shellBody = (
     <div className={`nieuw-root${appMobilePage ? ' nieuw-root--app-mobile-page' : ''}`}>
       <header className={`nieuw-kop${chromeClass}`}>
         <div className="nieuw-kop-inner">
@@ -301,4 +306,28 @@ export function NieuwShell({
       </footer>
     </div>
   );
+
+  if (appMobilePage) {
+    const mobileTitle =
+      pathname?.includes('gratis-fotoshoot')
+        ? 'Gratis fotoshoot'
+        : pathname?.includes('casting')
+          ? 'Casting'
+          : pathname?.includes('intake')
+            ? 'Intake gesprek'
+            : pathname?.includes('testshoot')
+              ? 'Testshoot-foto’s'
+              : pathname?.includes('contact')
+                ? 'Contact'
+                : pathname?.startsWith('/reviews')
+                  ? 'Reviews'
+                  : 'Gastenportaal';
+    return (
+      <MobileGuestAppShell title={mobileTitle} subtitle="Class-Models">
+        {shellBody}
+      </MobileGuestAppShell>
+    );
+  }
+
+  return shellBody;
 }
