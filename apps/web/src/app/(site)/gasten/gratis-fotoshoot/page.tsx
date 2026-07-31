@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { NieuwBookingBlock } from '@/components/nieuw/NieuwBookingBlock';
 import { NieuwPortalHero } from '@/components/nieuw/NieuwPortalHero';
+import { MobileAgendaRedirect } from '@/components/MobileAgendaRedirect';
 import {
   DOELGROEPEN_CARDS,
   GRATIS_FOTOSHOOT_PAGE,
@@ -19,6 +20,7 @@ export const metadata: Metadata = {
 export default function GratisFotoshootPage() {
   return (
     <NieuwShell portal="gasten">
+      <MobileAgendaRedirect book="gratis-fotoshoot" />
       <section className="nieuw-sectie" style={{ paddingTop: 28 }}>
         <div className="nieuw-wrap">
           <NieuwPortalHero

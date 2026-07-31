@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
+import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 
 const ASSET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 /** Sessiesleutel: introfilm alleen bij het openen van de site/app, niet bij terugkeren. */
@@ -58,22 +59,39 @@ const QUICK_ACTIONS: QuickAction[] = [
     title: 'Gratis fotoshoot',
     line: 'Volledig gratis en zonder verplichtingen — ontdek of modellenwerk iets voor jou is.',
     infoHref: '/gasten/gratis-fotoshoot',
-    bookHref: '/gasten/gratis-fotoshoot#agenda',
+    bookHref: '/?m=guest&book=gratis-fotoshoot',
   },
   {
     title: 'Casting',
     line: 'Schrijf je in voor een casting voor echte opdrachten. Ervaring is niet nodig.',
     infoHref: '/gasten/casting',
-    bookHref: '/gasten/casting#agenda',
+    bookHref: '/?m=guest&book=casting',
   },
   {
     title: 'Intake gesprek',
     line: 'Vrijblijvend gesprek over jouw uitstraling, profiel en mogelijkheden.',
     infoHref: '/gasten/intake',
-    bookHref: '/gasten/intake#agenda',
+    bookHref: '/?m=guest&book=intake',
   },
 ];
 
+const MOBILE_BOOKINGS: Record<string, { title: string; slug: string; line: string }> = {
+  'gratis-fotoshoot': {
+    title: 'Gratis fotoshoot',
+    slug: 'gratis-fotoshoot',
+    line: 'Kies een moment. Daarna vult u kort uw gegevens in.',
+  },
+  casting: {
+    title: 'Casting',
+    slug: 'casting',
+    line: 'Kies een castingmoment en schrijf u in.',
+  },
+  intake: {
+    title: 'Intake gesprek',
+    slug: 'intake-gesprek',
+    line: 'Plan een vrijblijvend gesprek.',
+  },
+};
 const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Gastenportaal (home)', href: '/?m=guest' },
   { label: 'Model worden', href: '/gasten/model-worden' },
@@ -553,8 +571,74 @@ function StartView() {
 /* Gastenportaal: maak snel een keuze + info, met gastmenu.            */
 /* ------------------------------------------------------------------ */
 
+function MobileBookView({ bookKey }: { bookKey: string }) {
+  const router = useRouter();
+  const meta = MOBILE_BOOKINGS[bookKey];
+
+  useEffect(() => {
+    if (!meta) router.replace('/?m=guest');
+  }, [meta, router]);
+
+  if (!meta) {
+    return <div className="min-h-[100dvh] w-full" style={{ background: BG }} aria-hidden />;
+  }
+
+  return (
+    <>
+      <TopBar title={meta.title} subtitle="Afspraak boeken" />
+      <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
+        <div
+          className="sticky z-30 -mx-4 flex items-center justify-between gap-2.5 px-4 py-2.5"
+          style={{
+            top: 'calc(48px + env(safe-area-inset-top, 0px))',
+            background: BG,
+            borderBottom: `1px solid ${LINE}`,
+          }}
+        >
+          <Link
+            href="/?m=guest"
+            className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
+            style={{ color: TEXT, border: `1px solid ${LINE}`, background: CARD }}
+          >
+            ← Terug
+          </Link>
+          <Link
+            href="/"
+            className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
+            style={{ color: CTA_TEXT, background: CTA_BG, border: `1px solid ${CTA_BG}` }}
+          >
+            Beginpagina
+          </Link>
+        </div>
+
+        <h1 className="m-0 mt-5 font-serif text-[24px] font-semibold leading-tight" style={{ color: TEXT }}>
+          {meta.title}
+        </h1>
+        <p className="m-0 mt-2 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
+          {meta.line}
+        </p>
+
+        <div
+          className="mt-5 overflow-hidden rounded-xl px-3 py-4 shadow-sm"
+          style={{ background: CARD, border: `1px solid ${LINE}` }}
+        >
+          <GuestBookingPanel
+            calendarSlug={meta.slug}
+            heading=""
+            hideSlotTitle
+            variant="default"
+            onClose={() => router.push('/?m=guest')}
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function GuestView() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const bookKey = searchParams.get('book');
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
@@ -571,6 +655,10 @@ function GuestView() {
       window.removeEventListener('keydown', onKey);
     };
   }, [open, close]);
+
+  if (bookKey) {
+    return <MobileBookView bookKey={bookKey} />;
+  }
 
   return (
     <>
