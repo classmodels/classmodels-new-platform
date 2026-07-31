@@ -228,9 +228,17 @@ function MobileIntroOverlay({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
+    // Nooit langer dan 3s op zwart blijven als film hapert / 404.
+    const failSafe = window.setTimeout(finish, 3000);
     v.muted = true;
+    const onErr = () => finish();
+    v.addEventListener('error', onErr);
     const p = v.play();
     if (p) p.catch(() => finish());
+    return () => {
+      window.clearTimeout(failSafe);
+      v.removeEventListener('error', onErr);
+    };
   }, [finish]);
 
   return (
@@ -254,7 +262,7 @@ function MobileIntroOverlay({ onDone }: { onDone: () => void }) {
       <button
         type="button"
         onClick={finish}
-        className="absolute bottom-6 right-4 rounded-full px-4 py-2 text-[13px] font-semibold"
+        className="absolute bottom-6 right-4 z-[1000] rounded-full px-4 py-2 text-[13px] font-semibold"
         style={{
           color: '#f3ead8',
           background: 'rgba(0,0,0,0.55)',
@@ -1092,13 +1100,35 @@ export function MobileBeginHome() {
       setShowIntro(false);
       return;
     }
-    try {
-      // sessionStorage: één keer per browsersessie/app-open — niet opnieuw bij
-      // «Beginpagina» binnen dezelfde sessie, wel opnieuw bij een nieuw openen.
-      setShowIntro(sessionStorage.getItem(INTRO_SEEN_KEY) !== '1');
-    } catch {
-      setShowIntro(false);
-    }
+    let cancelled = false;
+    (async () => {
+      try {
+        if (sessionStorage.getItem(INTRO_SEEN_KEY) === '1') {
+          if (!cancelled) setShowIntro(false);
+          return;
+        }
+      } catch {
+        if (!cancelled) setShowIntro(false);
+        return;
+      }
+      // Geen / kapotte introfilm → meteen startscherm (anders blijft gsm op zwart hangen).
+      try {
+        const ctrl = new AbortController();
+        const timer = window.setTimeout(() => ctrl.abort(), 2000);
+        const res = await fetch(`${ASSET_BASE}/videos/mobile-intro.mp4`, {
+          method: 'HEAD',
+          signal: ctrl.signal,
+          cache: 'no-store',
+        });
+        window.clearTimeout(timer);
+        if (!cancelled) setShowIntro(res.ok);
+      } catch {
+        if (!cancelled) setShowIntro(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [view]);
 
   const onIntroDone = useCallback(() => {
