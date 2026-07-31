@@ -31,6 +31,16 @@
 /* Gsm/app-pagina's (testshoot e.d.): desktop-kop/footer weg, cream app-look */
 @media (max-width: 767px) {
   .nieuw-root--app-mobile-page {
+    --n-bg: #f1eee8;
+    --n-bg-2: #faf8f4;
+    --n-bg-3: #ffffff;
+    --n-ink: #372c1f;
+    --n-mut: #7a6e5d;
+    --n-dim: #9a8f80;
+    --n-gold: #8a6a3b;
+    --n-gold-2: #a67c45;
+    --n-hair: #ddd5c7;
+    --n-gold-hair: rgba(138, 106, 59, 0.35);
     background: #f1eee8;
     color: #372c1f;
     min-height: 100dvh;
@@ -47,7 +57,9 @@
     margin: 0;
   }
   .nieuw-root--app-mobile-page .nieuw-h1,
-  .nieuw-root--app-mobile-page .nieuw-h3 {
+  .nieuw-root--app-mobile-page .nieuw-h2,
+  .nieuw-root--app-mobile-page .nieuw-h3,
+  .nieuw-root--app-mobile-page .nieuw-display {
     color: #372c1f;
   }
   .nieuw-root--app-mobile-page .nieuw-lead {
@@ -57,6 +69,26 @@
     background: #faf8f4;
     border-color: #ddd5c7;
     color: #372c1f;
+  }
+  .nieuw-root--app-mobile-page .nieuw-btn {
+    background: #372c1f;
+    color: #f6efe2;
+    border-color: #372c1f;
+  }
+  .nieuw-root--app-mobile-page .nieuw-btn-ghost {
+    background: transparent;
+    color: #372c1f;
+    border-color: #ddd5c7;
+  }
+  .nieuw-root--app-mobile-page .nieuw-link {
+    color: #8a6a3b;
+  }
+  .nieuw-root--app-mobile-page input,
+  .nieuw-root--app-mobile-page textarea,
+  .nieuw-root--app-mobile-page select {
+    background: #ffffff !important;
+    border-color: #ddd5c7 !important;
+    color: #372c1f !important;
   }
 }
 .nieuw-label {

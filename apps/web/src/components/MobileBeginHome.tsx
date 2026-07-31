@@ -7,6 +7,11 @@ import { useAuth } from '@/context/auth-context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
+import {
+  isMobileInfoKey,
+  mobileInfoTitle,
+  MobileGuestInfoBody,
+} from '@/components/MobileGuestInfoBody';
 
 const ASSET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 /** Sessiesleutel: introfilm alleen bij het openen van de site/app, niet bij terugkeren. */
@@ -58,19 +63,19 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     title: 'Gratis fotoshoot',
     line: 'Volledig gratis en zonder verplichtingen — ontdek of modellenwerk iets voor jou is.',
-    infoHref: '/gasten/gratis-fotoshoot',
+    infoHref: '/?m=guest&info=gratis-fotoshoot',
     bookHref: '/?m=guest&book=gratis-fotoshoot',
   },
   {
     title: 'Casting',
     line: 'Schrijf je in voor een casting voor echte opdrachten. Ervaring is niet nodig.',
-    infoHref: '/gasten/casting',
+    infoHref: '/?m=guest&info=casting',
     bookHref: '/?m=guest&book=casting',
   },
   {
     title: 'Intake gesprek',
     line: 'Vrijblijvend gesprek over jouw uitstraling, profiel en mogelijkheden.',
-    infoHref: '/gasten/intake',
+    infoHref: '/?m=guest&info=intake',
     bookHref: '/?m=guest&book=intake',
   },
 ];
@@ -94,15 +99,15 @@ const MOBILE_BOOKINGS: Record<string, { title: string; slug: string; line: strin
 };
 const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Gastenportaal (home)', href: '/?m=guest' },
-  { label: 'Model worden', href: '/gasten/model-worden' },
-  { label: 'Gratis fotoshoot', href: '/gasten/gratis-fotoshoot' },
+  { label: 'Model worden', href: '/?m=guest&info=model-worden' },
+  { label: 'Gratis fotoshoot', href: '/?m=guest&info=gratis-fotoshoot' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
-  { label: 'Casting', href: '/gasten/casting' },
-  { label: 'Intake gesprek', href: '/gasten/intake' },
-  { label: 'Doelgroepen', href: '/gasten/doelgroepen' },
-  { label: 'Veelgestelde vragen', href: '/gasten/faq' },
+  { label: 'Casting', href: '/?m=guest&info=casting' },
+  { label: 'Intake gesprek', href: '/?m=guest&info=intake' },
+  { label: 'Doelgroepen', href: '/?m=guest&info=doelgroepen' },
+  { label: 'Veelgestelde vragen', href: '/?m=guest&info=faq' },
   { label: 'Reviews', href: '/reviews' },
-  { label: 'Contact', href: '/gasten/contact' },
+  { label: 'Contact', href: '/?m=guest&info=contact' },
 ];
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -635,10 +640,53 @@ function MobileBookView({ bookKey }: { bookKey: string }) {
   );
 }
 
+function MobileInfoView({ infoKey }: { infoKey: string }) {
+  if (!isMobileInfoKey(infoKey)) {
+    return <MobileBookView bookKey="__invalid__" />;
+  }
+  return (
+    <>
+      <TopBar title={mobileInfoTitle(infoKey)} subtitle="Gastenportaal" />
+      <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
+        <div
+          className="sticky z-30 -mx-4 flex items-center justify-between gap-2.5 px-4 py-2.5"
+          style={{
+            top: 'calc(48px + env(safe-area-inset-top, 0px))',
+            background: BG,
+            borderBottom: `1px solid ${LINE}`,
+          }}
+        >
+          <Link
+            href="/?m=guest"
+            className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
+            style={{ color: TEXT, border: `1px solid ${LINE}`, background: CARD }}
+          >
+            ← Terug
+          </Link>
+          <Link
+            href="/"
+            className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
+            style={{ color: CTA_TEXT, background: CTA_BG, border: `1px solid ${CTA_BG}` }}
+          >
+            Beginpagina
+          </Link>
+        </div>
+        <h1 className="m-0 mt-5 font-serif text-[24px] font-semibold leading-tight" style={{ color: TEXT }}>
+          {mobileInfoTitle(infoKey)}
+        </h1>
+        <div className="mt-5">
+          <MobileGuestInfoBody infoKey={infoKey} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 function GuestView() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const bookKey = searchParams.get('book');
+  const infoKey = searchParams.get('info');
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
 
@@ -658,6 +706,9 @@ function GuestView() {
 
   if (bookKey) {
     return <MobileBookView bookKey={bookKey} />;
+  }
+  if (infoKey) {
+    return <MobileInfoView infoKey={infoKey} />;
   }
 
   return (
@@ -791,7 +842,7 @@ function GuestView() {
         >
           <div className="[&>a:first-child]:!border-t-0">
             <ChevronRow
-              href="/gasten/model-worden"
+              href="/?m=guest&info=model-worden"
               label="Model worden"
               sub="Waarom Class-Models, wat mag je verwachten"
             />
@@ -800,10 +851,10 @@ function GuestView() {
               label="Testshoot-foto’s"
               sub="Bekijk en download uw foto’s op gsm"
             />
-            <ChevronRow href="/gasten/doelgroepen" label="Doelgroepen" />
-            <ChevronRow href="/gasten/faq" label="Veelgestelde vragen" />
+            <ChevronRow href="/?m=guest&info=doelgroepen" label="Doelgroepen" />
+            <ChevronRow href="/?m=guest&info=faq" label="Veelgestelde vragen" />
             <ChevronRow href="/reviews" label="Reviews" sub="Ervaringen van onze modellen" />
-            <ChevronRow href="/gasten/contact" label="Contact" sub="Adres, e-mail en telefoon" />
+            <ChevronRow href="/?m=guest&info=contact" label="Contact" sub="Adres, e-mail en telefoon" />
           </div>
         </div>
       </div>

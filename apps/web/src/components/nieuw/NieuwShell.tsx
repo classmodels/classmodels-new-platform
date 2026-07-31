@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { MobileGuestAppShell } from '@/components/MobileGuestAppShell';
+import { MobileModelAppShell } from '@/components/MobileModelAppShell';
 import { useIsMobile } from '@/lib/use-is-mobile';
 import './nieuw.css';
 
@@ -96,10 +97,12 @@ export function NieuwShell({
   const activePortal = portal ?? portalFromPath(pathname);
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
   const onBooking = isBookingPage(pathname);
-  /** Op gsm: gastenpagina’s in de app-shell (niet de desktop-header). */
-  const appMobilePage =
+  /** Op gsm: gasten/modellen in de app-shell (niet de desktop-header). */
+  const appMobileGuest =
     isMobile === true &&
     Boolean(pathname?.startsWith('/gasten') || pathname === '/reviews' || pathname?.startsWith('/reviews/'));
+  const appMobileModel = isMobile === true && Boolean(pathname?.startsWith('/modellen'));
+  const appMobilePage = appMobileGuest || appMobileModel;
 
   const isKlantUser = Boolean(
     user?.roles?.includes('client') ||
@@ -307,7 +310,11 @@ export function NieuwShell({
     </div>
   );
 
-  if (appMobilePage) {
+  if (appMobileModel) {
+    return <MobileModelAppShell>{shellBody}</MobileModelAppShell>;
+  }
+
+  if (appMobileGuest) {
     const mobileTitle =
       pathname?.includes('gratis-fotoshoot')
         ? 'Gratis fotoshoot'

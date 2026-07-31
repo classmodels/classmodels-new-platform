@@ -119,7 +119,7 @@ function LoginForm() {
             Geen overeenkomst? Ga dan naar het gastenportaal.
           </p>
           <div className="nieuw-login-actions" style={{ marginTop: 18 }}>
-            <Link className="nieuw-btn" href="/gasten/model-worden">
+            <Link className="nieuw-btn" href="/?m=guest&info=model-worden">
               Naar gastenportaal
             </Link>
             <Link className="nieuw-btn nieuw-btn-ghost" href="/modellen/registreren">
@@ -243,7 +243,7 @@ function WrongRolePanel() {
           <Link className="nieuw-btn nieuw-btn-ghost" href="/modellen/registreren">
             Modellenaccount maken
           </Link>
-          <Link className="nieuw-btn nieuw-btn-ghost" href="/gasten/model-worden">
+          <Link className="nieuw-btn nieuw-btn-ghost" href="/?m=guest&info=model-worden">
             Naar gastenportaal
           </Link>
         </div>
