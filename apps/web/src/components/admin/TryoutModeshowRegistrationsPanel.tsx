@@ -209,8 +209,12 @@ export function TryoutModeshowRegistrationsPanel({
       }`;
       const payload = await adminFetch<AdminPayload>(url, token);
       setData(payload);
-      const couponRows = await adminFetch<CouponRow[]>('/admin/tryout-modeshow/coupons', token);
-      setCoupons(couponRows);
+      try {
+        const couponRows = await adminFetch<CouponRow[]>('/admin/tryout-modeshow/coupons', token);
+        setCoupons(couponRows);
+      } catch {
+        setCoupons([]);
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Laden mislukt');
       setData(null);
