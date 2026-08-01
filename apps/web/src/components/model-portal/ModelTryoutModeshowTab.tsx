@@ -5,6 +5,8 @@ import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 import { TryoutModeshowInfoContent } from '@/components/model-portal/tryout-modeshow-info-content';
+import { TryoutTermsContent } from '@/components/model-portal/tryout-terms-content';
+import { createPortal } from 'react-dom';
 
 type TryoutEdition = {
   slug: string;
@@ -72,6 +74,7 @@ export function ModelTryoutModeshowTab({
   const [busy, setBusy] = useState(false);
   const [termsTick, setTermsTick] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [termsRequiredOpen, setTermsRequiredOpen] = useState(false);
   const [panel, setPanel] = useState<Panel>('summary');
   const [couponDraft, setCouponDraft] = useState('');
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
@@ -197,11 +200,13 @@ export function ModelTryoutModeshowTab({
   const goToCheckout = useCallback(async () => {
     if (!token || !canPay) return;
     if (!termsTick) {
-      setErr('Vink het vakje aan om akkoord te gaan met de algemene voorwaarden.');
+      setTermsRequiredOpen(true);
+      setTermsOpen(true);
       return;
     }
     setBusy(true);
     setErr(null);
+    setTermsRequiredOpen(false);
     try {
       if (!state?.registration.termsAcceptedAt) {
         const s = await apiFetch<TryoutState>('/portal/model/tryout-modeshow/terms', {
@@ -255,6 +260,30 @@ export function ModelTryoutModeshowTab({
   const hasTerms = Boolean(reg?.termsAcceptedAt);
   const effectiveAmount = couponPreview?.finalAmount ?? state?.pricing.amount ?? '600';
   const priceLabel = formatPrice(effectiveAmount);
+  const paymentLabelNl =
+    paid || reg?.paymentStatus === 'paid' || reg?.paymentStatus === 'free'
+      ? 'Betaald'
+      : interested && hasTerms
+        ? 'Niet betaald'
+        : null;
+
+  const attemptCheckout = useCallback(() => {
+    if (!termsTick && !hasTerms) {
+      setTermsRequiredOpen(true);
+      setTermsOpen(true);
+      return;
+    }
+    void goToCheckout();
+  }, [termsTick, hasTerms, goToCheckout]);
+
+  const attemptPay = useCallback(() => {
+    if (!termsTick && !hasTerms) {
+      setTermsRequiredOpen(true);
+      setTermsOpen(true);
+      return;
+    }
+    void checkout();
+  }, [termsTick, hasTerms, checkout]);
 
   const headerBtn = useCallback(
     (
@@ -342,14 +371,11 @@ export function ModelTryoutModeshowTab({
       buttons.push(
         headerBtn('Ik wens niet deel te nemen', () => void interest(false), { variant: 'decline' }),
         !hasTerms
-          ? headerBtn('Akkoord — verder naar afrekenen', () => void goToCheckout(), {
-              variant: 'primary',
-              disabled: !termsTick,
-            })
+          ? headerBtn('Akkoord — verder naar afrekenen', () => attemptCheckout(), { variant: 'primary' })
           : canPay
             ? headerBtn(
                 busy ? 'Bezig…' : couponPreview?.isFree ? 'Gratis inschrijven' : `Afrekenen (${priceLabel})`,
-                () => void checkout(),
+                () => attemptPay(),
                 { variant: 'primary' },
               )
             : null,
@@ -364,13 +390,13 @@ export function ModelTryoutModeshowTab({
 
     return <div className="flex flex-wrap justify-end gap-2">{buttons}</div>;
   }, [
+    attemptCheckout,
+    attemptPay,
     busy,
     canBriefs,
     canPay,
-    checkout,
     couponPreview?.isFree,
     declined,
-    goToCheckout,
     hasTerms,
     headerBtn,
     interest,
@@ -382,7 +408,6 @@ export function ModelTryoutModeshowTab({
     reg?.isFree,
     state,
     status,
-    termsTick,
   ]);
 
   useEffect(() => {
@@ -478,7 +503,8 @@ export function ModelTryoutModeshowTab({
             <div className="nieuw-panel">
               <p style={{ margin: 0, fontWeight: 600, color: 'var(--n-ink)' }}>Uw keuze</p>
               <p style={{ margin: '10px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
-                U heeft aangegeven niet deel te nemen. Wijzigt uw situatie, klik dan op «Ik wens deel te nemen».
+                U heeft aangegeven niet deel te nemen. Bent u van gedacht veranderd, dan kunt u nog steeds deelnemen —
+                zolang er nog plaats is. Gebruik daarvoor de knop «Ik wens deel te nemen».
               </p>
             </div>
           ) : null}
@@ -490,13 +516,16 @@ export function ModelTryoutModeshowTab({
               </p>
 
               {paid ? (
-                <p style={{ margin: '12px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
-                  U bent ingeschreven
-                  {regView.isFree || Number(regView.amount ?? '0') === 0
-                    ? ' (gratis / coupon)'
-                    : ' en betaald'}{' '}
-                  voor deze try-out modeshow. U ontvangt een bevestiging per e-mail.
-                </p>
+                <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+                  <p style={{ margin: 0, color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
+                    U bent ingeschreven voor de try-out modeshow. Class-Models houdt u op de hoogte van de verdere
+                    afhandelingen.
+                  </p>
+                  <p style={{ margin: 0, fontSize: 12, color: 'var(--n-gold)' }}>
+                    Status: <strong style={{ color: 'var(--n-ink)' }}>Betaald</strong>
+                    {regView.isFree || Number(regView.amount ?? '0') === 0 ? ' (gratis / coupon)' : null}
+                  </p>
+                </div>
               ) : interested && !hasTerms ? (
                 <div style={{ marginTop: 14, display: 'grid', gap: 14 }}>
                   <p style={{ margin: 0, color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
@@ -571,8 +600,8 @@ export function ModelTryoutModeshowTab({
                     <button
                       type="button"
                       className="nieuw-btn"
-                      disabled={busy || !termsTick || !canPay}
-                      onClick={() => void goToCheckout()}
+                      disabled={busy || !canPay}
+                      onClick={() => attemptCheckout()}
                     >
                       {busy
                         ? 'Bezig…'
@@ -611,9 +640,10 @@ export function ModelTryoutModeshowTab({
                     busy={busy}
                     listPriceLabel={formatPrice(state.pricing.amount)}
                   />
-                  {regView.paymentStatus && regView.paymentStatus !== 'paid' && regView.paymentStatus !== 'free' ? (
+                  {paymentLabelNl ? (
                     <p style={{ margin: 0, fontSize: 12, color: 'var(--n-mut)' }}>
-                      Betalingsstatus: <strong style={{ color: 'var(--n-ink)' }}>{regView.paymentStatus}</strong>
+                      Status:{' '}
+                      <strong style={{ color: 'var(--n-ink)' }}>{paymentLabelNl}</strong>
                     </p>
                   ) : null}
                   {canPay ? (
@@ -622,7 +652,7 @@ export function ModelTryoutModeshowTab({
                         type="button"
                         className="nieuw-btn"
                         disabled={busy}
-                        onClick={() => void checkout()}
+                        onClick={() => attemptPay()}
                       >
                         {busy
                           ? 'Bezig…'
@@ -643,183 +673,142 @@ export function ModelTryoutModeshowTab({
         </>
       )}
 
-      {termsOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.72)' }}
-        >
-          <div
-            className="w-full max-w-3xl overflow-hidden shadow-xl"
-            style={{
-              background: 'var(--n-bg-2)',
-              border: '1px solid var(--n-hair)',
-              borderRadius: 'var(--n-radius)',
-            }}
-          >
+      {typeof document !== 'undefined' && (termsOpen || termsRequiredOpen)
+        ? createPortal(
             <div
-              className="flex items-center justify-between px-4 py-3"
-              style={{ background: 'var(--n-gold)', color: '#1a140c' }}
-            >
-              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                Algemene voorwaarden
-              </p>
-              <button
-                type="button"
-                onClick={() => setTermsOpen(false)}
-                className="nieuw-btn nieuw-btn-ghost"
-                style={{ padding: '6px 12px', fontSize: 11, color: '#1a140c', borderColor: 'rgba(0,0,0,0.25)' }}
-              >
-                Sluiten
-              </button>
-            </div>
-            <div
-              className="max-h-[65vh] overflow-auto px-4 py-4 text-sm"
-              style={{ color: 'var(--n-mut)', lineHeight: 1.55 }}
-            >
-              <p style={{ margin: 0, fontWeight: 600, color: 'var(--n-ink)' }}>Artikel 1 – Inschrijving en Deelname</p>
-              <p style={{ margin: '8px 0 0' }}>
-                1.1 Door inschrijving voor de Try-Out Modeshow verklaart het model zich akkoord met deze algemene
-                voorwaarden.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                1.2 Deelname aan de Try-Out Modeshow is geheel vrijwillig. Na inschrijving en akkoordverklaring met
-                deze voorwaarden is deelname verplicht.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                1.3 De deelnamekost bedraagt <strong style={{ color: 'var(--n-ink)' }}>{priceLabel}</strong>. Hiervoor
-                ontvangt het model <strong style={{ color: 'var(--n-ink)' }}>30 inkomkaarten</strong> voor het
-                evenement, welke vrij mogen worden verdeeld of verkocht.
-              </p>
-
-              <p style={{ margin: '16px 0 0', fontWeight: 600, color: 'var(--n-ink)' }}>
-                Artikel 2 – Annulering en Terugbetaling
-              </p>
-              <p style={{ margin: '8px 0 0' }}>
-                2.1 Bij annulering van deelname door het model, vindt geen restitutie van het inschrijfgeld plaats.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                2.2 Bij annulering zonder aantoonbare overmacht wordt het model uit het bestand van Class-Models
-                verwijderd en uitgesloten van toekomstige opdrachten.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                2.3 Indien de Try-Out Modeshow door overmacht aan de zijde van Class-Models niet kan doorgaan én niet
-                kan worden verplaatst naar een andere datum, zal het door het model betaalde bedrag volledig worden
-                terugbetaald.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>2.4 In alle andere gevallen is restitutie van het inschrijfgeld uitgesloten.</p>
-
-              <p style={{ margin: '16px 0 0', fontWeight: 600, color: 'var(--n-ink)' }}>
-                Artikel 3 – Verplichtingen van het Model
-              </p>
-              <p style={{ margin: '8px 0 0' }}>
-                3.1 Het model verbindt zich ertoe deel te nemen aan drie oefenlessen in aanloop naar de Try-Out
-                Modeshow.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                3.2 Het model dient op de afgesproken dagen en tijden kleding te passen bij de deelnemende zaken.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                3.3 Op de dag van de Try-Out Modeshow heeft het model recht op visagie, haarstyling, de aanmaak van
-                setcards, foto’s en een volledige filmopname van de show.
-              </p>
-
-              <p style={{ margin: '16px 0 0', fontWeight: 600, color: 'var(--n-ink)' }}>
-                Artikel 4 – Gedragscode en Vertrouwelijkheid
-              </p>
-              <p style={{ margin: '8px 0 0' }}>
-                4.1 Het model dient zich te allen tijde professioneel, respectvol en positief op te stellen tegenover
-                de organisatie, andere modellen, klanten en betrokkenen.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                4.2 Negatief gedrag, roddelen, het verspreiden van negatieve opmerkingen over de organisatie, andere
-                modellen of klanten, evenals het aanzetten tot negativiteit, leidt tot onmiddellijke uitsluiting van
-                de Try-Out Modeshow en verwijdering uit het bestand van Class-Models.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                4.3 Opmerkingen, klachten of suggesties kunnen altijd rechtstreeks bij de directie worden gemeld.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                4.4 Modellen die getuige zijn van negatief gedrag of negatieve uitlatingen van andere modellen, zijn
-                verplicht dit te melden aan de directie. Indien zij dit nalaten, worden zij als medeplichtig
-                beschouwd en kunnen ook zij worden uitgesloten.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                4.5 Het is het model niet toegestaan interne informatie van Class-Models of persoonlijke gegevens van
-                zichzelf aan klanten te verstrekken.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                4.6 Het model is verboden om, na bemiddeling door Class-Models, zelfstandig en zonder tussenkomst van
-                Class-Models opdrachten voor klanten uit te voeren, zowel betaald als onbetaald. Overtreding hiervan
-                leidt tot een schadevergoeding ten gunste van Class-Models.
-              </p>
-
-              <p style={{ margin: '16px 0 0', fontWeight: 600, color: 'var(--n-ink)' }}>
-                Artikel 5 – Samenwerking met Klanten (Kledingzaken)
-              </p>
-              <p style={{ margin: '8px 0 0' }}>
-                5.1 De klanten (kledingzaken) ontvangen een lijst van alle modellen die bij hen komen passen. Zij
-                vullen voor elk model een evaluatieformulier in, dat door Class-Models wordt geëvalueerd.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>5.2 Het model dient altijd stipt op tijd aanwezig te zijn bij afspraken met klanten.</p>
-              <p style={{ margin: '6px 0 0' }}>
-                5.3 De hygiëne van het model dient optimaal te zijn bij elk bezoek aan klanten:
-                <br />• Haren verzorgd en schoon
-                <br />• Propere, nette kleding en schoeisel
-                <br />• Indien mogelijk licht opgemaakt
-                <br />• Een vriendelijke, representatieve houding
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                5.4 Het model dient de kleding te dragen die door de winkel is uitgekozen voor de modeshow. Discussie
-                hierover is niet toegestaan.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>
-                5.5 Een goede eerste indruk is essentieel; het model dient zich hiernaar te gedragen.
-              </p>
-
-              <p style={{ margin: '16px 0 0', fontWeight: 600, color: 'var(--n-ink)' }}>
-                Artikel 6 – Uitsluiting en Sancties
-              </p>
-              <p style={{ margin: '8px 0 0' }}>
-                6.1 Ongepast gedrag, het niet naleven van deze voorwaarden of het niet melden van negatieve
-                uitlatingen kan leiden tot onmiddellijke uitsluiting van deelname, zonder recht op compensatie.
-              </p>
-              <p style={{ margin: '6px 0 0' }}>6.2 Het model wordt bij uitsluiting per e-mail op de hoogte gesteld.</p>
-
-              <p style={{ margin: '16px 0 0', fontWeight: 600, color: 'var(--n-ink)' }}>Artikel 7 – Overige Bepalingen</p>
-              <p style={{ margin: '8px 0 0' }}>7.1 In alle gevallen waarin deze voorwaarden niet voorzien, beslist Class-Models.</p>
-              <p style={{ margin: '6px 0 0' }}>
-                7.2 Door inschrijving verklaart het model deze algemene voorwaarden te hebben gelezen, begrepen en
-                hiermee akkoord te gaan.
-              </p>
-            </div>
-            <div
-              className="flex flex-wrap justify-end gap-2 px-4 py-3"
-              style={{ borderTop: '1px solid var(--n-hair)', background: 'var(--n-bg-3)' }}
-            >
-              <button
-                type="button"
-                className="nieuw-btn nieuw-btn-ghost"
-                onClick={() => {
-                  setTermsTick(false);
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="tryout-terms-title"
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 99999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
+                background: 'rgba(0,0,0,0.78)',
+                boxSizing: 'border-box',
+              }}
+              onClick={(ev) => {
+                if (ev.target === ev.currentTarget) {
                   setTermsOpen(false);
+                  setTermsRequiredOpen(false);
+                }
+              }}
+            >
+              <div
+                style={{
+                  width: 'min(720px, 100%)',
+                  maxHeight: 'min(88vh, 860px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  background: 'var(--n-bg-2)',
+                  border: '1px solid var(--n-hair)',
+                  borderRadius: 'var(--n-radius)',
+                  boxShadow: '0 24px 80px rgba(0,0,0,0.55)',
                 }}
               >
-                Niet akkoord
-              </button>
-              <button
-                type="button"
-                className="nieuw-btn"
-                onClick={() => {
-                  setTermsTick(true);
-                  setTermsOpen(false);
-                }}
-              >
-                Akkoord
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <div
+                  className="flex items-center justify-between px-4 py-3"
+                  style={{ background: 'var(--n-gold)', color: '#1a140c', flexShrink: 0 }}
+                >
+                  <p
+                    id="tryout-terms-title"
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Algemene voorwaarden
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTermsOpen(false);
+                      setTermsRequiredOpen(false);
+                    }}
+                    className="nieuw-btn nieuw-btn-ghost"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: 11,
+                      color: '#1a140c',
+                      borderColor: 'rgba(0,0,0,0.25)',
+                    }}
+                  >
+                    Sluiten
+                  </button>
+                </div>
+
+                {termsRequiredOpen ? (
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      margin: 0,
+                      padding: '10px 14px',
+                      background: 'rgba(196, 60, 60, 0.16)',
+                      borderBottom: '1px solid rgba(196, 60, 60, 0.35)',
+                      color: '#fecaca',
+                      fontSize: 12.5,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    U moet eerst de algemene voorwaarden accepteren voor u verder kunt gaan.
+                  </div>
+                ) : null}
+
+                <div
+                  style={{
+                    flex: '1 1 auto',
+                    minHeight: 0,
+                    overflow: 'auto',
+                    padding: '8px 16px 16px',
+                    WebkitOverflowScrolling: 'touch',
+                  }}
+                >
+                  <TryoutTermsContent priceLabel={formatPrice(state.pricing.amount)} />
+                </div>
+
+                <div
+                  className="flex flex-wrap justify-end gap-2 px-4 py-3"
+                  style={{
+                    borderTop: '1px solid var(--n-hair)',
+                    background: 'var(--n-bg-3)',
+                    flexShrink: 0,
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="nieuw-btn nieuw-btn-ghost"
+                    onClick={() => {
+                      setTermsTick(false);
+                      setTermsOpen(false);
+                      setTermsRequiredOpen(false);
+                    }}
+                  >
+                    Niet akkoord
+                  </button>
+                  <button
+                    type="button"
+                    className="nieuw-btn"
+                    onClick={() => {
+                      setTermsTick(true);
+                      setTermsRequiredOpen(false);
+                      setTermsOpen(false);
+                    }}
+                  >
+                    Akkoord
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
