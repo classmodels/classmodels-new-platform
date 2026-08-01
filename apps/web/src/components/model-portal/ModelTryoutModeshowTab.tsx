@@ -542,7 +542,7 @@ export function ModelTryoutModeshowTab({
                     >
                       algemene voorwaarden
                     </button>{' '}
-                    en ga akkoord. Vink hieronder aan en ga daarna verder naar afrekenen.
+                    en ga akkoord in de popup. Daarna kunt u verder naar afrekenen.
                   </p>
                   <label
                     style={{
@@ -560,9 +560,19 @@ export function ModelTryoutModeshowTab({
                       style={{ marginTop: 3, width: 16, height: 16, flexShrink: 0 }}
                       checked={termsTick}
                       onChange={(ev) => {
-                        const v = ev.target.checked;
-                        setTermsTick(v);
-                        if (v) setTermsOpen(true);
+                        // Alleen uitvinken mag direct; aanvinken gebeurt via Akkoord in de popup.
+                        if (!ev.target.checked) {
+                          setTermsTick(false);
+                          return;
+                        }
+                        ev.preventDefault();
+                        setTermsOpen(true);
+                      }}
+                      onClick={(ev) => {
+                        if (!termsTick) {
+                          ev.preventDefault();
+                          setTermsOpen(true);
+                        }
                       }}
                     />
                     <span>
@@ -672,104 +682,112 @@ export function ModelTryoutModeshowTab({
 
       {typeof document !== 'undefined' && termsRequiredOpen
         ? createPortal(
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="tryout-terms-required-title"
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 100000,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 16,
-                background: 'rgba(0,0,0,0.55)',
-                boxSizing: 'border-box',
-              }}
-              onClick={(ev) => {
-                if (ev.target === ev.currentTarget) setTermsRequiredOpen(false);
-              }}
-            >
+            <div className="nieuw-root" style={{ position: 'fixed', inset: 0, zIndex: 100000 }}>
               <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="tryout-terms-required-title"
                 style={{
-                  width: 'min(420px, 100%)',
-                  background: 'var(--n-bg-2)',
-                  border: '1px solid var(--n-gold-hair)',
-                  borderRadius: 'var(--n-radius)',
-                  boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
-                  overflow: 'hidden',
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                  background: 'rgba(8, 8, 11, 0.72)',
+                  boxSizing: 'border-box',
+                }}
+                onClick={(ev) => {
+                  if (ev.target === ev.currentTarget) setTermsRequiredOpen(false);
                 }}
               >
                 <div
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    padding: '12px 14px',
-                    borderBottom: '1px solid var(--n-hair)',
-                    background: 'var(--n-bg-3)',
+                    width: 'min(420px, 100%)',
+                    background: '#16161e',
+                    border: '1px solid rgba(212, 175, 106, 0.45)',
+                    borderRadius: 4,
+                    boxShadow: '0 18px 50px rgba(0,0,0,0.65)',
+                    overflow: 'hidden',
                   }}
                 >
-                  <p
-                    id="tryout-terms-required-title"
+                  <div
                     style={{
-                      margin: 0,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      color: 'var(--n-gold)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderBottom: '1px solid rgba(243, 238, 230, 0.12)',
+                      background: '#101016',
                     }}
                   >
-                    Voorwaarden vereist
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setTermsRequiredOpen(false)}
-                    className="nieuw-btn nieuw-btn-ghost"
-                    style={{ padding: '4px 10px', fontSize: 11 }}
-                  >
-                    Sluiten
-                  </button>
-                </div>
-                <div style={{ padding: '16px 14px', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.55 }}>
-                  <p style={{ margin: 0, color: 'var(--n-ink)' }}>
-                    U moet eerst de algemene voorwaarden accepteren voor u verder kunt gaan naar de betaling.
-                  </p>
-                  <p style={{ margin: '10px 0 0' }}>
-                    Lees de voorwaarden, vink het vakje aan en klik daarna opnieuw op afrekenen.
-                  </p>
-                </div>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    justifyContent: 'flex-end',
-                    gap: 8,
-                    padding: '12px 14px',
-                    borderTop: '1px solid var(--n-hair)',
-                    background: 'var(--n-bg-3)',
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="nieuw-btn nieuw-btn-ghost"
-                    onClick={() => setTermsRequiredOpen(false)}
-                  >
-                    Sluiten
-                  </button>
-                  <button
-                    type="button"
-                    className="nieuw-btn"
-                    onClick={() => {
-                      setTermsRequiredOpen(false);
-                      setTermsOpen(true);
+                    <p
+                      id="tryout-terms-required-title"
+                      style={{
+                        margin: 0,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: '#d4af6a',
+                      }}
+                    >
+                      Voorwaarden vereist
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="Sluiten"
+                      onClick={() => setTermsRequiredOpen(false)}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 4,
+                        border: '1px solid rgba(243, 238, 230, 0.25)',
+                        background: 'transparent',
+                        color: '#f3eee6',
+                        fontSize: 18,
+                        lineHeight: 1,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div style={{ padding: '18px 16px', color: '#9e9689', fontSize: 13, lineHeight: 1.55 }}>
+                    <p style={{ margin: 0, color: '#f3eee6' }}>
+                      U moet eerst de algemene voorwaarden accepteren voor u verder kunt gaan naar de betaling.
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'flex-end',
+                      gap: 8,
+                      padding: '12px 14px',
+                      borderTop: '1px solid rgba(243, 238, 230, 0.12)',
+                      background: '#101016',
                     }}
                   >
-                    Voorwaarden lezen
-                  </button>
+                    <button
+                      type="button"
+                      className="nieuw-btn nieuw-btn-ghost"
+                      onClick={() => setTermsRequiredOpen(false)}
+                    >
+                      Sluiten
+                    </button>
+                    <button
+                      type="button"
+                      className="nieuw-btn"
+                      onClick={() => {
+                        setTermsRequiredOpen(false);
+                        setTermsOpen(true);
+                      }}
+                    >
+                      Voorwaarden lezen
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>,
@@ -779,110 +797,129 @@ export function ModelTryoutModeshowTab({
 
       {typeof document !== 'undefined' && termsOpen
         ? createPortal(
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="tryout-terms-title"
-              style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 99999,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding:
-                  'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
-                background: 'rgba(0,0,0,0.78)',
-                boxSizing: 'border-box',
-              }}
-              onClick={(ev) => {
-                if (ev.target === ev.currentTarget) setTermsOpen(false);
-              }}
-            >
+            <div className="nieuw-root" style={{ position: 'fixed', inset: 0, zIndex: 99999 }}>
               <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="tryout-terms-title"
                 style={{
-                  width: 'min(720px, 100%)',
-                  maxHeight: 'min(88vh, 860px)',
+                  position: 'absolute',
+                  inset: 0,
                   display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                  background: 'var(--n-bg-2)',
-                  border: '1px solid var(--n-hair)',
-                  borderRadius: 'var(--n-radius)',
-                  boxShadow: '0 24px 80px rgba(0,0,0,0.55)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                  background: 'rgba(8, 8, 11, 0.78)',
+                  boxSizing: 'border-box',
+                }}
+                onClick={(ev) => {
+                  if (ev.target === ev.currentTarget) setTermsOpen(false);
                 }}
               >
                 <div
-                  className="flex items-center justify-between px-4 py-3"
-                  style={{ background: 'var(--n-gold)', color: '#1a140c', flexShrink: 0 }}
+                  style={{
+                    width: 'min(720px, 100%)',
+                    maxHeight: 'min(88vh, 860px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden',
+                    background: '#16161e',
+                    border: '1px solid rgba(212, 175, 106, 0.38)',
+                    borderRadius: 4,
+                    boxShadow: '0 24px 80px rgba(0,0,0,0.7)',
+                  }}
                 >
-                  <p
-                    id="tryout-terms-title"
+                  <div
                     style={{
-                      margin: 0,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Algemene voorwaarden
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setTermsOpen(false)}
-                    className="nieuw-btn nieuw-btn-ghost"
-                    style={{
-                      padding: '6px 12px',
-                      fontSize: 11,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '12px 14px',
+                      background: '#d4af6a',
                       color: '#1a140c',
-                      borderColor: 'rgba(0,0,0,0.25)',
+                      flexShrink: 0,
                     }}
                   >
-                    Sluiten
-                  </button>
-                </div>
+                    <p
+                      id="tryout-terms-title"
+                      style={{
+                        margin: 0,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      Algemene voorwaarden
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="Sluiten"
+                      onClick={() => setTermsOpen(false)}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 4,
+                        border: '1px solid rgba(0,0,0,0.25)',
+                        background: 'rgba(255,255,255,0.25)',
+                        color: '#1a140c',
+                        fontSize: 18,
+                        lineHeight: 1,
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
 
-                <div
-                  style={{
-                    flex: '1 1 auto',
-                    minHeight: 0,
-                    overflow: 'auto',
-                    padding: '8px 16px 16px',
-                    WebkitOverflowScrolling: 'touch',
-                  }}
-                >
-                  <TryoutTermsContent priceLabel={formatPrice(state.pricing.amount)} />
-                </div>
+                  <div
+                    style={{
+                      flex: '1 1 auto',
+                      minHeight: 0,
+                      overflow: 'auto',
+                      padding: '8px 16px 16px',
+                      background: '#16161e',
+                      WebkitOverflowScrolling: 'touch',
+                    }}
+                  >
+                    <TryoutTermsContent priceLabel={formatPrice(state.pricing.amount)} />
+                  </div>
 
-                <div
-                  className="flex flex-wrap justify-end gap-2 px-4 py-3"
-                  style={{
-                    borderTop: '1px solid var(--n-hair)',
-                    background: 'var(--n-bg-3)',
-                    flexShrink: 0,
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="nieuw-btn nieuw-btn-ghost"
-                    onClick={() => {
-                      setTermsTick(false);
-                      setTermsOpen(false);
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'flex-end',
+                      gap: 8,
+                      padding: '12px 14px',
+                      borderTop: '1px solid rgba(243, 238, 230, 0.12)',
+                      background: '#101016',
+                      flexShrink: 0,
                     }}
                   >
-                    Niet akkoord
-                  </button>
-                  <button
-                    type="button"
-                    className="nieuw-btn"
-                    onClick={() => {
-                      setTermsTick(true);
-                      setTermsOpen(false);
-                    }}
-                  >
-                    Akkoord
-                  </button>
+                    <button
+                      type="button"
+                      className="nieuw-btn nieuw-btn-ghost"
+                      onClick={() => {
+                        setTermsTick(false);
+                        setTermsOpen(false);
+                      }}
+                    >
+                      Niet akkoord
+                    </button>
+                    <button
+                      type="button"
+                      className="nieuw-btn"
+                      onClick={() => {
+                        setTermsTick(true);
+                        setTermsOpen(false);
+                      }}
+                    >
+                      Akkoord
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>,

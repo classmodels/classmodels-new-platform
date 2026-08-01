@@ -77,8 +77,6 @@ function BedanktInner() {
       : kind === 'setkaart'
         ? '/modellen?tab=setkaarten'
         : '/modellen?tab=premium';
-  const backLabel =
-    kind === 'tryout' ? 'Try-out modeshow' : kind === 'setkaart' ? 'Setkaarten' : 'Premium';
   const title =
     kind === 'tryout'
       ? 'Bedankt voor je inschrijving'
@@ -110,15 +108,17 @@ function BedanktInner() {
           Bedankt
         </h1>
         <p className="nieuw-lead" style={{ margin: '14px auto 0', textAlign: 'center' }}>
-          Je betaling bij Mollie is afgerond. Log opnieuw in om je status te zien en verder te gaan in het
-          modellenportaal.
+          Je betaling bij Mollie is afgerond. Ga terug naar het modellenportaal om je status te bekijken.
         </p>
-        <div style={{ marginTop: 28 }}>
+        <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+          <Link className="nieuw-btn" href={backHref}>
+            Sluiten
+          </Link>
           <Link
-            className="nieuw-btn"
+            className="nieuw-btn nieuw-btn-ghost"
             href={`/inloggen?next=${encodeURIComponent(`/modellen/betaling/bedankt?soort=${kind}`)}`}
           >
-            Inloggen
+            Opnieuw inloggen
           </Link>
         </div>
       </div>
@@ -157,7 +157,7 @@ function BedanktInner() {
       )}
       <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
         <Link className="nieuw-btn" href={backHref}>
-          Terug naar {backLabel}
+          Sluiten
         </Link>
         <Link className="nieuw-btn nieuw-btn-ghost" href="/modellen">
           Modellenportaal home
