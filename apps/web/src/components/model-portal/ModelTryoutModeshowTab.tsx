@@ -201,7 +201,6 @@ export function ModelTryoutModeshowTab({
     if (!token || !canPay) return;
     if (!termsTick) {
       setTermsRequiredOpen(true);
-      setTermsOpen(true);
       return;
     }
     setBusy(true);
@@ -270,7 +269,6 @@ export function ModelTryoutModeshowTab({
   const attemptCheckout = useCallback(() => {
     if (!termsTick && !hasTerms) {
       setTermsRequiredOpen(true);
-      setTermsOpen(true);
       return;
     }
     void goToCheckout();
@@ -279,7 +277,6 @@ export function ModelTryoutModeshowTab({
   const attemptPay = useCallback(() => {
     if (!termsTick && !hasTerms) {
       setTermsRequiredOpen(true);
-      setTermsOpen(true);
       return;
     }
     void checkout();
@@ -673,7 +670,114 @@ export function ModelTryoutModeshowTab({
         </>
       )}
 
-      {typeof document !== 'undefined' && (termsOpen || termsRequiredOpen)
+      {typeof document !== 'undefined' && termsRequiredOpen
+        ? createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="tryout-terms-required-title"
+              style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 100000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 16,
+                background: 'rgba(0,0,0,0.55)',
+                boxSizing: 'border-box',
+              }}
+              onClick={(ev) => {
+                if (ev.target === ev.currentTarget) setTermsRequiredOpen(false);
+              }}
+            >
+              <div
+                style={{
+                  width: 'min(420px, 100%)',
+                  background: 'var(--n-bg-2)',
+                  border: '1px solid var(--n-gold-hair)',
+                  borderRadius: 'var(--n-radius)',
+                  boxShadow: '0 16px 48px rgba(0,0,0,0.45)',
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    padding: '12px 14px',
+                    borderBottom: '1px solid var(--n-hair)',
+                    background: 'var(--n-bg-3)',
+                  }}
+                >
+                  <p
+                    id="tryout-terms-required-title"
+                    style={{
+                      margin: 0,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      color: 'var(--n-gold)',
+                    }}
+                  >
+                    Voorwaarden vereist
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setTermsRequiredOpen(false)}
+                    className="nieuw-btn nieuw-btn-ghost"
+                    style={{ padding: '4px 10px', fontSize: 11 }}
+                  >
+                    Sluiten
+                  </button>
+                </div>
+                <div style={{ padding: '16px 14px', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.55 }}>
+                  <p style={{ margin: 0, color: 'var(--n-ink)' }}>
+                    U moet eerst de algemene voorwaarden accepteren voor u verder kunt gaan naar de betaling.
+                  </p>
+                  <p style={{ margin: '10px 0 0' }}>
+                    Lees de voorwaarden, vink het vakje aan en klik daarna opnieuw op afrekenen.
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'flex-end',
+                    gap: 8,
+                    padding: '12px 14px',
+                    borderTop: '1px solid var(--n-hair)',
+                    background: 'var(--n-bg-3)',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="nieuw-btn nieuw-btn-ghost"
+                    onClick={() => setTermsRequiredOpen(false)}
+                  >
+                    Sluiten
+                  </button>
+                  <button
+                    type="button"
+                    className="nieuw-btn"
+                    onClick={() => {
+                      setTermsRequiredOpen(false);
+                      setTermsOpen(true);
+                    }}
+                  >
+                    Voorwaarden lezen
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {typeof document !== 'undefined' && termsOpen
         ? createPortal(
             <div
               role="dialog"
@@ -686,15 +790,13 @@ export function ModelTryoutModeshowTab({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
+                padding:
+                  'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))',
                 background: 'rgba(0,0,0,0.78)',
                 boxSizing: 'border-box',
               }}
               onClick={(ev) => {
-                if (ev.target === ev.currentTarget) {
-                  setTermsOpen(false);
-                  setTermsRequiredOpen(false);
-                }
+                if (ev.target === ev.currentTarget) setTermsOpen(false);
               }}
             >
               <div
@@ -728,10 +830,7 @@ export function ModelTryoutModeshowTab({
                   </p>
                   <button
                     type="button"
-                    onClick={() => {
-                      setTermsOpen(false);
-                      setTermsRequiredOpen(false);
-                    }}
+                    onClick={() => setTermsOpen(false)}
                     className="nieuw-btn nieuw-btn-ghost"
                     style={{
                       padding: '6px 12px',
@@ -743,23 +842,6 @@ export function ModelTryoutModeshowTab({
                     Sluiten
                   </button>
                 </div>
-
-                {termsRequiredOpen ? (
-                  <div
-                    style={{
-                      flexShrink: 0,
-                      margin: 0,
-                      padding: '10px 14px',
-                      background: 'rgba(196, 60, 60, 0.16)',
-                      borderBottom: '1px solid rgba(196, 60, 60, 0.35)',
-                      color: '#fecaca',
-                      fontSize: 12.5,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    U moet eerst de algemene voorwaarden accepteren voor u verder kunt gaan.
-                  </div>
-                ) : null}
 
                 <div
                   style={{
@@ -787,7 +869,6 @@ export function ModelTryoutModeshowTab({
                     onClick={() => {
                       setTermsTick(false);
                       setTermsOpen(false);
-                      setTermsRequiredOpen(false);
                     }}
                   >
                     Niet akkoord
@@ -797,7 +878,6 @@ export function ModelTryoutModeshowTab({
                     className="nieuw-btn"
                     onClick={() => {
                       setTermsTick(true);
-                      setTermsRequiredOpen(false);
                       setTermsOpen(false);
                     }}
                   >
@@ -812,6 +892,7 @@ export function ModelTryoutModeshowTab({
     </div>
   );
 }
+
 
 function CouponBlock({
   couponDraft,

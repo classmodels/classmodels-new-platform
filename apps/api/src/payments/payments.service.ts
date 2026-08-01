@@ -44,6 +44,18 @@ function assertMollieKeyForMode(key: string, mode: MollieMode): void {
   }
 }
 
+/** Korte omschrijving voor Mollie-dashboard (naam + dienst). Max. ~255 tekens. */
+function molliePaymentDescription(
+  service: string,
+  user: { firstName?: string | null; lastName?: string | null; email?: string | null },
+): string {
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+  const who = name || user.email?.trim() || 'onbekend';
+  const email = user.email?.trim();
+  const base = name && email && name !== email ? `${service} — ${name} (${email})` : `${service} — ${who}`;
+  return base.slice(0, 255);
+}
+
 @Injectable()
 export class PaymentsService {
   private readonly log = new Logger(PaymentsService.name);
@@ -325,16 +337,21 @@ export class PaymentsService {
 
     let payment: Payment;
     try {
+      const payer = reg.user;
+      const displayName = [payer?.firstName, payer?.lastName].filter(Boolean).join(' ').trim() || payer?.email || '';
       payment = await mollie.payments.create({
         amount: { currency: 'EUR', value },
-        description: `Try-out modeshow — ${reg.editionSlug}`,
+        description: molliePaymentDescription('Try-out modeshow', payer ?? {}),
         redirectUrl,
         webhookUrl,
         metadata: {
           kind: 'tryout_modeshow',
+          service: 'Try-out modeshow',
           userId: String(expectedUserId),
           tryoutRegistrationId: String(reg.id),
           editionSlug: reg.editionSlug,
+          customerName: displayName,
+          customerEmail: payer?.email ?? '',
           ...(coupon
             ? {
                 couponCode: coupon.code,
@@ -497,12 +514,15 @@ export class PaymentsService {
     try {
       payment = await mollie.payments.create({
         amount: { currency: 'EUR', value },
-        description: `Setkaart — ${displayName} (${user.email})`,
+        description: molliePaymentDescription('Setkaart', user),
         redirectUrl,
         webhookUrl,
         metadata: {
           kind: 'set_card_order',
+          service: 'Setkaart',
           userId: String(userId),
+          customerEmail: user.email,
+          customerName: displayName,
           userEmail: user.email,
           displayName,
         },
@@ -609,12 +629,19 @@ export class PaymentsService {
     try {
       payment = await mollie.payments.create({
         amount: { currency: 'EUR', value },
-        description: promoActive ? 'Class Models Premium (levenslang)' : 'Class Models Premium (jaar)',
+        description: molliePaymentDescription(
+          promoActive ? 'Premium (levenslang)' : 'Premium (jaar)',
+          user,
+        ),
         redirectUrl,
         webhookUrl,
         metadata: {
+          kind: 'premium',
+          service: promoActive ? 'Premium (levenslang)' : 'Premium (jaar)',
           userId: String(userId),
           subscriptionId: String(sub.id),
+          customerName: [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email,
+          customerEmail: user.email,
           promoLifetime: promoActive ? '1' : '0',
         },
       });
