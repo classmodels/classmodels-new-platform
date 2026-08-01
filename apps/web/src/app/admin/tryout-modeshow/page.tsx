@@ -27,12 +27,9 @@ export default function AdminTryoutModeshowPage() {
       <div>
         <h1 className="text-xl font-semibold text-zinc-900">Try-out modeshow</h1>
         <p className="mt-1 max-w-2xl text-sm leading-relaxed text-zinc-600">
-          Overzicht van inschrijvingen, betalingen (Mollie) en modellen die geen deelname wensen. De modellen zelf
-          schrijven zich in via het{' '}
-          <Link href="/modellen?tab=tryout-modeshow" className="text-zinc-900 underline hover:text-zinc-700">
-            modellenportaal
-          </Link>
-          ; deze pagina is alleen voor de backsite.
+          Beheer per sectie: ingeschreven, in behandeling, niet deelnemen (met reden), try-out-rol, mailen,
+          pushberichten en coupons. Alleen echte keuzes worden getoond — niet alle modellen. Inschrijvingen kun je
+          altijd ongedaan maken of verwijderen.
         </p>
         <p className="mt-2 text-xs text-zinc-500">
           Prijs en Mollie-keys:{' '}

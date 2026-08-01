@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ArrayMinSize,
   IsArray,
@@ -15,6 +26,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import type { JwtPayload } from '../auth/jwt.strategy';
 import {
   AdminTryoutModeshowService,
   type TryoutPipelinePhase,
@@ -33,6 +45,12 @@ class TryoutMailDto {
   phases?: TryoutPipelinePhase[];
 
   @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  userIds?: string[];
+
+  @IsOptional()
   @IsString()
   @MaxLength(120)
   editionSlug?: string;
@@ -46,6 +64,40 @@ class TryoutMailDto {
   @MinLength(2)
   @MaxLength(50000)
   html!: string;
+}
+
+class TryoutPushDto {
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  registrationIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(['paid', 'awaiting_payment', 'awaiting_terms', 'declined', 'no_response'], { each: true })
+  phases?: TryoutPipelinePhase[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsUUID('4', { each: true })
+  userIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  editionSlug?: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  title!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(2000)
+  body!: string;
 }
 
 class CreateTryoutCouponDto {
@@ -135,10 +187,37 @@ export class AdminTryoutModeshowController {
     return this.tryoutAdmin.listRegistrations(editionSlugRaw, searchRaw);
   }
 
+  @Get('tryout-role-models')
+  @Permissions('admin.billing.read')
+  tryoutRoleModels(
+    @Query('editionSlug') editionSlugRaw?: string,
+    @Query('search') searchRaw?: string,
+  ) {
+    return this.tryoutAdmin.listTryoutRoleModels(editionSlugRaw, searchRaw);
+  }
+
+  @Delete('registrations/:id')
+  @Permissions('admin.billing.write')
+  deleteRegistration(@Param('id') id: string) {
+    return this.tryoutAdmin.deleteRegistration(id);
+  }
+
+  @Post('registrations/:id/reset')
+  @Permissions('admin.billing.write')
+  resetRegistration(@Param('id') id: string) {
+    return this.tryoutAdmin.resetRegistration(id);
+  }
+
   @Post('mail')
   @Permissions('admin.billing.write')
   mail(@Body() dto: TryoutMailDto) {
     return this.tryoutAdmin.sendMail(dto);
+  }
+
+  @Post('push')
+  @Permissions('admin.billing.write')
+  push(@Req() req: { user: JwtPayload }, @Body() dto: TryoutPushDto) {
+    return this.tryoutAdmin.sendPush({ ...dto, adminUserId: req.user.sub });
   }
 
   @Get('coupons')

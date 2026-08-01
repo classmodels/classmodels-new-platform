@@ -9,6 +9,11 @@ import { TryoutModeshowService } from './tryout-modeshow.service';
 class TryoutInterestDto {
   @IsBoolean()
   interested!: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  declineReason?: string;
 }
 
 class TryoutTermsDto {
@@ -43,7 +48,7 @@ export class PortalModelTryoutModeshowController {
   @Post('interest')
   @Permissions('portal.model.briefs.read')
   interest(@Req() req: { user: JwtPayload }, @Body() dto: TryoutInterestDto) {
-    return this.tryout.setInterest(req.user.sub, dto.interested);
+    return this.tryout.setInterest(req.user.sub, dto.interested, dto.declineReason);
   }
 
   @Post('terms')

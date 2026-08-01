@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { sendHtmlMail } from '../mail/send-html-mail';
 import { modelAgeFromSheet } from '../portal/brief-eligibility';
 import { TRYOUT_MODESHOW_ACTIVE_SLUG } from '../portal/tryout-modeshow-edition';
+import { ModelPushService } from '../push/model-push.service';
 
 export type TryoutPipelinePhase =
   | 'paid'
@@ -23,9 +24,24 @@ function genderFromSheet(modelSheet: Prisma.JsonValue | null | undefined): strin
   return null;
 }
 
+const userSelect = {
+  id: true,
+  email: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  legacyWpUserId: true,
+  status: true,
+  createdAt: true,
+  modelSheet: true,
+} as const;
+
 @Injectable()
 export class AdminTryoutModeshowService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private modelPush: ModelPushService,
+  ) {}
 
   private phaseForRow(r: {
     interestStatus: string;
@@ -71,6 +87,7 @@ export class AdminTryoutModeshowService {
     userId: string;
     editionSlug: string;
     interestStatus: string;
+    declineReason: string | null;
     termsAcceptedAt: Date | null;
     molliePaymentId: string | null;
     paymentStatus: string | null;
@@ -87,6 +104,7 @@ export class AdminTryoutModeshowService {
       userId: r.userId,
       editionSlug: r.editionSlug,
       interestStatus: r.interestStatus,
+      declineReason: r.declineReason,
       termsAcceptedAt: r.termsAcceptedAt?.toISOString() ?? null,
       molliePaymentId: r.molliePaymentId,
       paymentStatus: r.paymentStatus,
@@ -117,27 +135,15 @@ export class AdminTryoutModeshowService {
         }
       : undefined;
 
+    // Alleen echte keuzes: geen auto-aangemaakte "none"-rijen van portaalbezoek.
     const rows = await this.prisma.tryoutModeshowRegistration.findMany({
       where: {
         editionSlug,
+        interestStatus: { not: 'none' },
         ...(userWhere ? { user: userWhere } : {}),
       },
       orderBy: [{ updatedAt: 'desc' }],
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            legacyWpUserId: true,
-            status: true,
-            createdAt: true,
-            modelSheet: true,
-          },
-        },
-      },
+      include: { user: { select: userSelect } },
     });
 
     const mapped = rows.map((r) => ({
@@ -149,7 +155,7 @@ export class AdminTryoutModeshowService {
     const awaitingPayment = mapped.filter((m) => m.pipelinePhase === 'awaiting_payment');
     const awaitingTerms = mapped.filter((m) => m.pipelinePhase === 'awaiting_terms');
     const declined = mapped.filter((m) => m.pipelinePhase === 'declined');
-    const noResponse = mapped.filter((m) => m.pipelinePhase === 'no_response');
+    const inProgress = [...awaitingTerms, ...awaitingPayment];
     const freePaid = paid.filter((m) => m.isFree || Number(m.amount ?? '0') === 0);
     const revenuePaid = paid
       .filter((m) => !m.isFree && Number(m.amount ?? '0') > 0)
@@ -165,8 +171,8 @@ export class AdminTryoutModeshowService {
         free: freePaid.length,
         awaitingPayment: awaitingPayment.length,
         awaitingTerms: awaitingTerms.length,
+        inProgress: inProgress.length,
         declined: declined.length,
-        noResponse: noResponse.length,
         revenuePaid: revenuePaid.toFixed(2),
       },
       groups: {
@@ -174,24 +180,123 @@ export class AdminTryoutModeshowService {
         free: freePaid,
         awaitingPayment,
         awaitingTerms,
+        inProgress,
         declined,
-        noResponse,
-      },
-      lists: {
-        paid,
-        interested: mapped.filter((m) => m.interestStatus === 'interested'),
-        interestedAwaitingTerms: awaitingTerms,
-        interestedAwaitingPayment: awaitingPayment,
-        declined,
-        none: noResponse,
       },
       all: mapped,
     };
   }
 
+  /** Modellen met rol `tryout` + hun inschrijvingsstatus voor deze editie. */
+  async listTryoutRoleModels(editionSlugRaw?: string, searchRaw?: string) {
+    const editionSlug = (editionSlugRaw?.trim() || TRYOUT_MODESHOW_ACTIVE_SLUG).slice(0, 120);
+    const qRaw = searchRaw?.trim() ?? '';
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        roles: { some: { role: { slug: 'tryout' } } },
+        ...(qRaw
+          ? {
+              OR: [
+                { email: { contains: qRaw } },
+                { firstName: { contains: qRaw } },
+                { lastName: { contains: qRaw } },
+                { phone: { contains: qRaw } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      select: userSelect,
+    });
+
+    const regs = await this.prisma.tryoutModeshowRegistration.findMany({
+      where: {
+        editionSlug,
+        userId: { in: users.map((u) => u.id) },
+      },
+    });
+    const byUser = new Map(regs.map((r) => [r.userId, r]));
+
+    const items = users.map((u) => {
+      const reg = byUser.get(u.id) ?? null;
+      return {
+        user: this.serializeUser(u),
+        registration: reg
+          ? this.serializeReg(reg)
+          : {
+              id: null as string | null,
+              userId: u.id,
+              editionSlug,
+              interestStatus: 'none',
+              declineReason: null as string | null,
+              termsAcceptedAt: null as string | null,
+              molliePaymentId: null as string | null,
+              paymentStatus: null as string | null,
+              amount: null as string | null,
+              listPrice: null as string | null,
+              discountAmount: null as string | null,
+              isFree: false,
+              couponCode: null as string | null,
+              createdAt: null as string | null,
+              updatedAt: null as string | null,
+              pipelinePhase: 'no_response' as TryoutPipelinePhase,
+            },
+      };
+    });
+
+    return {
+      editionSlug,
+      search: qRaw || null,
+      generatedAt: new Date().toISOString(),
+      count: items.length,
+      items,
+    };
+  }
+
+  /** Inschrijving volledig wissen (altijd mogelijk). */
+  async deleteRegistration(id: string) {
+    const existing = await this.prisma.tryoutModeshowRegistration.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Inschrijving niet gevonden');
+    await this.prisma.tryoutModeshowRegistration.delete({ where: { id } });
+    return { ok: true, deletedId: id };
+  }
+
+  /** Inschrijving ongedaan maken: terugzetten naar geen keuze (rij blijft of wordt gewist). */
+  async resetRegistration(id: string, opts?: { deleteRow?: boolean }) {
+    const existing = await this.prisma.tryoutModeshowRegistration.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Inschrijving niet gevonden');
+
+    if (opts?.deleteRow) {
+      await this.prisma.tryoutModeshowRegistration.delete({ where: { id } });
+      return { ok: true, deleted: true, id };
+    }
+
+    await this.prisma.tryoutModeshowRegistration.update({
+      where: { id },
+      data: {
+        interestStatus: 'none',
+        declineReason: null,
+        termsAcceptedAt: null,
+        molliePaymentId: null,
+        paymentStatus: null,
+        amount: null,
+        listPrice: null,
+        discountAmount: null,
+        isFree: false,
+        couponId: null,
+        couponCode: null,
+      },
+    });
+    // Na reset tonen we de rij niet meer in de hoofdlijsten (status none).
+    await this.prisma.tryoutModeshowRegistration.delete({ where: { id } });
+    return { ok: true, reset: true, deleted: true, id };
+  }
+
   async sendMail(opts: {
     registrationIds?: string[];
     phases?: TryoutPipelinePhase[];
+    userIds?: string[];
     editionSlug?: string;
     subject: string;
     html: string;
@@ -203,35 +308,51 @@ export class AdminTryoutModeshowService {
     }
 
     const editionSlug = (opts.editionSlug?.trim() || TRYOUT_MODESHOW_ACTIVE_SLUG).slice(0, 120);
-    let regs = await this.prisma.tryoutModeshowRegistration.findMany({
-      where: { editionSlug },
-      include: {
-        user: { select: { id: true, email: true, firstName: true, lastName: true } },
-      },
-    });
 
-    if (opts.registrationIds?.length) {
-      const set = new Set(opts.registrationIds);
-      regs = regs.filter((r) => set.has(r.id));
-    } else if (opts.phases?.length) {
-      const phaseSet = new Set(opts.phases);
-      regs = regs.filter((r) => phaseSet.has(this.phaseForRow(r)));
+    type Recipient = { email: string; firstName: string | null; lastName: string | null };
+    const recipients: Recipient[] = [];
+
+    if (opts.userIds?.length) {
+      const users = await this.prisma.user.findMany({
+        where: { id: { in: opts.userIds } },
+        select: { email: true, firstName: true, lastName: true },
+      });
+      recipients.push(...users);
     } else {
-      throw new BadRequestException('Selecteer ontvangers of een fase.');
+      let regs = await this.prisma.tryoutModeshowRegistration.findMany({
+        where: {
+          editionSlug,
+          interestStatus: { not: 'none' },
+        },
+        include: {
+          user: { select: { id: true, email: true, firstName: true, lastName: true } },
+        },
+      });
+
+      if (opts.registrationIds?.length) {
+        const set = new Set(opts.registrationIds);
+        regs = regs.filter((r) => set.has(r.id));
+      } else if (opts.phases?.length) {
+        const phaseSet = new Set(opts.phases);
+        regs = regs.filter((r) => phaseSet.has(this.phaseForRow(r)));
+      } else {
+        throw new BadRequestException('Selecteer ontvangers of een fase.');
+      }
+      recipients.push(...regs.map((r) => r.user));
     }
 
     let sent = 0;
     let failed = 0;
     const errors: string[] = [];
-    for (const r of regs) {
-      const to = r.user.email?.trim();
+    for (const u of recipients) {
+      const to = u.email?.trim();
       if (!to) {
         failed++;
         continue;
       }
-      const name = [r.user.firstName, r.user.lastName].filter(Boolean).join(' ').trim();
+      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
       const personalized = html
-        .replace(/\{\{voornaam\}\}/gi, r.user.firstName ?? '')
+        .replace(/\{\{voornaam\}\}/gi, u.firstName ?? '')
         .replace(/\{\{naam\}\}/gi, name || '')
         .replace(/\{\{email\}\}/gi, to);
       const ok = await sendHtmlMail(this.prisma, to, subject, personalized);
@@ -242,7 +363,75 @@ export class AdminTryoutModeshowService {
       }
     }
 
-    return { ok: true, targeted: regs.length, sent, failed, errors: errors.slice(0, 20) };
+    return { ok: true, targeted: recipients.length, sent, failed, errors: errors.slice(0, 20) };
+  }
+
+  async sendPush(opts: {
+    registrationIds?: string[];
+    phases?: TryoutPipelinePhase[];
+    userIds?: string[];
+    editionSlug?: string;
+    title: string;
+    body: string;
+    adminUserId: string;
+  }) {
+    const title = opts.title?.trim();
+    const body = opts.body?.trim();
+    if (!title || !body) {
+      throw new BadRequestException('Titel en bericht zijn verplicht.');
+    }
+
+    const editionSlug = (opts.editionSlug?.trim() || TRYOUT_MODESHOW_ACTIVE_SLUG).slice(0, 120);
+    let userIds: string[] = [];
+
+    if (opts.userIds?.length) {
+      userIds = [...new Set(opts.userIds)];
+    } else {
+      let regs = await this.prisma.tryoutModeshowRegistration.findMany({
+        where: {
+          editionSlug,
+          interestStatus: { not: 'none' },
+        },
+      });
+      if (opts.registrationIds?.length) {
+        const set = new Set(opts.registrationIds);
+        regs = regs.filter((r) => set.has(r.id));
+      } else if (opts.phases?.length) {
+        const phaseSet = new Set(opts.phases);
+        regs = regs.filter((r) => phaseSet.has(this.phaseForRow(r)));
+      } else {
+        throw new BadRequestException('Selecteer ontvangers of een fase.');
+      }
+      userIds = [...new Set(regs.map((r) => r.userId))];
+    }
+
+    const campaign = await this.prisma.pushCampaign.create({
+      data: {
+        title,
+        body,
+        audience: {
+          kind: 'tryout_modeshow',
+          editionSlug,
+          registrationIds: opts.registrationIds ?? null,
+          phases: opts.phases ?? null,
+          userIds: opts.userIds ?? null,
+        } as object,
+        sentAt: new Date(),
+        sentByUserId: opts.adminUserId,
+      },
+    });
+
+    if (userIds.length) {
+      await this.modelPush.deliverAgencyToUsers({
+        userIds,
+        title,
+        body,
+        campaignId: campaign.id,
+        meta: { tryoutModeshow: true, editionSlug },
+      });
+    }
+
+    return { ok: true, targeted: userIds.length, campaignId: campaign.id };
   }
 
   async listCoupons() {

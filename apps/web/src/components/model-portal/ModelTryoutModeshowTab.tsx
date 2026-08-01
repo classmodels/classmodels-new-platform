@@ -26,6 +26,7 @@ type TryoutState = {
   edition: TryoutEdition;
   registration: {
     interestStatus: string;
+    declineReason?: string | null;
     termsAcceptedAt: string | null;
     paymentStatus: string | null;
     molliePaymentId: string | null;
@@ -79,6 +80,8 @@ export function ModelTryoutModeshowTab({
   const [panel, setPanel] = useState<Panel>('summary');
   const [couponDraft, setCouponDraft] = useState('');
   const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [declineOpen, setDeclineOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
   const registerRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
@@ -112,7 +115,7 @@ export function ModelTryoutModeshowTab({
   }, []);
 
   const interest = useCallback(
-    async (interested: boolean) => {
+    async (interested: boolean, reason?: string) => {
       if (!token) return;
       setBusy(true);
       setErr(null);
@@ -120,10 +123,15 @@ export function ModelTryoutModeshowTab({
         const s = await apiFetch<TryoutState>('/portal/model/tryout-modeshow/interest', {
           method: 'POST',
           token,
-          body: JSON.stringify({ interested }),
+          body: JSON.stringify({
+            interested,
+            ...(interested ? {} : { declineReason: reason?.trim() || undefined }),
+          }),
         });
         setState(s);
         setPanel('summary');
+        setDeclineOpen(false);
+        setDeclineReason('');
         if (!interested) {
           setTermsTick(false);
         } else {
@@ -363,11 +371,11 @@ export function ModelTryoutModeshowTab({
     if (status === 'none' || declined) {
       buttons.push(
         headerBtn('Ik wens deel te nemen', () => void interest(true), { variant: 'join' }),
-        headerBtn('Ik wens niet deel te nemen', () => void interest(false), { variant: 'decline' }),
+        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
       );
     } else if (interested) {
       buttons.push(
-        headerBtn('Ik wens niet deel te nemen', () => void interest(false), { variant: 'decline' }),
+        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
         !hasTerms
           ? headerBtn('Akkoord — verder naar afrekenen', () => attemptCheckout(), { variant: 'primary' })
           : canPay
@@ -501,8 +509,15 @@ export function ModelTryoutModeshowTab({
             <div className="nieuw-panel">
               <p style={{ margin: 0, fontWeight: 600, color: 'var(--n-ink)' }}>Uw keuze</p>
               <p style={{ margin: '10px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
-                U heeft aangegeven niet deel te nemen. Bent u van gedacht veranderd, dan kunt u nog steeds deelnemen —
-                zolang er nog plaats is. Gebruik daarvoor de knop «Ik wens deel te nemen».
+                U heeft aangegeven niet deel te nemen
+                {reg?.declineReason ? (
+                  <>
+                    {' '}
+                    (<em style={{ color: 'var(--n-ink)' }}>{reg.declineReason}</em>)
+                  </>
+                ) : null}
+                . Bent u van gedacht veranderd, dan kunt u nog steeds deelnemen — zolang er nog plaats is. Gebruik
+                daarvoor de knop «Ik wens deel te nemen».
               </p>
             </div>
           ) : null}
@@ -680,6 +695,135 @@ export function ModelTryoutModeshowTab({
           ) : null}
         </>
       )}
+
+      {typeof document !== 'undefined' && declineOpen
+        ? createPortal(
+            <div className="nieuw-root" style={{ position: 'fixed', inset: 0, zIndex: 100000 }}>
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="tryout-decline-title"
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 16,
+                  background: 'rgba(8, 8, 11, 0.72)',
+                  boxSizing: 'border-box',
+                }}
+                onClick={(ev) => {
+                  if (ev.target === ev.currentTarget) setDeclineOpen(false);
+                }}
+              >
+                <div
+                  style={{
+                    width: 'min(440px, 100%)',
+                    background: '#16161e',
+                    border: '1px solid rgba(212, 175, 106, 0.45)',
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      padding: '12px 14px',
+                      borderBottom: '1px solid rgba(243, 238, 230, 0.12)',
+                      background: '#101016',
+                    }}
+                  >
+                    <p
+                      id="tryout-decline-title"
+                      style={{
+                        margin: 0,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: '#d4af6a',
+                      }}
+                    >
+                      Niet deelnemen
+                    </p>
+                    <button
+                      type="button"
+                      aria-label="Sluiten"
+                      onClick={() => setDeclineOpen(false)}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 4,
+                        border: '1px solid rgba(243, 238, 230, 0.25)',
+                        background: 'transparent',
+                        color: '#f3eee6',
+                        fontSize: 18,
+                        lineHeight: 1,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div style={{ padding: '16px', display: 'grid', gap: 10 }}>
+                    <p style={{ margin: 0, color: '#9e9689', fontSize: 13, lineHeight: 1.55 }}>
+                      Geef kort aan waarom u niet wilt deelnemen. Dit helpt Class-Models bij de organisatie.
+                    </p>
+                    <textarea
+                      value={declineReason}
+                      onChange={(e) => setDeclineReason(e.target.value.slice(0, 500))}
+                      rows={4}
+                      placeholder="Bv. planning, studie, andere reden…"
+                      style={{
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        background: '#101016',
+                        border: '1px solid rgba(243, 238, 230, 0.18)',
+                        color: '#f3eee6',
+                        padding: '10px 12px',
+                        fontSize: 13,
+                        resize: 'vertical',
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      justifyContent: 'flex-end',
+                      gap: 8,
+                      padding: '12px 14px',
+                      borderTop: '1px solid rgba(243, 238, 230, 0.12)',
+                      background: '#101016',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="nieuw-btn nieuw-btn-ghost"
+                      onClick={() => setDeclineOpen(false)}
+                    >
+                      Annuleren
+                    </button>
+                    <button
+                      type="button"
+                      className="nieuw-btn"
+                      disabled={busy || !declineReason.trim()}
+                      onClick={() => void interest(false, declineReason)}
+                      style={{ background: '#c43c3c', borderColor: '#a83232', color: '#fff' }}
+                    >
+                      Bevestigen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {typeof document !== 'undefined' && termsRequiredOpen
         ? createPortal(

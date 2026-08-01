@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ReviewsModule } from '../reviews/reviews.module';
 import { PortalModule } from '../portal/portal.module';
 import { MediaModule } from '../media/media.module';
+import { PushModule } from '../push/push.module';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminUsersService } from './admin-users.service';
 import { AdminRolesController } from './admin-roles.controller';
@@ -22,7 +23,15 @@ import { AdminSiteSmtpController } from './admin-site-smtp.controller';
 import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, ReviewsModule, PortalModule, MediaModule, PaymentsModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    ReviewsModule,
+    PortalModule,
+    MediaModule,
+    PaymentsModule,
+    PushModule,
+  ],
   controllers: [
     AdminUsersController,
     AdminRolesController,

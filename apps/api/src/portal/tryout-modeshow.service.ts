@@ -40,20 +40,25 @@ export class TryoutModeshowService {
   }
 
   async getState(userId: string) {
-    const reg = await this.getOrCreateRegistration(userId);
+    const editionSlug = this.editionSlug();
+    // Geen auto-create bij alleen bekijken — anders vult de adminlijst met "geen keuze".
+    const reg = await this.prisma.tryoutModeshowRegistration.findUnique({
+      where: { userId_editionSlug: { userId, editionSlug } },
+    });
     const amount = await this.tryoutPrice();
     return {
       edition: { ...TRYOUT_MODESHOW_EDITION },
       registration: {
-        interestStatus: reg.interestStatus,
-        termsAcceptedAt: reg.termsAcceptedAt?.toISOString() ?? null,
-        paymentStatus: reg.paymentStatus,
-        molliePaymentId: reg.molliePaymentId,
-        isFree: reg.isFree,
-        couponCode: reg.couponCode,
-        listPrice: reg.listPrice?.toString() ?? null,
-        discountAmount: reg.discountAmount?.toString() ?? null,
-        amount: reg.amount?.toString() ?? null,
+        interestStatus: reg?.interestStatus ?? 'none',
+        declineReason: reg?.declineReason ?? null,
+        termsAcceptedAt: reg?.termsAcceptedAt?.toISOString() ?? null,
+        paymentStatus: reg?.paymentStatus ?? null,
+        molliePaymentId: reg?.molliePaymentId ?? null,
+        isFree: reg?.isFree ?? false,
+        couponCode: reg?.couponCode ?? null,
+        listPrice: reg?.listPrice?.toString() ?? null,
+        discountAmount: reg?.discountAmount?.toString() ?? null,
+        amount: reg?.amount?.toString() ?? null,
       },
       pricing: { currency: 'EUR', amount: amount.toFixed(2) },
     };
@@ -73,14 +78,21 @@ export class TryoutModeshowService {
     return preview;
   }
 
-  async setInterest(userId: string, interested: boolean) {
+  async setInterest(userId: string, interested: boolean, declineReasonRaw?: string | null) {
     const reg = await this.getOrCreateRegistration(userId);
     if (reg.interestStatus === 'paid') {
       throw new BadRequestException('Uw inschrijving is reeds betaald en afgerond.');
     }
     const next = interested ? 'interested' : 'declined';
+    const declineReason = interested
+      ? null
+      : (declineReasonRaw?.trim() || '').slice(0, 500) || null;
+    if (!interested && !declineReason) {
+      throw new BadRequestException('Geef een korte reden waarom u niet wilt deelnemen.');
+    }
     const data: Prisma.TryoutModeshowRegistrationUpdateInput = {
       interestStatus: next,
+      declineReason,
       ...(interested
         ? {}
         : {
@@ -101,6 +113,7 @@ export class TryoutModeshowService {
     });
     void this.modelHistory.log(userId, interested ? 'tryout_modeshow_interested' : 'tryout_modeshow_declined', {
       editionSlug: this.editionSlug(),
+      ...(declineReason ? { declineReason } : {}),
     });
     return this.getState(userId);
   }

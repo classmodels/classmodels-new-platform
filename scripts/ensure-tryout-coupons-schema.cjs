@@ -88,6 +88,7 @@ async function ensureTryoutCouponsSchema(prisma) {
       ['isFree', 'ADD COLUMN `isFree` BOOLEAN NOT NULL DEFAULT false'],
       ['couponId', 'ADD COLUMN `couponId` VARCHAR(191) NULL'],
       ['couponCode', 'ADD COLUMN `couponCode` VARCHAR(191) NULL'],
+      ['declineReason', 'ADD COLUMN `declineReason` VARCHAR(500) NULL'],
     ];
     for (const [name, sql] of adds) {
       if (!cols.has(name)) {

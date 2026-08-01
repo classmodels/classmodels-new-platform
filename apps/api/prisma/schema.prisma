@@ -477,6 +477,8 @@ model TryoutModeshowRegistration {
   editionSlug     String
   /// `none` | `declined` | `interested` | `paid`
   interestStatus  String   @default("none")
+  /// Reden bij interestStatus = declined (optioneel maar gewenst).
+  declineReason   String?  @db.VarChar(500)
   termsAcceptedAt DateTime?
   molliePaymentId String?  @unique
   paymentStatus   String?
