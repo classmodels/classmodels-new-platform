@@ -140,7 +140,11 @@ export class TryoutModeshowService {
     return this.getState(userId);
   }
 
-  async startCheckout(userId: string, couponCode?: string | null) {
+  async startCheckout(
+    userId: string,
+    couponCode?: string | null,
+    returnOpts?: { returnOrigin?: string | null; resumeToken?: string | null },
+  ) {
     const reg = await this.getOrCreateRegistration(userId);
     if (reg.interestStatus === 'paid') {
       throw new BadRequestException('U bent reeds ingeschreven voor deze try-out modeshow.');
@@ -151,6 +155,6 @@ export class TryoutModeshowService {
     if (!reg.termsAcceptedAt) {
       throw new BadRequestException('Ga eerst akkoord met de algemene voorwaarden.');
     }
-    return this.payments.startTryoutModeshowCheckout(reg.id, userId, couponCode);
+    return this.payments.startTryoutModeshowCheckout(reg.id, userId, couponCode, returnOpts);
   }
 }

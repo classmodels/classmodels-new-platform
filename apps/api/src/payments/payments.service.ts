@@ -228,6 +228,7 @@ export class PaymentsService {
     registrationId: string,
     expectedUserId: string,
     couponCodeRaw?: string | null,
+    returnOpts?: { returnOrigin?: string | null; resumeToken?: string | null },
   ) {
     const reg = await this.prisma.tryoutModeshowRegistration.findUnique({
       where: { id: registrationId },
@@ -316,7 +317,7 @@ export class PaymentsService {
     const mode = await this.resolveActiveMode();
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
     const webhookUrl = await this.paymentWebhookUrl();
-    const redirectUrl = this.paymentReturnUrl('tryout');
+    const redirectUrl = this.paymentReturnUrl('tryout', returnOpts);
 
     // Nieuw bedrag (bv. na coupon) → vorige open Mollie-payment niet hergebruiken.
     if (reg.molliePaymentId && reg.amount != null && !reg.amount.equals(amount)) {
@@ -325,6 +326,7 @@ export class PaymentsService {
       try {
         const existing = await mollie.payments.get(reg.molliePaymentId);
         if (existing.status === 'open' || existing.status === 'pending') {
+          await this.refreshOpenPaymentRedirect(mollie, existing.id, redirectUrl);
           const checkoutUrl = existing.getCheckoutUrl();
           if (checkoutUrl) {
             return { checkoutUrl, paymentId: existing.id, tryoutRegistrationId: reg.id };
@@ -421,23 +423,59 @@ export class PaymentsService {
     return `${this.resolveApiPublicBase()}/payments/mollie/webhook`;
   }
 
-  private paymentReturnUrl(kind: 'premium' | 'tryout' | 'setkaart'): string {
+  private sanitizeReturnOrigin(raw?: string | null): string | null {
+    const s = raw?.trim().replace(/\/$/, '');
+    if (!s) return null;
+    try {
+      const u = new URL(s);
+      const host = u.hostname.toLowerCase();
+      const ok =
+        host === 'localhost' ||
+        host === '127.0.0.1' ||
+        host === 'class-models.be' ||
+        host.endsWith('.class-models.be') ||
+        host === 'class-models.com' ||
+        host.endsWith('.class-models.com');
+      if (!ok) return null;
+      // Apex → www zodat cookie/localStorage overeenkomen met de live site.
+      if (host === 'class-models.be') u.hostname = 'www.class-models.be';
+      if (host === 'class-models.com') u.hostname = 'www.class-models.com';
+      return u.origin;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Mollie redirect-URL. Gebruikt bij voorkeur de browser-origin van de klant
+   * + cm_resume (JWT) zodat de sessie na betaling altijd hersteld kan worden.
+   */
+  private paymentReturnUrl(
+    kind: 'premium' | 'tryout' | 'setkaart',
+    opts?: { returnOrigin?: string | null; resumeToken?: string | null },
+  ): string {
     let base = (
       process.env.WEB_APP_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
       'http://localhost:3000'
     ).replace(/\/$/, '');
-    // Zelfde origin als login (www) — apex zonder www deelt geen localStorage.
-    if (/^https?:\/\/class-models\.be$/i.test(base)) {
+
+    const clientOrigin = this.sanitizeReturnOrigin(opts?.returnOrigin);
+    if (clientOrigin) {
+      base = clientOrigin;
+    } else if (/^https?:\/\/class-models\.be$/i.test(base)) {
       base = 'https://www.class-models.be';
     }
+
     const envOverride =
       kind === 'premium'
         ? process.env.PAYMENT_REDIRECT_URL?.trim()
         : kind === 'tryout'
           ? process.env.TRYOUT_PAYMENT_REDIRECT_URL?.trim()
           : process.env.SET_CARD_PAYMENT_REDIRECT_URL?.trim();
-    if (envOverride) {
+
+    let urlStr: string;
+    if (envOverride && !clientOrigin) {
       let url = envOverride;
       try {
         const u = new URL(url);
@@ -446,15 +484,41 @@ export class PaymentsService {
           url = u.toString();
         }
       } catch {
-        /* keep as-is */
+        /* keep */
       }
-      return url;
+      urlStr = url;
+    } else {
+      const soort = kind === 'premium' ? 'premium' : kind === 'tryout' ? 'tryout' : 'setkaart';
+      urlStr = `${base}/modellen/betaling/bedankt?soort=${soort}`;
     }
-    const soort = kind === 'premium' ? 'premium' : kind === 'tryout' ? 'tryout' : 'setkaart';
-    return `${base}/modellen/betaling/bedankt?soort=${soort}`;
+
+    try {
+      const u = new URL(urlStr);
+      const resume = opts?.resumeToken?.trim();
+      if (resume) u.searchParams.set('cm_resume', resume);
+      return u.toString();
+    } catch {
+      return urlStr;
+    }
   }
 
-  async startSetCardCheckout(userId: string) {
+  /** Bij hergebruik van open Mollie-payment: redirectUrl vernieuwen (origine + resume). */
+  private async refreshOpenPaymentRedirect(
+    mollie: ReturnType<typeof createMollieClient>,
+    paymentId: string,
+    redirectUrl: string,
+  ) {
+    try {
+      await mollie.payments.update(paymentId, { redirectUrl });
+    } catch (e) {
+      this.log.warn(`Mollie payment ${paymentId} redirectUrl updaten mislukt: ${e}`);
+    }
+  }
+
+  async startSetCardCheckout(
+    userId: string,
+    returnOpts?: { returnOrigin?: string | null; resumeToken?: string | null },
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -494,7 +558,7 @@ export class PaymentsService {
     const mode = await this.resolveActiveMode();
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
     const webhookUrl = await this.paymentWebhookUrl();
-    const redirectUrl = this.paymentReturnUrl('setkaart');
+    const redirectUrl = this.paymentReturnUrl('setkaart', returnOpts);
 
     const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email;
 
@@ -516,6 +580,7 @@ export class PaymentsService {
           };
         }
         if (existing.status === 'open' || existing.status === 'pending') {
+          await this.refreshOpenPaymentRedirect(mollie, existing.id, redirectUrl);
           const checkoutUrl = existing.getCheckoutUrl();
           if (checkoutUrl) {
             return { checkoutUrl, paymentId: existing.id };
@@ -602,7 +667,11 @@ export class PaymentsService {
     };
   }
 
-  async startPremiumCheckout(userId: string, recurring?: boolean) {
+  async startPremiumCheckout(
+    userId: string,
+    recurring?: boolean,
+    returnOpts?: { returnOrigin?: string | null; resumeToken?: string | null },
+  ) {
     if (recurring) {
       throw new BadRequestException(
         'Terugkerend abonnement wordt nog geactiveerd (Mollie Subscriptions). Gebruik eenmalige betaling.',
@@ -637,7 +706,7 @@ export class PaymentsService {
     const mode = await this.resolveActiveMode();
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
 
-    const redirectUrl = this.paymentReturnUrl('premium');
+    const redirectUrl = this.paymentReturnUrl('premium', returnOpts);
 
     const webhookUrl = await this.paymentWebhookUrl();
 

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Put, Req, UseGuards } from '@nestjs/common';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -11,6 +12,20 @@ export type PortalSaveSetCardBody = {
   versoPhotoAssetIds?: (string | null)[] | unknown;
   noteFromModel?: string | null;
 };
+
+class SetCardCheckoutDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  returnOrigin?: string;
+}
+
+function bearerToken(authorization?: string): string | null {
+  const raw = authorization?.trim();
+  if (!raw) return null;
+  const m = /^Bearer\s+(.+)$/i.exec(raw);
+  return m?.[1]?.trim() || null;
+}
 
 @Controller('portal/model/set-card')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -32,8 +47,14 @@ export class PortalModelSetCardController {
 
   @Post('checkout')
   @Permissions('portal.model.media.upload', 'payments.checkout')
-  checkout(@Req() req: { user: JwtPayload }) {
-    return this.setCard.startCheckout(req.user.sub);
+  checkout(
+    @Req() req: { user: JwtPayload; headers: { authorization?: string } },
+    @Body() dto: SetCardCheckoutDto,
+  ) {
+    return this.setCard.startCheckout(req.user.sub, {
+      returnOrigin: dto.returnOrigin,
+      resumeToken: bearerToken(req.headers.authorization),
+    });
   }
 
   @Post('submit')

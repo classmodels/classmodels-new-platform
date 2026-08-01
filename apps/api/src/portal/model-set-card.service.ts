@@ -334,8 +334,11 @@ export class ModelSetCardService {
     });
   }
 
-  async startCheckout(userId: string) {
-    return this.payments.startSetCardCheckout(userId);
+  async startCheckout(
+    userId: string,
+    returnOpts?: { returnOrigin?: string | null; resumeToken?: string | null },
+  ) {
+    return this.payments.startSetCardCheckout(userId, returnOpts);
   }
 
   async assertCanSubmit(userId: string): Promise<void> {

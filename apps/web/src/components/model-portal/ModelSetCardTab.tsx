@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { apiFetch, publicMediaUrl } from '@/lib/api';
-import { goToExternalCheckout } from '@/lib/storage';
+import { goToExternalCheckout, paymentReturnOrigin } from '@/lib/storage';
 import { getImpersonationAdminToken } from '@/lib/impersonation';
 import type { ProfileMediaRow } from '@/components/model-portal/ModelPortalProfile';
 
@@ -250,7 +250,11 @@ export function ModelSetCardTab({
       const res = await apiFetch<
         | { checkoutUrl: string }
         | { skipCheckout: true; reason: string; freeOrder?: boolean; paid?: boolean }
-      >('/portal/model/set-card/checkout', { method: 'POST', token });
+      >('/portal/model/set-card/checkout', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ returnOrigin: paymentReturnOrigin() }),
+      });
       if ('skipCheckout' in res && res.skipCheckout) {
         await load();
         setBanner({ tone: 'ok', text: res.reason });

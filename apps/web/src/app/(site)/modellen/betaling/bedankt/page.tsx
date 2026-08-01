@@ -28,10 +28,32 @@ function parseKind(raw: string | null): Kind {
 function BedanktInner() {
   const searchParams = useSearchParams();
   const kind = parseKind(searchParams.get('soort'));
-  const { user, loading, token, refreshMe } = useAuth();
+  const { user, loading, token, refreshMe, applySessionToken } = useAuth();
   const [checking, setChecking] = useState(true);
   const [tryoutPaid, setTryoutPaid] = useState<boolean | null>(null);
   const [setCardPaid, setSetCardPaid] = useState<boolean | null>(null);
+  const [restoring, setRestoring] = useState(true);
+
+  // Extra vangnet: als AuthProvider cm_resume al verwerkte is token gezet;
+  // anders hier nogmaals uit storage laden.
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const tok = getStoredToken();
+      if (tok && !user) {
+        try {
+          await applySessionToken(tok, true);
+        } catch {
+          /* auth-context probeert zelf ook */
+        }
+      }
+      if (!cancelled) setRestoring(false);
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [applySessionToken, user]);
 
   const refreshStatus = useCallback(async () => {
     const tok = token || getStoredToken();
@@ -55,7 +77,7 @@ function BedanktInner() {
   }, [kind, token, refreshMe]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || restoring) return;
     let cancelled = false;
     const run = async () => {
       await refreshStatus();
@@ -71,7 +93,7 @@ function BedanktInner() {
       window.clearInterval(interval);
       window.clearTimeout(stop);
     };
-  }, [loading, refreshStatus]);
+  }, [loading, restoring, refreshStatus]);
 
   const backHref =
     kind === 'tryout'
@@ -93,7 +115,7 @@ function BedanktInner() {
   const confirmed =
     kind === 'premium' ? premiumActive : kind === 'setkaart' ? setCardPaid === true : tryoutPaid === true;
 
-  if (loading || checking) {
+  if (loading || restoring || checking) {
     return (
       <div className="nieuw-panel" style={{ textAlign: 'center', padding: '48px 24px' }}>
         <p className="nieuw-lead" style={{ margin: 0 }}>
@@ -103,8 +125,9 @@ function BedanktInner() {
     );
   }
 
-  // Sessie zit in localStorage maar /users/me is even traag — niet als “uitgelogd” tonen.
-  if (!user && token) {
+  const effectiveToken = token || getStoredToken();
+
+  if (!user && effectiveToken) {
     return (
       <div className="nieuw-panel" style={{ textAlign: 'center', padding: '40px 24px' }}>
         <h1 className="nieuw-h2" style={{ fontSize: 28 }}>
@@ -124,6 +147,7 @@ function BedanktInner() {
   }
 
   if (!user) {
+    // Mag zelden nog voorkomen; toon toch Sluiten i.p.v. “opnieuw inloggen” als primaire actie.
     return (
       <div className="nieuw-panel" style={{ textAlign: 'center', padding: '40px 24px' }}>
         <h1 className="nieuw-h2" style={{ fontSize: 28 }}>
@@ -132,15 +156,9 @@ function BedanktInner() {
         <p className="nieuw-lead" style={{ margin: '14px auto 0', textAlign: 'center' }}>
           Je betaling bij Mollie is afgerond. Ga terug naar het modellenportaal om je status te bekijken.
         </p>
-        <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+        <div style={{ marginTop: 28 }}>
           <Link className="nieuw-btn" href={backHref}>
             Sluiten
-          </Link>
-          <Link
-            className="nieuw-btn nieuw-btn-ghost"
-            href={`/inloggen?next=${encodeURIComponent(`/modellen/betaling/bedankt?soort=${kind}`)}`}
-          >
-            Opnieuw inloggen
           </Link>
         </div>
       </div>

@@ -7,7 +7,7 @@ import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { NieuwModelsGallery } from '@/components/nieuw/NieuwModelsGallery';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
-import { goToExternalCheckout } from '@/lib/storage';
+import { goToExternalCheckout, paymentReturnOrigin } from '@/lib/storage';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { uploadWithProgress } from '@/lib/upload-with-progress';
 import {
@@ -310,7 +310,7 @@ export default function NieuwModellenPage() {
       const res = await apiFetch<CheckoutOk | CheckoutSkip>('/payments/premium/checkout', {
         method: 'POST',
         token,
-        body: JSON.stringify({}),
+        body: JSON.stringify({ returnOrigin: paymentReturnOrigin() }),
       });
       if ('skipCheckout' in res && res.skipCheckout) {
         setCheckoutErr(res.reason);

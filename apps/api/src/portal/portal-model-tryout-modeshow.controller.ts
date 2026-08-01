@@ -26,6 +26,11 @@ class TryoutCheckoutDto {
   @IsString()
   @MaxLength(40)
   couponCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  returnOrigin?: string;
 }
 
 class TryoutCouponPreviewDto {
@@ -65,7 +70,21 @@ export class PortalModelTryoutModeshowController {
 
   @Post('checkout')
   @Permissions('portal.model.briefs.read', 'payments.checkout')
-  checkout(@Req() req: { user: JwtPayload }, @Body() dto: TryoutCheckoutDto) {
-    return this.tryout.startCheckout(req.user.sub, dto.couponCode);
+  checkout(
+    @Req() req: { user: JwtPayload; headers: { authorization?: string } },
+    @Body() dto: TryoutCheckoutDto,
+  ) {
+    const resumeToken = bearerToken(req.headers.authorization);
+    return this.tryout.startCheckout(req.user.sub, dto.couponCode, {
+      returnOrigin: dto.returnOrigin,
+      resumeToken,
+    });
   }
+}
+
+function bearerToken(authorization?: string): string | null {
+  const raw = authorization?.trim();
+  if (!raw) return null;
+  const m = /^Bearer\s+(.+)$/i.exec(raw);
+  return m?.[1]?.trim() || null;
 }

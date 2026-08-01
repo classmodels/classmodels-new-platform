@@ -10,7 +10,12 @@ import {
   type ReactNode,
 } from 'react';
 import { apiFetch, getApiBase, isUnauthorizedError } from '@/lib/api';
-import { getRememberMePreference, getStoredToken, setStoredToken } from '@/lib/storage';
+import {
+  consumeResumeTokenFromUrl,
+  getRememberMePreference,
+  getStoredToken,
+  setStoredToken,
+} from '@/lib/storage';
 
 export type ModelPushSummary = {
   unreadCount: number;
@@ -116,7 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const t = getStoredToken();
+    // Mollie return: cm_resume in URL → sessie herstellen vóór /users/me.
+    const resumed = consumeResumeTokenFromUrl();
+    const t = resumed || getStoredToken();
+    if (t) {
+      // Sync cookie (www↔apex) zodat Mollie-return de login nooit meer kwijtraakt.
+      setStoredToken(t, true);
+    }
     setToken(t);
     if (!t) {
       setLoading(false);

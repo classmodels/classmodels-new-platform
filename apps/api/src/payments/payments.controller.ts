@@ -6,6 +6,13 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { PremiumCheckoutDto } from './dto/premium-checkout.dto';
 
+function bearerToken(authorization?: string): string | null {
+  const raw = authorization?.trim();
+  if (!raw) return null;
+  const m = /^Bearer\s+(.+)$/i.exec(raw);
+  return m?.[1]?.trim() || null;
+}
+
 @Controller('payments')
 export class PaymentsController {
   constructor(private payments: PaymentsService) {}
@@ -19,8 +26,14 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('payments.checkout')
   @Post('premium/checkout')
-  checkout(@Req() req: { user: JwtPayload }, @Body() dto: PremiumCheckoutDto) {
-    return this.payments.startPremiumCheckout(req.user.sub, dto.recurring);
+  checkout(
+    @Req() req: { user: JwtPayload; headers: { authorization?: string } },
+    @Body() dto: PremiumCheckoutDto,
+  ) {
+    return this.payments.startPremiumCheckout(req.user.sub, dto.recurring, {
+      returnOrigin: dto.returnOrigin,
+      resumeToken: bearerToken(req.headers.authorization),
+    });
   }
 
   /** Mollie webhook — altijd 200 bij ontvangst om dubbele retries te beperken. */

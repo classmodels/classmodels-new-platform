@@ -7,7 +7,7 @@ import { portalTitlebarPillClass } from '@/components/model-portal/portal-titleb
 import { TryoutModeshowInfoContent } from '@/components/model-portal/tryout-modeshow-info-content';
 import { TryoutTermsContent } from '@/components/model-portal/tryout-terms-content';
 import { createPortal } from 'react-dom';
-import { goToExternalCheckout } from '@/lib/storage';
+import { goToExternalCheckout, paymentReturnOrigin } from '@/lib/storage';
 
 type TryoutEdition = {
   slug: string;
@@ -156,6 +156,7 @@ export function ModelTryoutModeshowTab({
         token,
         body: JSON.stringify({
           couponCode: couponPreview?.code || couponDraft.trim() || undefined,
+          returnOrigin: paymentReturnOrigin(),
         }),
       });
       if ('skipCheckout' in res && res.skipCheckout) {
@@ -229,6 +230,7 @@ export function ModelTryoutModeshowTab({
         token,
         body: JSON.stringify({
           couponCode: couponPreview?.code || couponDraft.trim() || undefined,
+          returnOrigin: paymentReturnOrigin(),
         }),
       });
       if ('skipCheckout' in res && res.skipCheckout) {
