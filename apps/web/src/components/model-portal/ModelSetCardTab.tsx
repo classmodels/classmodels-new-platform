@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
 import { apiFetch, publicMediaUrl } from '@/lib/api';
+import { goToExternalCheckout } from '@/lib/storage';
 import { getImpersonationAdminToken } from '@/lib/impersonation';
 import type { ProfileMediaRow } from '@/components/model-portal/ModelPortalProfile';
 
@@ -256,7 +257,7 @@ export function ModelSetCardTab({
         return;
       }
       if ('checkoutUrl' in res && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
+        goToExternalCheckout(res.checkoutUrl);
         return;
       }
       setBanner({ tone: 'err', text: 'Geen betaallink ontvangen.' });

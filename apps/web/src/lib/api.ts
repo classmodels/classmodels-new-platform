@@ -202,6 +202,19 @@ export type ApiFetchInit = RequestInit & {
   loadingLabel?: string;
 };
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+export function isUnauthorizedError(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 401;
+}
+
 export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T> {
   const API = getApiBase();
   const { token, loadingLabel, ...rest } = init ?? {};
@@ -232,17 +245,19 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
     if (!res.ok) {
       const text = await res.text();
       if (text.trimStart().startsWith('<!DOCTYPE') || text.trimStart().startsWith('<html')) {
-        throw new Error(
+        throw new ApiError(
           'Server gaf een webpagina i.p.v. API-data. Wacht op deploy of controleer /__cm_api (zie Combell pipeline).',
+          res.status,
         );
       }
       const msg = parseApiErrorBody(text || res.statusText);
       if (/database|Can't reach database|ECONNREFUSED|3307/i.test(text + msg)) {
-        throw new Error(
+        throw new ApiError(
           'Database niet bereikbaar. Start Docker Desktop en voer uit: npm run docker:up (MySQL poort 3307).',
+          res.status,
         );
       }
-      throw new Error(msg);
+      throw new ApiError(msg, res.status);
     }
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;

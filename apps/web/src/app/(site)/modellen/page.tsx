@@ -7,6 +7,7 @@ import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { NieuwModelsGallery } from '@/components/nieuw/NieuwModelsGallery';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
+import { goToExternalCheckout } from '@/lib/storage';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { uploadWithProgress } from '@/lib/upload-with-progress';
 import {
@@ -316,7 +317,7 @@ export default function NieuwModellenPage() {
         return;
       }
       if ('checkoutUrl' in res && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
+        goToExternalCheckout(res.checkoutUrl);
         return;
       }
       setCheckoutErr('Onverwacht antwoord van de server.');

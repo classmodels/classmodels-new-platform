@@ -5,6 +5,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
+import { getStoredToken } from '@/lib/storage';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 
 type Kind = 'premium' | 'tryout' | 'setkaart';
@@ -33,18 +34,19 @@ function BedanktInner() {
   const [setCardPaid, setSetCardPaid] = useState<boolean | null>(null);
 
   const refreshStatus = useCallback(async () => {
-    await refreshMe().catch(() => null);
-    if (kind === 'tryout' && token) {
+    const tok = token || getStoredToken();
+    if (tok) await refreshMe(tok).catch(() => null);
+    if (kind === 'tryout' && tok) {
       try {
-        const s = await apiFetch<TryoutState>('/portal/model/tryout-modeshow', { token });
+        const s = await apiFetch<TryoutState>('/portal/model/tryout-modeshow', { token: tok });
         setTryoutPaid(s.registration.interestStatus === 'paid');
       } catch {
         setTryoutPaid(null);
       }
     }
-    if (kind === 'setkaart' && token) {
+    if (kind === 'setkaart' && tok) {
       try {
-        const d = await apiFetch<SetCardDraftState>('/portal/model/set-card', { token });
+        const d = await apiFetch<SetCardDraftState>('/portal/model/set-card', { token: tok });
         setSetCardPaid(!!d.setCardPaid || !d.paymentRequired);
       } catch {
         setSetCardPaid(null);
@@ -97,6 +99,26 @@ function BedanktInner() {
         <p className="nieuw-lead" style={{ margin: 0 }}>
           We controleren je betaling…
         </p>
+      </div>
+    );
+  }
+
+  // Sessie zit in localStorage maar /users/me is even traag — niet als “uitgelogd” tonen.
+  if (!user && token) {
+    return (
+      <div className="nieuw-panel" style={{ textAlign: 'center', padding: '40px 24px' }}>
+        <h1 className="nieuw-h2" style={{ fontSize: 28 }}>
+          Bedankt
+        </h1>
+        <p className="nieuw-lead" style={{ margin: '14px auto 0', textAlign: 'center' }}>
+          Je betaling bij Mollie is afgerond. Je sessie wordt geladen — even geduld of ga terug naar het
+          modellenportaal.
+        </p>
+        <div style={{ marginTop: 28 }}>
+          <Link className="nieuw-btn" href={backHref}>
+            Sluiten
+          </Link>
+        </div>
       </div>
     );
   }

@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { apiFetch, getApiBase } from '@/lib/api';
+import { apiFetch, getApiBase, isUnauthorizedError } from '@/lib/api';
 import { getRememberMePreference, getStoredToken, setStoredToken } from '@/lib/storage';
 
 export type ModelPushSummary = {
@@ -123,10 +123,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     refreshMe(t)
-      .catch(() => {
-        setStoredToken(null);
-        setToken(null);
-        setUser(null);
+      .catch((err) => {
+        // Alleen bij echte 401 de sessie wissen. Tijdelijke API-/proxyfouten (bv. na Mollie)
+        // mogen de login niet wissen — anders lijkt de gebruiker "uitgelogd" na betaling.
+        if (isUnauthorizedError(err)) {
+          setStoredToken(null);
+          setToken(null);
+          setUser(null);
+        }
       })
       .finally(() => setLoading(false));
   }, [refreshMe]);

@@ -7,6 +7,7 @@ import { portalTitlebarPillClass } from '@/components/model-portal/portal-titleb
 import { TryoutModeshowInfoContent } from '@/components/model-portal/tryout-modeshow-info-content';
 import { TryoutTermsContent } from '@/components/model-portal/tryout-terms-content';
 import { createPortal } from 'react-dom';
+import { goToExternalCheckout } from '@/lib/storage';
 
 type TryoutEdition = {
   slug: string;
@@ -161,7 +162,7 @@ export function ModelTryoutModeshowTab({
         return;
       }
       if ('checkoutUrl' in res && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
+        goToExternalCheckout(res.checkoutUrl);
         return;
       }
       setErr('Onverwacht antwoord van de server.');
@@ -232,7 +233,7 @@ export function ModelTryoutModeshowTab({
         return;
       }
       if ('checkoutUrl' in res && res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
+        goToExternalCheckout(res.checkoutUrl);
         return;
       }
       setErr('Onverwacht antwoord van de server.');

@@ -422,18 +422,34 @@ export class PaymentsService {
   }
 
   private paymentReturnUrl(kind: 'premium' | 'tryout' | 'setkaart'): string {
-    const base = (
+    let base = (
       process.env.WEB_APP_URL ||
       process.env.NEXT_PUBLIC_APP_URL ||
       'http://localhost:3000'
     ).replace(/\/$/, '');
+    // Zelfde origin als login (www) — apex zonder www deelt geen localStorage.
+    if (/^https?:\/\/class-models\.be$/i.test(base)) {
+      base = 'https://www.class-models.be';
+    }
     const envOverride =
       kind === 'premium'
         ? process.env.PAYMENT_REDIRECT_URL?.trim()
         : kind === 'tryout'
           ? process.env.TRYOUT_PAYMENT_REDIRECT_URL?.trim()
           : process.env.SET_CARD_PAYMENT_REDIRECT_URL?.trim();
-    if (envOverride) return envOverride;
+    if (envOverride) {
+      let url = envOverride;
+      try {
+        const u = new URL(url);
+        if (u.hostname.toLowerCase() === 'class-models.be') {
+          u.hostname = 'www.class-models.be';
+          url = u.toString();
+        }
+      } catch {
+        /* keep as-is */
+      }
+      return url;
+    }
     const soort = kind === 'premium' ? 'premium' : kind === 'tryout' ? 'tryout' : 'setkaart';
     return `${base}/modellen/betaling/bedankt?soort=${soort}`;
   }

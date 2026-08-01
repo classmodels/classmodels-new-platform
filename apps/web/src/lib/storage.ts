@@ -28,3 +28,20 @@ export function setStoredToken(token: string | null, rememberMe = true) {
   if (rememberMe) localStorage.setItem(TOKEN_LOCAL, token);
   else sessionStorage.setItem(TOKEN_SESSION, token);
 }
+
+/**
+ * Voor externe redirects (Mollie): zet de JWT altijd in localStorage.
+ * sessionStorage gaat soms verloren bij terugkeer van een andere site/tab (Safari/iOS).
+ */
+export function persistSessionForExternalRedirect() {
+  if (typeof window === 'undefined') return;
+  const tok = getStoredToken();
+  if (!tok) return;
+  setStoredToken(tok, true);
+}
+
+/** Navigeer naar Mollie (of andere externe checkout) zonder de login kwijt te raken. */
+export function goToExternalCheckout(checkoutUrl: string) {
+  persistSessionForExternalRedirect();
+  window.location.href = checkoutUrl;
+}
