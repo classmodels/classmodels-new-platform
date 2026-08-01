@@ -9,6 +9,9 @@ import { Prisma } from '@prisma/client';
 import createMollieClient, { Payment } from '@mollie/api-client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
+import { TRYOUT_MODESHOW_EDITION } from '../portal/tryout-modeshow-edition';
+import { resolveTryoutCoupon } from '../portal/tryout-coupon.util';
+import { sendHtmlMail } from '../mail/send-html-mail';
 import { isPremiumPromoActive, PREMIUM_YEARLY_EUROS, premiumPromoDeadlineMs } from './premium-promo.util';
 
 export type MollieMode = 'test' | 'live';
@@ -209,7 +212,11 @@ export class PaymentsService {
     return new Prisma.Decimal('600');
   }
 
-  async startTryoutModeshowCheckout(registrationId: string, expectedUserId: string) {
+  async startTryoutModeshowCheckout(
+    registrationId: string,
+    expectedUserId: string,
+    couponCodeRaw?: string | null,
+  ) {
     const reg = await this.prisma.tryoutModeshowRegistration.findUnique({
       where: { id: registrationId },
       include: { user: true },
@@ -224,15 +231,85 @@ export class PaymentsService {
       throw new BadRequestException('Voorwaarden niet voldaan voor checkout.');
     }
 
-    const amount = await this.tryoutAmount();
+    const listPrice = await this.tryoutAmount();
+    const coupon = await resolveTryoutCoupon(this.prisma, {
+      codeRaw: couponCodeRaw,
+      userId: expectedUserId,
+      editionSlug: reg.editionSlug,
+      listPrice,
+    });
+    const amount = coupon ? new Prisma.Decimal(coupon.finalAmount) : listPrice;
+    const discountAmount = coupon ? new Prisma.Decimal(coupon.discountAmount) : new Prisma.Decimal(0);
+    const isFree = amount.lte(0);
+
+    if (isFree) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.tryoutModeshowRegistration.update({
+          where: { id: reg.id },
+          data: {
+            interestStatus: 'paid',
+            paymentStatus: 'free',
+            amount: new Prisma.Decimal(0),
+            listPrice,
+            discountAmount,
+            isFree: true,
+            couponId: coupon?.couponId ?? null,
+            couponCode: coupon?.code ?? null,
+            molliePaymentId: null,
+          },
+        });
+        if (coupon) {
+          await tx.tryoutCouponRedemption.create({
+            data: {
+              couponId: coupon.couponId,
+              userId: expectedUserId,
+              registrationId: reg.id,
+              amountBefore: listPrice,
+              amountAfter: new Prisma.Decimal(0),
+            },
+          });
+          await tx.tryoutCoupon.update({
+            where: { id: coupon.couponId },
+            data: { usedCount: { increment: 1 } },
+          });
+        }
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          userId: expectedUserId,
+          action: 'tryout_modeshow.free_paid',
+          meta: {
+            tryoutRegistrationId: reg.id,
+            editionSlug: reg.editionSlug,
+            couponCode: coupon?.code ?? null,
+          },
+        },
+      });
+      void this.modelHistory.log(expectedUserId, 'tryout_modeshow_paid', {
+        free: true,
+        editionSlug: reg.editionSlug,
+        couponCode: coupon?.code ?? null,
+      });
+      if (reg.user) {
+        void this.sendTryoutConfirmationEmail(reg.user, '0');
+      }
+      return {
+        skipCheckout: true as const,
+        freeOrder: true as const,
+        reason: 'Inschrijving bevestigd met couponcode (gratis).',
+      };
+    }
+
     const value = amount.toFixed(2);
     const mode = await this.resolveActiveMode();
     const mollie = createMollieClient({ apiKey: await this.apiKey() });
     const webhookUrl = await this.paymentWebhookUrl();
-
     const redirectUrl = this.paymentReturnUrl('tryout');
 
-    if (reg.molliePaymentId) {
+    // Nieuw bedrag (bv. na coupon) → vorige open Mollie-payment niet hergebruiken.
+    if (reg.molliePaymentId && reg.amount != null && !reg.amount.equals(amount)) {
+      // laat oude payment verlopen; we maken een nieuwe
+    } else if (reg.molliePaymentId && (reg.amount == null || reg.amount.equals(amount))) {
       try {
         const existing = await mollie.payments.get(reg.molliePaymentId);
         if (existing.status === 'open' || existing.status === 'pending') {
@@ -258,6 +335,13 @@ export class PaymentsService {
           userId: String(expectedUserId),
           tryoutRegistrationId: String(reg.id),
           editionSlug: reg.editionSlug,
+          ...(coupon
+            ? {
+                couponCode: coupon.code,
+                listPrice: listPrice.toFixed(2),
+                discountAmount: discountAmount.toFixed(2),
+              }
+            : {}),
         },
       });
     } catch (e) {
@@ -270,6 +354,11 @@ export class PaymentsService {
         molliePaymentId: payment.id,
         paymentStatus: payment.status,
         amount,
+        listPrice,
+        discountAmount: coupon ? discountAmount : null,
+        isFree: false,
+        couponId: coupon?.couponId ?? null,
+        couponCode: coupon?.code ?? null,
       },
     });
 
@@ -613,25 +702,53 @@ export class PaymentsService {
       });
       const tryoutUser = tryout.user;
       if (tryoutUser && payment.status === 'paid') {
+        const alreadyPaid = tryout.interestStatus === 'paid';
         await this.prisma.tryoutModeshowRegistration.update({
           where: { id: tryout.id },
           data: { interestStatus: 'paid', paymentStatus: payment.status },
         });
-        await this.prisma.auditLog.create({
-          data: {
-            userId: tryoutUser.id,
-            action: 'tryout_modeshow.mollie_paid',
-            meta: {
-              paymentId: payment.id,
-              editionSlug: tryout.editionSlug,
-              tryoutRegistrationId: tryout.id,
+        if (!alreadyPaid) {
+          await this.prisma.auditLog.create({
+            data: {
+              userId: tryoutUser.id,
+              action: 'tryout_modeshow.mollie_paid',
+              meta: {
+                paymentId: payment.id,
+                editionSlug: tryout.editionSlug,
+                tryoutRegistrationId: tryout.id,
+                couponCode: tryout.couponCode,
+              },
             },
-          },
-        });
-        void this.modelHistory.log(tryoutUser.id, 'tryout_modeshow_paid', {
-          paymentId: payment.id,
-          editionSlug: tryout.editionSlug,
-        });
+          });
+          void this.modelHistory.log(tryoutUser.id, 'tryout_modeshow_paid', {
+            paymentId: payment.id,
+            editionSlug: tryout.editionSlug,
+          });
+          if (tryout.couponId) {
+            const existingRedemption = await this.prisma.tryoutCouponRedemption.findUnique({
+              where: { registrationId: tryout.id },
+            });
+            if (!existingRedemption) {
+              await this.prisma.tryoutCouponRedemption.create({
+                data: {
+                  couponId: tryout.couponId,
+                  userId: tryoutUser.id,
+                  registrationId: tryout.id,
+                  amountBefore: tryout.listPrice ?? tryout.amount ?? new Prisma.Decimal(0),
+                  amountAfter: tryout.amount ?? new Prisma.Decimal(0),
+                },
+              });
+              await this.prisma.tryoutCoupon.update({
+                where: { id: tryout.couponId },
+                data: { usedCount: { increment: 1 } },
+              });
+            }
+          }
+          void this.sendTryoutConfirmationEmail(
+            tryoutUser,
+            tryout.amount?.toString() ?? null,
+          );
+        }
       }
       return;
     }
@@ -721,6 +838,46 @@ export class PaymentsService {
         paymentId: payment.id,
         status: payment.status,
       });
+    }
+  }
+
+  private async sendTryoutConfirmationEmail(
+    user: { email: string; firstName: string | null; lastName: string | null },
+    amount: string | null,
+  ) {
+    const to = user.email?.trim();
+    if (!to) {
+      this.log.warn('Try-out bevestigingsmail overgeslagen: geen e-mailadres');
+      return;
+    }
+    const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+    const ed = TRYOUT_MODESHOW_EDITION;
+    const amountLabel =
+      amount != null && amount !== ''
+        ? new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR' }).format(Number(amount))
+        : null;
+    const html = `
+      <p>Hallo${name ? ` ${name}` : ''},</p>
+      <p>Bedankt! Je bent succesvol ingeschreven voor de <strong>${ed.title}</strong>.</p>
+      <p>
+        <strong>Datum:</strong> ${ed.dateLabelNl}<br/>
+        <strong>Locatie:</strong> ${ed.venueName}, ${ed.addressLine}, ${ed.postalCode} ${ed.city}<br/>
+        <strong>Deuren:</strong> ${ed.doorsTimeNl} — <strong>show:</strong> ${ed.showTimeNl}
+        ${amountLabel ? `<br/><strong>Betaald:</strong> ${amountLabel}` : ''}
+      </p>
+      <p>We houden je op de hoogte van de oefenlessen en verdere praktische info.</p>
+      <p>Tot dan!<br/>Class-Models</p>
+    `;
+    const ok = await sendHtmlMail(
+      this.prisma,
+      to,
+      `Inschrijving bevestigd — ${ed.title} | Class-Models`,
+      html,
+    );
+    if (!ok) {
+      this.log.warn(`Try-out bevestigingsmail mislukt naar ${to}`);
+    } else {
+      this.log.log(`Try-out bevestigingsmail verstuurd naar ${to}`);
     }
   }
 }

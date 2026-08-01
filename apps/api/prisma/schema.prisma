@@ -104,6 +104,7 @@ model User {
   bulkMessageDeliveries     BulkMessageDelivery[]
   bulkMailUnsubscribes      BulkMailUnsubscribe[]
   tryoutModeshowRegistrations TryoutModeshowRegistration[]
+  tryoutCouponRedemptions     TryoutCouponRedemption[]
   /// Portfolio-levering door fotograaf (map `portfolio-fotograaf`), gekoppeld aan dit model.
   portfolioDeliveryAssets MediaAsset[] @relation("PortfolioDeliveryForModel")
   setCardDraft            ModelSetCardDraft?
@@ -479,12 +480,58 @@ model TryoutModeshowRegistration {
   termsAcceptedAt DateTime?
   molliePaymentId String?  @unique
   paymentStatus   String?
+  /// Effectief aangerekend bedrag (na korting).
   amount          Decimal? @db.Decimal(10, 2)
+  listPrice       Decimal? @db.Decimal(10, 2)
+  discountAmount  Decimal? @db.Decimal(10, 2)
+  isFree          Boolean  @default(false)
+  couponId        String?
+  coupon          TryoutCoupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  /// Snapshot van de gebruikte code (voor admin/CSV).
+  couponCode      String?
+  couponRedemption TryoutCouponRedemption?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@unique([userId, editionSlug])
   @@index([editionSlug, interestStatus])
+  @@index([couponId])
+}
+
+/// Kortingscodes voor try-out modeshow-inschrijving.
+model TryoutCoupon {
+  id             String   @id @default(uuid())
+  /// Unieke code (opgeslagen in uppercase).
+  code           String   @unique
+  /// `percent` | `fixed`
+  discountType   String
+  discountValue  Decimal  @db.Decimal(10, 2)
+  maxTotalUses   Int?
+  maxUsesPerUser Int      @default(1)
+  usedCount      Int      @default(0)
+  active         Boolean  @default(true)
+  editionSlug    String?
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  redemptions    TryoutCouponRedemption[]
+  registrations  TryoutModeshowRegistration[]
+}
+
+model TryoutCouponRedemption {
+  id             String   @id @default(uuid())
+  couponId       String
+  coupon         TryoutCoupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  registrationId String   @unique
+  registration   TryoutModeshowRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  amountBefore   Decimal  @db.Decimal(10, 2)
+  amountAfter    Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  @@index([couponId, userId])
+  @@index([userId])
 }
 
 model Subscription {

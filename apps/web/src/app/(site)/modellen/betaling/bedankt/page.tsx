@@ -144,7 +144,9 @@ function BedanktInner() {
           ) : kind === 'setkaart' ? (
             <>Je setkaart-betaling is ontvangen. Je kunt nu versturen naar Class-Models.</>
           ) : (
-            <>Je inschrijving voor de try-out modeshow is bevestigd.</>
+            <>
+              Je inschrijving voor de try-out modeshow is bevestigd. Je ontvangt ook een bevestiging per e-mail.
+            </>
           )}
         </p>
       ) : (

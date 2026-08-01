@@ -124,8 +124,9 @@ export default function AdminMolliePage() {
       <div>
         <h1 className="text-xl font-semibold text-ink">Mollie-instellingen</h1>
         <p className="mt-2 text-sm text-muted">
-          Kies <strong>test</strong> of <strong>live</strong> API-modus voor alle betalingen (premium en try-out).
-          Vul de bijhorende key in en test de verbinding voordat je live gaat.
+          Kies <strong>test</strong> of <strong>live</strong> API-modus voor alle betalingen (premium, try-out
+          modeshow en setkaarten). Vul de bijhorende Mollie-key in, sla op en test de verbinding — daarna werkt
+          afrekenen automatisch.
         </p>
       </div>
 

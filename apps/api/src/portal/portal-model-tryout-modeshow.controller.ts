@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
-import { IsBoolean, Equals } from 'class-validator';
+import { Equals, IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -14,6 +14,19 @@ class TryoutInterestDto {
 class TryoutTermsDto {
   @Equals(true)
   accepted!: boolean;
+}
+
+class TryoutCheckoutDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  couponCode?: string;
+}
+
+class TryoutCouponPreviewDto {
+  @IsString()
+  @MaxLength(40)
+  couponCode!: string;
 }
 
 @Controller('portal/model/tryout-modeshow')
@@ -39,9 +52,15 @@ export class PortalModelTryoutModeshowController {
     return this.tryout.acceptTerms(req.user.sub, dto.accepted);
   }
 
+  @Post('coupon-preview')
+  @Permissions('portal.model.briefs.read')
+  couponPreview(@Req() req: { user: JwtPayload }, @Body() dto: TryoutCouponPreviewDto) {
+    return this.tryout.previewCoupon(req.user.sub, dto.couponCode);
+  }
+
   @Post('checkout')
   @Permissions('portal.model.briefs.read', 'payments.checkout')
-  checkout(@Req() req: { user: JwtPayload }) {
-    return this.tryout.startCheckout(req.user.sub);
+  checkout(@Req() req: { user: JwtPayload }, @Body() dto: TryoutCheckoutDto) {
+    return this.tryout.startCheckout(req.user.sub, dto.couponCode);
   }
 }

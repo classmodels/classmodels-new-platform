@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { ModelPortalHistoryService } from './model-portal-history.service';
 import { TRYOUT_MODESHOW_ACTIVE_SLUG, TRYOUT_MODESHOW_EDITION } from './tryout-modeshow-edition';
+import { resolveTryoutCoupon } from './tryout-coupon.util';
 
 @Injectable()
 export class TryoutModeshowService {
@@ -48,9 +49,28 @@ export class TryoutModeshowService {
         termsAcceptedAt: reg.termsAcceptedAt?.toISOString() ?? null,
         paymentStatus: reg.paymentStatus,
         molliePaymentId: reg.molliePaymentId,
+        isFree: reg.isFree,
+        couponCode: reg.couponCode,
+        listPrice: reg.listPrice?.toString() ?? null,
+        discountAmount: reg.discountAmount?.toString() ?? null,
+        amount: reg.amount?.toString() ?? null,
       },
-      pricing: { currency: 'EUR', amount: amount.toString() },
+      pricing: { currency: 'EUR', amount: amount.toFixed(2) },
     };
+  }
+
+  async previewCoupon(userId: string, code: string) {
+    const listPrice = await this.tryoutPrice();
+    const preview = await resolveTryoutCoupon(this.prisma, {
+      codeRaw: code,
+      userId,
+      editionSlug: this.editionSlug(),
+      listPrice,
+    });
+    if (!preview) {
+      throw new BadRequestException('Vul een couponcode in.');
+    }
+    return preview;
   }
 
   async setInterest(userId: string, interested: boolean) {
@@ -61,7 +81,19 @@ export class TryoutModeshowService {
     const next = interested ? 'interested' : 'declined';
     const data: Prisma.TryoutModeshowRegistrationUpdateInput = {
       interestStatus: next,
-      ...(interested ? {} : { termsAcceptedAt: null, molliePaymentId: null, paymentStatus: null, amount: null }),
+      ...(interested
+        ? {}
+        : {
+            termsAcceptedAt: null,
+            molliePaymentId: null,
+            paymentStatus: null,
+            amount: null,
+            listPrice: null,
+            discountAmount: null,
+            isFree: false,
+            couponId: null,
+            couponCode: null,
+          }),
     };
     await this.prisma.tryoutModeshowRegistration.update({
       where: { id: reg.id },
@@ -95,7 +127,7 @@ export class TryoutModeshowService {
     return this.getState(userId);
   }
 
-  async startCheckout(userId: string) {
+  async startCheckout(userId: string, couponCode?: string | null) {
     const reg = await this.getOrCreateRegistration(userId);
     if (reg.interestStatus === 'paid') {
       throw new BadRequestException('U bent reeds ingeschreven voor deze try-out modeshow.');
@@ -106,6 +138,6 @@ export class TryoutModeshowService {
     if (!reg.termsAcceptedAt) {
       throw new BadRequestException('Ga eerst akkoord met de algemene voorwaarden.');
     }
-    return this.payments.startTryoutModeshowCheckout(reg.id, userId);
+    return this.payments.startTryoutModeshowCheckout(reg.id, userId, couponCode);
   }
 }
