@@ -16,6 +16,7 @@ import { CLASS_MODELS_OFFICE, GUEST_APPOINTMENT_OFFICE_LINE } from '@/lib/class-
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
 import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
 import { useIsMobile } from '@/lib/use-is-mobile';
+import { NieuwAlertDialog } from '@/components/nieuw/NieuwAlertDialog';
 import {
   agendaFieldDisplayLabel,
   agendaFieldPlaceholder,
@@ -141,7 +142,11 @@ export function GuestBookingPanel({
 
   const [step, setStep] = useState<Step>('slots');
   const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
+  const [alert, setAlert] = useState<{
+    title?: string;
+    message?: string;
+    items?: string[];
+  } | null>(null);
   const [fields, setFields] = useState<FieldDto[]>([]);
   const [slots, setSlots] = useState<SlotDto[]>([]);
   const [openDates, setOpenDates] = useState<string[]>([]);
@@ -158,10 +163,25 @@ export function GuestBookingPanel({
   /** Pagina voor pro-kolomweergave (0 = eerste 4 datums met sloten). */
   const [dayPage, setDayPage] = useState(0);
 
+  const showAlert = useCallback(
+    (opts: { title?: string; message?: string; items?: string[] } | string) => {
+      if (typeof opts === 'string') {
+        setAlert({ title: 'Let op', message: opts });
+        return;
+      }
+      setAlert({
+        title: opts.title ?? 'Nog even aanvullen',
+        message: opts.message,
+        items: opts.items,
+      });
+    },
+    [],
+  );
+
   const loadData = useCallback(async () => {
     const base = getApiBase();
     setLoading(true);
-    setErr(null);
+    setAlert(null);
     try {
       const fromD = new Date();
       const toD = new Date(fromD);
@@ -204,13 +224,13 @@ export function GuestBookingPanel({
         setDayPage(0);
       }
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Laden mislukt');
+      showAlert(e instanceof Error ? e.message : 'Laden mislukt');
       setSlots([]);
       setOpenDates([]);
     } finally {
       setLoading(false);
     }
-  }, [calendarSlug, daysPerPage]);
+  }, [calendarSlug, daysPerPage, showAlert]);
 
   useEffect(() => {
     loadData();
@@ -329,7 +349,7 @@ export function GuestBookingPanel({
   const quickBook = useCallback(
     async (pickedSlotId: string) => {
       setBusy(true);
-      setErr(null);
+      setAlert(null);
       setSlotId(pickedSlotId);
       try {
         const fd = new FormData();
@@ -363,13 +383,13 @@ export function GuestBookingPanel({
         }
         setStep('success');
       } catch (e: unknown) {
-        setErr(e instanceof Error ? e.message : 'Boeken mislukt');
+        showAlert({ title: 'Boeken mislukt', message: e instanceof Error ? e.message : 'Boeken mislukt' });
         setSlotId(null);
       } finally {
         setBusy(false);
       }
     },
-    [authToken, bookUrl, loadData, onBookingSuccess],
+    [authToken, bookUrl, loadData, onBookingSuccess, showAlert],
   );
 
   const isSlotOccupied = (s: SlotDto) =>
@@ -406,7 +426,7 @@ export function GuestBookingPanel({
           }
           setSlotId(s.id);
           setStep('form');
-          setErr(null);
+          setAlert(null);
         }}
       >
         <span
@@ -452,22 +472,18 @@ export function GuestBookingPanel({
     e.preventDefault();
     if (!slotId) return;
     if (strictGuestForm) {
+      const missing: string[] = [];
       for (const f of displayFields) {
         const req = fieldEffectiveRequired(guestWebBooking, f);
         if (!req) continue;
         if (f.type === 'file') continue;
+        const label = agendaFieldDisplayLabel(f.fieldKey, f.label);
         if (f.type === 'checkbox') {
-          if (form[f.fieldKey] !== '1') {
-            setErr(`Vink "${agendaFieldDisplayLabel(f.fieldKey, f.label)}" aan.`);
-            return;
-          }
+          if (form[f.fieldKey] !== '1') missing.push(`${label} (aanvinken)`);
           continue;
         }
         const v = (form[f.fieldKey] ?? '').trim();
-        if (!v) {
-          setErr(`Vul "${agendaFieldDisplayLabel(f.fieldKey, f.label)}" in.`);
-          return;
-        }
+        if (!v) missing.push(label);
       }
 
       const phoneKey =
@@ -476,33 +492,42 @@ export function GuestBookingPanel({
       const phoneVal = (form[phoneKey] ?? form.telefoon ?? form.phone ?? form.gsm ?? '').trim();
       const phoneErr = agendaMobileError(phoneVal, 'GSM');
       if (phoneErr) {
-        setErr(
-          phoneErr.includes('verplicht')
-            ? 'GSM is verplicht — vul uw gsm in bij het veld GSM (niet bij Nr./huisnummer).'
-            : phoneErr,
-        );
-        return;
+        if (phoneErr.includes('verplicht')) {
+          if (!missing.includes('GSM')) missing.push('GSM');
+        } else {
+          missing.push('GSM (ongeldig nummer — bv. 0498720371)');
+        }
       }
 
+      let gebNormalized: string | null = null;
       const gebRaw = (form.geboortedatum ?? '').trim();
       if (gebRaw) {
-        const geb = normalizeIsoBirthDateClient(gebRaw);
-        if (!geb) {
-          setErr('Geboortedatum is ongeldig. Gebruik het datumveld of formaat JJJJ-MM-DD.');
-          return;
-        }
-        setField('geboortedatum', geb);
-        if (isMinorFromIsoDateString(geb)) {
-          const minorErr = validateGuestMinorParentFieldsClient({ ...form, geboortedatum: geb });
-          if (minorErr) {
-            setErr(minorErr);
-            return;
+        gebNormalized = normalizeIsoBirthDateClient(gebRaw);
+        if (!gebNormalized) {
+          missing.push('Geboortedatum (ongeldig — gebruik het datumveld)');
+        } else {
+          setField('geboortedatum', gebNormalized);
+          if (isMinorFromIsoDateString(gebNormalized)) {
+            const minorErr = validateGuestMinorParentFieldsClient({
+              ...form,
+              geboortedatum: gebNormalized,
+            });
+            if (minorErr) missing.push(minorErr);
           }
         }
       }
+
+      if (missing.length) {
+        showAlert({
+          title: 'Nog even aanvullen',
+          message: 'Gelieve de volgende gegevens nog in te vullen of te corrigeren:',
+          items: missing,
+        });
+        return;
+      }
     }
     setBusy(true);
-    setErr(null);
+    setAlert(null);
     try {
       const fileKeys = displayFields.filter((x) => x.type === 'file').map((x) => x.fieldKey);
       const textPayload = { ...form };
@@ -578,7 +603,7 @@ export function GuestBookingPanel({
       }
       setStep('success');
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : 'Boeken mislukt');
+      showAlert({ title: 'Boeken mislukt', message: e instanceof Error ? e.message : 'Boeken mislukt' });
     } finally {
       setBusy(false);
     }
@@ -894,6 +919,15 @@ export function GuestBookingPanel({
         >
           Terug
         </button>
+        {alert ? (
+          <NieuwAlertDialog
+            open
+            title={alert.title}
+            message={alert.message}
+            items={alert.items}
+            onClose={() => setAlert(null)}
+          />
+        ) : null}
       </div>
     );
   }
@@ -924,9 +958,6 @@ export function GuestBookingPanel({
             Annuleren
           </button>
         </div>
-        {err ? (
-          <div className="rounded-cm border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">{err}</div>
-        ) : null}
         {step === 'slots' ? (
           <div className="space-y-3">
             {isMobile ? topDatePager : null}
@@ -982,7 +1013,7 @@ export function GuestBookingPanel({
                 onClick={() => {
                   setStep('slots');
                   setSlotId(null);
-                  setErr(null);
+                  setAlert(null);
                 }}
               >
                 Ander moment
@@ -1001,6 +1032,15 @@ export function GuestBookingPanel({
             </button>
           </form>
         )}
+        {alert ? (
+          <NieuwAlertDialog
+            open
+            title={alert.title}
+            message={alert.message}
+            items={alert.items}
+            onClose={() => setAlert(null)}
+          />
+        ) : null}
       </div>
     );
   }
@@ -1081,7 +1121,7 @@ export function GuestBookingPanel({
         onClick={() => {
           if (step === 'form') {
             setStep('slots');
-            setErr(null);
+            setAlert(null);
           } else {
             onClose();
           }
@@ -1125,15 +1165,21 @@ export function GuestBookingPanel({
         </div>
       </div>
 
-      {err ? (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div>
-      ) : null}
-
       <div className={`flex flex-col gap-4 ${isMobile ? '' : 'min-h-0 flex-1'}`}>
         <div className={isMobile ? 'w-full' : 'flex min-h-0 min-w-0 flex-1 flex-col'}>{slotsBlock}</div>
       </div>
 
       {footer}
+
+      {alert ? (
+        <NieuwAlertDialog
+          open
+          title={alert.title}
+          message={alert.message}
+          items={alert.items}
+          onClose={() => setAlert(null)}
+        />
+      ) : null}
     </div>
   );
 }
