@@ -4,38 +4,48 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const ASSET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
 
-/** Alleen bij eerste openen van de site in deze browsertab — niet bij terug naar begin. */
-export const SITE_INTRO_SEEN_KEY = 'cm-site-intro-seen';
-/** Oude sleutel (gsm) — mee laten tellen zodat film niet opnieuw speelt. */
-const LEGACY_INTRO_SEEN_KEY = 'cm-mobile-intro-seen';
+/** Desktop/website: eerste openen van `/` in deze tab. */
+export const DESKTOP_INTRO_SEEN_KEY = 'cm-desktop-intro-seen';
+/** Gsm/app: eerste openen van de site/app in deze tab — niet bij terug naar begin. */
+export const MOBILE_INTRO_SEEN_KEY = 'cm-mobile-intro-seen';
+/** Oude gedeelde sleutel (vóór split desktop/gsm). */
+const LEGACY_SITE_INTRO_SEEN_KEY = 'cm-site-intro-seen';
 
-export function hasSeenSiteIntro(): boolean {
+export const DESKTOP_INTRO_VIDEO_SRC = `${ASSET_BASE}/videos/desktop-intro.mp4`;
+export const MOBILE_INTRO_VIDEO_SRC = `${ASSET_BASE}/videos/mobile-intro.mp4`;
+
+export function hasSeenIntro(storageKey: string): boolean {
   try {
-    return (
-      sessionStorage.getItem(SITE_INTRO_SEEN_KEY) === '1' ||
-      sessionStorage.getItem(LEGACY_INTRO_SEEN_KEY) === '1'
-    );
+    if (sessionStorage.getItem(storageKey) === '1') return true;
+    // Eén keer gedeelde legacy-sleutel respecteren, daarna per toestel apart.
+    if (sessionStorage.getItem(LEGACY_SITE_INTRO_SEEN_KEY) === '1') return true;
+    return false;
   } catch {
     return true;
   }
 }
 
-export function markSiteIntroSeen(): void {
+export function markIntroSeen(storageKey: string): void {
   try {
-    sessionStorage.setItem(SITE_INTRO_SEEN_KEY, '1');
-    sessionStorage.setItem(LEGACY_INTRO_SEEN_KEY, '1');
+    sessionStorage.setItem(storageKey, '1');
   } catch {
     /**/
   }
 }
 
-export const SITE_INTRO_VIDEO_SRC = `${ASSET_BASE}/videos/mobile-intro.mp4`;
+type SiteIntroOverlayProps = {
+  onDone: () => void;
+  /** Pad naar de film (desktop of gsm). */
+  videoSrc: string;
+  /** sessionStorage-sleutel: film speelt niet opnieuw in dezelfde tab. */
+  storageKey: string;
+};
 
 /**
- * Introfilm fullscreen bij eerste bezoek aan de startpagina.
+ * Introfilm fullscreen bij eerste openen.
  * Speelt volledig af (of Overslaan). Fail-safe alleen als afspelen nooit start.
  */
-export function SiteIntroOverlay({ onDone }: { onDone: () => void }) {
+export function SiteIntroOverlay({ onDone, videoSrc, storageKey }: SiteIntroOverlayProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fading, setFading] = useState(false);
   const doneRef = useRef(false);
@@ -43,16 +53,15 @@ export function SiteIntroOverlay({ onDone }: { onDone: () => void }) {
   const finish = useCallback(() => {
     if (doneRef.current) return;
     doneRef.current = true;
-    markSiteIntroSeen();
+    markIntroSeen(storageKey);
     setFading(true);
     window.setTimeout(onDone, 550);
-  }, [onDone]);
+  }, [onDone, storageKey]);
 
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
     let started = false;
-    // Alleen afbreken als de film nooit begint (404 / autoplay-blokkade) — niet na 3s knippen.
     const failSafe = window.setTimeout(() => {
       if (!started) finish();
     }, 5000);
@@ -81,7 +90,7 @@ export function SiteIntroOverlay({ onDone }: { onDone: () => void }) {
     >
       <video
         ref={videoRef}
-        src={SITE_INTRO_VIDEO_SRC}
+        src={videoSrc}
         className="h-full w-full object-contain"
         autoPlay
         muted

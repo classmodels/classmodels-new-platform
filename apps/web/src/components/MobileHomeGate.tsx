@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { MobileBeginHome } from '@/components/MobileBeginHome';
 import {
-  hasSeenSiteIntro,
+  DESKTOP_INTRO_SEEN_KEY,
+  DESKTOP_INTRO_VIDEO_SRC,
+  hasSeenIntro,
   SiteIntroOverlay,
-  SITE_INTRO_VIDEO_SRC,
 } from '@/components/SiteIntroOverlay';
 import { useIsMobile } from '@/lib/use-is-mobile';
 
 /**
- * Gsm → MobileBeginHome (met eigen intro).
- * Desktop → website-homepage; introfilm alleen bij eerste openen van `/` in deze tab.
+ * Gsm → MobileBeginHome (eigen staande introfilm, alleen bij openen van site/app).
+ * Desktop → website-homepage + liggende introfilm (alleen eerste openen van `/`).
  */
 export function MobileHomeGate({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
@@ -21,14 +22,14 @@ export function MobileHomeGate({ children }: { children: ReactNode }) {
     if (isMobile !== false) return;
     let cancelled = false;
     (async () => {
-      if (hasSeenSiteIntro()) {
+      if (hasSeenIntro(DESKTOP_INTRO_SEEN_KEY)) {
         if (!cancelled) setShowIntro(false);
         return;
       }
       try {
         const ctrl = new AbortController();
         const timer = window.setTimeout(() => ctrl.abort(), 2000);
-        const res = await fetch(SITE_INTRO_VIDEO_SRC, {
+        const res = await fetch(DESKTOP_INTRO_VIDEO_SRC, {
           method: 'HEAD',
           signal: ctrl.signal,
           cache: 'no-store',
@@ -54,7 +55,13 @@ export function MobileHomeGate({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {showIntro ? <SiteIntroOverlay onDone={onIntroDone} /> : null}
+      {showIntro ? (
+        <SiteIntroOverlay
+          onDone={onIntroDone}
+          videoSrc={DESKTOP_INTRO_VIDEO_SRC}
+          storageKey={DESKTOP_INTRO_SEEN_KEY}
+        />
+      ) : null}
       {children}
     </>
   );

@@ -13,9 +13,10 @@ import {
   MobileGuestInfoBody,
 } from '@/components/MobileGuestInfoBody';
 import {
-  hasSeenSiteIntro,
+  hasSeenIntro,
+  MOBILE_INTRO_SEEN_KEY,
+  MOBILE_INTRO_VIDEO_SRC,
   SiteIntroOverlay,
-  SITE_INTRO_VIDEO_SRC,
 } from '@/components/SiteIntroOverlay';
 
 /**
@@ -1176,7 +1177,7 @@ export function MobileBeginHome() {
     }
     let cancelled = false;
     (async () => {
-      if (hasSeenSiteIntro()) {
+      if (hasSeenIntro(MOBILE_INTRO_SEEN_KEY)) {
         if (!cancelled) setShowIntro(false);
         return;
       }
@@ -1184,7 +1185,7 @@ export function MobileBeginHome() {
       try {
         const ctrl = new AbortController();
         const timer = window.setTimeout(() => ctrl.abort(), 2000);
-        const res = await fetch(SITE_INTRO_VIDEO_SRC, {
+        const res = await fetch(MOBILE_INTRO_VIDEO_SRC, {
           method: 'HEAD',
           signal: ctrl.signal,
           cache: 'no-store',
@@ -1211,7 +1212,13 @@ export function MobileBeginHome() {
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
-      {view === null && showIntro ? <SiteIntroOverlay onDone={onIntroDone} /> : null}
+      {view === null && showIntro ? (
+        <SiteIntroOverlay
+          onDone={onIntroDone}
+          videoSrc={MOBILE_INTRO_VIDEO_SRC}
+          storageKey={MOBILE_INTRO_SEEN_KEY}
+        />
+      ) : null}
       {view === 'guest' ? <GuestView /> : view === 'model' ? <ModelView /> : <StartView />}
     </div>
   );
