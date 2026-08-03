@@ -70,6 +70,33 @@ body {
   .cm-safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+
+  /* Agenda: scrollbar per dag altijd zichtbaar (desktop + gsm waar scroll gebruikt wordt) */
+  .nieuw-agenda-scroll {
+    overflow-y: scroll !important;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(180, 140, 70, 0.95) rgba(228, 220, 205, 0.95);
+  }
+  .nieuw-agenda-scroll::-webkit-scrollbar {
+    -webkit-appearance: none;
+    width: 11px;
+    display: block;
+  }
+  .nieuw-agenda-scroll::-webkit-scrollbar-track {
+    background: rgba(228, 220, 205, 0.95);
+    border-radius: 6px;
+    border: 1px solid rgba(200, 166, 98, 0.35);
+  }
+  .nieuw-agenda-scroll::-webkit-scrollbar-thumb {
+    background: rgba(180, 140, 70, 0.95);
+    border-radius: 6px;
+    border: 2px solid rgba(228, 220, 205, 0.95);
+    min-height: 36px;
+  }
+  .nieuw-agenda-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(150, 110, 45, 1);
+  }
 }
 
 /* Donker app-menu (drawer op gsm): witte portaalmenu's worden donkergrijs,

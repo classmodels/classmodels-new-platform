@@ -1076,7 +1076,7 @@ export function GuestBookingPanel({
                   className={
                     isMobile
                       ? 'space-y-1.5 rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5'
-                      : 'min-h-0 flex-1 space-y-1.5 overflow-y-auto rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5'
+                      : 'nieuw-agenda-scroll min-h-0 flex-1 space-y-1.5 overflow-y-scroll rounded-b-md border border-t-0 border-zinc-200 bg-zinc-50/80 p-1.5'
                   }
                 >
                   {(slotsByYmd.get(ymd) ?? []).length === 0 ? (

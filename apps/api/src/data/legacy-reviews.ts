@@ -1,4 +1,4 @@
-/** Reviews van de vorige Street Models / Class-Models site (import). */
+/** Reviews van de vorige Class-Models site (import). */
 export const LEGACY_REVIEWS: {
   title: string;
   body: string;
@@ -11,8 +11,8 @@ export const LEGACY_REVIEWS: {
     rating: 5,
   },
   {
-    title: 'Bedankt Street Models',
-    body: 'Bedankt Street Models, het was heel leuk!',
+    title: 'Bedankt Class-Models',
+    body: 'Bedankt Class-Models, het was heel leuk!',
     rating: 5,
   },
   {
@@ -184,7 +184,7 @@ export const LEGACY_REVIEWS: {
   },
   {
     title: 'Eerste modeshow',
-    body: 'Voor mij was mijn eerste modeshow een mooie, toffe ervaring. Daphne heeft ons heel goed begeleid en kon mijn stress doen afnemen. Een enorme ervaring rijker — dank je wel Street Models!',
+    body: 'Voor mij was mijn eerste modeshow een mooie, toffe ervaring. Daphne heeft ons heel goed begeleid en kon mijn stress doen afnemen. Een enorme ervaring rijker — dank je wel Class-Models!',
     authorName: 'Yfke V.',
     rating: 5,
   },

@@ -1,9 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { rebrandStreetModelsInReviews } from './seed-legacy-reviews';
 
 @Injectable()
-export class ReviewsService {
+export class ReviewsService implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
+
+  async onModuleInit() {
+    try {
+      const r = await rebrandStreetModelsInReviews(this.prisma);
+      if (r.updated > 0) {
+        console.log(`[reviews] Street Models → Class-Models in ${r.updated} review(s)`);
+      }
+    } catch (e) {
+      console.warn(
+        '[reviews] Rebrand Street Models overgeslagen:',
+        e instanceof Error ? e.message : e,
+      );
+    }
+  }
 
   listPublic() {
     return this.prisma.review.findMany({
