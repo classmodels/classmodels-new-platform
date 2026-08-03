@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
@@ -12,10 +12,11 @@ import {
   mobileInfoTitle,
   MobileGuestInfoBody,
 } from '@/components/MobileGuestInfoBody';
-
-const ASSET_BASE = process.env.NEXT_PUBLIC_BASE_PATH?.trim() || '';
-/** Sessiesleutel: introfilm alleen bij het openen van de site/app, niet bij terugkeren. */
-const INTRO_SEEN_KEY = 'cm-mobile-intro-seen';
+import {
+  hasSeenSiteIntro,
+  SiteIntroOverlay,
+  SITE_INTRO_VIDEO_SRC,
+} from '@/components/SiteIntroOverlay';
 
 /**
  * Mobiele versie (gsm + app). Drie schermen, gestuurd met `?m=`:
@@ -229,72 +230,6 @@ function TopBar({ title, subtitle, onMenu }: { title: string; subtitle?: string;
         ) : null}
       </div>
     </header>
-  );
-}
-
-/**
- * Introfilm bij het openen van de site/app op de gsm: speelt fullscreen af
- * en fadet daarna naar het beginbeeld. Met knop Overslaan.
- */
-function MobileIntroOverlay({ onDone }: { onDone: () => void }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [fading, setFading] = useState(false);
-  const doneRef = useRef(false);
-
-  const finish = useCallback(() => {
-    if (doneRef.current) return;
-    doneRef.current = true;
-    setFading(true);
-    window.setTimeout(onDone, 550);
-  }, [onDone]);
-
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    // Nooit langer dan 3s op zwart blijven als film hapert / 404.
-    const failSafe = window.setTimeout(finish, 3000);
-    v.muted = true;
-    const onErr = () => finish();
-    v.addEventListener('error', onErr);
-    const p = v.play();
-    if (p) p.catch(() => finish());
-    return () => {
-      window.clearTimeout(failSafe);
-      v.removeEventListener('error', onErr);
-    };
-  }, [finish]);
-
-  return (
-    <div
-      className={`fixed inset-0 z-[999] flex items-center justify-center bg-black transition-opacity duration-500 ${
-        fading ? 'pointer-events-none opacity-0' : 'opacity-100'
-      }`}
-    >
-      <video
-        ref={videoRef}
-        src={`${ASSET_BASE}/videos/mobile-intro.mp4`}
-        className="h-full w-full object-contain"
-        autoPlay
-        muted
-        playsInline
-        preload="auto"
-        disablePictureInPicture
-        onEnded={finish}
-        onError={finish}
-      />
-      <button
-        type="button"
-        onClick={finish}
-        className="absolute bottom-6 right-4 z-[1000] rounded-full px-4 py-2 text-[13px] font-semibold"
-        style={{
-          color: '#f3ead8',
-          background: 'rgba(0,0,0,0.55)',
-          border: '1px solid rgba(243,234,216,0.45)',
-        }}
-      >
-        Overslaan ≫
-      </button>
-    </div>
   );
 }
 
@@ -1241,12 +1176,7 @@ export function MobileBeginHome() {
     }
     let cancelled = false;
     (async () => {
-      try {
-        if (sessionStorage.getItem(INTRO_SEEN_KEY) === '1') {
-          if (!cancelled) setShowIntro(false);
-          return;
-        }
-      } catch {
+      if (hasSeenSiteIntro()) {
         if (!cancelled) setShowIntro(false);
         return;
       }
@@ -1254,7 +1184,7 @@ export function MobileBeginHome() {
       try {
         const ctrl = new AbortController();
         const timer = window.setTimeout(() => ctrl.abort(), 2000);
-        const res = await fetch(`${ASSET_BASE}/videos/mobile-intro.mp4`, {
+        const res = await fetch(SITE_INTRO_VIDEO_SRC, {
           method: 'HEAD',
           signal: ctrl.signal,
           cache: 'no-store',
@@ -1271,11 +1201,6 @@ export function MobileBeginHome() {
   }, [view]);
 
   const onIntroDone = useCallback(() => {
-    try {
-      sessionStorage.setItem(INTRO_SEEN_KEY, '1');
-    } catch {
-      /**/
-    }
     setShowIntro(false);
   }, []);
 
@@ -1286,7 +1211,7 @@ export function MobileBeginHome() {
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
-      {view === null && showIntro ? <MobileIntroOverlay onDone={onIntroDone} /> : null}
+      {view === null && showIntro ? <SiteIntroOverlay onDone={onIntroDone} /> : null}
       {view === 'guest' ? <GuestView /> : view === 'model' ? <ModelView /> : <StartView />}
     </div>
   );
