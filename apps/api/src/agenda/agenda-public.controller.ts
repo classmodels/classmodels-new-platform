@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  NotFoundException,
   Param,
   Post,
   Query,
@@ -18,11 +17,6 @@ import type { Response } from 'express';
 import { AgendaService } from './agenda.service';
 import { agendaBookFormUploadOptions } from './agenda-book-form-upload';
 import { AgendaSlotsQueryDto, BookAgendaDto, CancelAgendaDto, ConfirmAttendanceDto } from './dto/agenda.dto';
-import {
-  agendaMimeFromFilename,
-  agendaUploadFilename,
-  resolveAgendaUploadAbsolutePath,
-} from './agenda-upload-path';
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
@@ -54,16 +48,17 @@ export class AgendaPublicController {
     return this.agenda.getSlots(slug, q.from, q.to);
   }
 
-  /** Legacy: oude boekingen met `/uploads/agenda/{uuid}.jpg`. Nieuwe uploads via `/media/public/`. */
+  /** Agenda-uploads: mediatheek (R2 of schijf) + legacy `/uploads/agenda/{uuid}.jpg`. */
   @Get('uploads/:filename')
-  serveUpload(@Param('filename') filename: string, @Res() res: Response) {
-    const safe = agendaUploadFilename(filename);
-    if (!safe) throw new NotFoundException('Bestand niet gevonden');
-    const fp = resolveAgendaUploadAbsolutePath(safe);
-    if (!fp) throw new NotFoundException('Bestand niet gevonden');
-    res.setHeader('Content-Type', agendaMimeFromFilename(safe));
+  async serveUpload(@Param('filename') filename: string, @Res() res: Response) {
+    const { stream, mime } = await this.agenda.openAgendaUploadStream(filename);
+    res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'private, max-age=86400');
-    res.sendFile(fp);
+    await new Promise<void>((resolve, reject) => {
+      stream.on('error', reject);
+      stream.on('end', () => resolve());
+      stream.pipe(res);
+    });
   }
 
   @Post('book')

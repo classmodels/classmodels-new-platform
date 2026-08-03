@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { basename } from 'node:path';
 import {
   BadRequestException,
@@ -55,7 +56,11 @@ import {
 } from './agenda-booking-changes';
 import { bookingFieldsFromModelAccount, normalizeIsoBirthDate } from './model-booking-prefill';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
-import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
+import {
+  agendaMimeFromFilename,
+  agendaUploadFilename,
+  resolveAgendaUploadAbsolutePath,
+} from './agenda-upload-path';
 import { MediaService } from '../media/media.service';
 import {
   canConfirmAttendanceNow,
@@ -2794,8 +2799,10 @@ export class AgendaService implements OnModuleInit {
     return out;
   }
 
-  /** Admin: stream boekingsfoto (mediatheek + legacy agenda-map). */
-  async adminResolveBookingPhotoPath(bookingId: string): Promise<{ absolutePath: string; mime: string }> {
+  /** Admin: stream boekingsfoto (mediatheek: R2 of lokale schijf, plus legacy agenda-map). */
+  async adminOpenBookingPhotoStream(
+    bookingId: string,
+  ): Promise<{ stream: NodeJS.ReadableStream; mime: string }> {
     const b = await this.prisma.agendaBooking.findUnique({
       where: { id: bookingId },
       select: { fieldsJson: true },
@@ -2805,13 +2812,35 @@ export class AgendaService implements OnModuleInit {
     const foto = typeof fj.foto === 'string' ? fj.foto.trim() : '';
     if (!foto) throw new NotFoundException('Geen foto bij deze afspraak.');
     const key = agendaBookingPhotoStorageKey(foto);
-    let fp = key ? this.media.resolveAbsolutePathForPublicFilename(key) : null;
-    if (!fp) fp = resolveAgendaUploadAbsolutePath(foto);
+    if (key && (await this.media.assetKeyExists(key))) {
+      return {
+        stream: await this.media.openAssetReadStream(key),
+        mime: agendaMimeFromFilename(key),
+      };
+    }
+    const fp = resolveAgendaUploadAbsolutePath(foto);
     if (!fp) {
       throw new NotFoundException(
-        'Foto-bestand niet gevonden op de server. Mogelijk opgeslagen vóór de laatste fix — laat de klant opnieuw uploaden.',
+        'Foto-bestand niet gevonden in de opslag (R2/schijf). Mogelijk opgeslagen vóór de laatste fix — laat de klant opnieuw uploaden.',
       );
     }
-    return { absolutePath: fp, mime: agendaMimeFromFilename(basename(fp)) };
+    return { stream: createReadStream(fp), mime: agendaMimeFromFilename(basename(fp)) };
+  }
+
+  /** Publiek: stream agenda-upload (mediatheek: R2 of lokale schijf, plus legacy agenda-map). */
+  async openAgendaUploadStream(
+    filenameRaw: string,
+  ): Promise<{ stream: NodeJS.ReadableStream; mime: string }> {
+    const safe = agendaUploadFilename(filenameRaw);
+    if (!safe) throw new NotFoundException('Bestand niet gevonden');
+    if (await this.media.assetKeyExists(safe)) {
+      return {
+        stream: await this.media.openAssetReadStream(safe),
+        mime: agendaMimeFromFilename(safe),
+      };
+    }
+    const fp = resolveAgendaUploadAbsolutePath(safe);
+    if (!fp) throw new NotFoundException('Bestand niet gevonden');
+    return { stream: createReadStream(fp), mime: agendaMimeFromFilename(basename(fp)) };
   }
 }

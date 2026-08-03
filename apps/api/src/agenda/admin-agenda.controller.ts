@@ -120,14 +120,18 @@ export class AdminAgendaController {
     return this.agenda.adminGetBooking(id);
   }
 
-  /** Admin: boekingsfoto streamen (JWT) — zoekt bestand op alle bekende media-paden. */
+  /** Admin: boekingsfoto streamen (JWT) — mediatheek (R2 of schijf) + legacy agenda-map. */
   @Get('bookings/:id/photo')
   @Permissions('admin.agenda.read')
   async bookingPhoto(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
-    const { absolutePath, mime } = await this.agenda.adminResolveBookingPhotoPath(id);
+    const { stream, mime } = await this.agenda.adminOpenBookingPhotoStream(id);
     res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'private, max-age=3600');
-    res.sendFile(absolutePath);
+    await new Promise<void>((resolve, reject) => {
+      stream.on('error', reject);
+      stream.on('end', () => resolve());
+      stream.pipe(res);
+    });
   }
 
   @Patch('bookings/:id')
