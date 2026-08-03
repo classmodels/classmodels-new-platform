@@ -1,4 +1,5 @@
 # Build vanaf monorepo-root: docker build -f Dockerfile.api .
+# Bruikbaar voor Railway (Docker) of andere hosts. Combell gebruikt dit niet standaard.
 FROM node:22-bookworm-slim AS build
 WORKDIR /repo
 COPY package.json package-lock.json ./
@@ -14,12 +15,16 @@ RUN npm run build
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-# Mediatheek: mount een named volume of hostpad op deze map, anders gaan uploads verloren bij nieuwe container.
+# Railway zet PORT. Fallback 4000 voor lokaal/Docker.
+ENV API_HOST=0.0.0.0
+# Mediatheek: met MEDIA_BACKEND=r2 niet nodig; anders mount volume.
 ENV MEDIA_ROOT=/data/media
 RUN mkdir -p /data/media
 COPY --from=build /repo/package.json ./
 COPY --from=build /repo/node_modules ./node_modules
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/apps/api/prisma ./prisma
+COPY --from=build /repo/packages ./packages
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+# Nest-output staat onder dist/src/main.js in deze monorepo.
+CMD ["node", "dist/src/main.js"]

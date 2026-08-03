@@ -47,7 +47,8 @@ async function bootstrap() {
     'http://127.0.0.1:3000',
   ];
   app.enableCors({ origin, credentials: true });
-  const port = parseInt(process.env.API_PORT ?? '4000', 10);
+  // Railway/Render zetten PORT; lokaal/Combell gebruiken vaak API_PORT.
+  const port = parseInt(process.env.PORT ?? process.env.API_PORT ?? '4000', 10);
   const server = await app.listen(port, process.env.API_HOST ?? '0.0.0.0');
   /** Grote ZIP-uploads (uren): geen socket-timeout op Nest. */
   const uploadMs = parseInt(process.env.API_UPLOAD_TIMEOUT_MS || '21600000', 10);

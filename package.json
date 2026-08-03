@@ -16,6 +16,8 @@
     "combell:build": "node scripts/combell-pipeline-build.cjs",
     "serve": "node scripts/combell-serve.cjs",
     "start": "node scripts/combell-start.cjs",
+    "railway:build": "node scripts/railway-build.cjs",
+    "railway:start": "node scripts/railway-start.cjs",
     "db:generate": "npm run prisma:generate -w @cm/api",
     "db:migrate": "bash scripts/with-root-env.sh npm run prisma:migrate -w @cm/api",
     "db:deploy": "bash scripts/with-root-env.sh npm run prisma:deploy -w @cm/api",

@@ -1,0 +1,58 @@
+# =============================================================================
+# Railway API — omgevingsvariabelen (checklist)
+# =============================================================================
+# Kopieer deze waarden uit het Combell-paneel (Node.js → Environment).
+# Zet ze in Railway → Variables. NIET committen naar GitHub.
+#
+# BELANGRIJK: dit wijzigt niets op Combell. Live blijft op Combell tot DNS omdraait.
+# =============================================================================
+
+# --- Verplicht ---
+NODE_ENV=production
+# Railway zet PORT zelf; API_PORT is optioneel (fallback)
+# API_PORT=4000
+API_HOST=0.0.0.0
+
+# Databank: zelfde MySQL als nu (Combell), ALS remote toegang mag.
+# Anders later managed MySQL op Railway.
+DB_URL=mysql://USER:PASS@HOST:3306/DATABASE
+# Of DATABASE_URL=... (beide werken)
+
+JWT_SECRET=ZELFDE_ALS_COMBELL
+CORS_ORIGIN=https://www.class-models.be,https://class-models.be
+
+# Tijdens TEST-fase (vóór DNS):
+# API_PUBLIC_URL=https://UW-RAILWAY-URL.up.railway.app
+# Tijdens LIVE-fase (na DNS):
+API_PUBLIC_URL=https://api.class-models.be
+
+WEB_PUBLIC_URL=https://www.class-models.be
+WEB_APP_URL=https://www.class-models.be
+APP_PUBLIC_URL=https://www.class-models.be
+
+# --- Media (R2) — zelfde als Combell ---
+MEDIA_BACKEND=r2
+R2_BUCKET=classmodels-media
+R2_ACCOUNT_ID=
+R2_ENDPOINT=https://ACCOUNT_ID.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+MEDIA_PUBLIC_URL=https://api.class-models.be/media
+
+# --- Mail / SMS / Mollie / Push (kopieer uit Combell) ---
+# SMTP_HOST=
+# SMTP_PORT=587
+# SMTP_USER=
+# SMTP_PASS=
+# MAIL_FROM=Class Models <noreply@classmodels.be>
+# MOLLIE_API_KEY_LIVE=
+# MOLLIE_API_KEY_TEST=
+# MOLLIE_MODE=live
+# VAPID_PUBLIC_KEY=
+# VAPID_PRIVATE_KEY=
+# VAPID_CONTACT_EMAIL=mailto:info@classmodels.be
+# LEGACY_IMPORT_PASSWORD=  (alleen als nog nodig)
+
+# --- NIET zetten op Railway ---
+# COMBELL_HOST_ROUTER=1   ← alleen Combell dual-proxy
+# NEXT_PUBLIC_*           ← hoort bij Vercel (website-build), niet bij API
