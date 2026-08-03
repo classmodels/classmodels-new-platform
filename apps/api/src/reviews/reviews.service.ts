@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { rebrandStreetModelsInReviews } from './seed-legacy-reviews';
+import {
+  rebrandStreetModelsInReviews,
+  removeDemoReviews,
+} from './seed-legacy-reviews';
 
 @Injectable()
 export class ReviewsService implements OnModuleInit {
@@ -8,13 +11,17 @@ export class ReviewsService implements OnModuleInit {
 
   async onModuleInit() {
     try {
+      const demo = await removeDemoReviews(this.prisma);
+      if (demo.deleted > 0) {
+        console.log(`[reviews] Demo-review verwijderd (${demo.deleted})`);
+      }
       const r = await rebrandStreetModelsInReviews(this.prisma);
       if (r.updated > 0) {
         console.log(`[reviews] Street Models → Class-Models in ${r.updated} review(s)`);
       }
     } catch (e) {
       console.warn(
-        '[reviews] Rebrand Street Models overgeslagen:',
+        '[reviews] Opruimen/rebrand overgeslagen:',
         e instanceof Error ? e.message : e,
       );
     }

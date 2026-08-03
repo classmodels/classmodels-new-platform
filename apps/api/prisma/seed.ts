@@ -627,22 +627,20 @@ async function main() {
     });
   }
 
-  const demoRev = await prisma.review.findFirst({
-    where: { title: 'Professioneel platform' },
+  // Demo-review niet meer seeden / opruimen als die nog bestaat.
+  await prisma.review.deleteMany({
+    where: {
+      OR: [
+        { authorName: 'Demo klant' },
+        {
+          title: 'Professioneel platform',
+          body: {
+            contains: 'Class Models combineert een strakke site',
+          },
+        },
+      ],
+    },
   });
-  if (!demoRev) {
-    await prisma.review.create({
-      data: {
-        title: 'Professioneel platform',
-        body: 'Class Models combineert een strakke site met duidelijke communicatie. Aanrader voor modellen en klanten.',
-        authorName: 'Demo klant',
-        rating: 5,
-        sortOrder: 0,
-        approved: true,
-        visible: true,
-      },
-    });
-  }
 
   const extraContent: { key: string; value: string; portal?: 'guest' | 'model' | 'client' }[] = [
     {

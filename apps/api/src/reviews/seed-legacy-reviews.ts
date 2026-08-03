@@ -35,6 +35,22 @@ export async function rebrandStreetModelsInReviews(prisma: PrismaClient) {
   return { updated };
 }
 
+/** Verwijdert de oude seed-demo-review (“Demo klant”). Idempotent. */
+export async function removeDemoReviews(prisma: PrismaClient) {
+  const result = await prisma.review.deleteMany({
+    where: {
+      OR: [
+        { authorName: 'Demo klant' },
+        {
+          title: 'Professioneel platform',
+          body: { contains: 'Class Models combineert een strakke site' },
+        },
+      ],
+    },
+  });
+  return { deleted: result.count };
+}
+
 /** Eénmalig: vult reviews van de oude site (idempotent via sortOrder-bereik). */
 export async function seedLegacyReviews(prisma: PrismaClient) {
   const rebrand = await rebrandStreetModelsInReviews(prisma);
