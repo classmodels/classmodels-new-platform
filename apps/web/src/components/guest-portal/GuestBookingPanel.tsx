@@ -455,11 +455,6 @@ export function GuestBookingPanel({
                   {' '}
                   (bezig…)
                 </span>
-              ) : authToken && typeof s.remaining === 'number' && s.remaining > 1 ? (
-                <span className={`ml-1 text-[10px] font-normal ${compact ? 'text-zinc-500' : 'text-muted'}`}>
-                  {' '}
-                  ({s.remaining} vrij)
-                </span>
               ) : null}
             </>
           )}
