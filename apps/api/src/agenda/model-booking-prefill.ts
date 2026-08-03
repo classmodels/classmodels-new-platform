@@ -7,6 +7,28 @@ function digits(v: unknown): string {
   return str(v).replace(/\D/g, '');
 }
 
+/** Normaliseer geboortedatum naar JJJJ-MM-DD indien herkenbaar. */
+export function normalizeIsoBirthDate(raw: string | null | undefined): string | null {
+  const s = (raw ?? '').trim();
+  if (!s) return null;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const iso = s.slice(0, 10);
+    const t = Date.parse(`${iso}T12:00:00`);
+    return Number.isFinite(t) ? iso : null;
+  }
+  // DD/MM/YYYY of DD-MM-YYYY (met optionele spaties)
+  const m = /^(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{4})$/.exec(s);
+  if (m) {
+    const dd = m[1].padStart(2, '0');
+    const mm = m[2].padStart(2, '0');
+    const yyyy = m[3];
+    const iso = `${yyyy}-${mm}-${dd}`;
+    const t = Date.parse(`${iso}T12:00:00`);
+    return Number.isFinite(t) ? iso : null;
+  }
+  return null;
+}
+
 /** Vul boekingsvelden vanuit modellenaccount / modelSheet (portfolio, opleiding, …). */
 export function bookingFieldsFromModelAccount(user: {
   firstName: string | null;
@@ -42,8 +64,8 @@ export function bookingFieldsFromModelAccount(user: {
   if (gemeente) out.gemeente = gemeente;
   const land = str(ms.land);
   if (land) out.land = land;
-  const geb = str(ms.geboortedatum);
-  if (geb) out.geboortedatum = geb.slice(0, 10);
+  const geb = normalizeIsoBirthDate(str(ms.geboortedatum));
+  if (geb) out.geboortedatum = geb;
 
   const gsmMoeder = digits(ms.gsmMoeder);
   if (gsmMoeder) out.gsm_moeder = gsmMoeder;

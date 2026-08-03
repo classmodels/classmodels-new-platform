@@ -16,6 +16,14 @@ import { CLASS_MODELS_OFFICE, GUEST_APPOINTMENT_OFFICE_LINE } from '@/lib/class-
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
 import { uploadWithProgress, formatEtaSeconds } from '@/lib/upload-with-progress';
 import { useIsMobile } from '@/lib/use-is-mobile';
+import {
+  agendaFieldDisplayLabel,
+  agendaFieldPlaceholder,
+  agendaMobileError,
+  normalizeAgendaMobileNational,
+  normalizeIsoBirthDateClient,
+  resolveAgendaBookPath,
+} from '@/lib/agenda-phone';
 
 function ymdLocal(d: Date): string {
   return ymdEuropeBrussels(d);
@@ -327,7 +335,7 @@ export function GuestBookingPanel({
         const fd = new FormData();
         fd.append('slotId', pickedSlotId);
         fd.append('fields', '{}');
-        const path = bookUrl ?? '/agenda/book-form';
+        const path = resolveAgendaBookPath(bookUrl, authToken);
         const url = `${getApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
         const headers: HeadersInit = {};
         if (authToken) headers.Authorization = `Bearer ${authToken}`;
@@ -450,22 +458,46 @@ export function GuestBookingPanel({
         if (f.type === 'file') continue;
         if (f.type === 'checkbox') {
           if (form[f.fieldKey] !== '1') {
-            setErr(`Vink "${f.label}" aan.`);
+            setErr(`Vink "${agendaFieldDisplayLabel(f.fieldKey, f.label)}" aan.`);
             return;
           }
           continue;
         }
         const v = (form[f.fieldKey] ?? '').trim();
         if (!v) {
-          setErr(`Vul "${f.label}" in.`);
+          setErr(`Vul "${agendaFieldDisplayLabel(f.fieldKey, f.label)}" in.`);
           return;
         }
       }
-      if (isMinorFromIsoDateString((form.geboortedatum ?? '').trim())) {
-        const minorErr = validateGuestMinorParentFieldsClient(form);
-        if (minorErr) {
-          setErr(minorErr);
+
+      const phoneKey =
+        displayFields.find((f) => ['telefoon', 'phone', 'gsm'].includes(f.fieldKey))?.fieldKey ??
+        'telefoon';
+      const phoneVal = (form[phoneKey] ?? form.telefoon ?? form.phone ?? form.gsm ?? '').trim();
+      const phoneErr = agendaMobileError(phoneVal, 'GSM');
+      if (phoneErr) {
+        setErr(
+          phoneErr.includes('verplicht')
+            ? 'GSM is verplicht — vul uw gsm in bij het veld GSM (niet bij Nr./huisnummer).'
+            : phoneErr,
+        );
+        return;
+      }
+
+      const gebRaw = (form.geboortedatum ?? '').trim();
+      if (gebRaw) {
+        const geb = normalizeIsoBirthDateClient(gebRaw);
+        if (!geb) {
+          setErr('Geboortedatum is ongeldig. Gebruik het datumveld of formaat JJJJ-MM-DD.');
           return;
+        }
+        setField('geboortedatum', geb);
+        if (isMinorFromIsoDateString(geb)) {
+          const minorErr = validateGuestMinorParentFieldsClient({ ...form, geboortedatum: geb });
+          if (minorErr) {
+            setErr(minorErr);
+            return;
+          }
         }
       }
     }
@@ -475,6 +507,21 @@ export function GuestBookingPanel({
       const fileKeys = displayFields.filter((x) => x.type === 'file').map((x) => x.fieldKey);
       const textPayload = { ...form };
       for (const k of fileKeys) delete textPayload[k];
+      const phoneKeySubmit =
+        displayFields.find((f) => ['telefoon', 'phone', 'gsm'].includes(f.fieldKey))?.fieldKey ??
+        'telefoon';
+      if (textPayload[phoneKeySubmit] || textPayload.telefoon) {
+        const raw = (textPayload[phoneKeySubmit] || textPayload.telefoon || '').trim();
+        const norm = normalizeAgendaMobileNational(raw);
+        if (norm) {
+          textPayload[phoneKeySubmit] = norm;
+          textPayload.telefoon = norm;
+        }
+      }
+      if (textPayload.geboortedatum) {
+        const geb = normalizeIsoBirthDateClient(textPayload.geboortedatum);
+        if (geb) textPayload.geboortedatum = geb;
+      }
       const fd = new FormData();
       fd.append('slotId', slotId);
       fd.append('fields', JSON.stringify(textPayload));
@@ -486,7 +533,7 @@ export function GuestBookingPanel({
           hasFiles = true;
         }
       }
-      const path = bookUrl ?? '/agenda/book-form';
+      const path = resolveAgendaBookPath(bookUrl, authToken);
       const url = `${getApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
       const headers: Record<string, string> = {};
       if (authToken) headers.Authorization = `Bearer ${authToken}`;
@@ -539,16 +586,30 @@ export function GuestBookingPanel({
 
   const renderField = (f: FieldDto) => {
     const req = fieldEffectiveRequired(guestWebBooking, f);
-    const ph = f.titlePosition === 'inside' ? f.label : (f.placeholder ?? '');
+    const displayLabel = agendaFieldDisplayLabel(f.fieldKey, f.label);
+    const ph =
+      f.titlePosition === 'inside'
+        ? displayLabel
+        : agendaFieldPlaceholder(f.fieldKey, f.placeholder);
     const labelAbove = f.titlePosition !== 'inside' && f.type !== 'checkbox';
     const common =
       'w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400';
+    const isPhone = ['telefoon', 'phone', 'gsm'].includes(f.fieldKey);
+    const isNr = f.fieldKey === 'nr' || f.fieldKey === 'huisnummer';
+    const inputType =
+      f.type === 'email'
+        ? 'email'
+        : f.type === 'tel' || isPhone
+          ? 'tel'
+          : f.type === 'date'
+            ? 'date'
+            : 'text';
 
     return (
       <div key={f.fieldKey} className={f.width === '1' ? 'sm:col-span-2' : ''}>
         {labelAbove ? (
           <label className="mb-1 block text-xs font-medium text-zinc-700">
-            {f.label}
+            {displayLabel}
             {req ? <span className="text-burgundy"> *</span> : null}
           </label>
         ) : null}
@@ -583,7 +644,7 @@ export function GuestBookingPanel({
               checked={form[f.fieldKey] === '1'}
               onChange={(ev) => setField(f.fieldKey, ev.target.checked ? '1' : '')}
             />
-            {f.label}
+            {displayLabel}
             {req ? <span className="text-burgundy"> *</span> : null}
           </label>
         ) : null}
@@ -598,7 +659,9 @@ export function GuestBookingPanel({
         ) : null}
         {!['textarea', 'select', 'checkbox', 'file'].includes(f.type) ? (
           <input
-            type={f.type === 'email' ? 'email' : f.type === 'tel' ? 'tel' : f.type === 'date' ? 'date' : 'text'}
+            type={inputType}
+            inputMode={isPhone || isNr ? 'numeric' : undefined}
+            autoComplete={isPhone ? 'tel' : isNr ? 'address-line2' : undefined}
             className={common}
             placeholder={ph}
             required={req}

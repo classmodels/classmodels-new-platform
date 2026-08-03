@@ -236,7 +236,7 @@ export function ModelPortfolioTab({
             heading="Portfolio"
             variant="default"
             authToken={token}
-            bookUrl="/modellen?tab=portfolio"
+            bookUrl="/portal/model/agenda/book-form"
             autoBookOnPick
             showOccupiedSlots
             onBookingSuccess={async () => {

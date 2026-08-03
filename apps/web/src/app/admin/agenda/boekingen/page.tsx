@@ -7,6 +7,7 @@ import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
 import { normalizeHm } from '@/components/admin-agenda/normalize-hm';
 import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
+import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 
@@ -323,9 +324,8 @@ export default function AdminAgendaBoekingenPage() {
       return;
     }
     if (detail.phone?.trim()) {
-      const digits = detail.phone.replace(/\D/g, '');
-      if (digits.length !== 10) {
-        setDetailErr('GSM moet exact 10 cijfers bevatten (bv. 0498720371), zonder spaties of tekens.');
+      if (!normalizeAgendaMobileNational(detail.phone)) {
+        setDetailErr('GSM moet een Belgisch nummer zijn (bv. 0498720371 of +32 498 72 03 71).');
         return;
       }
     }

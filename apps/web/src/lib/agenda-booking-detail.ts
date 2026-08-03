@@ -1,3 +1,9 @@
+import {
+  agendaMobileError,
+  normalizeAgendaMobileNational,
+  normalizeIsoBirthDateClient,
+} from '@/lib/agenda-phone';
+
 /** Admin planning / boekingen: reserveringsdetail-validatie en veld-normalisatie. */
 
 export const CANCELLED_AGENDA_STATUSES = new Set(['cancelled', 'cancelled_cm', 'geannuleerd']);
@@ -124,19 +130,19 @@ export function validateBookingDetailForSave(
   const em = t(input.email);
   if (!em || !em.includes('@')) return 'E-mail is verplicht en moet een geldig adres bevatten.';
   if (!t(input.phone)) return 'GSM is verplicht.';
-  const phoneDigits = t(input.phone).replace(/\D/g, '');
-  if (phoneDigits.length !== 10) {
-    return 'GSM moet exact 10 cijfers bevatten (bv. 0498720371), zonder spaties of tekens.';
+  if (!normalizeAgendaMobileNational(t(input.phone))) {
+    return agendaMobileError(t(input.phone), 'GSM') ?? 'GSM is ongeldig.';
   }
   const fj = input.fieldsJson;
   if (!fjString(fj, 'straat')) return 'Straat is verplicht.';
   if (!fjString(fj, 'nr')) return 'Nr is verplicht.';
   if (!fjString(fj, 'postcode')) return 'Postcode is verplicht.';
   if (!fjString(fj, 'gemeente')) return 'Gemeente is verplicht.';
-  const geb = fjString(fj, 'geboortedatum');
-  if (!geb) return 'Geboortedatum is verplicht.';
+  const gebRaw = fjString(fj, 'geboortedatum');
+  if (!gebRaw) return 'Geboortedatum is verplicht.';
+  const geb = normalizeIsoBirthDateClient(gebRaw) ?? gebRaw;
   const age = ageFromIsoBirthYmd(geb);
-  if (age == null) return 'Geboortedatum is ongeldig (gebruik JJJJ-MM-DD).';
+  if (age == null) return 'Geboortedatum is ongeldig (gebruik JJJJ-MM-DD of DD/MM/JJJJ).';
   if (isCancelledAgendaStatus(input.status)) {
     if (!fjString(fj, 'annulatie_reden')) return 'Reden van annulatie is verplicht wanneer de status geannuleerd is.';
   }

@@ -53,7 +53,7 @@ import {
   formatBookingChangesHtml,
   formatBookingChangesPlain,
 } from './agenda-booking-changes';
-import { bookingFieldsFromModelAccount } from './model-booking-prefill';
+import { bookingFieldsFromModelAccount, normalizeIsoBirthDate } from './model-booking-prefill';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
 import { agendaMimeFromFilename, resolveAgendaUploadAbsolutePath } from './agenda-upload-path';
 import { MediaService } from '../media/media.service';
@@ -1157,14 +1157,18 @@ export class AgendaService implements OnModuleInit {
         throw new BadRequestException(`Verplicht veld ontbreekt: ${f.label}`);
       }
       if (f.fieldKey === 'voornaam') firstname = val;
-      if (f.fieldKey === 'familienaam') lastname = val;
+      if (f.fieldKey === 'familienaam' || f.fieldKey === 'achternaam') lastname = val;
       if (f.fieldKey === 'email') email = val;
-      if (f.fieldKey === 'telefoon' || f.fieldKey === 'phone') phone = val;
-      if (['voornaam', 'familienaam', 'naam'].includes(f.fieldKey) && val) nameParts.push(val);
+      if (f.fieldKey === 'telefoon' || f.fieldKey === 'phone' || f.fieldKey === 'gsm') phone = val;
+      if (['voornaam', 'familienaam', 'achternaam', 'naam'].includes(f.fieldKey) && val) nameParts.push(val);
     }
 
     if (webGuest) {
-      const dob = (fieldsJson.geboortedatum ?? '').trim();
+      const dobRaw = (fieldsJson.geboortedatum ?? '').trim();
+      const dob = dobRaw ? normalizeIsoBirthDate(dobRaw) ?? dobRaw : '';
+      if (dob && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+        fieldsJson.geboortedatum = dob;
+      }
       if (dob && isMinorFromIsoDateString(dob)) {
         const minorErr = validateGuestMinorParentFields(fieldsJson);
         if (minorErr) throw new BadRequestException(minorErr);
@@ -1200,12 +1204,24 @@ export class AgendaService implements OnModuleInit {
       }
     }
 
-    const phoneRaw = (phone || fieldsJson.telefoon || fieldsJson.phone || '').trim();
+    const phoneRaw = (
+      phone ||
+      fieldsJson.telefoon ||
+      fieldsJson.phone ||
+      fieldsJson.gsm ||
+      ''
+    ).trim();
     if (phoneRaw) {
-      assertAgendaMobile10Digits(phoneRaw, 'GSM');
-      const digits = phoneRaw.replace(/\D/g, '');
+      const digits = assertAgendaMobile10Digits(phoneRaw, 'GSM');
       phone = digits;
       fieldsJson.telefoon = digits;
+      if (fieldsJson.phone != null) fieldsJson.phone = digits;
+      if (fieldsJson.gsm != null) fieldsJson.gsm = digits;
+    } else if (webGuest) {
+      // Gastenformulier: GSM is altijd verplicht (ook als fieldKey/label afwijkt).
+      throw new BadRequestException(
+        'GSM is verplicht — vul een Belgisch nummer in (bv. 0498720371), niet in het veld Nr. (huisnummer).',
+      );
     }
 
     const startNorm = normTime(slot.startTime);
@@ -2452,7 +2468,9 @@ export class AgendaService implements OnModuleInit {
     const mergedFj = mergeBookingFieldsJson(b.fieldsJson, dto.fieldsJson);
 
     if (dto.phone !== undefined && dto.phone?.trim()) {
-      assertAgendaMobile10Digits(dto.phone, 'GSM');
+      data.phone = assertAgendaMobile10Digits(dto.phone, 'GSM');
+    } else if (dto.phone !== undefined) {
+      data.phone = dto.phone;
     }
 
     if (dto.status !== undefined) {
@@ -2469,7 +2487,6 @@ export class AgendaService implements OnModuleInit {
     if (dto.firstname !== undefined) data.firstname = dto.firstname;
     if (dto.lastname !== undefined) data.lastname = dto.lastname;
     if (dto.email !== undefined) data.email = dto.email;
-    if (dto.phone !== undefined) data.phone = dto.phone;
     data.fieldsJson = mergedFj as object;
 
     const updated = await this.prisma.agendaBooking.update({ where: { id }, data });

@@ -105,11 +105,11 @@ export const DEFAULT_GENERIC_AGENDA_FIELDS: DefaultAgendaFieldSeed[] = [
   },
   {
     fieldKey: 'telefoon',
-    label: 'Telefoon',
+    label: 'GSM',
     type: 'tel',
     required: true,
     width: '2',
-    placeholder: '',
+    placeholder: '0498720371',
     titlePosition: 'above',
     sortOrder: 40,
     options: null,
