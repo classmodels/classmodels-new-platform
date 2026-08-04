@@ -43,10 +43,11 @@ export function PortfolioInfoContent() {
 
   const groomingItems = [
     {
-      title: 'Basis make-up',
+      title: 'Geen make-up op voorhand',
       body: (
         <>
-          Kom met een natuurlijke «basis» (foundation/concealer). We werken tijdens de shoot verder aan de looks.
+          Kom <strong style={{ color: 'var(--n-ink)' }}>zonder make-up</strong>. De make-up wordt ter plaatse gedaan
+          door de make-upartiest.
         </>
       ),
     },
@@ -162,7 +163,7 @@ export function PortfolioInfoContent() {
             </>,
             <>
               <strong style={{ color: 'var(--n-ink)' }}>Duur:</strong> de shoot duurt gemiddeld{' '}
-              <strong style={{ color: 'var(--n-ink)' }}>3 tot 4 uur</strong>
+              <strong style={{ color: 'var(--n-ink)' }}>2 tot 3 uur</strong>
             </>,
             <>
               <strong style={{ color: 'var(--n-ink)' }}>Aanwezigheid:</strong> wees op tijd. We raden aan om{' '}
