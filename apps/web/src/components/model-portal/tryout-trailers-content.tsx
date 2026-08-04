@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 const TRAILERS = [
   {
@@ -43,7 +43,18 @@ const SCREEN = {
   height: '57.41%',
 } as const;
 
-export function TryoutTrailersContent() {
+const pickBtnStyle = (on: boolean): CSSProperties => ({
+  padding: '5px 10px',
+  fontSize: 11,
+  lineHeight: 1.25,
+  letterSpacing: '0.04em',
+  whiteSpace: 'nowrap',
+  background: on ? 'var(--n-gold)' : 'transparent',
+  color: on ? '#1a140c' : 'var(--n-ink)',
+  borderColor: on ? 'var(--n-gold)' : 'rgba(201, 162, 74, 0.45)',
+});
+
+export function TryoutTrailersContent({ headerActions }: { headerActions?: ReactNode }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [muted, setMuted] = useState(true);
@@ -70,156 +81,156 @@ export function TryoutTrailersContent() {
   }, [muted]);
 
   return (
-    <div style={{ display: 'grid', gap: 14 }}>
+    <div>
+      {/* Zelfde headerrij als Info: links trailerknoppen, rechts Terug / Trailers */}
       <div
         style={{
           display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
           flexWrap: 'wrap',
-          justifyContent: 'center',
-          gap: 8,
+          marginBottom: 20,
         }}
       >
-        {TRAILERS.map((t) => {
-          const on = t.id === activeId;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              title={t.title}
-              onClick={() => playTrailer(t.id)}
-              className="nieuw-btn"
-              style={{
-                padding: '7px 12px',
-                fontSize: 12,
-                lineHeight: 1.2,
-                letterSpacing: '0.04em',
-                background: on ? 'var(--n-gold)' : 'transparent',
-                color: on ? '#1a140c' : 'var(--n-ink)',
-                borderColor: on ? 'var(--n-gold)' : 'rgba(201, 162, 74, 0.45)',
-              }}
-            >
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {active ? (
-        <p
-          style={{
-            margin: 0,
-            textAlign: 'center',
-            fontSize: 12,
-            color: 'var(--n-mut)',
-            letterSpacing: '0.04em',
-          }}
-        >
-          Nu op het scherm: <strong style={{ color: 'var(--n-gold)' }}>{active.title}</strong>
-        </p>
-      ) : (
-        <p
-          style={{
-            margin: 0,
-            textAlign: 'center',
-            fontSize: 12,
-            color: 'var(--n-mut)',
-          }}
-        >
-          Kies een trailer om te starten
-        </p>
-      )}
-
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          maxWidth: 960,
-          margin: '0 auto',
-          lineHeight: 0,
-          borderRadius: 4,
-          overflow: 'hidden',
-          boxShadow: '0 22px 60px rgba(0,0,0,0.55)',
-          border: '1px solid rgba(201, 162, 74, 0.22)',
-        }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/nieuw/trailers/bioscoop.jpg"
-          alt="Bioscoopzaal"
-          style={{
-            display: 'block',
-            width: '100%',
-            height: 'auto',
-            userSelect: 'none',
-            pointerEvents: 'none',
-          }}
-          draggable={false}
-        />
-
         <div
           style={{
-            position: 'absolute',
-            left: SCREEN.left,
-            top: SCREEN.top,
-            width: SCREEN.width,
-            height: SCREEN.height,
-            background: '#050505',
-            overflow: 'hidden',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: 6,
+            flex: '1 1 auto',
+            minWidth: 0,
           }}
         >
-          {active ? (
-            <video
-              key={active.id}
-              ref={videoRef}
-              src={active.src}
-              playsInline
-              muted={muted}
-              autoPlay
-              controls={false}
-              disablePictureInPicture
-              controlsList="nodownload noplaybackrate noremoteplayback"
-              style={{
-                display: 'block',
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                background: '#000',
-                pointerEvents: 'none',
-              }}
-            />
-          ) : null}
+          {TRAILERS.map((t) => {
+            const on = t.id === activeId;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                title={t.title}
+                onClick={() => playTrailer(t.id)}
+                className="nieuw-btn"
+                style={pickBtnStyle(on)}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+        {headerActions ? (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: 8,
+              flex: '0 1 auto',
+            }}
+          >
+            {headerActions}
+          </div>
+        ) : null}
+      </div>
 
-          {active ? (
-            <button
-              type="button"
-              onClick={() => setMuted((m) => !m)}
-              aria-label={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
-              title={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
-              style={{
-                position: 'absolute',
-                right: 8,
-                bottom: 8,
-                zIndex: 2,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '6px 10px',
-                borderRadius: 3,
-                border: '1px solid rgba(201, 162, 74, 0.55)',
-                background: 'rgba(10, 10, 14, 0.82)',
-                color: '#f3eee6',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                cursor: 'pointer',
-                lineHeight: 1.2,
-                pointerEvents: 'auto',
-              }}
-            >
-              {muted ? 'Geluid uit' : 'Geluid aan'}
-            </button>
-          ) : null}
+      {/* Binnenkader zoals Info — bioscoop vult het kader, iets ruimer */}
+      <div
+        className="nieuw-panel"
+        style={{
+          padding: 0,
+          overflow: 'hidden',
+          marginLeft: -4,
+          marginRight: -4,
+        }}
+      >
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            lineHeight: 0,
+            background: '#050505',
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/nieuw/trailers/bioscoop.jpg"
+            alt="Bioscoopzaal"
+            style={{
+              display: 'block',
+              width: '100%',
+              height: 'auto',
+              userSelect: 'none',
+              pointerEvents: 'none',
+            }}
+            draggable={false}
+          />
+
+          <div
+            style={{
+              position: 'absolute',
+              left: SCREEN.left,
+              top: SCREEN.top,
+              width: SCREEN.width,
+              height: SCREEN.height,
+              background: '#050505',
+              overflow: 'hidden',
+            }}
+          >
+            {active ? (
+              <video
+                key={active.id}
+                ref={videoRef}
+                src={active.src}
+                playsInline
+                muted={muted}
+                autoPlay
+                controls={false}
+                disablePictureInPicture
+                controlsList="nodownload noplaybackrate noremoteplayback"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  background: '#000',
+                  pointerEvents: 'none',
+                }}
+              />
+            ) : null}
+
+            {active ? (
+              <button
+                type="button"
+                onClick={() => setMuted((m) => !m)}
+                aria-label={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
+                title={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  bottom: 8,
+                  zIndex: 2,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '6px 10px',
+                  borderRadius: 3,
+                  border: '1px solid rgba(201, 162, 74, 0.55)',
+                  background: 'rgba(10, 10, 14, 0.82)',
+                  color: '#f3eee6',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                  lineHeight: 1.2,
+                  pointerEvents: 'auto',
+                }}
+              >
+                {muted ? 'Geluid uit' : 'Geluid aan'}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

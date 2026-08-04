@@ -474,12 +474,7 @@ export function ModelTryoutModeshowTab({
           title="Schrijf je in voor de Try-out Modeshow!"
           actions={!onHeaderRightChange ? computedHeaderRight : undefined}
         />
-      ) : panel === 'trailers' ? (
-        <ModelTabPageHeader
-          title="Trailers"
-          actions={!onHeaderRightChange ? computedHeaderRight : undefined}
-        />
-      ) : !onHeaderRightChange ? (
+      ) : panel === 'trailers' ? null : !onHeaderRightChange ? (
         <div className="mb-1 flex flex-wrap justify-end gap-1.5">{computedHeaderRight}</div>
       ) : null}
 
@@ -494,7 +489,9 @@ export function ModelTryoutModeshowTab({
           <TryoutModeshowInfoContent priceLabel={priceLabel} />
         </div>
       ) : panel === 'trailers' ? (
-        <TryoutTrailersContent />
+        <TryoutTrailersContent
+          headerActions={!onHeaderRightChange ? computedHeaderRight : undefined}
+        />
       ) : (
         <>
           <div className="nieuw-panel">
