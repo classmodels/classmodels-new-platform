@@ -1,0 +1,226 @@
+/** Info-tekst voor «Info portfolio» in het modellenportaal — zelfde stijl als try-out / opleiding. */
+import type { ReactNode } from 'react';
+
+export function PortfolioInfoContent() {
+  const prepItems = [
+    {
+      title: 'Basisoutfits',
+      body: (
+        <>
+          Breng enkele eenvoudige, goed passende basisoutfits mee (lichte en donkere tinten). Vermijd drukke prints
+          en grote logo’s, zodat de foto’s breed inzetbaar zijn voor uw profiel en voorstellen naar klanten.
+        </>
+      ),
+    },
+    {
+      title: 'Op tijd komen',
+      body: (
+        <>
+          Kom op tijd naar Class-Models, Provinciebaan 3, 2235 Hulshout. Zo blijft er voldoende ruimte voor
+          make-up/looks, poses en de geplande shoot.
+        </>
+      ),
+    },
+    {
+      title: 'Uiterlijk',
+      body: (
+        <>
+          Kom verzorgd: natuurlijke make-up of een frisse basis, net haar en schone schoenen. De fotograaf begeleidt
+          u tijdens de shoot naar de juiste poses en uitstraling.
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <div style={{ display: 'grid', gap: 0, fontSize: 12.5, lineHeight: 1.65, color: 'var(--n-mut)' }}>
+      <header style={{ paddingBottom: 18 }}>
+        <h2
+          style={{
+            margin: 0,
+            fontFamily: 'var(--n-serif)',
+            fontSize: 'clamp(20px, 2.6vw, 26px)',
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+            color: 'var(--n-gold)',
+            lineHeight: 1.25,
+          }}
+        >
+          Portfolio-afspraak
+        </h2>
+        <p
+          style={{
+            margin: '14px 0 0',
+            fontSize: 13.5,
+            fontWeight: 600,
+            color: 'var(--n-ink)',
+            lineHeight: 1.45,
+          }}
+        >
+          Professionele foto’s voor uw modelprofiel en voorstellen naar klanten
+        </p>
+        <p style={{ margin: '12px 0 0' }}>
+          Tijdens de portfolio-afspraak maken we foto’s die gebruikt worden voor uw profiel in het
+          Class-Models-portaal en voor voorstellen naar klanten. Kies een beschikbaar moment; uw gegevens worden
+          automatisch gekoppeld aan uw inschrijving.
+        </p>
+      </header>
+
+      <SectionDivider />
+
+      <section style={{ padding: '18px 0' }}>
+        <SectionTitle>Waarom een portfolio?</SectionTitle>
+        <p style={{ margin: '10px 0 0' }}>
+          Een sterk portfolio is uw visitekaartje. Klanten en casting directors willen snel zien hoe u overkomt op
+          foto: houding, look, uitstraling en veelzijdigheid. Met actuele, professionele beelden kunt u sneller
+          voorgesteld worden voor passende opdrachten.
+        </p>
+      </section>
+
+      <SectionDivider />
+
+      <section style={{ padding: '18px 0' }}>
+        <SectionTitle>Wat mag u verwachten?</SectionTitle>
+        <CheckList
+          items={[
+            'Begeleiding tijdens de shoot (poses, houding, blik)',
+            'Beelden die bruikbaar zijn voor uw online modelprofiel',
+            'Materiaal dat Class-Models kan gebruiken bij voorstellen naar klanten',
+            'Na de shoot: foto’s die klaargezet worden zodat u ze kunt downloaden wanneer ze beschikbaar zijn',
+          ]}
+        />
+      </section>
+
+      <SectionDivider />
+
+      <section style={{ padding: '18px 0' }}>
+        <SectionTitle>Hoe bereidt u zich voor?</SectionTitle>
+        <NumberedList items={prepItems} />
+      </section>
+
+      <SectionDivider />
+
+      <section style={{ padding: '18px 0 4px' }}>
+        <SectionTitle>Inschrijven</SectionTitle>
+        <p style={{ margin: '10px 0 0' }}>
+          Klik op <strong style={{ color: 'var(--n-ink)' }}>Afspraak maken</strong>, kies een vrij moment in de
+          agenda en bevestig. Er zijn geen extra formulieren nodig: u bent al ingelogd als model.
+        </p>
+        <p
+          style={{
+            margin: '16px 0 0',
+            fontWeight: 600,
+            color: 'var(--n-gold)',
+            fontSize: 13,
+            lineHeight: 1.45,
+          }}
+        >
+          Klaar voor uw portfolio?
+        </p>
+        <p style={{ margin: '10px 0 0' }}>
+          Plan uw afspraak via het modellenportaal en zorg dat u op tijd bent met enkele basisoutfits.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <h3
+      style={{
+        margin: 0,
+        fontFamily: 'var(--n-serif)',
+        fontSize: 15,
+        fontWeight: 600,
+        letterSpacing: '0.04em',
+        textTransform: 'uppercase',
+        color: 'var(--n-gold)',
+        lineHeight: 1.3,
+      }}
+    >
+      {children}
+    </h3>
+  );
+}
+
+function SectionDivider() {
+  return (
+    <div
+      aria-hidden
+      style={{
+        height: 1,
+        background: 'linear-gradient(90deg, transparent, var(--n-gold-hair), transparent)',
+      }}
+    />
+  );
+}
+
+function CheckList({ items }: { items: ReactNode[] }) {
+  return (
+    <ul style={{ listStyle: 'none', margin: '12px 0 0', padding: 0, display: 'grid', gap: 7 }}>
+      {items.map((item, i) => (
+        <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <span
+            aria-hidden
+            style={{
+              flexShrink: 0,
+              marginTop: 2,
+              width: 15,
+              height: 15,
+              borderRadius: '50%',
+              border: '1px solid var(--n-gold-hair)',
+              background: 'rgba(212, 175, 106, 0.12)',
+              color: 'var(--n-gold)',
+              fontSize: 10,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 1,
+            }}
+          >
+            ✓
+          </span>
+          <span style={{ flex: 1 }}>{item}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function NumberedList({ items }: { items: { title: string; body: ReactNode }[] }) {
+  return (
+    <ul style={{ listStyle: 'none', margin: '14px 0 0', padding: 0, display: 'grid', gap: 14 }}>
+      {items.map((item, i) => (
+        <li key={item.title} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <span
+            aria-hidden
+            style={{
+              flexShrink: 0,
+              marginTop: 1,
+              width: 22,
+              height: 22,
+              borderRadius: '50%',
+              border: '1px solid var(--n-gold-hair)',
+              background: 'rgba(212, 175, 106, 0.12)',
+              color: 'var(--n-gold)',
+              fontSize: 11,
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 1,
+            }}
+          >
+            {i + 1}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ margin: 0, fontWeight: 700, color: 'var(--n-ink)', fontSize: 13 }}>{item.title}</p>
+            <p style={{ margin: '6px 0 0' }}>{item.body}</p>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}

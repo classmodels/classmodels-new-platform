@@ -7,6 +7,7 @@ import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { CmText } from '@/components/CmText';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
 import { downloadWithProgress, downloadProgressSublabel, type DownloadProgressUpdate } from '@/lib/download-with-progress';
+import { PortfolioInfoContent } from '@/components/model-portal/portfolio-info-content';
 
 const PORTFOLIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
 
@@ -159,7 +160,10 @@ export function ModelPortfolioTab({
   const computedHeaderRight = useMemo(() => {
     return (
       <div className="flex flex-wrap gap-2">
-        {headerBtn('Info portfolio', () => setPanel((p) => (p === 'info' ? 'summary' : 'info')))}
+        {headerBtn(
+          panel === 'info' ? 'Terug' : 'Info portfolio',
+          () => setPanel((p) => (p === 'info' ? 'summary' : 'info')),
+        )}
         {panel === 'book' ? headerBtn('Terug', () => setPanel('summary')) : null}
         {booking ? headerBtn('Afspraak verplaatsen', () => setPanel('book'), true) : null}
         {!booking && panel !== 'book' && !loading
@@ -216,18 +220,8 @@ export function ModelPortfolioTab({
       {loading ? (
         <div className="text-sm text-zinc-500">Laden…</div>
       ) : panel === 'info' ? (
-        <div className="space-y-2 border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
-          <CmText
-            as="p"
-            contentKey="portal.model.portfolio.info.title"
-            className="text-[11px] font-bold uppercase tracking-wide text-burgundy"
-            fallback="Info portfolio"
-          />
-          <CmText
-            as="p"
-            contentKey="portal.model.portfolio.info.body"
-            fallback="Kies een beschikbaar moment voor uw portfolio-afspraak. Uw gegevens worden automatisch gekoppeld aan uw inschrijving."
-          />
+        <div className="nieuw-panel">
+          <PortfolioInfoContent />
         </div>
       ) : panel === 'book' ? (
         <div className="border border-zinc-300 bg-white px-3 py-3">
