@@ -72,32 +72,32 @@ export function ModelPremiumTab({
       <header
         className="relative overflow-hidden rounded-sm px-4 py-6 lg:px-10 lg:py-10"
         style={{
-          background: 'var(--n-bg-2)',
-          border: '1px solid var(--n-gold-hair)',
-          color: 'var(--n-ink)',
+          background: 'var(--n-gold)',
+          border: '1px solid #b8954a',
+          color: '#14110a',
         }}
       >
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
           <div className="min-w-0 max-w-xl">
             <p
               className="text-[11px] font-bold uppercase tracking-[0.2em]"
-              style={{ color: 'var(--n-gold)' }}
+              style={{ color: '#3d2e14' }}
             >
               Class-Models
             </p>
             <h1
               className="mt-2 font-serif text-3xl font-semibold tracking-tight md:text-4xl"
-              style={{ color: 'var(--n-ink)' }}
+              style={{ color: '#14110a' }}
             >
               Premium <span className="block lg:inline">modelaccount</span>
             </h1>
-            <p className="mt-3 text-sm leading-relaxed lg:mt-4" style={{ color: 'var(--n-mut)' }}>
+            <p className="mt-3 text-sm leading-relaxed lg:mt-4" style={{ color: '#3a3226' }}>
               Volledige toegang tot je modellenportaal: opdrachten, agenda, portfolio en alle communicatie — met{' '}
-              <strong style={{ color: 'var(--n-ink)' }}>pushberichten</strong> bij nieuwe acties en updates, zodat je
+              <strong style={{ color: '#14110a' }}>pushberichten</strong> bij nieuwe acties en updates, zodat je
               niets mist.
             </p>
             {checkoutErr ? (
-              <p className="mt-4 text-sm" style={{ color: 'var(--n-gold)' }}>
+              <p className="mt-4 text-sm font-medium" style={{ color: '#5c1a12' }}>
                 {checkoutErr}
               </p>
             ) : null}
@@ -107,11 +107,11 @@ export function ModelPremiumTab({
               <p className="flex flex-wrap items-baseline gap-1.5 sm:justify-end lg:gap-2">
                 <span
                   className="font-serif text-3xl font-bold tabular-nums lg:text-5xl"
-                  style={{ color: 'var(--n-gold)' }}
+                  style={{ color: '#14110a' }}
                 >
                   €{price}
                 </span>
-                <span className="text-xs lg:text-sm" style={{ color: 'var(--n-mut)' }}>
+                <span className="text-xs lg:text-sm" style={{ color: '#3a3226' }}>
                   per jaar
                 </span>
               </p>
@@ -120,9 +120,9 @@ export function ModelPremiumTab({
               <span
                 className="inline-flex justify-center rounded-sm px-4 py-2 text-xs font-bold uppercase tracking-wide"
                 style={{
-                  background: 'rgba(46, 125, 70, 0.18)',
-                  color: 'var(--n-ink)',
-                  border: '1px solid rgba(46, 125, 70, 0.4)',
+                  background: 'rgba(20, 17, 10, 0.12)',
+                  color: '#14110a',
+                  border: '1px solid rgba(20, 17, 10, 0.28)',
                 }}
               >
                 Premium actief
@@ -132,12 +132,17 @@ export function ModelPremiumTab({
                 type="button"
                 disabled={checkoutBusy}
                 onClick={onStartCheckout}
-                className={`${MODEL_BTN_GOLD} !px-5 !py-3 !text-sm`}
+                className="inline-flex items-center justify-center rounded-sm px-5 py-3 text-sm font-bold tracking-wide disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  background: '#14110a',
+                  color: '#f6efe2',
+                  border: '1px solid #14110a',
+                }}
               >
                 {checkoutBusy ? 'Even geduld…' : 'Word premium'}
               </button>
             ) : (
-              <p className="max-w-xs text-left text-xs sm:text-right" style={{ color: 'var(--n-mut)' }}>
+              <p className="max-w-xs text-left text-xs sm:text-right" style={{ color: '#3a3226' }}>
                 Online afrekenen is voor dit account niet geactiveerd. Neem contact op met het bureau.
               </p>
             )}
