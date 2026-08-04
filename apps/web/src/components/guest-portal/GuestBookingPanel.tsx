@@ -466,7 +466,7 @@ export function GuestBookingPanel({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!slotId) return;
-    if (strictGuestForm) {
+    if (strictGuestForm || guestWebBooking) {
       const missing: string[] = [];
       for (const f of displayFields) {
         const req = fieldEffectiveRequired(guestWebBooking, f);
@@ -490,13 +490,21 @@ export function GuestBookingPanel({
         if (phoneErr.includes('verplicht')) {
           if (!missing.includes('GSM')) missing.push('GSM');
         } else {
-          missing.push('GSM (ongeldig nummer — bv. 0498720371)');
+          missing.push('GSM (ongeldig nummer)');
         }
       }
 
       let gebNormalized: string | null = null;
       const gebRaw = (form.geboortedatum ?? '').trim();
-      if (gebRaw) {
+      const gebField = displayFields.find((f) =>
+        ['geboortedatum', 'birthdate', 'birth_date'].includes(f.fieldKey.toLowerCase()),
+      );
+      const gebRequired = gebField
+        ? fieldEffectiveRequired(guestWebBooking, gebField)
+        : Boolean(displayFields.some((f) => f.fieldKey === 'geboortedatum' && f.required));
+      if (!gebRaw && gebRequired) {
+        if (!missing.includes('Geboortedatum')) missing.push('Geboortedatum');
+      } else if (gebRaw) {
         gebNormalized = normalizeIsoBirthDateClient(gebRaw);
         if (!gebNormalized) {
           missing.push('Geboortedatum (ongeldig)');
@@ -641,7 +649,7 @@ export function GuestBookingPanel({
           <textarea
             className={`${common} min-h-[88px]`}
             placeholder={ph}
-            required={req}
+            aria-required={req}
             value={form[f.fieldKey] ?? ''}
             onChange={(ev) => setField(f.fieldKey, ev.target.value)}
           />
@@ -649,7 +657,7 @@ export function GuestBookingPanel({
         {f.type === 'select' ? (
           <select
             className={common}
-            required={req}
+            aria-required={req}
             value={form[f.fieldKey] ?? ''}
             onChange={(ev) => setField(f.fieldKey, ev.target.value)}
           >
@@ -667,6 +675,7 @@ export function GuestBookingPanel({
               type="checkbox"
               checked={form[f.fieldKey] === '1'}
               onChange={(ev) => setField(f.fieldKey, ev.target.checked ? '1' : '')}
+              aria-required={req}
             />
             {displayLabel}
             {req ? <span className="text-burgundy"> *</span> : null}
@@ -677,7 +686,7 @@ export function GuestBookingPanel({
             type="file"
             accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             className={`${common} py-2 text-xs file:mr-3 file:rounded file:border-0 file:bg-zinc-100 file:px-3 file:py-1`}
-            required={req}
+            aria-required={req}
             onChange={(ev) => setFileField(f.fieldKey, ev.target.files?.[0])}
           />
         ) : null}
@@ -688,7 +697,7 @@ export function GuestBookingPanel({
             autoComplete={isPhone ? 'tel' : isNr ? 'address-line2' : isBirth ? 'bday' : undefined}
             className={common}
             placeholder={isBirth ? '' : ph}
-            required={req}
+            aria-required={req}
             value={form[f.fieldKey] ?? ''}
             onChange={(ev) => setField(f.fieldKey, ev.target.value)}
           />
@@ -720,7 +729,7 @@ export function GuestBookingPanel({
               className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
               value={form[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? ''}
               onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.with, ev.target.value)}
-              required
+              aria-required
             >
               <option value="">— kies —</option>
               {GUEST_MINOR_WITH_OPTIONS.map((o) => (
@@ -741,7 +750,7 @@ export function GuestBookingPanel({
                   className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                   value={form[GUEST_MINOR_PARENT_FIELD_KEYS.fatherName] ?? ''}
                   onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.fatherName, ev.target.value)}
-                  required
+                  aria-required
                 />
               </div>
               <div>
@@ -753,7 +762,7 @@ export function GuestBookingPanel({
                   className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                   value={form[GUEST_MINOR_PARENT_FIELD_KEYS.fatherPhone] ?? ''}
                   onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.fatherPhone, ev.target.value)}
-                  required
+                  aria-required
                 />
               </div>
               <div>
@@ -765,7 +774,7 @@ export function GuestBookingPanel({
                   className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                   value={form[GUEST_MINOR_PARENT_FIELD_KEYS.motherName] ?? ''}
                   onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.motherName, ev.target.value)}
-                  required
+                  aria-required
                 />
               </div>
               <div>
@@ -777,7 +786,7 @@ export function GuestBookingPanel({
                   className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                   value={form[GUEST_MINOR_PARENT_FIELD_KEYS.motherPhone] ?? ''}
                   onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.motherPhone, ev.target.value)}
-                  required
+                  aria-required
                 />
               </div>
             </>
@@ -792,7 +801,7 @@ export function GuestBookingPanel({
                   className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                   value={form[GUEST_MINOR_PARENT_FIELD_KEYS.name] ?? ''}
                   onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.name, ev.target.value)}
-                  required
+                  aria-required
                 />
               </div>
               <div>
@@ -804,7 +813,7 @@ export function GuestBookingPanel({
                   className="w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400"
                   value={form[GUEST_MINOR_PARENT_FIELD_KEYS.phone] ?? ''}
                   onChange={(ev) => setField(GUEST_MINOR_PARENT_FIELD_KEYS.phone, ev.target.value)}
-                  required
+                  aria-required
                 />
               </div>
             </>
@@ -999,7 +1008,7 @@ export function GuestBookingPanel({
             {datePager}
           </div>
         ) : (
-          <form onSubmit={submit} className="space-y-5">
+          <form onSubmit={submit} noValidate className="space-y-5">
             <div className="flex flex-wrap items-center gap-2 rounded-cm bg-panel px-3 py-2 text-xs">
               <span className="font-medium text-ink">Gekozen:</span>
               <span>
@@ -1098,6 +1107,7 @@ export function GuestBookingPanel({
       <form
         id="guest-pro-booking-form"
         onSubmit={submit}
+        noValidate
         className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto pr-0.5"
       >
         <div className="flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-700">
