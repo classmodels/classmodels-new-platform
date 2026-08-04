@@ -43,42 +43,88 @@ export function ModelPremiumTab({
   return (
     <div className="space-y-8">
       {premiumReturn && active ? (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <div
+          className="rounded-sm px-4 py-3 text-sm"
+          style={{
+            border: '1px solid rgba(46, 125, 70, 0.35)',
+            background: 'rgba(46, 125, 70, 0.12)',
+            color: 'var(--n-ink)',
+          }}
+        >
           <strong>Bedankt!</strong> Je betaling werd verwerkt. Premium staat nu actief op je account
           {until ? ` (geldig t.e.m. ${until}).` : user.premiumUntil === null ? ' (levenslang).' : '.'}
         </div>
       ) : null}
       {premiumReturn && !active ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+        <div
+          className="rounded-sm px-4 py-3 text-sm"
+          style={{
+            border: '1px solid var(--n-gold-hair)',
+            background: 'rgba(212, 175, 106, 0.12)',
+            color: 'var(--n-ink)',
+          }}
+        >
           We verwerken je betaling. Vernieuw zo nodig even deze pagina; na bevestiging door Mollie zie je hier
           &quot;Premium actief&quot;.
         </div>
       ) : null}
 
-      <header className="relative -mx-3 overflow-hidden border-y border-zinc-200 bg-gradient-to-br from-zinc-900 via-[#2a1219] to-burgundyDeep px-4 py-5 text-white shadow-xl lg:mx-0 lg:rounded-2xl lg:border lg:px-10 lg:py-10">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/5 blur-2xl" />
-        <div className="relative flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+      <header
+        className="relative overflow-hidden rounded-sm px-4 py-6 lg:px-10 lg:py-10"
+        style={{
+          background: 'var(--n-bg-2)',
+          border: '1px solid var(--n-gold-hair)',
+          color: 'var(--n-ink)',
+        }}
+      >
+        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
           <div className="min-w-0 max-w-xl">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70">Class Models</p>
-            <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight md:text-4xl">
+            <p
+              className="text-[11px] font-bold uppercase tracking-[0.2em]"
+              style={{ color: 'var(--n-gold)' }}
+            >
+              Class-Models
+            </p>
+            <h1
+              className="mt-2 font-serif text-3xl font-semibold tracking-tight md:text-4xl"
+              style={{ color: 'var(--n-ink)' }}
+            >
               Premium <span className="block lg:inline">modelaccount</span>
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-white/90 lg:mt-4">
+            <p className="mt-3 text-sm leading-relaxed lg:mt-4" style={{ color: 'var(--n-mut)' }}>
               Volledige toegang tot je modellenportaal: opdrachten, agenda, portfolio en alle communicatie — met{' '}
-              <strong className="text-white">pushberichten</strong> bij nieuwe acties en updates, zodat je niets mist.
+              <strong style={{ color: 'var(--n-ink)' }}>pushberichten</strong> bij nieuwe acties en updates, zodat je
+              niets mist.
             </p>
-            {checkoutErr ? <p className="mt-4 text-sm text-amber-200">{checkoutErr}</p> : null}
+            {checkoutErr ? (
+              <p className="mt-4 text-sm" style={{ color: 'var(--n-gold)' }}>
+                {checkoutErr}
+              </p>
+            ) : null}
           </div>
-          <div className="flex w-full shrink-0 flex-col items-end gap-3 lg:w-auto lg:pt-2">
-            {/* Prijs: op gsm rechtsboven in de hoek van de kader, op desktop in de rechterkolom */}
-            <div className="absolute right-0 top-0 text-right lg:static">
-              <p className="flex flex-wrap items-baseline justify-end gap-1.5 lg:gap-2">
-                <span className="font-serif text-2xl font-bold tabular-nums lg:text-5xl">€{price}</span>
-                <span className="text-xs text-white/80 lg:text-sm">per jaar</span>
+          <div className="flex w-full shrink-0 flex-col items-stretch gap-3 sm:items-end lg:w-auto lg:pt-2">
+            <div className="text-left sm:text-right">
+              <p className="flex flex-wrap items-baseline gap-1.5 sm:justify-end lg:gap-2">
+                <span
+                  className="font-serif text-3xl font-bold tabular-nums lg:text-5xl"
+                  style={{ color: 'var(--n-gold)' }}
+                >
+                  €{price}
+                </span>
+                <span className="text-xs lg:text-sm" style={{ color: 'var(--n-mut)' }}>
+                  per jaar
+                </span>
               </p>
             </div>
             {active ? (
-              <span className="rounded-full bg-emerald-500/20 px-4 py-2 text-xs font-bold uppercase tracking-wide text-emerald-100 ring-1 ring-emerald-400/40">
+              <span
+                className="inline-flex justify-center rounded-sm px-4 py-2 text-xs font-bold uppercase tracking-wide"
+                style={{
+                  background: 'rgba(46, 125, 70, 0.18)',
+                  color: 'var(--n-ink)',
+                  border: '1px solid rgba(46, 125, 70, 0.4)',
+                }}
+              >
                 Premium actief
               </span>
             ) : canCheckout ? (
@@ -86,12 +132,12 @@ export function ModelPremiumTab({
                 type="button"
                 disabled={checkoutBusy}
                 onClick={onStartCheckout}
-                className={`${MODEL_BTN_GOLD} !px-4 !py-2 !text-xs lg:!px-6 lg:!py-2.5 lg:!text-sm`}
+                className={`${MODEL_BTN_GOLD} !px-5 !py-3 !text-sm`}
               >
-                {checkoutBusy ? 'Even geduld…' : 'Premium worden'}
+                {checkoutBusy ? 'Even geduld…' : 'Word premium'}
               </button>
             ) : (
-              <p className="max-w-xs text-right text-xs text-white/70">
+              <p className="max-w-xs text-left text-xs sm:text-right" style={{ color: 'var(--n-mut)' }}>
                 Online afrekenen is voor dit account niet geactiveerd. Neem contact op met het bureau.
               </p>
             )}
@@ -99,57 +145,87 @@ export function ModelPremiumTab({
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <h2 className="font-serif text-lg font-semibold text-burgundy">Waarom betalen?</h2>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-700">
-            We investeren zwaar in een <strong>moderne site en app</strong>: veilige hosting, onderhoud, nieuwe
-            functies en een duidelijke workflow voor jou als model. Jouw bijdrage helpt dat platform betrouwbaar en
-            professioneel te houden — en maakt het <strong>merkelijk eenvoudiger</strong> om opdrachten, afspraken en
+      <div className="grid gap-4 lg:grid-cols-3 lg:gap-6">
+        <section
+          className="rounded-sm p-5"
+          style={{ background: 'var(--n-bg-2)', border: '1px solid var(--n-hair)' }}
+        >
+          <h2 className="font-serif text-lg font-semibold" style={{ color: 'var(--n-gold)' }}>
+            Waarom betalen?
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--n-mut)' }}>
+            We investeren zwaar in een <strong style={{ color: 'var(--n-ink)' }}>moderne site en app</strong>: veilige
+            hosting, onderhoud, nieuwe functies en een duidelijke workflow voor jou als model. Jouw bijdrage helpt dat
+            platform betrouwbaar en professioneel te houden — en maakt het{' '}
+            <strong style={{ color: 'var(--n-ink)' }}>merkelijk eenvoudiger</strong> om opdrachten, afspraken en
             documenten te volgen.
           </p>
         </section>
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <h2 className="font-serif text-lg font-semibold text-burgundy">Wat krijg je?</h2>
-          <ul className="mt-3 space-y-2.5 text-sm leading-snug text-zinc-700">
+        <section
+          className="rounded-sm p-5"
+          style={{ background: 'var(--n-bg-2)', border: '1px solid var(--n-hair)' }}
+        >
+          <h2 className="font-serif text-lg font-semibold" style={{ color: 'var(--n-gold)' }}>
+            Wat krijg je?
+          </h2>
+          <ul className="mt-3 space-y-2.5 text-sm leading-snug" style={{ color: 'var(--n-mut)' }}>
             <li className="flex gap-2">
-              <span className="text-burgundy">✓</span>
+              <span style={{ color: 'var(--n-gold)' }}>✓</span>
               <span>
-                <strong>Premium toegang</strong> tot alle modelmodules van het portaal (geen backoffice).
+                <strong style={{ color: 'var(--n-ink)' }}>Premium toegang</strong> tot alle modelmodules van het portaal
+                (geen backoffice).
               </span>
             </li>
             <li className="flex gap-2">
-              <span className="text-burgundy">✓</span>
+              <span style={{ color: 'var(--n-gold)' }}>✓</span>
               <span>
-                <strong>Pushberichten</strong> bij nieuwe opdrachten die bij je profiel passen — sneller reageren.
+                <strong style={{ color: 'var(--n-ink)' }}>Pushberichten</strong> bij nieuwe opdrachten die bij je profiel
+                passen — sneller reageren.
               </span>
             </li>
             <li className="flex gap-2">
-              <span className="text-burgundy">✓</span>
+              <span style={{ color: 'var(--n-gold)' }}>✓</span>
               <span>Historiek, berichten sturen en volledige opdrachtenflow.</span>
             </li>
             <li className="flex gap-2">
-              <span className="text-burgundy">✓</span>
+              <span style={{ color: 'var(--n-gold)' }}>✓</span>
               <span>
-                Na geslaagde betaling via <strong>Mollie</strong> is premium <strong>direct actief</strong>.
+                Na geslaagde betaling via <strong style={{ color: 'var(--n-ink)' }}>Mollie</strong> is premium{' '}
+                <strong style={{ color: 'var(--n-ink)' }}>direct actief</strong>.
               </span>
             </li>
           </ul>
         </section>
-        <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <h2 className="font-serif text-lg font-semibold text-burgundy">Zonder premium</h2>
-          <p className="mt-3 text-sm leading-relaxed text-zinc-700">
-            Je houdt toegang tot de <strong>basisfuncties</strong> van het portaal. Pushberichten, historiek, berichten
-            sturen en meldingen bij passende opdrachten zijn voorbehouden aan premium.
+        <section
+          className="rounded-sm p-5"
+          style={{ background: 'var(--n-bg-2)', border: '1px solid var(--n-hair)' }}
+        >
+          <h2 className="font-serif text-lg font-semibold" style={{ color: 'var(--n-gold)' }}>
+            Zonder premium
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--n-mut)' }}>
+            Je houdt toegang tot de <strong style={{ color: 'var(--n-ink)' }}>basisfuncties</strong> van het portaal.
+            Pushberichten, historiek, berichten sturen en meldingen bij passende opdrachten zijn voorbehouden aan
+            premium.
           </p>
         </section>
       </div>
 
-      <section className="rounded-xl border border-burgundy/20 bg-burgundy/[0.04] px-5 py-6 md:px-8">
+      <section
+        className="rounded-sm px-5 py-6 md:px-8"
+        style={{
+          background: 'rgba(212, 175, 106, 0.08)',
+          border: '1px solid var(--n-gold-hair)',
+        }}
+      >
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="font-serif text-xl font-semibold text-ink">Klaar om te upgraden?</h2>
-            <p className="mt-1 max-w-xl text-sm text-muted">Jaarabonnement €{yearlyPrice} per jaar.</p>
+            <h2 className="font-serif text-xl font-semibold" style={{ color: 'var(--n-ink)' }}>
+              Klaar om te upgraden?
+            </h2>
+            <p className="mt-1 max-w-xl text-sm" style={{ color: 'var(--n-mut)' }}>
+              Jaarabonnement €{yearlyPrice} per jaar.
+            </p>
           </div>
           {!active && canCheckout ? (
             <button
@@ -158,20 +234,22 @@ export function ModelPremiumTab({
               onClick={onStartCheckout}
               className={`shrink-0 ${MODEL_BTN_GOLD}`}
             >
-              {checkoutBusy ? 'Bezig…' : `Premium worden — €${price}`}
+              {checkoutBusy ? 'Bezig…' : `Word premium — €${price}`}
             </button>
           ) : active ? (
-            <p className="shrink-0 text-sm font-semibold text-emerald-800">Je zit al op premium — bedankt!</p>
+            <p className="shrink-0 text-sm font-semibold" style={{ color: 'var(--n-ink)' }}>
+              Je zit al op premium — bedankt!
+            </p>
           ) : null}
         </div>
       </section>
 
-      <p className="text-center text-xs text-muted">
-        <Link href="/modellen?tab=profiel" className="text-burgundy underline hover:text-burgundyDeep">
+      <p className="text-center text-xs" style={{ color: 'var(--n-dim)' }}>
+        <Link href="/modellen?tab=profiel" className="nieuw-link">
           Terug naar profiel
         </Link>
         {' · '}
-        <Link href="/modellen?tab=home" className="text-burgundy underline hover:text-burgundyDeep">
+        <Link href="/modellen?tab=home" className="nieuw-link">
           Home portaal
         </Link>
       </p>

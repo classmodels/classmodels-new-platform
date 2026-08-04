@@ -40,7 +40,7 @@ export function MobileClientAppShell({ children }: { children: ReactNode }) {
       : KLANTEN_TABS.find((t) => t.id === tab)?.label ?? 'Klantenportaal';
 
   return (
-    <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
+    <div className="min-h-[100dvh] w-full overflow-x-hidden" style={{ background: BG, color: TEXT }}>
       <header
         className="cm-appbar-safe sticky top-0 z-40 shadow-md"
         style={{ background: BAR, color: BAR_TEXT }}

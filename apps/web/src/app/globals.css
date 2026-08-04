@@ -287,11 +287,24 @@ body {
   }
 }
 
-/* Partnerlogo's — zwarte achtergrond, 5px gouden kader, alle logo's zichtbaar */
+/* Partnerlogo's — zwarte achtergrond edge-to-edge, 5px gouden kader */
 .cm-partners {
-  padding: 36px 0 44px;
+  /* Full-bleed ook binnen gepadde app-kolommen (klantenportaal gsm) */
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  box-sizing: border-box;
+  padding: 36px max(16px, env(safe-area-inset-left, 0px)) 44px max(16px, env(safe-area-inset-right, 0px));
   background: #000;
   border-top: none;
+}
+.cm-partners .nieuw-wrap {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  padding-left: 0;
+  padding-right: 0;
 }
 .cm-partners-title {
   margin: 0 0 20px;

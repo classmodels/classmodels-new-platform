@@ -138,7 +138,7 @@ export function NieuwShell({
   const cta =
     activePortal === 'modellen' ? (
       <Link href="/modellen?tab=premium" className="nieuw-cta-top">
-        Wordt premium
+        Word premium
       </Link>
     ) : onBooking ? (
       <Link href="#agenda" className="nieuw-cta-top">

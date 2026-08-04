@@ -31,8 +31,10 @@ export function MobileModelAppShell({ children }: { children: ReactNode }) {
     MODEL_PORTAL_TABS.find((t) => t.id === tab)?.label ??
     (pathname?.startsWith('/modellen') ? 'Modellenportaal' : 'Class-Models');
 
+  const showPremiumCta = Boolean(user && !user.isPremium && tab !== 'premium');
+
   return (
-    <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
+    <div className="min-h-[100dvh] w-full overflow-x-hidden" style={{ background: BG, color: TEXT }}>
       <header
         className="cm-appbar-safe sticky top-0 z-40 shadow-md"
         style={{ background: BAR, color: BAR_TEXT }}
@@ -58,7 +60,15 @@ export function MobileModelAppShell({ children }: { children: ReactNode }) {
               {title}
             </p>
           </div>
-          {user ? (
+          {showPremiumCta ? (
+            <Link
+              href="/modellen?tab=premium"
+              className="shrink-0 rounded-sm px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide"
+              style={{ background: '#d4af6a', color: '#14110a', border: '1px solid #c9a24a' }}
+            >
+              Word premium
+            </Link>
+          ) : user ? (
             <button
               type="button"
               onClick={() => logout()}
@@ -121,6 +131,15 @@ export function MobileModelAppShell({ children }: { children: ReactNode }) {
               </span>
             </Link>
           ))}
+          {showPremiumCta ? (
+            <Link
+              href="/modellen?tab=premium"
+              className="mx-3 mt-3 mb-1 block rounded-sm px-4 py-3 text-center text-[14px] font-bold"
+              style={{ background: '#d4af6a', color: '#14110a', border: '1px solid #c9a24a' }}
+            >
+              Word premium
+            </Link>
+          ) : null}
           <Link
             href="/?m=guest"
             className="flex items-center justify-between gap-2 px-4 py-3 text-[14px] font-semibold"
@@ -145,6 +164,19 @@ export function MobileModelAppShell({ children }: { children: ReactNode }) {
             <span>Klantenportaal</span>
             <span aria-hidden>›</span>
           </Link>
+          {user ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                logout();
+              }}
+              className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-[14px] font-semibold"
+              style={{ color: '#f0a8a0', borderBottom: '1px solid rgba(243,234,216,0.1)' }}
+            >
+              <span>Uitloggen</span>
+            </button>
+          ) : null}
         </nav>
       </aside>
 
@@ -176,6 +208,15 @@ export function MobileModelAppShell({ children }: { children: ReactNode }) {
             Beginpagina
           </Link>
         </div>
+        {showPremiumCta ? (
+          <Link
+            href="/modellen?tab=premium"
+            className="mb-4 flex w-full items-center justify-center rounded-sm px-4 py-3.5 text-[15px] font-bold shadow-sm"
+            style={{ background: '#d4af6a', color: '#14110a', border: '1px solid #c9a24a' }}
+          >
+            Word premium
+          </Link>
+        ) : null}
         {children}
       </div>
     </div>
