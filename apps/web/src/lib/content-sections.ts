@@ -1,5 +1,6 @@
 import { buildKnownContentKeys } from '@/lib/known-content-keys';
 import { PORTFOLIO_CONTENT_FIELDS } from '@/lib/portfolio-content-fields';
+import { OPLEIDING_CONTENT_FIELDS } from '@/lib/opleiding-content-fields';
 
 export type ContentSection = {
   id: string;
@@ -17,6 +18,11 @@ export const CONTENT_SECTIONS: ContentSection[] = [
     id: 'model-portfolio',
     title: 'Modelportaal · Portfolio afspraak',
     match: (k) => k.startsWith(`${MODEL_PREFIX}portfolio.`),
+  },
+  {
+    id: 'model-opleiding',
+    title: 'Modelportaal · Opleiding',
+    match: (k) => k.startsWith(`${MODEL_PREFIX}opleiding.`),
   },
   {
     id: 'model-home',
@@ -42,6 +48,7 @@ export const CONTENT_SECTIONS: ContentSection[] = [
     match: (k) =>
       k.startsWith(MODEL_PREFIX) &&
       !k.startsWith(`${MODEL_PREFIX}portfolio.`) &&
+      !k.startsWith(`${MODEL_PREFIX}opleiding.`) &&
       !k.startsWith(`${MODEL_PREFIX}home.`) &&
       !k.startsWith(`${MODEL_PREFIX}nav.`) &&
       !k.startsWith(`${MODEL_PREFIX}hero.`) &&
@@ -52,9 +59,10 @@ export const CONTENT_SECTIONS: ContentSection[] = [
   { id: 'client', title: 'Klantportaal', match: (k) => k.startsWith('portal.client.') },
 ];
 
-const LABEL_OVERRIDES: Record<string, string> = Object.fromEntries(
-  PORTFOLIO_CONTENT_FIELDS.map((f) => [f.key, f.label]),
-);
+const LABEL_OVERRIDES: Record<string, string> = Object.fromEntries([
+  ...PORTFOLIO_CONTENT_FIELDS.map((f) => [f.key, f.label] as const),
+  ...OPLEIDING_CONTENT_FIELDS.map((f) => [f.key, f.label] as const),
+]);
 
 /** Leesbare titel bij een CMS-sleutel (geen technisch jargon in de backsite). */
 export function contentFieldLabel(key: string): string {

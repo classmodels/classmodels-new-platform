@@ -4,8 +4,20 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
+import { CmText } from '@/components/CmText';
+import { useIsMobile } from '@/lib/use-is-mobile';
+import {
+  OPLEIDING_INFO_BODY_FALLBACK,
+  OPLEIDING_INFO_TITLE_FALLBACK,
+} from '@/lib/opleiding-content-fields';
 
 const OPLEIDING_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
+
+const APP_CARD = '#faf8f4';
+const APP_LINE = '#ddd5c7';
+const APP_TEXT = '#372c1f';
+const APP_SOFT = '#7a6e5d';
+const APP_ACCENT = '#8a6a3b';
 
 type BookingRow = {
   id: string;
@@ -22,12 +34,11 @@ export function ModelOpleidingTab({
   onHeaderRightChange?: (node: ReactNode | null) => void;
 }) {
   const { token, can } = useAuth();
+  const isMobile = useIsMobile() === true;
   const [booking, setBooking] = useState<BookingRow | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [panel, setPanel] = useState<'summary' | 'book' | 'info'>('summary');
-  // Header actions worden door de parent in de rode balk gezet.
-  // We bewaren de state hier omdat de tab zelf de flow beheert.
 
   const load = useCallback(async () => {
     if (!token || !can('portal.model.agenda.read')) {
@@ -122,9 +133,7 @@ export function ModelOpleidingTab({
     return (
       <div className="flex flex-wrap gap-2">
         {headerBtn('Info opleiding', () => setPanel((p) => (p === 'info' ? 'summary' : 'info')))}
-        {panel === 'book'
-          ? headerBtn('Terug', () => setPanel(booking ? 'summary' : 'summary'))
-          : null}
+        {panel === 'book' ? headerBtn('Terug', () => setPanel('summary')) : null}
         {booking ? headerBtn('Afspraak verplaatsen', () => setPanel('book'), true) : null}
         {!booking && panel !== 'book' && !loading
           ? headerBtn('Afspraak maken', () => setPanel('book'), true)
@@ -152,6 +161,43 @@ export function ModelOpleidingTab({
     );
   }
 
+  const infoPanel = isMobile ? (
+    <div
+      className="space-y-3 rounded-xl px-4 py-4 text-[13.5px] leading-relaxed shadow-sm"
+      style={{ background: APP_CARD, border: `1px solid ${APP_LINE}`, color: APP_TEXT }}
+    >
+      <CmText
+        as="p"
+        contentKey="portal.model.opleiding.info.title"
+        className="m-0 text-[12px] font-bold uppercase tracking-[0.18em]"
+        style={{ color: APP_ACCENT }}
+        fallback={OPLEIDING_INFO_TITLE_FALLBACK}
+      />
+      <CmText
+        as="div"
+        contentKey="portal.model.opleiding.info.body"
+        className="m-0 whitespace-pre-wrap"
+        style={{ color: APP_SOFT }}
+        fallback={OPLEIDING_INFO_BODY_FALLBACK}
+      />
+    </div>
+  ) : (
+    <div className="space-y-2 border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
+      <CmText
+        as="p"
+        contentKey="portal.model.opleiding.info.title"
+        className="text-[11px] font-bold uppercase tracking-wide text-burgundy"
+        fallback={OPLEIDING_INFO_TITLE_FALLBACK}
+      />
+      <CmText
+        as="div"
+        contentKey="portal.model.opleiding.info.body"
+        className="whitespace-pre-wrap"
+        fallback={OPLEIDING_INFO_BODY_FALLBACK}
+      />
+    </div>
+  );
+
   return (
     <div className="space-y-3">
       {!onHeaderRightChange ? (
@@ -162,14 +208,7 @@ export function ModelOpleidingTab({
       {loading ? (
         <div className="text-sm text-zinc-500">Laden…</div>
       ) : panel === 'info' ? (
-        <div className="space-y-2 border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Voorzien voor opleiding</p>
-          <p>
-            Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en
-            verwachtingen. Breng een notitieboekje, comfortabele schoenen en eventueel enkele basisoutfits mee.
-          </p>
-          <p className="text-[12px] text-zinc-600">Het opleidingsmoment duurt drie uur: 14:00 tot 17:00.</p>
-        </div>
+        infoPanel
       ) : panel === 'book' ? (
         <div className="border border-zinc-300 bg-white px-3 py-3">
           <GuestBookingPanel
@@ -212,11 +251,18 @@ export function ModelOpleidingTab({
             </div>
           </dl>
           <div className="mt-3 border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[12px] leading-snug text-zinc-800">
-            <p className="text-[11px] font-bold uppercase text-zinc-700">Voorzien voor opleiding</p>
-            <p className="mt-1.5">
-              Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en
-              verwachtingen. Breng een notitieboekje, comfortabele schoenen en eventueel enkele basisoutfits mee.
-            </p>
+            <CmText
+              as="p"
+              contentKey="portal.model.opleiding.booked.prep.title"
+              className="text-[11px] font-bold uppercase text-zinc-700"
+              fallback="Voorzien voor opleiding"
+            />
+            <CmText
+              as="p"
+              contentKey="portal.model.opleiding.booked.prep.body"
+              className="mt-1.5"
+              fallback="Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en verwachtingen. Breng een notitieboekje, comfortabele schoenen en eventueel enkele basisoutfits mee. Het moment duurt drie uur: 14:00 tot 17:00."
+            />
           </div>
         </div>
       ) : (
