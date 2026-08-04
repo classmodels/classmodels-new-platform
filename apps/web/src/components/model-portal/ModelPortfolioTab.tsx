@@ -8,6 +8,7 @@ import { CmText } from '@/components/CmText';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
 import { downloadWithProgress, downloadProgressSublabel, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 import { PortfolioInfoContent } from '@/components/model-portal/portfolio-info-content';
+import { ModelTabPageHeader } from '@/components/model-portal/ModelTabPageHeader';
 
 const PORTFOLIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
 
@@ -187,9 +188,10 @@ export function ModelPortfolioTab({
 
   return (
     <div className="space-y-3">
-      {!onHeaderRightChange ? (
-        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
-      ) : null}
+      <ModelTabPageHeader
+        title="Portfolio afspraak"
+        actions={!onHeaderRightChange ? computedHeaderRight : undefined}
+      />
       {downloadProgress ? (
         <CmProgressOverlay
           label="Portfolio downloaden…"

@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 import { TryoutModeshowInfoContent } from '@/components/model-portal/tryout-modeshow-info-content';
 import { TryoutTermsContent } from '@/components/model-portal/tryout-terms-content';
+import { ModelTabPageHeader } from '@/components/model-portal/ModelTabPageHeader';
 import { createPortal } from 'react-dom';
 import { goToExternalCheckout, paymentReturnOrigin } from '@/lib/storage';
 
@@ -454,9 +455,10 @@ export function ModelTryoutModeshowTab({
 
   return (
     <div className="space-y-4 text-sm leading-relaxed">
-      {!onHeaderRightChange ? (
-        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
-      ) : null}
+      <ModelTabPageHeader
+        title="Try-out modeshow"
+        actions={!onHeaderRightChange ? computedHeaderRight : undefined}
+      />
 
       {err ? (
         <p className="text-xs" style={{ color: '#f87171', margin: 0 }}>

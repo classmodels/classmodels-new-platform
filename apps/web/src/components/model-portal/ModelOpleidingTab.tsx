@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { CmText } from '@/components/CmText';
 import { OpleidingInfoContent } from '@/components/model-portal/opleiding-info-content';
+import { ModelTabPageHeader } from '@/components/model-portal/ModelTabPageHeader';
 
 const OPLEIDING_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
 
@@ -155,9 +156,10 @@ export function ModelOpleidingTab({
 
   return (
     <div className="space-y-3">
-      {!onHeaderRightChange ? (
-        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
-      ) : null}
+      <ModelTabPageHeader
+        title="Opleidingsafspraak"
+        actions={!onHeaderRightChange ? computedHeaderRight : undefined}
+      />
       {err ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div> : null}
 
       {loading ? (
