@@ -1,191 +1,226 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 const TRAILERS = [
   {
     id: 'try-out',
+    label: 'Trailer 1',
     title: 'Try-out Modeshow',
-    subtitle: 'Sfeerimpressie van de try-out',
     src: '/nieuw/trailers/try-out-modeshow.mp4',
   },
   {
     id: '29-maart-2025',
+    label: 'Trailer 2',
     title: 'Modeshow 29 maart 2025',
-    subtitle: 'Highlights van de modeshow',
     src: '/nieuw/trailers/modeshow-29-maart-2025.mp4',
   },
   {
     id: 'modeshow-trailer',
+    label: 'Trailer 3',
     title: 'Modeshow trailer',
-    subtitle: 'Officiële trailer',
     src: '/nieuw/trailers/modeshow-trailer-sd.mp4',
   },
   {
     id: 'trailer-modeshow',
+    label: 'Trailer 4',
     title: 'Trailer modeshow',
-    subtitle: 'Extra sfeerbeelden',
     src: '/nieuw/trailers/trailer-modeshow-sd.mp4',
   },
   {
     id: '30-sept-2023',
+    label: 'Trailer 5',
     title: 'Modeshow 30 september 2023',
-    subtitle: 'Archieftrailer',
     src: '/nieuw/trailers/modeshow-30-september-2023.mp4',
   },
 ] as const;
 
-export function TryoutTrailersContent() {
-  return (
-    <div
-      style={{
-        position: 'relative',
-        margin: '0 -4px',
-        padding: '8px 4px 28px',
-        borderRadius: 6,
-        background:
-          'radial-gradient(ellipse 90% 55% at 50% -10%, rgba(201, 162, 74, 0.22), transparent 55%), linear-gradient(180deg, #0c0c10 0%, #121218 45%, #0a0a0d 100%)',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          backgroundImage:
-            'linear-gradient(rgba(201,162,74,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(201,162,74,0.04) 1px, transparent 1px)',
-          backgroundSize: '48px 48px',
-          maskImage: 'linear-gradient(180deg, rgba(0,0,0,0.55), transparent 85%)',
-          pointerEvents: 'none',
-        }}
-      />
+/** Exact schermvlak in bioscoop.jpg (1920×1080). */
+const SCREEN = {
+  left: '20.57%',
+  top: '3.7%',
+  width: '59.07%',
+  height: '57.41%',
+} as const;
 
-      <header style={{ position: 'relative', textAlign: 'center', padding: '20px 12px 28px' }}>
+export function TryoutTrailersContent() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [muted, setMuted] = useState(true);
+
+  const active = TRAILERS.find((t) => t.id === activeId) ?? null;
+
+  const playTrailer = useCallback((id: string) => {
+    setActiveId(id);
+  }, []);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !active) return;
+    el.muted = muted;
+    const p = el.play();
+    if (p) void p.catch(() => undefined);
+    // muted intentionally omitted — toggling mute must not restart the film
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.id]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (el) el.muted = muted;
+  }, [muted]);
+
+  return (
+    <div style={{ display: 'grid', gap: 14 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: 8,
+        }}
+      >
+        {TRAILERS.map((t) => {
+          const on = t.id === activeId;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              title={t.title}
+              onClick={() => playTrailer(t.id)}
+              className="nieuw-btn"
+              style={{
+                padding: '7px 12px',
+                fontSize: 12,
+                lineHeight: 1.2,
+                letterSpacing: '0.04em',
+                background: on ? 'var(--n-gold)' : 'transparent',
+                color: on ? '#1a140c' : 'var(--n-ink)',
+                borderColor: on ? 'var(--n-gold)' : 'rgba(201, 162, 74, 0.45)',
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {active ? (
         <p
           style={{
             margin: 0,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: 'rgba(201, 162, 74, 0.85)',
+            textAlign: 'center',
+            fontSize: 12,
+            color: 'var(--n-mut)',
+            letterSpacing: '0.04em',
           }}
         >
-          Class-Models
+          Nu op het scherm: <strong style={{ color: 'var(--n-gold)' }}>{active.title}</strong>
         </p>
-        <h2
-          style={{
-            margin: '10px 0 0',
-            fontFamily: 'var(--n-serif)',
-            fontSize: 'clamp(26px, 4vw, 40px)',
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            color: '#f3eee6',
-            lineHeight: 1.15,
-          }}
-        >
-          Trailers
-        </h2>
-        <div
-          style={{
-            width: 56,
-            height: 2,
-            margin: '14px auto 0',
-            background: 'linear-gradient(90deg, transparent, #c9a24a, transparent)',
-          }}
-        />
+      ) : (
         <p
           style={{
-            margin: '14px auto 0',
-            maxWidth: 420,
-            fontSize: 14,
-            lineHeight: 1.55,
-            color: 'rgba(243, 238, 230, 0.62)',
+            margin: 0,
+            textAlign: 'center',
+            fontSize: 12,
+            color: 'var(--n-mut)',
           }}
         >
-          Duik in de sfeer van onze modeshows — alle trailers op één plek.
+          Kies een trailer om te starten
         </p>
-      </header>
+      )}
 
       <div
         style={{
           position: 'relative',
-          display: 'grid',
-          gap: 28,
-          maxWidth: 880,
+          width: '100%',
+          maxWidth: 960,
           margin: '0 auto',
-          padding: '0 8px',
+          lineHeight: 0,
+          borderRadius: 4,
+          overflow: 'hidden',
+          boxShadow: '0 22px 60px rgba(0,0,0,0.55)',
+          border: '1px solid rgba(201, 162, 74, 0.22)',
         }}
       >
-        {TRAILERS.map((t, i) => (
-          <article
-            key={t.id}
-            style={{
-              border: '1px solid rgba(201, 162, 74, 0.28)',
-              background: 'rgba(10, 10, 14, 0.72)',
-              boxShadow: '0 18px 48px rgba(0,0,0,0.45)',
-              overflow: 'hidden',
-            }}
-          >
-            <div
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/nieuw/trailers/bioscoop.jpg"
+          alt="Bioscoopzaal"
+          style={{
+            display: 'block',
+            width: '100%',
+            height: 'auto',
+            userSelect: 'none',
+            pointerEvents: 'none',
+          }}
+          draggable={false}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            left: SCREEN.left,
+            top: SCREEN.top,
+            width: SCREEN.width,
+            height: SCREEN.height,
+            background: '#050505',
+            overflow: 'hidden',
+          }}
+        >
+          {active ? (
+            <video
+              key={active.id}
+              ref={videoRef}
+              src={active.src}
+              playsInline
+              muted={muted}
+              autoPlay
+              controls={false}
+              disablePictureInPicture
+              controlsList="nodownload noplaybackrate noremoteplayback"
               style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                gap: 12,
-                padding: '14px 16px 12px',
-                borderBottom: '1px solid rgba(201, 162, 74, 0.18)',
-                background: 'linear-gradient(90deg, rgba(201,162,74,0.12), transparent 70%)',
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                background: '#000',
+                pointerEvents: 'none',
+              }}
+            />
+          ) : null}
+
+          {active ? (
+            <button
+              type="button"
+              onClick={() => setMuted((m) => !m)}
+              aria-label={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
+              title={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
+              style={{
+                position: 'absolute',
+                right: 8,
+                bottom: 8,
+                zIndex: 2,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 10px',
+                borderRadius: 3,
+                border: '1px solid rgba(201, 162, 74, 0.55)',
+                background: 'rgba(10, 10, 14, 0.82)',
+                color: '#f3eee6',
+                fontSize: 11,
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+                lineHeight: 1.2,
+                pointerEvents: 'auto',
               }}
             >
-              <div style={{ minWidth: 0 }}>
-                <p
-                  style={{
-                    margin: 0,
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: '0.16em',
-                    textTransform: 'uppercase',
-                    color: 'rgba(201, 162, 74, 0.75)',
-                  }}
-                >
-                  {String(i + 1).padStart(2, '0')}
-                </p>
-                <h3
-                  style={{
-                    margin: '4px 0 0',
-                    fontFamily: 'var(--n-serif)',
-                    fontSize: 'clamp(18px, 2.4vw, 22px)',
-                    fontWeight: 600,
-                    color: '#f3eee6',
-                    lineHeight: 1.25,
-                  }}
-                >
-                  {t.title}
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: 'rgba(243, 238, 230, 0.5)' }}>
-                  {t.subtitle}
-                </p>
-              </div>
-            </div>
-            <div style={{ background: '#000', aspectRatio: '16 / 9' }}>
-              <video
-                controls
-                playsInline
-                preload="metadata"
-                src={t.src}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  background: '#000',
-                }}
-              >
-                Uw browser ondersteunt geen video.
-              </video>
-            </div>
-          </article>
-        ))}
+              {muted ? 'Geluid uit' : 'Geluid aan'}
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );
