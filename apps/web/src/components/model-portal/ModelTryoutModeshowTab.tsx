@@ -5,6 +5,7 @@ import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 import { TryoutModeshowInfoContent } from '@/components/model-portal/tryout-modeshow-info-content';
+import { TryoutTrailersContent } from '@/components/model-portal/tryout-trailers-content';
 import { TryoutTermsContent } from '@/components/model-portal/tryout-terms-content';
 import { ModelTabPageHeader } from '@/components/model-portal/ModelTabPageHeader';
 import { createPortal } from 'react-dom';
@@ -50,7 +51,7 @@ type CouponPreview = {
   isFree: boolean;
 };
 
-type Panel = 'summary' | 'info';
+type Panel = 'summary' | 'info' | 'trailers';
 
 function formatPrice(amount: string): string {
   const n = Number(amount);
@@ -294,6 +295,13 @@ export function ModelTryoutModeshowTab({
     void checkout();
   }, [termsTick, hasTerms, checkout]);
 
+  const compactBtnStyle: CSSProperties = {
+    padding: '5px 10px',
+    fontSize: 11,
+    lineHeight: 1.25,
+    whiteSpace: 'nowrap',
+  };
+
   const headerBtn = useCallback(
     (
       label: string,
@@ -304,10 +312,11 @@ export function ModelTryoutModeshowTab({
       const inline = !onHeaderRightChange;
       if (inline) {
         let className = 'nieuw-btn nieuw-btn-ghost';
-        let style: CSSProperties | undefined;
+        let style: CSSProperties = { ...compactBtnStyle };
         if (variant === 'join') {
           className = 'nieuw-btn';
           style = {
+            ...compactBtnStyle,
             background: '#b8e0c8',
             color: '#14301f',
             borderColor: '#8fc9a6',
@@ -315,6 +324,7 @@ export function ModelTryoutModeshowTab({
         } else if (variant === 'decline') {
           className = 'nieuw-btn';
           style = {
+            ...compactBtnStyle,
             background: '#c43c3c',
             color: '#fff',
             borderColor: '#a83232',
@@ -342,10 +352,10 @@ export function ModelTryoutModeshowTab({
           className={portalTitlebarPillClass(variant === 'primary' || variant === 'join')}
           style={
             variant === 'join'
-              ? { background: '#b8e0c8', color: '#14301f', borderColor: '#8fc9a6' }
+              ? { ...compactBtnStyle, background: '#b8e0c8', color: '#14301f', borderColor: '#8fc9a6' }
               : variant === 'decline'
-                ? { background: '#c43c3c', color: '#fff', borderColor: '#a83232' }
-                : undefined
+                ? { ...compactBtnStyle, background: '#c43c3c', color: '#fff', borderColor: '#a83232' }
+                : compactBtnStyle
           }
         >
           {label}
@@ -358,10 +368,18 @@ export function ModelTryoutModeshowTab({
   const computedHeaderRight = useMemo(() => {
     if (!canBriefs || loading || !state) return null;
 
+    const infoBtn = headerBtn(panel === 'info' ? 'Terug' : 'Info', () =>
+      setPanel((p) => (p === 'info' ? 'summary' : 'info')),
+    );
+    const trailersBtn = headerBtn(panel === 'trailers' ? 'Terug' : 'Trailers', () =>
+      setPanel((p) => (p === 'trailers' ? 'summary' : 'trailers')),
+    );
+
     if (paid) {
       return (
-        <div className="flex flex-wrap justify-end gap-2">
-          {headerBtn('Info try-out modeshow', () => setPanel((p) => (p === 'info' ? 'summary' : 'info')))}
+        <div className="flex flex-wrap justify-end gap-1.5">
+          {infoBtn}
+          {trailersBtn}
           <span className="self-center text-[11px] font-medium" style={{ color: 'var(--n-gold)' }}>
             Ingeschreven{reg?.isFree ? ' (gratis)' : ''}
           </span>
@@ -373,14 +391,14 @@ export function ModelTryoutModeshowTab({
 
     if (status === 'none' || declined) {
       buttons.push(
-        headerBtn('Ik wens deel te nemen', () => void interest(true), { variant: 'join' }),
-        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
+        headerBtn('Deelnemen', () => void interest(true), { variant: 'join' }),
+        headerBtn('Niet deelnemen', () => setDeclineOpen(true), { variant: 'decline' }),
       );
     } else if (interested) {
       buttons.push(
-        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
+        headerBtn('Niet deelnemen', () => setDeclineOpen(true), { variant: 'decline' }),
         !hasTerms
-          ? headerBtn('Akkoord — verder naar afrekenen', () => attemptCheckout(), { variant: 'primary' })
+          ? headerBtn('Akkoord — afrekenen', () => attemptCheckout(), { variant: 'primary' })
           : canPay
             ? headerBtn(
                 busy ? 'Bezig…' : couponPreview?.isFree ? 'Gratis inschrijven' : `Afrekenen (${priceLabel})`,
@@ -391,13 +409,9 @@ export function ModelTryoutModeshowTab({
       );
     }
 
-    buttons.push(
-      headerBtn(panel === 'info' ? 'Terug' : 'Info try-out modeshow', () =>
-        setPanel((p) => (p === 'info' ? 'summary' : 'info')),
-      ),
-    );
+    buttons.push(infoBtn, trailersBtn);
 
-    return <div className="flex flex-wrap justify-end gap-2">{buttons}</div>;
+    return <div className="flex flex-wrap justify-end gap-1.5">{buttons}</div>;
   }, [
     attemptCheckout,
     attemptPay,
@@ -460,8 +474,13 @@ export function ModelTryoutModeshowTab({
           title="Schrijf je in voor de Try-out Modeshow!"
           actions={!onHeaderRightChange ? computedHeaderRight : undefined}
         />
+      ) : panel === 'trailers' ? (
+        <ModelTabPageHeader
+          title="Trailers"
+          actions={!onHeaderRightChange ? computedHeaderRight : undefined}
+        />
       ) : !onHeaderRightChange ? (
-        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
+        <div className="mb-1 flex flex-wrap justify-end gap-1.5">{computedHeaderRight}</div>
       ) : null}
 
       {err ? (
@@ -474,6 +493,8 @@ export function ModelTryoutModeshowTab({
         <div className="nieuw-panel">
           <TryoutModeshowInfoContent priceLabel={priceLabel} />
         </div>
+      ) : panel === 'trailers' ? (
+        <TryoutTrailersContent />
       ) : (
         <>
           <div className="nieuw-panel">
@@ -507,8 +528,8 @@ export function ModelTryoutModeshowTab({
             <div className="nieuw-panel">
               <p style={{ margin: 0, fontWeight: 600, color: 'var(--n-ink)' }}>Uw keuze</p>
               <p style={{ margin: '10px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
-                Gebruik de knoppen rechtsboven om aan te geven of u wilt deelnemen aan de try-out modeshow, of lees
-                eerst de info.
+                Gebruik de knoppen rechtsboven om aan te geven of u wilt deelnemen aan de try-out modeshow, of bekijk
+                eerst de info of de trailers.
               </p>
             </div>
           ) : null}
@@ -525,7 +546,7 @@ export function ModelTryoutModeshowTab({
                   </>
                 ) : null}
                 . Bent u van gedacht veranderd, dan kunt u nog steeds deelnemen — zolang er nog plaats is. Gebruik
-                daarvoor de knop «Ik wens deel te nemen».
+                daarvoor de knop «Deelnemen».
               </p>
             </div>
           ) : null}

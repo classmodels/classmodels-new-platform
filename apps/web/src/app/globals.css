@@ -337,8 +337,8 @@ body {
   height: 96px;
   padding: 8px;
   background: #000;
-  /* 5px gouden kader rond het logo */
-  border: 5px solid #c9a24a;
+  /* Dun gouden kader rond het logo */
+  border: 1.5px solid #c9a24a;
   box-shadow: none;
   transition: border-color 0.15s ease, filter 0.15s ease;
 }
