@@ -188,10 +188,14 @@ export function ModelPortfolioTab({
 
   return (
     <div className="space-y-3">
-      <ModelTabPageHeader
-        title="Fotoshoot voor Portfolio"
-        actions={!onHeaderRightChange ? computedHeaderRight : undefined}
-      />
+      {panel === 'info' ? (
+        <ModelTabPageHeader
+          title="Fotoshoot voor Portfolio"
+          actions={!onHeaderRightChange ? computedHeaderRight : undefined}
+        />
+      ) : !onHeaderRightChange ? (
+        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
+      ) : null}
       {downloadProgress ? (
         <CmProgressOverlay
           label="Portfolio downloaden…"

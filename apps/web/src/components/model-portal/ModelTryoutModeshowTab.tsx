@@ -455,10 +455,14 @@ export function ModelTryoutModeshowTab({
 
   return (
     <div className="space-y-4 text-sm leading-relaxed">
-      <ModelTabPageHeader
-        title="Schrijf je in voor de Try-out Modeshow!"
-        actions={!onHeaderRightChange ? computedHeaderRight : undefined}
-      />
+      {panel === 'info' ? (
+        <ModelTabPageHeader
+          title="Schrijf je in voor de Try-out Modeshow!"
+          actions={!onHeaderRightChange ? computedHeaderRight : undefined}
+        />
+      ) : !onHeaderRightChange ? (
+        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
+      ) : null}
 
       {err ? (
         <p className="text-xs" style={{ color: '#f87171', margin: 0 }}>
