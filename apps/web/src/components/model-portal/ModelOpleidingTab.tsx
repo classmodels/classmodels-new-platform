@@ -157,7 +157,7 @@ export function ModelOpleidingTab({
   return (
     <div className="space-y-3">
       <ModelTabPageHeader
-        title="Opleidingsafspraak"
+        title="Inschrijven voor de basisopleiding"
         actions={!onHeaderRightChange ? computedHeaderRight : undefined}
       />
       {err ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div> : null}

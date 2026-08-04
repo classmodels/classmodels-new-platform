@@ -456,7 +456,7 @@ export function ModelTryoutModeshowTab({
   return (
     <div className="space-y-4 text-sm leading-relaxed">
       <ModelTabPageHeader
-        title="Try-out modeshow"
+        title="Schrijf je in voor de Try-out Modeshow!"
         actions={!onHeaderRightChange ? computedHeaderRight : undefined}
       />
 

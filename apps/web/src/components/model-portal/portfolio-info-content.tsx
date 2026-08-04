@@ -69,22 +69,9 @@ export function PortfolioInfoContent() {
   return (
     <div style={{ display: 'grid', gap: 0, fontSize: 12.5, lineHeight: 1.65, color: 'var(--n-mut)' }}>
       <header style={{ paddingBottom: 18 }}>
-        <h2
-          style={{
-            margin: 0,
-            fontFamily: 'var(--n-serif)',
-            fontSize: 'clamp(20px, 2.6vw, 26px)',
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            color: 'var(--n-gold)',
-            lineHeight: 1.25,
-          }}
-        >
-          Fotoshoot voor Portfolio
-        </h2>
         <p
           style={{
-            margin: '10px 0 0',
+            margin: 0,
             fontSize: 13,
             fontWeight: 600,
             letterSpacing: '0.06em',

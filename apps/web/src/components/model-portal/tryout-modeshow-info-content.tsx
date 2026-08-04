@@ -31,22 +31,9 @@ export function TryoutModeshowInfoContent({ priceLabel = '€ 600' }: { priceLab
   return (
     <div style={{ display: 'grid', gap: 0, fontSize: 12.5, lineHeight: 1.65, color: 'var(--n-mut)' }}>
       <header style={{ paddingBottom: 18 }}>
-        <h2
-          style={{
-            margin: 0,
-            fontFamily: 'var(--n-serif)',
-            fontSize: 'clamp(20px, 2.6vw, 26px)',
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            color: 'var(--n-gold)',
-            lineHeight: 1.25,
-          }}
-        >
-          Schrijf je in voor de Try-out Modeshow!
-        </h2>
         <p
           style={{
-            margin: '14px 0 0',
+            margin: 0,
             fontSize: 13.5,
             fontWeight: 600,
             color: 'var(--n-ink)',

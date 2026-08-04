@@ -189,7 +189,7 @@ export function ModelPortfolioTab({
   return (
     <div className="space-y-3">
       <ModelTabPageHeader
-        title="Portfolio afspraak"
+        title="Fotoshoot voor Portfolio"
         actions={!onHeaderRightChange ? computedHeaderRight : undefined}
       />
       {downloadProgress ? (
