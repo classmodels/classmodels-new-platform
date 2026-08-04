@@ -133,6 +133,18 @@ export function MobileModelAppShell({ children }: { children: ReactNode }) {
             <span>Gastenportaal</span>
             <span aria-hidden>›</span>
           </Link>
+          <Link
+            href={user ? '/klanten' : '/?m=client'}
+            className="flex items-center justify-between gap-2 px-4 py-3 text-[14px] font-semibold"
+            style={{
+              color: BAR_TEXT,
+              borderBottom: '1px solid rgba(243,234,216,0.1)',
+              background: 'rgba(243,234,216,0.08)',
+            }}
+          >
+            <span>Klantenportaal</span>
+            <span aria-hidden>›</span>
+          </Link>
         </nav>
       </aside>
 

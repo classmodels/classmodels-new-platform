@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { parseKlantenTab, type KlantenTabId } from '@/components/nieuw/KlantenPortalClient';
 
 const BG = '#f1eee8';
 const CARD = '#faf8f4';
@@ -14,31 +15,29 @@ const BAR_TEXT = '#f3ead8';
 const CTA_BG = '#372c1f';
 const CTA_TEXT = '#f6efe2';
 
-const GUEST_MENU_LINKS = [
-  { label: 'Gastenportaal (home)', href: '/?m=guest' },
-  { label: 'Model worden', href: '/?m=guest&info=model-worden' },
-  { label: 'Gratis testshoot', href: '/?m=guest&info=gratis-fotoshoot' },
-  { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
-  { label: 'Casting', href: '/?m=guest&info=casting' },
-  { label: 'Intake gesprek', href: '/?m=guest&info=intake' },
-  { label: 'Doelgroepen', href: '/?m=guest&info=doelgroepen' },
-  { label: 'Veelgestelde vragen', href: '/?m=guest&info=faq' },
-  { label: 'Reviews', href: '/reviews' },
-  { label: 'Contact', href: '/?m=guest&info=contact' },
-] as const;
+const KLANTEN_TABS: { id: KlantenTabId; label: string; href: string }[] = [
+  { id: 'home', label: 'Home', href: '/klanten' },
+  { id: 'tarieven', label: 'Tarieven', href: '/klanten?tab=tarieven' },
+  { id: 'modellen', label: 'Modellen', href: '/klanten?tab=modellen' },
+  { id: 'gekozen', label: 'Gekozen', href: '/klanten?tab=gekozen' },
+  { id: 'aanvraag', label: 'Casting aanvragen', href: '/klanten?tab=aanvraag' },
+  { id: 'aanvragen', label: 'Mijn aanvragen', href: '/klanten?tab=aanvragen' },
+];
 
-export function MobileGuestAppShell({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  children: ReactNode;
-}) {
+export function MobileClientAppShell({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tab = pathname?.startsWith('/klanten/registreren')
+    ? null
+    : parseKlantenTab(searchParams.get('tab'));
   const [open, setOpen] = useState(false);
+
+  const title =
+    pathname?.startsWith('/klanten/registreren')
+      ? 'Account aanmaken'
+      : KLANTEN_TABS.find((t) => t.id === tab)?.label ?? 'Klantenportaal';
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
@@ -60,9 +59,11 @@ export function MobileGuestAppShell({
             </span>
           </button>
           <div className="min-w-0 flex-1">
-            <p className="notranslate m-0 truncate text-sm font-bold uppercase leading-tight tracking-wide">{title}</p>
+            <p className="notranslate m-0 truncate text-sm font-bold uppercase leading-tight tracking-wide">
+              Klantenportaal
+            </p>
             <p className="m-0 truncate text-[11px] leading-tight" style={{ color: 'rgba(243,234,216,0.75)' }}>
-              {subtitle}
+              {title}
             </p>
           </div>
           {user ? (
@@ -88,7 +89,7 @@ export function MobileGuestAppShell({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Gastenportaal menu"
+        aria-label="Klantenportaal menu"
         className={`fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col shadow-2xl transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -97,7 +98,7 @@ export function MobileGuestAppShell({
         <div className="cm-appbar-safe shrink-0" style={{ borderBottom: '1px solid rgba(243,234,216,0.15)' }}>
           <div className="flex h-12 items-center justify-between gap-2 pl-4 pr-1">
             <p className="notranslate m-0 truncate text-sm font-bold uppercase tracking-wide" style={{ color: BAR_TEXT }}>
-              Gastenportaal
+              Menu
             </p>
             <button
               type="button"
@@ -111,22 +112,50 @@ export function MobileGuestAppShell({
           </div>
         </div>
         <nav className="cm-safe-bottom min-h-0 flex-1 overflow-y-auto" onClick={() => setOpen(false)}>
-          {GUEST_MENU_LINKS.map((m) => (
+          {KLANTEN_TABS.map((t) => (
             <Link
-              key={m.label}
-              href={m.href}
-              className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-medium"
-              style={{ color: '#e8e0cf', borderBottom: '1px solid rgba(243,234,216,0.1)' }}
+              key={t.id}
+              href={t.href}
+              className="flex items-center justify-between gap-2 px-4 py-3 text-[14px] font-medium"
+              style={{
+                color: t.id === tab ? BAR_TEXT : '#e8e0cf',
+                borderBottom: '1px solid rgba(243,234,216,0.1)',
+                background: t.id === tab ? 'rgba(243,234,216,0.12)' : undefined,
+              }}
             >
-              <span>{m.label}</span>
+              <span>{t.label}</span>
               <span aria-hidden style={{ color: 'rgba(243,234,216,0.5)' }}>
                 ›
               </span>
             </Link>
           ))}
+          {!user ? (
+            <Link
+              href="/?m=client"
+              className="flex items-center justify-between gap-2 px-4 py-3 text-[14px] font-medium"
+              style={{ color: '#e8e0cf', borderBottom: '1px solid rgba(243,234,216,0.1)' }}
+            >
+              <span>Inloggen / account</span>
+              <span aria-hidden style={{ color: 'rgba(243,234,216,0.5)' }}>
+                ›
+              </span>
+            </Link>
+          ) : null}
+          <Link
+            href="/?m=guest"
+            className="flex items-center justify-between gap-2 px-4 py-3 text-[14px] font-semibold"
+            style={{
+              color: BAR_TEXT,
+              borderBottom: '1px solid rgba(243,234,216,0.1)',
+              background: 'rgba(243,234,216,0.08)',
+            }}
+          >
+            <span>Gastenportaal</span>
+            <span aria-hidden>›</span>
+          </Link>
           <Link
             href={user ? '/modellen' : '/?m=model'}
-            className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-semibold"
+            className="flex items-center justify-between gap-2 px-4 py-3 text-[14px] font-semibold"
             style={{
               color: BAR_TEXT,
               borderBottom: '1px solid rgba(243,234,216,0.1)',
@@ -134,30 +163,14 @@ export function MobileGuestAppShell({
             }}
           >
             <span>Modellenportaal</span>
-            <span aria-hidden style={{ color: 'rgba(243,234,216,0.5)' }}>
-              ›
-            </span>
-          </Link>
-          <Link
-            href={user ? '/klanten' : '/?m=client'}
-            className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-semibold"
-            style={{
-              color: BAR_TEXT,
-              borderBottom: '1px solid rgba(243,234,216,0.1)',
-              background: 'rgba(243,234,216,0.08)',
-            }}
-          >
-            <span>Klantenportaal</span>
-            <span aria-hidden style={{ color: 'rgba(243,234,216,0.5)' }}>
-              ›
-            </span>
+            <span aria-hidden>›</span>
           </Link>
         </nav>
       </aside>
 
-      <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
+      <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-3 pb-10 pt-2">
         <div
-          className="sticky z-30 -mx-4 flex items-center justify-between gap-2.5 px-4 py-2.5"
+          className="sticky z-30 -mx-3 mb-3 flex items-center justify-between gap-2.5 px-3 py-2.5"
           style={{
             top: 'calc(48px + env(safe-area-inset-top, 0px))',
             background: BG,
@@ -168,7 +181,7 @@ export function MobileGuestAppShell({
             type="button"
             onClick={() => {
               if (typeof window !== 'undefined' && window.history.length > 1) router.back();
-              else router.push('/?m=guest');
+              else router.push('/');
             }}
             className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
             style={{ color: TEXT, border: `1px solid ${LINE}`, background: CARD }}
@@ -176,14 +189,13 @@ export function MobileGuestAppShell({
             ← Terug
           </button>
           <Link
-            href="/?m=guest"
+            href="/"
             className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
             style={{ color: CTA_TEXT, background: CTA_BG, border: `1px solid ${CTA_BG}` }}
           >
             Beginpagina
           </Link>
         </div>
-
         {children}
       </div>
     </div>

@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
 import type { CatalogModel } from '@/components/models-catalog/ModelsCatalogGrid';
 import { PartnersStrip } from '@/components/PartnersStrip';
+import { useIsMobile } from '@/lib/use-is-mobile';
 
 const PACKAGES = [
   {
@@ -90,6 +91,10 @@ type BriefRow = {
 };
 
 function GuestLanding() {
+  const isMobile = useIsMobile() === true;
+  const loginHref = isMobile ? '/?m=client' : '/inloggen';
+  const registerHref = '/klanten/registreren';
+
   return (
     <>
       <section className="nieuw-hero nieuw-hero-compact">
@@ -106,8 +111,11 @@ function GuestLanding() {
               productshoots. Duidelijke selectie, snelle shortlists en professionele opvolging.
             </p>
             <div className="nieuw-hero-actions">
-              <Link className="nieuw-btn" href="/inloggen">
+              <Link className="nieuw-btn" href={loginHref}>
                 Inloggen
+              </Link>
+              <Link className="nieuw-btn nieuw-btn-ghost" href={registerHref}>
+                Account aanmaken
               </Link>
             </div>
             <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen na inloggen">

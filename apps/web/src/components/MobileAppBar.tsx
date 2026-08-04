@@ -34,10 +34,12 @@ function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
           ›
         </span>
       </Link>
-      {/* Klantenportaal is nog niet actief — zichtbaar maar niet aanklikbaar. */}
-      <div aria-disabled="true" className={`${portalRowClass} cursor-default opacity-60 hover:bg-[#33291d]`}>
-        <span>Klantenportaal (binnenkort)</span>
-      </div>
+      <Link href={user ? '/klanten' : '/?m=client'} className={portalRowClass}>
+        <span>Klantenportaal</span>
+        <span className="text-white/70" aria-hidden>
+          ›
+        </span>
+      </Link>
       {user ? (
         <button
           type="button"

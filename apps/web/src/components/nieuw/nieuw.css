@@ -90,6 +90,54 @@
     border-color: #ddd5c7 !important;
     color: #372c1f !important;
   }
+  .nieuw-root--app-mobile-page .nieuw-main {
+    padding-top: 4px;
+  }
+  .nieuw-root--app-mobile-page .nieuw-hero,
+  .nieuw-root--app-mobile-page .nieuw-hero-compact {
+    padding-top: 8px;
+    padding-bottom: 28px;
+  }
+  .nieuw-root--app-mobile-page .nieuw-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .nieuw-root--app-mobile-page .nieuw-hero-card {
+    background: #faf8f4;
+    border-color: #ddd5c7;
+  }
+  .nieuw-root--app-mobile-page .nieuw-hero-card-body h2 {
+    color: #372c1f;
+  }
+  .nieuw-root--app-mobile-page .nieuw-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .nieuw-root--app-mobile-page .nieuw-models {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .nieuw-root--app-mobile-page .nieuw-model {
+    background: #faf8f4;
+    border-color: #ddd5c7;
+  }
+  .nieuw-root--app-mobile-page .nieuw-model:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  .nieuw-root--app-mobile-page .nieuw-model-foto {
+    background: #e8e2d8;
+  }
+  .nieuw-root--app-mobile-page .nieuw-model-meta h4,
+  .nieuw-root--app-mobile-page .nieuw-model-meta p {
+    color: #372c1f;
+  }
+  .nieuw-root--app-mobile-page .nieuw-price {
+    color: #8a6a3b;
+  }
+  .nieuw-root--app-mobile-page .nieuw-checklist li,
+  .nieuw-root--app-mobile-page .nieuw-klant-can-do li {
+    color: #7a6e5d;
+  }
 }
 .nieuw-label {
   font-size: 10px;

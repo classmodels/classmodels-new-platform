@@ -24,6 +24,7 @@ const BOOK_FROM_INFO: Record<string, string> = {
 function allowMobilePath(pathname: string): boolean {
   if (pathname === '/') return true;
   if (pathname.startsWith('/modellen')) return true;
+  if (pathname.startsWith('/klanten')) return true;
   if (pathname === '/reviews' || pathname.startsWith('/reviews/')) return true;
   if (pathname.startsWith('/gasten/testshoot')) return true;
   if (pathname.startsWith('/gasten/annuleer')) return true;

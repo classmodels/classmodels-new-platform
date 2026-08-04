@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { MobileClientAppShell } from '@/components/MobileClientAppShell';
 import { MobileGuestAppShell } from '@/components/MobileGuestAppShell';
 import { MobileModelAppShell } from '@/components/MobileModelAppShell';
 import { useIsMobile } from '@/lib/use-is-mobile';
@@ -97,12 +98,13 @@ export function NieuwShell({
   const activePortal = portal ?? portalFromPath(pathname);
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
   const onBooking = isBookingPage(pathname);
-  /** Op gsm: gasten/modellen in de app-shell (niet de desktop-header). */
+  /** Op gsm: gasten/modellen/klanten in de app-shell (niet de desktop-header). */
   const appMobileGuest =
     isMobile === true &&
     Boolean(pathname?.startsWith('/gasten') || pathname === '/reviews' || pathname?.startsWith('/reviews/'));
   const appMobileModel = isMobile === true && Boolean(pathname?.startsWith('/modellen'));
-  const appMobilePage = appMobileGuest || appMobileModel;
+  const appMobileClient = isMobile === true && Boolean(pathname?.startsWith('/klanten'));
+  const appMobilePage = appMobileGuest || appMobileModel || appMobileClient;
 
   const isKlantUser = Boolean(
     user?.roles?.includes('client') ||
@@ -312,6 +314,10 @@ export function NieuwShell({
 
   if (appMobileModel) {
     return <MobileModelAppShell>{shellBody}</MobileModelAppShell>;
+  }
+
+  if (appMobileClient) {
+    return <MobileClientAppShell>{shellBody}</MobileClientAppShell>;
   }
 
   if (appMobileGuest) {

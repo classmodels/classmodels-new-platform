@@ -21,15 +21,12 @@ import {
 } from '@/components/SiteIntroOverlay';
 
 /**
- * Mobiele versie (gsm + app). Drie schermen, gestuurd met `?m=`:
- * - start (geen parameter): heel eenvoudig — kies Gastenportaal, Modellenportaal
- *   of Klantenportaal (nog niet aanklikbaar). Geen menu zichtbaar.
- * - `?m=guest`: het gastenportaal — "Maak snel een keuze" (gratis testshoot,
- *   casting, intake gesprek) en info model worden, met alleen het gastmenu.
- * - `?m=model`: het modellenportaal — duidelijk inloggen, wachtwoord vergeten
- *   of account aanmaken; alleen voor modellen met een contract.
- * Kleuren: zeer licht warmgrijs met donkerbruine en bronzen accenten
- * (naar de sfeer van de welkomsthal). De pc-versie blijft volledig ongewijzigd.
+ * Mobiele versie (gsm + app). Schermen gestuurd met `?m=`:
+ * - start (geen parameter): kies Gastenportaal, Modellenportaal of Klantenportaal.
+ * - `?m=guest`: gastenportaal (testshoot, casting, intake, info).
+ * - `?m=model`: modellenportaal — inloggen / account (contractmodellen).
+ * - `?m=client`: klantenportaal — inloggen / account (bedrijven & merken).
+ * Kleuren: licht warmgrijs met donkerbruine en bronzen accenten.
  */
 
 const BG = '#f1eee8';
@@ -482,21 +479,26 @@ function StartView() {
             </span>
           </Link>
 
-          {/* Klantenportaal — zichtbaar maar nog niet aanklikbaar. */}
-          <div
-            aria-disabled="true"
-            className="rounded-xl px-4 py-5"
-            style={{ background: CARD, border: `1px solid ${LINE}`, opacity: 0.55 }}
+          {/* Klantenportaal */}
+          <Link
+            href={user ? '/klanten' : '/?m=client'}
+            className="block rounded-xl px-4 py-5 shadow-sm"
+            style={{ background: CARD, border: `1px solid ${LINE}` }}
           >
             <span className="flex items-center justify-between gap-3">
               <span className="font-serif text-[21px] font-semibold" style={{ color: TEXT }}>
                 Klantenportaal
               </span>
+              <span aria-hidden className="text-xl" style={{ color: ACCENT }}>
+                ›
+              </span>
             </span>
             <span className="mt-1.5 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
-              Voor bedrijven en klanten — binnenkort beschikbaar.
+              {user
+                ? 'U bent ingelogd — klik hier om naar het klantenportaal te gaan.'
+                : 'Voor bedrijven en merken — casting, shortlist en boekingen.'}
             </span>
-          </div>
+          </Link>
         </div>
 
         <InstallAppSection />
@@ -718,13 +720,20 @@ function GuestView() {
               ›
             </span>
           </Link>
-          <div
-            aria-disabled="true"
+          <Link
+            href={user ? '/klanten' : '/?m=client'}
             className="flex items-center justify-between gap-2 px-4 py-3 text-[14.5px] font-semibold"
-            style={{ color: 'rgba(243,234,216,0.5)', borderBottom: '1px solid rgba(243,234,216,0.1)' }}
+            style={{
+              color: BAR_TEXT,
+              borderBottom: '1px solid rgba(243,234,216,0.1)',
+              background: 'rgba(243,234,216,0.08)',
+            }}
           >
-            <span>Klantenportaal (binnenkort)</span>
-          </div>
+            <span>Klantenportaal</span>
+            <span aria-hidden style={{ color: 'rgba(243,234,216,0.5)' }}>
+              ›
+            </span>
+          </Link>
         </nav>
       </aside>
 
@@ -1165,6 +1174,392 @@ function ModelView() {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Klantenportaal: inloggen / wachtwoord vergeten / account aanmaken. */
+/* ------------------------------------------------------------------ */
+
+type ClientMode = 'login' | 'forgot' | 'register';
+
+function hasBackofficePerms(u: { permissions?: string[] }) {
+  const p = u.permissions ?? [];
+  return p.includes('*') || p.some((x) => x.startsWith('admin.'));
+}
+
+function ClientView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next');
+  const { login, register: registerUser, logout, user, loading } = useAuth();
+  const [mode, setMode] = useState<ClientMode>('login');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!loading && user) {
+      applyPostLoginRedirect(user, router, { next });
+    }
+  }, [loading, user, router, next]);
+
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
+  const [email2, setEmail2] = useState('');
+  const [pass2, setPass2] = useState('');
+  const [company, setCompany] = useState('');
+  const [first, setFirst] = useState('');
+  const [last, setLast] = useState('');
+  const [phone, setPhone] = useState('');
+  const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+
+  const switchMode = (m: ClientMode) => {
+    setMode(m);
+    setErr(null);
+    setForgotMsg(null);
+  };
+
+  const onLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setBusy(true);
+    try {
+      const u = await login(email.trim(), pass, { rememberMe });
+      if (u.roles.includes('model') && !u.roles.includes('client') && !hasBackofficePerms(u)) {
+        logout();
+        setErr('Dit is een modellenaccount. Gebruik het modellenportaal om in te loggen.');
+        return;
+      }
+      applyPostLoginRedirect(u, router, { next });
+    } catch (er) {
+      setErr(parseApiError(er, 'Inloggen is niet gelukt. Controleer uw gegevens.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    if (!company.trim()) {
+      setErr('Bedrijfsnaam is verplicht voor een klantenaccount.');
+      return;
+    }
+    if (email.trim().toLowerCase() !== email2.trim().toLowerCase()) {
+      setErr('De e-mailadressen komen niet overeen.');
+      return;
+    }
+    if (pass !== pass2) {
+      setErr('De wachtwoorden komen niet overeen.');
+      return;
+    }
+    if (pass.length < 6) {
+      setErr('Kies een wachtwoord van minstens 6 tekens.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const u = await registerUser({
+        role: 'client',
+        email: email.trim(),
+        password: pass,
+        companyName: company.trim(),
+        firstName: first.trim() || undefined,
+        lastName: last.trim() || undefined,
+        phone: phone.trim() || undefined,
+      });
+      applyPostLoginRedirect(u, router, { next });
+    } catch (er) {
+      setErr(parseApiError(er, 'Account aanmaken is niet gelukt.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErr(null);
+    setForgotMsg(null);
+    setBusy(true);
+    try {
+      const res = await apiFetch<{ message?: string }>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ identifier: email.trim() }),
+      });
+      setForgotMsg(
+        res.message ??
+          'Als er een account is, ontvangt u een e-mail met instructies. Controleer ook uw spamfolder.',
+      );
+    } catch (er) {
+      setErr(parseApiError(er, 'Versturen is niet gelukt. Probeer het later opnieuw.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const inputClass = 'mt-2.5 w-full rounded-lg px-3.5 py-3 text-[15px] outline-none';
+  const inputStyle: React.CSSProperties = {
+    background: '#ffffff',
+    border: `1px solid ${LINE}`,
+    color: TEXT,
+  };
+
+  const modeTabs: { id: ClientMode; label: string }[] = [
+    { id: 'login', label: 'Inloggen' },
+    { id: 'forgot', label: 'Wachtwoord vergeten' },
+    { id: 'register', label: 'Account aanmaken' },
+  ];
+
+  if (loading || user) {
+    return (
+      <>
+        <TopBar title="Klantenportaal" subtitle="Even geduld…" />
+        <div className="mx-auto w-full max-w-[560px] px-4 pt-10 text-center text-[14px]" style={{ color: TEXT_SOFT }}>
+          {user ? 'U bent al ingelogd — u wordt doorgestuurd naar het klantenportaal…' : 'Laden…'}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <TopBar title="Klantenportaal" subtitle="Inloggen of account aanmaken" />
+      <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
+        <BackRow />
+
+        <h1 className="m-0 mt-5 font-serif text-[25px] font-semibold leading-tight">
+          <span style={{ color: ACCENT }}>Klantenportaal</span>
+        </h1>
+
+        <div
+          className="mt-3 rounded-xl px-4 py-3"
+          style={{ background: '#f5edda', border: `1px solid ${ACCENT}66` }}
+        >
+          <p className="m-0 text-[13.5px] leading-snug" style={{ color: TEXT }}>
+            <strong style={{ color: ACCENT }}>Voor bedrijven &amp; merken.</strong> Casting
+            aanvragen, shortlist en boekingen. Bent u model? Ga naar het{' '}
+            <Link href="/?m=model" className="font-semibold underline underline-offset-2" style={{ color: ACCENT }}>
+              modellenportaal
+            </Link>
+            .
+          </p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-3 gap-2">
+          {modeTabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => switchMode(t.id)}
+              aria-pressed={mode === t.id}
+              className="rounded-lg px-1 py-2.5 text-center text-[12.5px] font-semibold leading-tight"
+              style={
+                mode === t.id
+                  ? { background: CTA_BG, color: CTA_TEXT }
+                  : { color: TEXT_SOFT, border: `1px solid ${LINE}`, background: CARD }
+              }
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div
+          className="mt-4 rounded-xl px-4 py-5 shadow-sm"
+          style={{ background: CARD, border: `1px solid ${LINE}` }}
+        >
+          {err ? (
+            <p
+              className="m-0 mb-3 rounded-lg px-3 py-2 text-[13px]"
+              style={{ background: '#fbeae7', border: '1px solid #e5b3aa', color: '#8f2318' }}
+            >
+              {err}
+            </p>
+          ) : null}
+
+          {mode === 'login' ? (
+            <form onSubmit={onLogin}>
+              <h2 className="m-0 font-serif text-[19px] font-semibold" style={{ color: TEXT }}>
+                Inloggen
+              </h2>
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="text"
+                autoComplete="username"
+                placeholder="E-mailadres"
+                required
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="password"
+                autoComplete="current-password"
+                placeholder="Wachtwoord"
+                required
+                minLength={6}
+                value={pass}
+                onChange={(ev) => setPass(ev.target.value)}
+              />
+              <label className="mt-3 flex items-center gap-2 text-[13px]" style={{ color: TEXT_SOFT }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(ev) => setRememberMe(ev.target.checked)}
+                />
+                Wachtwoord onthouden
+              </label>
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-4 w-full rounded-lg py-3 text-[14px] font-semibold disabled:opacity-55"
+                style={{ background: CTA_BG, color: CTA_TEXT }}
+              >
+                {busy ? 'Bezig…' : 'Inloggen als klant'}
+              </button>
+            </form>
+          ) : null}
+
+          {mode === 'forgot' ? (
+            <form onSubmit={onForgot}>
+              <h2 className="m-0 font-serif text-[19px] font-semibold" style={{ color: TEXT }}>
+                Wachtwoord vergeten
+              </h2>
+              <p className="m-0 mt-2 text-[13px] leading-snug" style={{ color: TEXT_SOFT }}>
+                Vul uw e-mailadres in. U ontvangt instructies om een nieuw wachtwoord in te stellen.
+              </p>
+              {forgotMsg ? (
+                <p
+                  className="m-0 mt-3 rounded-lg px-3 py-2 text-[13px]"
+                  style={{ background: '#eaf6ea', border: '1px solid #b5d8b5', color: '#1f5c2e' }}
+                >
+                  {forgotMsg}
+                </p>
+              ) : null}
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="email"
+                autoComplete="email"
+                placeholder="E-mailadres"
+                required
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-4 w-full rounded-lg py-3 text-[14px] font-semibold disabled:opacity-55"
+                style={{ background: CTA_BG, color: CTA_TEXT }}
+              >
+                {busy ? 'Bezig…' : 'Verstuur instructies'}
+              </button>
+            </form>
+          ) : null}
+
+          {mode === 'register' ? (
+            <form onSubmit={onRegister}>
+              <h2 className="m-0 font-serif text-[19px] font-semibold" style={{ color: TEXT }}>
+                Account aanmaken
+              </h2>
+              <p className="m-0 mt-2 text-[13px] leading-snug" style={{ color: TEXT_SOFT }}>
+                Voor bedrijven en merken die castings en boekingen willen beheren.
+              </p>
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="text"
+                autoComplete="organization"
+                placeholder="Bedrijfsnaam *"
+                required
+                value={company}
+                onChange={(ev) => setCompany(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="text"
+                autoComplete="given-name"
+                placeholder="Voornaam"
+                value={first}
+                onChange={(ev) => setFirst(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="text"
+                autoComplete="family-name"
+                placeholder="Familienaam"
+                value={last}
+                onChange={(ev) => setLast(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="email"
+                autoComplete="email"
+                placeholder="E-mailadres *"
+                required
+                value={email}
+                onChange={(ev) => setEmail(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="email"
+                autoComplete="email"
+                placeholder="E-mailadres herhalen *"
+                required
+                value={email2}
+                onChange={(ev) => setEmail2(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="tel"
+                autoComplete="tel"
+                placeholder="Telefoon"
+                value={phone}
+                onChange={(ev) => setPhone(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="password"
+                autoComplete="new-password"
+                placeholder="Wachtwoord *"
+                required
+                minLength={6}
+                value={pass}
+                onChange={(ev) => setPass(ev.target.value)}
+              />
+              <input
+                className={inputClass}
+                style={inputStyle}
+                type="password"
+                autoComplete="new-password"
+                placeholder="Wachtwoord herhalen *"
+                required
+                minLength={6}
+                value={pass2}
+                onChange={(ev) => setPass2(ev.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={busy}
+                className="mt-4 w-full rounded-lg py-3 text-[14px] font-semibold disabled:opacity-55"
+                style={{ background: CTA_BG, color: CTA_TEXT }}
+              >
+                {busy ? 'Bezig…' : 'Account aanmaken'}
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function MobileBeginHome() {
   const searchParams = useSearchParams();
   const view = searchParams.get('m');
@@ -1221,7 +1616,15 @@ export function MobileBeginHome() {
           storageKey={MOBILE_INTRO_SEEN_KEY}
         />
       ) : null}
-      {view === 'guest' ? <GuestView /> : view === 'model' ? <ModelView /> : <StartView />}
+      {view === 'guest' ? (
+        <GuestView />
+      ) : view === 'model' ? (
+        <ModelView />
+      ) : view === 'client' ? (
+        <ClientView />
+      ) : (
+        <StartView />
+      )}
     </div>
   );
 }
