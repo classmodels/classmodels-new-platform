@@ -779,7 +779,7 @@ export class AgendaService implements OnModuleInit {
     const expected = buildSlotRowsForCalendar(cal);
     const existing = await this.prisma.agendaSlot.findMany({
       where: { calendarId, slotDate: { gte: dayGte, lte: dayLte } },
-      select: { id: true, startTime: true, endTime: true },
+      select: { id: true, startTime: true, endTime: true, capacity: true },
       orderBy: [{ startTime: 'asc' }, { createdAt: 'asc' }],
     });
 
@@ -839,12 +839,28 @@ export class AgendaService implements OnModuleInit {
         } catch {
           primaryEnd = '';
         }
-        if (primaryEnd !== exp.endTime) {
+        /**
+         * Meerdere rijen op hetzelfde uur = vroeger “openingen”.
+         * Bij samenvoegen: capaciteit optellen — nooit terugzetten naar 1.
+         */
+        const mergedCap = Math.max(
+          cal.capacity,
+          slotsAtStart.reduce((sum, s) => sum + Math.max(1, s.capacity || 1), 0),
+          bookingCounts.get(primary.id) ?? 0,
+          ...slotsAtStart.map((s) => bookingCounts.get(s.id) ?? 0),
+        );
+        const primaryCap = Math.max(1, primary.capacity || 1);
+        const patch: { endTime?: string; capacity?: number } = {};
+        if (primaryEnd !== exp.endTime) patch.endTime = exp.endTime;
+        if (mergedCap > primaryCap) patch.capacity = mergedCap;
+        if (Object.keys(patch).length) {
           await this.prisma.agendaSlot.update({
             where: { id: primary.id },
-            data: { endTime: exp.endTime },
+            data: patch,
           });
-          await syncBookingsEndAt(primary.id, dateOnly, exp.startTime, exp.endTime);
+          if (patch.endTime) {
+            await syncBookingsEndAt(primary.id, dateOnly, exp.startTime, exp.endTime);
+          }
         }
         for (const extra of slotsAtStart) {
           if (extra.id === primary.id) continue;
@@ -1902,6 +1918,19 @@ export class AgendaService implements OnModuleInit {
     }
 
     const updated = await this.prisma.agendaCalendar.update({ where: { id }, data });
+
+    /** Capaciteit omhoog: bestaande toekomstige sloten meekrijgen (nooit verlagen). */
+    if (dto.capacity !== undefined && dto.capacity > cal.capacity) {
+      const todayYmd = ymdEuropeBrussels(new Date());
+      await this.prisma.agendaSlot.updateMany({
+        where: {
+          calendarId: id,
+          slotDate: { gte: parseYmdDayStart(todayYmd) },
+          capacity: { lt: dto.capacity },
+        },
+        data: { capacity: dto.capacity },
+      });
+    }
 
     const scheduleChanged =
       dto.defaultDayStartTime !== undefined ||

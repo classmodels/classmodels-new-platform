@@ -188,6 +188,10 @@ export default function AdminAgendaCalendarDetailPage() {
       setMsg('Afspraakduur moet minstens 5 minuten zijn (bv. 120 voor 2 uur).');
       return;
     }
+    if (!Number.isFinite(cap) || cap < 1) {
+      setMsg('Aantal openingen per tijdslot moet minstens 1 zijn.');
+      return;
+    }
     if (restrictStarts && selectedStartsMin.size === 0) {
       setMsg('Selecteer minstens één startuur, of schakel “alleen deze starturen” uit.');
       return;

@@ -11,10 +11,13 @@ type NieuwAlertDialogProps = {
   items?: string[];
   onClose: () => void;
   confirmLabel?: string;
+  /** Optionele tweede knop (rechts, goud). */
+  primaryLabel?: string;
+  onPrimary?: () => void;
 };
 
 /**
- * Compacte, zakelijke melding in het midden van het scherm (zelfde stijl als try-out popups).
+ * Compacte melding midden op het scherm — donker + goud (Class-Models popups).
  */
 export function NieuwAlertDialog({
   open,
@@ -23,6 +26,8 @@ export function NieuwAlertDialog({
   items,
   onClose,
   confirmLabel = 'Sluiten',
+  primaryLabel,
+  onPrimary,
 }: NieuwAlertDialogProps) {
   if (!open || typeof document === 'undefined') return null;
 
@@ -46,7 +51,7 @@ export function NieuwAlertDialog({
           alignItems: 'center',
           justifyContent: 'center',
           padding: 16,
-          background: 'rgba(8, 8, 11, 0.72)',
+          background: 'rgba(0, 0, 0, 0.78)',
           boxSizing: 'border-box',
         }}
         onClick={(ev) => {
@@ -55,11 +60,10 @@ export function NieuwAlertDialog({
       >
         <div
           style={{
-            width: 'min(420px, 100%)',
-            background: '#16161e',
-            border: '1px solid rgba(212, 175, 106, 0.45)',
-            borderRadius: 4,
-            boxShadow: '0 18px 50px rgba(0,0,0,0.65)',
+            width: 'min(400px, 100%)',
+            background: '#0c0c10',
+            border: '1px solid rgba(212, 175, 106, 0.55)',
+            boxShadow: '0 18px 50px rgba(0,0,0,0.7)',
             overflow: 'hidden',
           }}
         >
@@ -69,9 +73,8 @@ export function NieuwAlertDialog({
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: 12,
-              padding: '12px 14px',
-              borderBottom: '1px solid rgba(243, 238, 230, 0.12)',
-              background: '#101016',
+              padding: '14px 16px',
+              borderBottom: '1px solid rgba(243, 238, 230, 0.14)',
             }}
           >
             <p
@@ -80,7 +83,7 @@ export function NieuwAlertDialog({
                 margin: 0,
                 fontSize: 11,
                 fontWeight: 700,
-                letterSpacing: '0.1em',
+                letterSpacing: '0.12em',
                 textTransform: 'uppercase',
                 color: '#d4af6a',
               }}
@@ -92,30 +95,30 @@ export function NieuwAlertDialog({
               aria-label="Sluiten"
               onClick={onClose}
               style={{
-                width: 28,
-                height: 28,
-                borderRadius: 4,
-                border: '1px solid rgba(243, 238, 230, 0.25)',
+                width: 30,
+                height: 30,
+                border: '1px solid rgba(243, 238, 230, 0.28)',
                 background: 'transparent',
                 color: '#f3eee6',
                 fontSize: 18,
                 lineHeight: 1,
                 cursor: 'pointer',
+                flexShrink: 0,
               }}
             >
               ×
             </button>
           </div>
 
-          <div style={{ padding: '18px 16px', color: '#9e9689', fontSize: 13, lineHeight: 1.55 }}>
+          <div style={{ padding: '20px 16px', color: '#cfc7ba', fontSize: 14, lineHeight: 1.55 }}>
             <p style={{ margin: 0, color: '#f3eee6' }}>{body}</p>
             {list.length > 0 ? (
               <ul
                 style={{
-                  margin: '12px 0 0',
+                  margin: '14px 0 0',
                   padding: '0 0 0 1.15em',
                   display: 'grid',
-                  gap: 6,
+                  gap: 8,
                   color: '#f3eee6',
                 }}
               >
@@ -130,15 +133,50 @@ export function NieuwAlertDialog({
             style={{
               display: 'flex',
               justifyContent: 'flex-end',
-              gap: 8,
-              padding: '12px 14px',
-              borderTop: '1px solid rgba(243, 238, 230, 0.12)',
-              background: '#101016',
+              flexWrap: 'wrap',
+              gap: 10,
+              padding: '12px 16px 14px',
+              borderTop: '1px solid rgba(243, 238, 230, 0.14)',
             }}
           >
-            <button type="button" className="nieuw-btn" onClick={onClose}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                minWidth: 110,
+                padding: '10px 16px',
+                border: '1px solid rgba(243, 238, 230, 0.35)',
+                background: 'transparent',
+                color: '#f3eee6',
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
               {confirmLabel}
             </button>
+            {primaryLabel && onPrimary ? (
+              <button
+                type="button"
+                onClick={onPrimary}
+                style={{
+                  minWidth: 140,
+                  padding: '10px 16px',
+                  border: 'none',
+                  background: '#d4af6a',
+                  color: '#0c0c10',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  cursor: 'pointer',
+                }}
+              >
+                {primaryLabel}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

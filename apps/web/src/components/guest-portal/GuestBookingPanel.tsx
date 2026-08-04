@@ -499,7 +499,7 @@ export function GuestBookingPanel({
       if (gebRaw) {
         gebNormalized = normalizeIsoBirthDateClient(gebRaw);
         if (!gebNormalized) {
-          missing.push('Geboortedatum (ongeldig — gebruik het datumveld)');
+          missing.push('Geboortedatum (ongeldig)');
         } else {
           setField('geboortedatum', gebNormalized);
           if (isMinorFromIsoDateString(gebNormalized)) {
@@ -514,7 +514,7 @@ export function GuestBookingPanel({
 
       if (missing.length) {
         showAlert({
-          title: 'Nog even aanvullen',
+          title: 'Ontbrekende gegevens',
           message: 'Gelieve de volgende gegevens nog in te vullen of te corrigeren:',
           items: missing,
         });
@@ -616,13 +616,17 @@ export function GuestBookingPanel({
       'w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400';
     const isPhone = ['telefoon', 'phone', 'gsm'].includes(f.fieldKey);
     const isNr = f.fieldKey === 'nr' || f.fieldKey === 'huisnummer';
+    const isBirth =
+      f.type === 'date' ||
+      ['geboortedatum', 'birthdate', 'birth_date'].includes(f.fieldKey.toLowerCase());
+    // type=date toont in browsers een “lege” datum die lijkt alsof die al ingevuld is.
     const inputType =
-      f.type === 'email'
-        ? 'email'
-        : f.type === 'tel' || isPhone
-          ? 'tel'
-          : f.type === 'date'
-            ? 'date'
+      isBirth
+        ? 'text'
+        : f.type === 'email'
+          ? 'email'
+          : f.type === 'tel' || isPhone
+            ? 'tel'
             : 'text';
 
     return (
@@ -680,10 +684,10 @@ export function GuestBookingPanel({
         {!['textarea', 'select', 'checkbox', 'file'].includes(f.type) ? (
           <input
             type={inputType}
-            inputMode={isPhone || isNr ? 'numeric' : undefined}
-            autoComplete={isPhone ? 'tel' : isNr ? 'address-line2' : undefined}
+            inputMode={isPhone || isNr ? 'numeric' : isBirth ? 'numeric' : undefined}
+            autoComplete={isPhone ? 'tel' : isNr ? 'address-line2' : isBirth ? 'bday' : undefined}
             className={common}
-            placeholder={ph}
+            placeholder={isBirth ? '' : ph}
             required={req}
             value={form[f.fieldKey] ?? ''}
             onChange={(ev) => setField(f.fieldKey, ev.target.value)}

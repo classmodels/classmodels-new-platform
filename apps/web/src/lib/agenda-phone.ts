@@ -77,5 +77,7 @@ export function agendaFieldPlaceholder(fieldKey: string, placeholder?: string): 
   const k = fieldKey.toLowerCase();
   if (k === 'telefoon' || k === 'phone' || k === 'gsm') return placeholder || '0498720371';
   if (k === 'nr' || k === 'huisnummer') return placeholder || 'Huisnr.';
+  // Geen voorbeeld-datum: ziet eruit alsof het veld al ingevuld is.
+  if (k === 'geboortedatum' || k === 'birthdate' || k === 'birth_date') return '';
   return placeholder ?? '';
 }
