@@ -5,19 +5,9 @@ import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { CmText } from '@/components/CmText';
-import { useIsMobile } from '@/lib/use-is-mobile';
-import {
-  OPLEIDING_INFO_BODY_FALLBACK,
-  OPLEIDING_INFO_TITLE_FALLBACK,
-} from '@/lib/opleiding-content-fields';
+import { OpleidingInfoContent } from '@/components/model-portal/opleiding-info-content';
 
 const OPLEIDING_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
-
-const APP_CARD = '#faf8f4';
-const APP_LINE = '#ddd5c7';
-const APP_TEXT = '#372c1f';
-const APP_SOFT = '#7a6e5d';
-const APP_ACCENT = '#8a6a3b';
 
 type BookingRow = {
   id: string;
@@ -34,7 +24,6 @@ export function ModelOpleidingTab({
   onHeaderRightChange?: (node: ReactNode | null) => void;
 }) {
   const { token, can } = useAuth();
-  const isMobile = useIsMobile() === true;
   const [booking, setBooking] = useState<BookingRow | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -132,7 +121,10 @@ export function ModelOpleidingTab({
   const computedHeaderRight = useMemo(() => {
     return (
       <div className="flex flex-wrap gap-2">
-        {headerBtn('Info opleiding', () => setPanel((p) => (p === 'info' ? 'summary' : 'info')))}
+        {headerBtn(
+          panel === 'info' ? 'Terug' : 'Info opleiding',
+          () => setPanel((p) => (p === 'info' ? 'summary' : 'info')),
+        )}
         {panel === 'book' ? headerBtn('Terug', () => setPanel('summary')) : null}
         {booking ? headerBtn('Afspraak verplaatsen', () => setPanel('book'), true) : null}
         {!booking && panel !== 'book' && !loading
@@ -161,43 +153,6 @@ export function ModelOpleidingTab({
     );
   }
 
-  const infoPanel = isMobile ? (
-    <div
-      className="space-y-3 rounded-xl px-4 py-4 text-[13.5px] leading-relaxed shadow-sm"
-      style={{ background: APP_CARD, border: `1px solid ${APP_LINE}`, color: APP_TEXT }}
-    >
-      <CmText
-        as="p"
-        contentKey="portal.model.opleiding.info.title"
-        className="m-0 text-[12px] font-bold uppercase tracking-[0.18em]"
-        style={{ color: APP_ACCENT }}
-        fallback={OPLEIDING_INFO_TITLE_FALLBACK}
-      />
-      <CmText
-        as="div"
-        contentKey="portal.model.opleiding.info.body"
-        className="m-0 whitespace-pre-wrap"
-        style={{ color: APP_SOFT }}
-        fallback={OPLEIDING_INFO_BODY_FALLBACK}
-      />
-    </div>
-  ) : (
-    <div className="space-y-2 border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
-      <CmText
-        as="p"
-        contentKey="portal.model.opleiding.info.title"
-        className="text-[11px] font-bold uppercase tracking-wide text-burgundy"
-        fallback={OPLEIDING_INFO_TITLE_FALLBACK}
-      />
-      <CmText
-        as="div"
-        contentKey="portal.model.opleiding.info.body"
-        className="whitespace-pre-wrap"
-        fallback={OPLEIDING_INFO_BODY_FALLBACK}
-      />
-    </div>
-  );
-
   return (
     <div className="space-y-3">
       {!onHeaderRightChange ? (
@@ -208,7 +163,9 @@ export function ModelOpleidingTab({
       {loading ? (
         <div className="text-sm text-zinc-500">Laden…</div>
       ) : panel === 'info' ? (
-        infoPanel
+        <div className="nieuw-panel">
+          <OpleidingInfoContent />
+        </div>
       ) : panel === 'book' ? (
         <div className="border border-zinc-300 bg-white px-3 py-3">
           <GuestBookingPanel
