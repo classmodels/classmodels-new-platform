@@ -279,7 +279,7 @@ export function ModelPortfolioTab({
               as="p"
               contentKey="portal.model.portfolio.booked.prep.body"
               className="mt-1.5"
-              fallback="Breng 6 verschillende outfits mee (variatie in stijl), met passende propere schoenen. Kledij proper en gestreken — vermijd grote logo’s. Kom met een natuurlijke make-upbasis, gewassen droog haar en verzorgde nagels. Wees 10 minuten op voorhand aanwezig; de shoot duurt gemiddeld 3 tot 4 uur."
+              fallback="Er worden totaal 6 outfits gefotografeerd. Breng 6 looks mee (variatie in stijl) met passende propere schoenen. Lingerie/bikini enkel als dat op uw modellenfiche staat aangeduid; anders een extra zomeroutfit in de plaats. Kledij proper en gestreken — vermijd grote logo’s. Kom met een natuurlijke make-upbasis, gewassen droog haar en verzorgde nagels. Wees 10 minuten op voorhand aanwezig; de shoot duurt gemiddeld 3 tot 4 uur."
             />
           </div>
         </div>

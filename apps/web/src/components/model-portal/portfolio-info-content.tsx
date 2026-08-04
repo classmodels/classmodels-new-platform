@@ -9,8 +9,20 @@ export function PortfolioInfoContent() {
       title: 'Breng 6 verschillende outfits mee',
       body: (
         <>
+          Tijdens de shoot worden er <strong style={{ color: 'var(--n-ink)' }}>totaal 6 outfits</strong> gefotografeerd.
           Zorg voor <strong style={{ color: 'var(--n-ink)' }}>variatie in stijl</strong> (bijv. casual, elegant,
-          sportief, fashion, …). Zo krijgen we genoeg looks voor een sterk en breed inzetbaar portfolio.
+          sportief, fashion, …), zodat we een sterk en breed inzetbaar portfolio kunnen maken.
+        </>
+      ),
+    },
+    {
+      title: 'Lingerie / bikini of zomeroutfit',
+      body: (
+        <>
+          Staat op uw <strong style={{ color: 'var(--n-ink)' }}>modellenfiche</strong> aangeduid dat u lingerie of
+          bikini doet? Breng die look dan mee als één van de 6 outfits. Is dat niet aangeduid? Breng in de plaats een{' '}
+          <strong style={{ color: 'var(--n-ink)' }}>extra zomeroutfit</strong> mee. Zo blijven we altijd bij 6 looks
+          op de shoot.
         </>
       ),
     },
