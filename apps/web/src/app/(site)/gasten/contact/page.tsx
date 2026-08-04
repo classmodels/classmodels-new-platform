@@ -5,7 +5,7 @@ import { GUEST_CONTACT_INFO } from '@/components/guest-portal/guest-portal-data'
 export const metadata: Metadata = {
   title: 'Contact Class-Models',
   description:
-    'Contacteer Class-Models in Hulshout voor vragen over model worden, castings, gratis fotoshoots en inschrijvingen.',
+    'Contacteer Class-Models in Hulshout voor vragen over model worden, castings, gratis testshoots en inschrijvingen.',
   alternates: {
     canonical: '/gasten/contact',
   },

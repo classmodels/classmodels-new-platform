@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
+import { PartnersStrip } from '@/components/PartnersStrip';
 import {
   isMobileInfoKey,
   mobileInfoTitle,
@@ -23,7 +24,7 @@ import {
  * Mobiele versie (gsm + app). Drie schermen, gestuurd met `?m=`:
  * - start (geen parameter): heel eenvoudig — kies Gastenportaal, Modellenportaal
  *   of Klantenportaal (nog niet aanklikbaar). Geen menu zichtbaar.
- * - `?m=guest`: het gastenportaal — "Maak snel een keuze" (gratis fotoshoot,
+ * - `?m=guest`: het gastenportaal — "Maak snel een keuze" (gratis testshoot,
  *   casting, intake gesprek) en info model worden, met alleen het gastmenu.
  * - `?m=model`: het modellenportaal — duidelijk inloggen, wachtwoord vergeten
  *   of account aanmaken; alleen voor modellen met een contract.
@@ -63,7 +64,7 @@ type QuickAction = {
 
 const QUICK_ACTIONS: QuickAction[] = [
   {
-    title: 'Gratis fotoshoot',
+    title: 'Gratis testshoot',
     line: 'Volledig gratis en zonder verplichtingen — ontdek of modellenwerk iets voor jou is.',
     infoHref: '/?m=guest&info=gratis-fotoshoot',
     bookHref: '/?m=guest&book=gratis-fotoshoot',
@@ -84,7 +85,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 const MOBILE_BOOKINGS: Record<string, { title: string; slug: string; line: string }> = {
   'gratis-fotoshoot': {
-    title: 'Gratis fotoshoot',
+    title: 'Gratis testshoot',
     slug: 'gratis-fotoshoot',
     line: 'Kies een moment. Daarna vult u kort uw gegevens in.',
   },
@@ -102,7 +103,7 @@ const MOBILE_BOOKINGS: Record<string, { title: string; slug: string; line: strin
 const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Gastenportaal (home)', href: '/?m=guest' },
   { label: 'Model worden', href: '/?m=guest&info=model-worden' },
-  { label: 'Gratis fotoshoot', href: '/?m=guest&info=gratis-fotoshoot' },
+  { label: 'Gratis testshoot', href: '/?m=guest&info=gratis-fotoshoot' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
   { label: 'Casting', href: '/?m=guest&info=casting' },
   { label: 'Intake gesprek', href: '/?m=guest&info=intake' },
@@ -456,7 +457,7 @@ function StartView() {
               </span>
             </span>
             <span className="mt-1.5 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
-              Model worden? Klik hier — gratis fotoshoot, casting, intake gesprek en alle info.
+              Model worden? Klik hier — gratis testshoot, casting, intake gesprek en alle info.
             </span>
           </Link>
 
@@ -504,6 +505,7 @@ function StartView() {
           Class-Models — Provinciebaan 3, 2235 Hulshout
         </p>
       </div>
+      <PartnersStrip />
     </>
   );
 }

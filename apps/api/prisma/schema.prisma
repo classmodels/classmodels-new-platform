@@ -353,6 +353,21 @@ model Review {
   updatedAt   DateTime @updatedAt
 }
 
+/// Partnerlogo's op de site (“Wij werken al samen met”).
+model PartnerLogo {
+  id         String   @id @default(uuid())
+  name       String
+  websiteUrl String?
+  /// Pad t.o.v. webroot (`/partners/…`) of API-uploads (`/uploads/partners/…`).
+  imagePath  String
+  sortOrder  Int      @default(0)
+  visible    Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([visible, sortOrder])
+}
+
 model PushCampaign {
   id          String    @id @default(uuid())
   title       String

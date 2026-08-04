@@ -17,7 +17,7 @@ const CTA_TEXT = '#f6efe2';
 const GUEST_MENU_LINKS = [
   { label: 'Gastenportaal (home)', href: '/?m=guest' },
   { label: 'Model worden', href: '/?m=guest&info=model-worden' },
-  { label: 'Gratis fotoshoot', href: '/?m=guest&info=gratis-fotoshoot' },
+  { label: 'Gratis testshoot', href: '/?m=guest&info=gratis-fotoshoot' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
   { label: 'Casting', href: '/?m=guest&info=casting' },
   { label: 'Intake gesprek', href: '/?m=guest&info=intake' },

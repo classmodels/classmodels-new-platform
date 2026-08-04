@@ -13,7 +13,7 @@ export type NieuwPortal = 'home' | 'gasten' | 'modellen' | 'klanten';
 
 const GASTEN_NAV = [
   { href: '/gasten/model-worden', label: 'Model worden' },
-  { href: '/gasten/gratis-fotoshoot', label: 'Gratis fotoshoot' },
+  { href: '/gasten/gratis-fotoshoot', label: 'Gratis testshoot' },
   { href: '/gasten/testshoot', label: 'Testshoot-foto’s' },
   { href: '/gasten/casting', label: 'Casting' },
   { href: '/gasten/intake', label: 'Intake-gesprek' },
@@ -271,9 +271,7 @@ export function NieuwShell({
               <p>
                 <Link href="/gasten/model-worden">Model worden</Link>
                 <br />
-                <Link href="/gasten/gratis-fotoshoot">Gratis fotoshoot</Link>
-                <br />
-                <Link href="/gasten/testshoot">Testshoot-foto’s</Link>
+                <Link href="/gasten/gratis-fotoshoot">Gratis testshoot</Link>
                 <br />
                 <Link href="/gasten/casting">Casting</Link>
                 <br />
@@ -283,6 +281,8 @@ export function NieuwShell({
             <div>
               <h5>Portalen</h5>
               <p>
+                <Link href="/gasten/model-worden">Gastenportaal</Link>
+                <br />
                 <Link href="/modellen">Modellenportaal</Link>
                 <br />
                 <Link href="/klanten">Klantenportaal</Link>
@@ -317,7 +317,7 @@ export function NieuwShell({
   if (appMobileGuest) {
     const mobileTitle =
       pathname?.includes('gratis-fotoshoot')
-        ? 'Gratis fotoshoot'
+        ? 'Gratis testshoot'
         : pathname?.includes('casting')
           ? 'Casting'
           : pathname?.includes('intake')

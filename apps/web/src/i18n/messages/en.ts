@@ -90,7 +90,7 @@ export const messagesEn = {
   },
   guest: {
     menuModelWorden: 'Become a model',
-    menuFotoshoot: 'Free photo shoot',
+    menuFotoshoot: 'Free test shoot',
     menuCasting: 'Casting',
     menuIntake: 'Intake meeting',
     menuDoelgroepen: 'Target groups',

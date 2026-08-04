@@ -16,6 +16,8 @@ export const PERMISSION_CATALOG: {
       { id: 'admin.menus.write', label: "Menu's beheren" },
       { id: 'admin.reviews.read', label: 'Reviews bekijken' },
       { id: 'admin.reviews.write', label: 'Reviews beheren' },
+      { id: 'admin.partners.read', label: 'Partnerlogo’s bekijken' },
+      { id: 'admin.partners.write', label: 'Partnerlogo’s beheren' },
       { id: 'admin.media.read', label: 'Media (admin) bekijken' },
       { id: 'admin.media.write', label: 'Media uploaden / verwijderen' },
       { id: 'admin.billing.read', label: 'Mollie / prijzen bekijken' },

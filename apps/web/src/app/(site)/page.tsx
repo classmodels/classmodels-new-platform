@@ -2,11 +2,12 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { MobileHomeGate } from '@/components/MobileHomeGate';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
+import { PartnersStrip } from '@/components/PartnersStrip';
 
 export const metadata: Metadata = {
   title: 'Modellenbureau België | Model worden & casting',
   description:
-    'Class-Models is een modellenbureau in België. Word model via een gratis fotoshoot, casting of intake-gesprek. Bedrijven boeken modellen voor campagnes, events en fotoshoots.',
+    'Class-Models is een modellenbureau in België. Word model via een gratis testshoot, casting of intake-gesprek. Bedrijven boeken modellen voor campagnes, events en fotoshoots.',
   alternates: { canonical: '/' },
   openGraph: {
     title: 'Class-Models | Modellenbureau België',
@@ -26,7 +27,7 @@ const jsonLd = {
       name: 'Class-Models',
       url: 'https://www.class-models.be',
       description:
-        'Modellenbureau in België voor model worden, castings, gratis fotoshoots en professionele boekingen.',
+        'Modellenbureau in België voor model worden, castings, gratis testshoots en professionele boekingen.',
       address: {
         '@type': 'PostalAddress',
         streetAddress: 'Provinciebaan 3',
@@ -54,7 +55,15 @@ const jsonLd = {
           name: 'Hoe schrijf ik mij in bij Class-Models?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Via het gastenportaal boekt u online een gratis fotoshoot, casting of intake-gesprek.',
+            text: 'Via het gastenportaal boekt u online een gratis testshoot, casting of intake-gesprek.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Kost een testshoot of intake iets?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'De gratis testshoot is zonder kosten en zonder verplichtingen. Verdere stappen bespreken we open en eerlijk.',
           },
         },
       ],
@@ -83,11 +92,11 @@ export default function NieuwHomePage() {
             <p className="nieuw-lead nieuw-hero-lead">
               Class-Models begeleidt nieuwe gezichten naar hun eerste stappen in het
               modellenwerk — toegankelijk, persoonlijk en professioneel. Boek online een gratis
-              fotoshoot, casting of intake-gesprek.
+              testshoot, casting of intake-gesprek.
             </p>
             <div className="nieuw-hero-actions">
               <Link className="nieuw-btn" href="/gasten/gratis-fotoshoot#agenda">
-                Gratis fotoshoot boeken
+                Gratis testshoot boeken
               </Link>
               <Link className="nieuw-btn nieuw-btn-ghost" href="/gasten/model-worden">
                 Hoe model worden werkt
@@ -255,6 +264,8 @@ export default function NieuwHomePage() {
           </div>
         </div>
       </section>
+
+      <PartnersStrip />
       </NieuwShell>
     </MobileHomeGate>
   );

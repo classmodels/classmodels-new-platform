@@ -12,7 +12,7 @@ export type GuestMenuId =
 
 export const GUEST_MENU: { id: GuestMenuId; label: string }[] = [
   { id: 'model-worden', label: 'Model worden' },
-  { id: 'gratis-fotoshoot', label: 'Gratis fotoshoot' },
+  { id: 'gratis-fotoshoot', label: 'Gratis testshoot' },
   { id: 'casting', label: 'Casting' },
   { id: 'intake-gesprek', label: 'Intake-gesprek' },
   { id: 'doelgroepen', label: 'Doelgroepen' },
@@ -37,7 +37,7 @@ export const CARD_MODEL_WORDEN = [
       "Je ontvangt je foto's zonder kosten.",
       'Wil je daarna als model aan de slag, dan krijg je een vrijblijvend intake-gesprek.',
     ],
-    cta: 'Plan je gratis fotoshoot',
+    cta: 'Plan je gratis testshoot',
   },
   {
     kicker: 'DIRECTE KANSEN',
@@ -107,27 +107,55 @@ export const DOELGROEPEN_CARDS = [
   { title: 'Mannen', body: 'Voor campagnes gericht op een mannelijke doelgroep' },
 ] as const;
 
-/** Veelgestelde vragen — gastenportaal. */
+/** Veelgestelde vragen — gastenportaal (SEO + bezoekers). */
 export const GUEST_FAQ = [
   {
-    q: 'Moet ik ervaring hebben?',
-    a: 'Nee. Wij zoeken echte mensen van alle leeftijden, maten en achtergronden. Ervaring is niet nodig.',
+    q: 'Moet ik ervaring hebben om model te worden?',
+    a: 'Nee. Class-Models zoekt echte mensen met uitstraling — van alle leeftijden, maten en achtergronden. Ervaring is geen vereiste; motivatie en authenticiteit wel.',
+  },
+  {
+    q: 'Hoe schrijf ik mij in bij Class-Models?',
+    a: 'Via het gastenportaal boekt u online een gratis testshoot, casting of intake-gesprek. Na uw afspraak in Hulshout bekijken we samen of en hoe u verder wilt gaan.',
+  },
+  {
+    q: 'Kost een testshoot of intake iets?',
+    a: 'De gratis testshoot is zonder kosten en zonder verplichtingen. Een intake-gesprek of casting is bedoeld om kennismaking en advies te geven; concrete verdere stappen bespreken we open en eerlijk.',
   },
   {
     q: 'Wie zoeken jullie precies?',
-    a: 'Mannen, vrouwen, tieners, kinderen, 60-plussers en mensen met een maatje meer. Uitstraling, motivatie en authenticiteit zijn belangrijker dan perfecte maten.',
+    a: 'Mannen, vrouwen, tieners, kinderen, 60-plussers en mensen met een maatje meer. Uitstraling, motivatie en authenticiteit zijn belangrijker dan “perfecte” maten.',
+  },
+  {
+    q: 'Waar vinden de afspraken plaats?',
+    a: 'Bij Class-Models in Hulshout (Provinciebaan 3, 2235). We begeleidén kandidaten uit heel België; de eerste kennismaking gebeurt op kantoor.',
   },
   {
     q: 'Wat kan ik verwachten tijdens een intake-gesprek of casting?',
-    a: 'Je wordt vriendelijk ontvangen, krijgt uitleg over mogelijke opdrachten en samen bekijken we welke kansen het best bij jou passen.',
+    a: 'U wordt vriendelijk ontvangen, krijgt uitleg over mogelijke opdrachten en samen bekijken we welke kansen het best bij u passen. Geen druk, wel duidelijk advies.',
   },
   {
     q: 'Kan ik iemand meenemen?',
-    a: 'Ja. Voor minderjarigen, thuiswonenden of studenten is een ouder of voogd verplicht aanwezig.',
+    a: 'Ja. Voor minderjarigen is een ouder of voogd verplicht aanwezig. Ook volwassenen mogen gerust iemand meenemen voor steun.',
   },
   {
     q: 'Kan ik modellenwerk combineren met mijn studie of job?',
-    a: 'Zeker. Jij beheert je eigen agenda en kiest de opdrachten die in jouw planning passen.',
+    a: 'Zeker. U beheert uw eigen agenda en kiest de opdrachten die in uw planning passen. Flexibiliteit is bij Class-Models vanzelfsprekend.',
+  },
+  {
+    q: 'Vanaf welke leeftijd kan ik starten?',
+    a: 'We werken met verschillende doelgroepen, inclusief kinderen en tieners (altijd met ouder/voogd). Voor volwassenen en 60+ is er geen maximumleeftijd — het gaat om de juiste match met de opdracht.',
+  },
+  {
+    q: 'Hoe word ik betaald als model?',
+    a: 'Bij betaalde opdrachten via Class-Models worden afspraken over honorarium en gebruik vooraf duidelijk gemaakt. Details hangen af van het type job (campagne, event, shoot, …).',
+  },
+  {
+    q: 'Moet ik al een portfolio of setkaart hebben?',
+    a: 'Nee. De gratis testshoot is vaak de eerste stap om beelden te krijgen. Later kunt u, indien gewenst, verder werken aan portfolio of setkaart via het bureau.',
+  },
+  {
+    q: 'Werken jullie alleen in Hulshout of ook elders in België?',
+    a: 'Het kantoor zit in Hulshout (Vlaams-Brabant), maar opdrachten en castings kunnen elders in België plaatsvinden. We zoeken modellen uit heel het land.',
   },
 ] as const;
 
@@ -155,7 +183,7 @@ export const TESTSHOOT_PAGE = {
     'Hier vind je de foto’s van je testshoot. Geef eerst kort feedback; daarna kun je alle foto’s in volle kwaliteit als zip downloaden. Na een geslaagde download verdwijnen ze van deze pagina (ze worden van de publieke site gehaald).',
 } as const;
 
-/** Pagina “Gratis fotoshoot” — inhoud + doelgroepen-kolom + CTA. */
+/** Pagina “Gratis testshoot” — inhoud + doelgroepen-kolom + CTA. */
 export const GRATIS_FOTOSHOOT_PAGE = {
   agendaSlug: 'gratis-fotoshoot',
   expectTitle: 'Wat mag je verwachten?',
@@ -169,8 +197,8 @@ export const GRATIS_FOTOSHOOT_PAGE = {
   whyTitle: 'Waarom deelnemen?',
   whyParagraph:
     'Bij Class-Models draait het om jouw uitstraling, jouw verhaal en jouw potentieel. We zoeken geen perfectie, wel authenticiteit, spontaniteit en charisma.',
-  bookingSubject: 'Afspraak gratis fotoshoot',
-  ctaButton: 'Online afspraak maken gratis fotoshoot',
+  bookingSubject: 'Afspraak gratis testshoot',
+  ctaButton: 'Online afspraak maken gratis testshoot',
 } as const;
 
 /** Pagina “Casting” — inhoud + doelgroepen-kolom + CTA. */

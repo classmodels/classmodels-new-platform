@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     'model worden',
     'modellenbureau belgie',
     'casting bureau',
-    'gratis fotoshoot',
+    'gratis testshoot',
     'model inschrijven',
     'class models',
   ],

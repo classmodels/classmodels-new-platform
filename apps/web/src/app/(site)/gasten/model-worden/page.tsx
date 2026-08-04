@@ -12,7 +12,7 @@ import {
 export const metadata: Metadata = {
   title: 'Model worden in België',
   description:
-    'Lees hoe model worden bij Class-Models werkt. Kies tussen gratis fotoshoot, casting of intake-gesprek en schrijf u eenvoudig online in.',
+    'Lees hoe model worden bij Class-Models werkt. Kies tussen gratis testshoot, casting of intake-gesprek en schrijf u eenvoudig online in.',
   alternates: {
     canonical: '/gasten/model-worden',
   },

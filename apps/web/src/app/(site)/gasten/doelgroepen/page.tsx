@@ -27,7 +27,7 @@ export default function DoelgroepenPage() {
           </div>
           <div style={{ marginTop: 40, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Link className="nieuw-btn" href="/gasten/gratis-fotoshoot#agenda">
-              Boek gratis fotoshoot
+              Boek gratis testshoot
             </Link>
             <Link className="nieuw-btn nieuw-btn-ghost" href="/gasten/casting#agenda">
               Boek casting

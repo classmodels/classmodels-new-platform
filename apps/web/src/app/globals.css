@@ -287,6 +287,76 @@ body {
   }
 }
 
+/* Partnerlogo's — zwarte achtergrond, 5px gouden kader, alle logo's zichtbaar */
+.cm-partners {
+  padding: 36px 0 44px;
+  background: #000;
+  border-top: none;
+}
+.cm-partners-title {
+  margin: 0 0 20px;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #e8d5a8;
+}
+.cm-partners-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.cm-partners-cell {
+  margin: 0;
+}
+.cm-partners-cell a,
+.cm-partners-cell span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 96px;
+  padding: 8px;
+  background: #000;
+  /* 5px gouden kader rond het logo */
+  border: 5px solid #c9a24a;
+  box-shadow: none;
+  transition: border-color 0.15s ease, filter 0.15s ease;
+}
+.cm-partners-cell a:hover {
+  border-color: #e0bc68;
+  filter: brightness(1.06);
+}
+.cm-partners-cell img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+@media (min-width: 600px) {
+  .cm-partners-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (min-width: 900px) {
+  .cm-partners-grid {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  .cm-partners-cell a,
+  .cm-partners-cell span {
+    height: 108px;
+  }
+}
+
 /* Google Translate widget: verberg bovenste banner, pagina niet verschuiven */
 .goog-te-banner-frame,
 .skiptranslate,

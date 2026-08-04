@@ -79,6 +79,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     icon: 'image',
     items: [
       { href: '/admin/media', label: 'Media Library', permission: 'admin.media.read' },
+      { href: '/admin/partners', label: 'Partnerlogo’s', permission: 'admin.partners.read' },
       { href: '/admin/reviews', label: 'Reviews', permission: 'admin.reviews.read' },
       { href: '/admin/testshoot', label: 'Testshoot', permission: 'admin.testshoot.read' },
     ],

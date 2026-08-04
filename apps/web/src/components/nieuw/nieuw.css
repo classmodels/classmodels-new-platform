@@ -1961,6 +1961,10 @@
 .nieuw-footer .nieuw-merk-naam {
   font-size: 26px;
   line-height: 1.05;
+  color: var(--n-gold);
+}
+.nieuw-footer .nieuw-merk-naam b {
+  color: var(--n-gold);
 }
 .nieuw-footer .nieuw-merk-sub {
   margin-top: 1px;
@@ -1972,14 +1976,14 @@
   margin-bottom: 32px;
 }
 .nieuw-footer-grid > div + div {
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 1px solid rgba(212, 175, 106, 0.55);
   padding-left: 32px;
 }
 .nieuw-footer h5 {
   font-size: 10px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--n-dim);
+  color: var(--n-gold);
   margin: 0 0 12px;
 }
 .nieuw-footer a, .nieuw-footer p {

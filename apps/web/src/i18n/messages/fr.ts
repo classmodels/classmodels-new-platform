@@ -90,7 +90,7 @@ export const messagesFr = {
   },
   guest: {
     menuModelWorden: 'Devenir mannequin',
-    menuFotoshoot: 'Shooting photo gratuit',
+    menuFotoshoot: 'Test shoot gratuit',
     menuCasting: 'Casting',
     menuIntake: 'Entretien d’accueil',
     menuDoelgroepen: 'Publics cibles',

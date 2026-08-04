@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
 import type { CatalogModel } from '@/components/models-catalog/ModelsCatalogGrid';
+import { PartnersStrip } from '@/components/PartnersStrip';
 
 const PACKAGES = [
   {
@@ -90,54 +91,57 @@ type BriefRow = {
 
 function GuestLanding() {
   return (
-    <section className="nieuw-hero nieuw-hero-compact">
-      <div className="nieuw-wrap nieuw-hero-grid">
-        <div>
-          <span className="nieuw-label">Voor merken &amp; bedrijven</span>
-          <h1 className="nieuw-display">
-            Modellen
-            <br />
-            <em>boeken</em>
-          </h1>
-          <p className="nieuw-lead nieuw-hero-lead">
-            Class-Models levert casting en boekingen voor campagnes, reclame, events, modeshows en
-            productshoots. Duidelijke selectie, snelle shortlists en professionele opvolging.
-          </p>
-          <div className="nieuw-hero-actions">
-            <Link className="nieuw-btn" href="/inloggen">
-              Inloggen
-            </Link>
-          </div>
-          <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen na inloggen">
-            <li>Tarieven en castingformules bekijken</li>
-            <li>Alle modellen selecteren voor uw shortlist</li>
-            <li>Gekozen modellen beheren</li>
-            <li>Een castingaanvraag versturen</li>
-          </ul>
-        </div>
-        <aside className="nieuw-hero-card">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/nieuw/klantenportaal.jpg"
-            alt="Klantenoverleg bij Class-Models"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            width={800}
-            height={600}
-          />
-          <div className="nieuw-hero-card-body">
-            <h2>Wat u krijgt</h2>
-            <ul>
-              <li>Gerichte shortlist op look &amp; beschikbaarheid</li>
-              <li>Heldere fiches per model</li>
-              <li>Ondersteuning tot op de set</li>
-              <li>Backup-opties bij uitval</li>
+    <>
+      <section className="nieuw-hero nieuw-hero-compact">
+        <div className="nieuw-wrap nieuw-hero-grid">
+          <div>
+            <span className="nieuw-label">Voor merken &amp; bedrijven</span>
+            <h1 className="nieuw-display">
+              Modellen
+              <br />
+              <em>boeken</em>
+            </h1>
+            <p className="nieuw-lead nieuw-hero-lead">
+              Class-Models levert casting en boekingen voor campagnes, reclame, events, modeshows en
+              productshoots. Duidelijke selectie, snelle shortlists en professionele opvolging.
+            </p>
+            <div className="nieuw-hero-actions">
+              <Link className="nieuw-btn" href="/inloggen">
+                Inloggen
+              </Link>
+            </div>
+            <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen na inloggen">
+              <li>Tarieven en castingformules bekijken</li>
+              <li>Alle modellen selecteren voor uw shortlist</li>
+              <li>Gekozen modellen beheren</li>
+              <li>Een castingaanvraag versturen</li>
             </ul>
           </div>
-        </aside>
-      </div>
-    </section>
+          <aside className="nieuw-hero-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/nieuw/klantenportaal.jpg"
+              alt="Klantenoverleg bij Class-Models"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              width={800}
+              height={600}
+            />
+            <div className="nieuw-hero-card-body">
+              <h2>Wat u krijgt</h2>
+              <ul>
+                <li>Gerichte shortlist op look &amp; beschikbaarheid</li>
+                <li>Heldere fiches per model</li>
+                <li>Ondersteuning tot op de set</li>
+                <li>Backup-opties bij uitval</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <PartnersStrip />
+    </>
   );
 }
 
@@ -702,67 +706,70 @@ export function KlantenPortalClient() {
   }
 
   return (
-    <section className="nieuw-hero nieuw-hero-compact">
-      <div className="nieuw-wrap nieuw-hero-grid">
-        <div>
-          <span className="nieuw-label">Klantenportaal</span>
-          <h1 className="nieuw-display">
-            Modellen
-            <br />
-            <em>boeken</em>
-          </h1>
-          <p className="nieuw-lead nieuw-hero-lead">
-            Welkom. Via het menu hierboven beheert u tarieven, uw modelselectie en castingaanvragen.
-          </p>
-          <div className="nieuw-hero-actions">
-            <Link className="nieuw-btn" href="/klanten?tab=modellen">
-              Modellen kiezen
-            </Link>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=aanvraag">
-              Casting aanvragen
-            </Link>
-          </div>
-          <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen">
-            <li>
-              <Link href="/klanten?tab=tarieven">Tarieven</Link> — castingformules bekijken
-            </li>
-            <li>
-              <Link href="/klanten?tab=modellen">Modellen</Link> — alle modellen aanvinken
-            </li>
-            <li>
-              <Link href="/klanten?tab=gekozen">Gekozen</Link> — uw shortlist beheren (
-              {selectedIds.length})
-            </li>
-            <li>
-              <Link href="/klanten?tab=aanvraag">Casting aanvragen</Link> — briefing versturen
-            </li>
-            <li>
-              <Link href="/klanten?tab=aanvragen">Mijn aanvragen</Link> — status opvolgen
-            </li>
-          </ul>
-        </div>
-        <aside className="nieuw-hero-card">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/nieuw/klantenportaal.jpg"
-            alt="Klantenoverleg bij Class-Models"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            width={800}
-            height={600}
-          />
-          <div className="nieuw-hero-card-body">
-            <h2>Wat u krijgt</h2>
-            <ul>
-              <li>Gerichte shortlist op look &amp; beschikbaarheid</li>
-              <li>Heldere fiches per model</li>
-              <li>Ondersteuning tot op de set</li>
-              <li>Backup-opties bij uitval</li>
+    <>
+      <section className="nieuw-hero nieuw-hero-compact">
+        <div className="nieuw-wrap nieuw-hero-grid">
+          <div>
+            <span className="nieuw-label">Klantenportaal</span>
+            <h1 className="nieuw-display">
+              Modellen
+              <br />
+              <em>boeken</em>
+            </h1>
+            <p className="nieuw-lead nieuw-hero-lead">
+              Welkom. Via het menu hierboven beheert u tarieven, uw modelselectie en castingaanvragen.
+            </p>
+            <div className="nieuw-hero-actions">
+              <Link className="nieuw-btn" href="/klanten?tab=modellen">
+                Modellen kiezen
+              </Link>
+              <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=aanvraag">
+                Casting aanvragen
+              </Link>
+            </div>
+            <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen">
+              <li>
+                <Link href="/klanten?tab=tarieven">Tarieven</Link> — castingformules bekijken
+              </li>
+              <li>
+                <Link href="/klanten?tab=modellen">Modellen</Link> — alle modellen aanvinken
+              </li>
+              <li>
+                <Link href="/klanten?tab=gekozen">Gekozen</Link> — uw shortlist beheren (
+                {selectedIds.length})
+              </li>
+              <li>
+                <Link href="/klanten?tab=aanvraag">Casting aanvragen</Link> — briefing versturen
+              </li>
+              <li>
+                <Link href="/klanten?tab=aanvragen">Mijn aanvragen</Link> — status opvolgen
+              </li>
             </ul>
           </div>
-        </aside>
-      </div>
-    </section>
+          <aside className="nieuw-hero-card">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/nieuw/klantenportaal.jpg"
+              alt="Klantenoverleg bij Class-Models"
+              loading="eager"
+              decoding="async"
+              fetchPriority="high"
+              width={800}
+              height={600}
+            />
+            <div className="nieuw-hero-card-body">
+              <h2>Wat u krijgt</h2>
+              <ul>
+                <li>Gerichte shortlist op look &amp; beschikbaarheid</li>
+                <li>Heldere fiches per model</li>
+                <li>Ondersteuning tot op de set</li>
+                <li>Backup-opties bij uitval</li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+      </section>
+      <PartnersStrip />
+    </>
   );
 }

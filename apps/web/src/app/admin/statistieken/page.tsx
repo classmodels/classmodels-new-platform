@@ -237,7 +237,7 @@ export default function AdminStatistiekenPage() {
           <ModelLoginsSection title="Modellen ingelogd — laatste 7 dagen" data={logins7d} />
 
           <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-            <h2 className="font-semibold text-ink">Gratis fotoshoot, casting & intake</h2>
+            <h2 className="font-semibold text-ink">Gratis testshoot, casting & intake</h2>
             <p className="text-xs text-muted">Aantal gemaakte afspraken in de gekozen periode</p>
             <div className="mt-4 grid gap-6 lg:grid-cols-2">
               <div className="h-64">

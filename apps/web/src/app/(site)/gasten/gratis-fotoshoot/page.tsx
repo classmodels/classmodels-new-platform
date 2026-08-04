@@ -9,9 +9,9 @@ import {
 } from '@/components/guest-portal/guest-portal-data';
 
 export const metadata: Metadata = {
-  title: 'Gratis fotoshoot voor nieuwe modellen',
+  title: 'Gratis testshoot voor nieuwe modellen',
   description:
-    'Boek online een gratis fotoshoot bij Class-Models en ontdek of modellenwerk iets voor u is. Geen ervaring nodig.',
+    'Boek online een gratis testshoot bij Class-Models en ontdek of modellenwerk iets voor u is. Geen ervaring nodig.',
   alternates: {
     canonical: '/gasten/gratis-fotoshoot',
   },
@@ -27,7 +27,7 @@ export default function GratisFotoshootPage() {
             titleLines={['plan uw gratis', 'testshoot']}
             lead={GRATIS_FOTOSHOOT_PAGE.whyParagraph}
             imageSrc="/nieuw/hero-1.jpg"
-            imageAlt="Gratis fotoshoot"
+            imageAlt="Gratis testshoot"
           />
 
           <div className="nieuw-agenda-align nieuw-after-hero">

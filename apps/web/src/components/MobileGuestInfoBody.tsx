@@ -43,7 +43,7 @@ export function isMobileInfoKey(raw: string | null): raw is MobileInfoKey {
 
 const TITLES: Record<MobileInfoKey, string> = {
   'model-worden': 'Model worden',
-  'gratis-fotoshoot': 'Gratis fotoshoot',
+  'gratis-fotoshoot': 'Gratis testshoot',
   casting: 'Casting',
   intake: 'Intake gesprek',
   doelgroepen: 'Doelgroepen',

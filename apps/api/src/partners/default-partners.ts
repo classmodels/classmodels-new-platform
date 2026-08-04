@@ -1,0 +1,56 @@
+export type PartnerSeed = {
+  name: string;
+  websiteUrl: string | null;
+  imagePath: string;
+  sortOrder: number;
+};
+
+/** Standaard partnerlogo's — seed + fallback. */
+export const DEFAULT_PARTNER_LOGOS: PartnerSeed[] = [
+  { name: "XL mode", websiteUrl: null, imagePath: "/partners/xl-mode.png", sortOrder: 10 },
+  { name: "UNIQUE", websiteUrl: null, imagePath: "/partners/unique.png", sortOrder: 20 },
+  { name: "Monclé Boutique", websiteUrl: null, imagePath: "/partners/moncle-boutique.png", sortOrder: 30 },
+  { name: "Yanka Fashion", websiteUrl: null, imagePath: "/partners/yanka-fashion.png", sortOrder: 40 },
+  { name: "LOF", websiteUrl: null, imagePath: "/partners/lof.png", sortOrder: 50 },
+  { name: "Anandi fashion", websiteUrl: null, imagePath: "/partners/anandi-fashion.png", sortOrder: 60 },
+  { name: "Hunkemöller", websiteUrl: "https://www.hunkemoller.be/nl/", imagePath: "/partners/hunkemoller.png", sortOrder: 70 },
+  { name: "Okani", websiteUrl: null, imagePath: "/partners/okani.png", sortOrder: 80 },
+  { name: "Nina Caro", websiteUrl: null, imagePath: "/partners/nina-caro.png", sortOrder: 90 },
+  { name: "Stella", websiteUrl: null, imagePath: "/partners/stella.png", sortOrder: 100 },
+  { name: "NOBA", websiteUrl: null, imagePath: "/partners/noba.png", sortOrder: 110 },
+  { name: "Mio Caro", websiteUrl: "https://www.miocaro.be/", imagePath: "/partners/mio-caro.png", sortOrder: 120 },
+  { name: "Partena", websiteUrl: "https://www.helan.be/nl/", imagePath: "/partners/partena.png", sortOrder: 130 },
+  { name: "HOOPS", websiteUrl: null, imagePath: "/partners/hoops.png", sortOrder: 140 },
+  { name: "De Client", websiteUrl: null, imagePath: "/partners/de-client.png", sortOrder: 150 },
+  { name: "Maxim's", websiteUrl: null, imagePath: "/partners/maxims.png", sortOrder: 160 },
+  { name: "Imperial", websiteUrl: null, imagePath: "/partners/imperial.png", sortOrder: 170 },
+  { name: "Ambers", websiteUrl: null, imagePath: "/partners/ambers.png", sortOrder: 180 },
+  { name: "Carlsberg Importers", websiteUrl: null, imagePath: "/partners/carlsberg-importers.png", sortOrder: 190 },
+  { name: "Conny Schoenmode", websiteUrl: null, imagePath: "/partners/conny-schoenmode.png", sortOrder: 200 },
+  { name: "ILY Fashion", websiteUrl: null, imagePath: "/partners/ily-fashion.png", sortOrder: 210 },
+  { name: "Lingerie Claire", websiteUrl: null, imagePath: "/partners/lingerie-claire.png", sortOrder: 220 },
+  { name: "Oog & Uur", websiteUrl: null, imagePath: "/partners/oog-en-uur.png", sortOrder: 230 },
+  { name: "Bella Donna", websiteUrl: null, imagePath: "/partners/bella-donna.png", sortOrder: 240 },
+  { name: "Torfs", websiteUrl: "https://www.torfs.be/", imagePath: "/partners/torfs.png", sortOrder: 250 },
+  { name: "Viktorientje", websiteUrl: null, imagePath: "/partners/viktorientje.png", sortOrder: 260 },
+  { name: "Red Bull", websiteUrl: "https://www.redbull.com/be-nl", imagePath: "/partners/red-bull.png", sortOrder: 270 },
+  { name: "A. Goyvaerts", websiteUrl: null, imagePath: "/partners/a-goyvaerts.png", sortOrder: 280 },
+  { name: "Bell'Ami", websiteUrl: null, imagePath: "/partners/bellami.png", sortOrder: 290 },
+  { name: "Bizzar", websiteUrl: null, imagePath: "/partners/bizzar.png", sortOrder: 300 },
+  { name: "Nena Concept Store", websiteUrl: null, imagePath: "/partners/nena-concept-store.png", sortOrder: 310 },
+  { name: "Christiann Lingerie", websiteUrl: null, imagePath: "/partners/christiann-lingerie.png", sortOrder: 320 },
+  { name: "Christel Lingerie", websiteUrl: null, imagePath: "/partners/christel-lingerie.png", sortOrder: 330 },
+  { name: "Les Amis", websiteUrl: null, imagePath: "/partners/les-amis.png", sortOrder: 340 },
+  { name: "Kind wat ben je mooi", websiteUrl: null, imagePath: "/partners/kind-wat-ben-je-mooi.png", sortOrder: 350 },
+  { name: "Blue Pacific", websiteUrl: null, imagePath: "/partners/blue-pacific.png", sortOrder: 360 },
+  { name: "Malotte Two", websiteUrl: null, imagePath: "/partners/malotte-two.png", sortOrder: 370 },
+  { name: "Mariefleur", websiteUrl: null, imagePath: "/partners/mariefleur.png", sortOrder: 380 },
+  { name: "Liefst Leuven", websiteUrl: null, imagePath: "/partners/liefst-leuven.png", sortOrder: 390 },
+  { name: "Kleding De Zon", websiteUrl: null, imagePath: "/partners/kleding-de-zon.png", sortOrder: 400 },
+  { name: "Fashion Queens", websiteUrl: null, imagePath: "/partners/fashion-queens.png", sortOrder: 410 },
+  { name: "Kreatos", websiteUrl: null, imagePath: "/partners/kreatos.png", sortOrder: 420 },
+  { name: "Smirnoff", websiteUrl: "https://www.smirnoff.com/", imagePath: "/partners/smirnoff.png", sortOrder: 430 },
+  { name: "Pinky Lingerie", websiteUrl: "https://www.pink-lingerie.be/nl/home", imagePath: "/partners/pinky-lingerie.png", sortOrder: 440 },
+  { name: "Via Via", websiteUrl: "https://viavia.world/", imagePath: "/partners/via-via.png", sortOrder: 450 },
+  { name: "BRUT Women's Store", websiteUrl: null, imagePath: "/partners/brut-womens-store.png", sortOrder: 460 },
+];
