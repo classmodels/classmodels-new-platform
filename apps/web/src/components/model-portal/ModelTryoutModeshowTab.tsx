@@ -391,12 +391,12 @@ export function ModelTryoutModeshowTab({
 
     if (status === 'none' || declined) {
       buttons.push(
-        headerBtn('Ik wens deel te nemen', () => void interest(true), { variant: 'join' }),
-        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
+        headerBtn('Deelnemen', () => void interest(true), { variant: 'join' }),
+        headerBtn('Niet deelnemen', () => setDeclineOpen(true), { variant: 'decline' }),
       );
     } else if (interested) {
       buttons.push(
-        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
+        headerBtn('Niet deelnemen', () => setDeclineOpen(true), { variant: 'decline' }),
         !hasTerms
           ? headerBtn('Akkoord — verder naar afrekenen', () => attemptCheckout(), { variant: 'primary' })
           : canPay
@@ -543,7 +543,7 @@ export function ModelTryoutModeshowTab({
                   </>
                 ) : null}
                 . Bent u van gedacht veranderd, dan kunt u nog steeds deelnemen — zolang er nog plaats is. Gebruik
-                daarvoor de knop «Ik wens deel te nemen».
+                daarvoor de knop «Deelnemen».
               </p>
             </div>
           ) : null}
