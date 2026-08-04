@@ -398,7 +398,7 @@ export function ModelTryoutModeshowTab({
       buttons.push(
         headerBtn('Niet deelnemen', () => setDeclineOpen(true), { variant: 'decline' }),
         !hasTerms
-          ? headerBtn('Akkoord — verder naar afrekenen', () => attemptCheckout(), { variant: 'primary' })
+          ? headerBtn('Deelnemen', () => attemptCheckout(), { variant: 'join' })
           : canPay
             ? headerBtn(
                 busy ? 'Bezig…' : couponPreview?.isFree ? 'Gratis inschrijven' : `Afrekenen (${priceLabel})`,
