@@ -391,14 +391,14 @@ export function ModelTryoutModeshowTab({
 
     if (status === 'none' || declined) {
       buttons.push(
-        headerBtn('Deelnemen', () => void interest(true), { variant: 'join' }),
-        headerBtn('Niet deelnemen', () => setDeclineOpen(true), { variant: 'decline' }),
+        headerBtn('Ik wens deel te nemen', () => void interest(true), { variant: 'join' }),
+        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
       );
     } else if (interested) {
       buttons.push(
-        headerBtn('Niet deelnemen', () => setDeclineOpen(true), { variant: 'decline' }),
+        headerBtn('Ik wens niet deel te nemen', () => setDeclineOpen(true), { variant: 'decline' }),
         !hasTerms
-          ? headerBtn('Akkoord — afrekenen', () => attemptCheckout(), { variant: 'primary' })
+          ? headerBtn('Akkoord — verder naar afrekenen', () => attemptCheckout(), { variant: 'primary' })
           : canPay
             ? headerBtn(
                 busy ? 'Bezig…' : couponPreview?.isFree ? 'Gratis inschrijven' : `Afrekenen (${priceLabel})`,
@@ -543,7 +543,7 @@ export function ModelTryoutModeshowTab({
                   </>
                 ) : null}
                 . Bent u van gedacht veranderd, dan kunt u nog steeds deelnemen — zolang er nog plaats is. Gebruik
-                daarvoor de knop «Deelnemen».
+                daarvoor de knop «Ik wens deel te nemen».
               </p>
             </div>
           ) : null}

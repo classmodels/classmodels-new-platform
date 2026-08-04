@@ -44,14 +44,14 @@ const SCREEN = {
 } as const;
 
 const pickBtnStyle = (on: boolean): CSSProperties => ({
-  padding: '5px 10px',
-  fontSize: 11,
-  lineHeight: 1.25,
-  letterSpacing: '0.04em',
+  padding: '4px 8px',
+  fontSize: 10,
+  lineHeight: 1.2,
+  letterSpacing: '0.03em',
   whiteSpace: 'nowrap',
   background: on ? 'var(--n-gold)' : 'transparent',
   color: on ? '#1a140c' : 'var(--n-ink)',
-  borderColor: on ? 'var(--n-gold)' : 'rgba(201, 162, 74, 0.45)',
+  borderColor: on ? 'var(--n-gold)' : 'rgba(201, 162, 74, 0.4)',
 });
 
 export function TryoutTrailersContent({ headerActions }: { headerActions?: ReactNode }) {
@@ -82,15 +82,13 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
 
   return (
     <div>
-      {/* Zelfde headerrij als Info: links trailerknoppen, rechts Terug / Trailers */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: 12,
+          gap: 10,
           flexWrap: 'wrap',
-          marginBottom: 20,
         }}
       >
         <div
@@ -98,7 +96,7 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
             display: 'flex',
             flexWrap: 'wrap',
             alignItems: 'center',
-            gap: 6,
+            gap: 4,
             flex: '1 1 auto',
             minWidth: 0,
           }}
@@ -126,7 +124,7 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
               flexWrap: 'wrap',
               alignItems: 'center',
               justifyContent: 'flex-end',
-              gap: 8,
+              gap: 6,
               flex: '0 1 auto',
             }}
           >
@@ -135,12 +133,41 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
         ) : null}
       </div>
 
-      {/* Binnenkader zoals Info — bioscoop vult het kader, iets ruimer */}
+      <p
+        style={{
+          margin: '14px 0 0',
+          fontSize: 13,
+          lineHeight: 1.55,
+          color: 'var(--n-mut)',
+        }}
+      >
+        Klik op knop Trailer 1, 2, 3 enz. om deze try-out trailers af te spelen op het scherm.
+      </p>
+
+      <p
+        style={{
+          margin: '10px 0 0',
+          fontSize: 13,
+          lineHeight: 1.5,
+          color: 'var(--n-ink)',
+        }}
+      >
+        {active ? (
+          <>
+            Nu op het scherm:{' '}
+            <strong style={{ color: 'var(--n-gold)', fontWeight: 600 }}>{active.title}</strong>
+          </>
+        ) : (
+          <span style={{ color: 'var(--n-mut)' }}>Nog geen trailer geselecteerd.</span>
+        )}
+      </p>
+
       <div
         className="nieuw-panel"
         style={{
           padding: 0,
           overflow: 'hidden',
+          marginTop: 22,
           marginLeft: -4,
           marginRight: -4,
         }}
