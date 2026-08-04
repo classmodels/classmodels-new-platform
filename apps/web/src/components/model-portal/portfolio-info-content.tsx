@@ -1,32 +1,53 @@
 /** Info-tekst voor «Info portfolio» in het modellenportaal — zelfde stijl als try-out / opleiding. */
 import type { ReactNode } from 'react';
 
+const STUDIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
+
 export function PortfolioInfoContent() {
-  const prepItems = [
+  const clothingItems = [
     {
-      title: 'Basisoutfits',
+      title: 'Breng 6 verschillende outfits mee',
       body: (
         <>
-          Breng enkele eenvoudige, goed passende basisoutfits mee (lichte en donkere tinten). Vermijd drukke prints
-          en grote logo’s, zodat de foto’s breed inzetbaar zijn voor uw profiel en voorstellen naar klanten.
+          Zorg voor <strong style={{ color: 'var(--n-ink)' }}>variatie in stijl</strong> (bijv. casual, elegant,
+          sportief, fashion, …). Zo krijgen we genoeg looks voor een sterk en breed inzetbaar portfolio.
         </>
       ),
     },
     {
-      title: 'Op tijd komen',
+      title: 'Kledingstaat',
       body: (
         <>
-          Kom op tijd naar Class-Models, Provinciebaan 3, 2235 Hulshout. Zo blijft er voldoende ruimte voor
-          make-up/looks, poses en de geplande shoot.
+          Alle kledij moet <strong style={{ color: 'var(--n-ink)' }}>proper en gestreken</strong> zijn. Vermijd grote
+          logo’s of drukke patronen die de aandacht afleiden.
         </>
       ),
     },
     {
-      title: 'Uiterlijk',
+      title: 'Schoenen',
+      body: <>Breng bij elke outfit passende, propere schoenen mee.</>,
+    },
+  ];
+
+  const groomingItems = [
+    {
+      title: 'Basis make-up',
       body: (
         <>
-          Kom verzorgd: natuurlijke make-up of een frisse basis, net haar en schone schoenen. De fotograaf begeleidt
-          u tijdens de shoot naar de juiste poses en uitstraling.
+          Kom met een natuurlijke «basis» (foundation/concealer). We werken tijdens de shoot verder aan de looks.
+        </>
+      ),
+    },
+    {
+      title: 'Haar',
+      body: <>Zorg dat je haar gewassen, droog en natuurlijk gestyled is.</>,
+    },
+    {
+      title: 'Details',
+      body: (
+        <>
+          Let op verzorgde nagels (neutraal of geen lak). Geen opvallende juwelen, tenzij deze specifiek bij een outfit
+          horen.
         </>
       ),
     },
@@ -46,8 +67,21 @@ export function PortfolioInfoContent() {
             lineHeight: 1.25,
           }}
         >
-          Portfolio-afspraak
+          Fotoshoot voor Portfolio
         </h2>
+        <p
+          style={{
+            margin: '10px 0 0',
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            color: 'var(--n-gold)',
+            lineHeight: 1.4,
+          }}
+        >
+          Informatie &amp; benodigdheden
+        </p>
         <p
           style={{
             margin: '14px 0 0',
@@ -94,8 +128,36 @@ export function PortfolioInfoContent() {
       <SectionDivider />
 
       <section style={{ padding: '18px 0' }}>
-        <SectionTitle>Hoe bereidt u zich voor?</SectionTitle>
-        <NumberedList items={prepItems} />
+        <SectionTitle>Kledij &amp; outfits</SectionTitle>
+        <NumberedList items={clothingItems} />
+      </section>
+
+      <SectionDivider />
+
+      <section style={{ padding: '18px 0' }}>
+        <SectionTitle>Verzorging &amp; make-up</SectionTitle>
+        <NumberedList items={groomingItems} />
+      </section>
+
+      <SectionDivider />
+
+      <section style={{ padding: '18px 0' }}>
+        <SectionTitle>Planning &amp; timing</SectionTitle>
+        <CheckList
+          items={[
+            <>
+              <strong style={{ color: 'var(--n-ink)' }}>Locatie:</strong> {STUDIO_ADDRESS}
+            </>,
+            <>
+              <strong style={{ color: 'var(--n-ink)' }}>Duur:</strong> de shoot duurt gemiddeld{' '}
+              <strong style={{ color: 'var(--n-ink)' }}>3 tot 4 uur</strong>
+            </>,
+            <>
+              <strong style={{ color: 'var(--n-ink)' }}>Aanwezigheid:</strong> wees op tijd. We raden aan om{' '}
+              <strong style={{ color: 'var(--n-ink)' }}>10 minuten voor aanvang</strong> aanwezig te zijn
+            </>,
+          ]}
+        />
       </section>
 
       <SectionDivider />
@@ -115,10 +177,7 @@ export function PortfolioInfoContent() {
             lineHeight: 1.45,
           }}
         >
-          Klaar voor uw portfolio?
-        </p>
-        <p style={{ margin: '10px 0 0' }}>
-          Plan uw afspraak via het modellenportaal en zorg dat u op tijd bent met enkele basisoutfits.
+          Wij kijken ernaar uit om samen met jou een fantastisch portfolio te creëren!
         </p>
       </section>
     </div>

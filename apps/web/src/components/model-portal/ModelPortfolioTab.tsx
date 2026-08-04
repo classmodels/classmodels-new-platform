@@ -279,7 +279,7 @@ export function ModelPortfolioTab({
               as="p"
               contentKey="portal.model.portfolio.booked.prep.body"
               className="mt-1.5"
-              fallback="Breng enkele basisoutfits mee en kom op tijd. Tijdens de portfolio-afspraak maken we foto’s die gebruikt worden voor jouw profiel en voorstellen naar klanten."
+              fallback="Breng 6 verschillende outfits mee (variatie in stijl), met passende propere schoenen. Kledij proper en gestreken — vermijd grote logo’s. Kom met een natuurlijke make-upbasis, gewassen droog haar en verzorgde nagels. Wees 10 minuten op voorhand aanwezig; de shoot duurt gemiddeld 3 tot 4 uur."
             />
           </div>
         </div>
