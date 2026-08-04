@@ -137,17 +137,6 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
         style={{
           margin: '14px 0 0',
           fontSize: 13,
-          lineHeight: 1.55,
-          color: 'var(--n-mut)',
-        }}
-      >
-        Klik op knop Trailer 1, 2, 3 enz. om deze try-out trailers af te spelen op het scherm.
-      </p>
-
-      <p
-        style={{
-          margin: '10px 0 0',
-          fontSize: 13,
           lineHeight: 1.5,
           color: 'var(--n-ink)',
         }}
