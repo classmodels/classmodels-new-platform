@@ -41,11 +41,8 @@ Wij kiezen bewust voor een compacte en praktijkgerichte basisopleiding. U krijgt
 Vervolgtraject: Try-Out Modeshow en oefenlessen
 Na de basisopleiding kunt u deelnemen aan de Try-Out Modeshow, onze praktische examenshow. Deelnemers aan deze show krijgen bovendien toegang tot drie extra oefenlessen. Tijdens deze lessen wordt de volledige choreografie stap voor stap aangeleerd en ingeoefend, zodat u goed voorbereid, zelfverzekerd en met de juiste uitstraling het podium opgaat.
 
-Klaar voor uw eerste stap?
-Schrijf u in voor de basisopleiding en ontdek hoe u uw houding, uitstraling en talent professioneel kunt ontwikkelen.
-
 Praktisch
-Het opleidingsmoment duurt drie uur: 14:00 tot 17:00. Breng een notitieboekje, comfortabele schoenen en eventueel enkele basisoutfits mee.`,
+Het opleidingsmoment duurt drie uur: 14:00 tot 17:00. Doe iets gemakkelijks aan, breng een hakschoentje mee en eventueel iets om te drinken.`,
     rows: 24,
   },
   {
@@ -60,7 +57,7 @@ Het opleidingsmoment duurt drie uur: 14:00 tot 17:00. Breng een notitieboekje, c
     label: 'Met afspraak — korte praktische tip',
     hint: 'Korte tip onder de afspraakgegevens.',
     defaultValue:
-      'Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en verwachtingen. Breng een notitieboekje, comfortabele schoenen en eventueel enkele basisoutfits mee. Het moment duurt drie uur: 14:00 tot 17:00.',
+      'Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en verwachtingen. Doe iets gemakkelijks aan, breng een hakschoentje mee en eventueel iets om te drinken. Het moment duurt drie uur: 14:00 tot 17:00.',
     rows: 4,
   },
 ] as const;

@@ -218,7 +218,7 @@ export function ModelOpleidingTab({
               as="p"
               contentKey="portal.model.opleiding.booked.prep.body"
               className="mt-1.5"
-              fallback="Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en verwachtingen. Breng een notitieboekje, comfortabele schoenen en eventueel enkele basisoutfits mee. Het moment duurt drie uur: 14:00 tot 17:00."
+              fallback="Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en verwachtingen. Doe iets gemakkelijks aan, breng een hakschoentje mee en eventueel iets om te drinken. Het moment duurt drie uur: 14:00 tot 17:00."
             />
           </div>
         </div>

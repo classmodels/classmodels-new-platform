@@ -139,22 +139,7 @@ export function OpleidingInfoContent() {
         <SectionTitle>Praktisch</SectionTitle>
         <p style={{ margin: '10px 0 0' }}>
           Het opleidingsmoment duurt <strong style={{ color: 'var(--n-ink)' }}>drie uur: 14:00 tot 17:00</strong>.
-          Breng een notitieboekje, comfortabele schoenen en eventueel enkele basisoutfits mee.
-        </p>
-        <p
-          style={{
-            margin: '16px 0 0',
-            fontWeight: 600,
-            color: 'var(--n-gold)',
-            fontSize: 13,
-            lineHeight: 1.45,
-          }}
-        >
-          Klaar voor uw eerste stap?
-        </p>
-        <p style={{ margin: '10px 0 0' }}>
-          Schrijf u in voor de basisopleiding en ontdek hoe u uw houding, uitstraling en talent professioneel kunt
-          ontwikkelen.
+          Doe iets gemakkelijks aan, breng een hakschoentje mee en eventueel iets om te drinken.
         </p>
       </section>
     </div>
