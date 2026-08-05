@@ -133,7 +133,7 @@ export function ModelPortalHomeContent({
           </SectionBlock>
 
           <SectionBlock>
-            <div className="min-w-0">
+            <div className="portal-home-head">
               <CmText
                 contentKey="portal.model.home.portallist.title"
                 as="h3"
@@ -143,11 +143,11 @@ export function ModelPortalHomeContent({
               <CmText
                 contentKey="portal.model.home.platformlist.intro"
                 as="p"
-                className="mt-1.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-muted"
+                className="portal-home-lead text-[15px] leading-relaxed md:text-[13px] md:leading-snug"
                 fallback="Via uw account kunt u onder andere:"
               />
             </div>
-            <ul className="mt-3 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
+            <ul className="mt-0 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
               {[
                 {
                   key: 'portal.model.home.platformlist.0',
@@ -179,19 +179,21 @@ export function ModelPortalHomeContent({
           </SectionBlock>
 
           <SectionBlock>
-            <CmText
-              contentKey="portal.model.home.steps.title"
-              as="h3"
-              className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
-              fallback="Verplichte eerste stappen (nieuwe modellen)"
-            />
-            <CmText
-              contentKey="portal.model.home.steps.intro"
-              as="p"
-              className="mt-2.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-muted"
-              fallback="Om uw traject correct te starten, vragen wij u om deze stappen zo snel mogelijk in orde te brengen:"
-            />
-            <ul className="mt-3 list-none space-y-3">
+            <div className="portal-home-head">
+              <CmText
+                contentKey="portal.model.home.steps.title"
+                as="h3"
+                className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
+                fallback="Verplichte eerste stappen (nieuwe modellen)"
+              />
+              <CmText
+                contentKey="portal.model.home.steps.intro"
+                as="p"
+                className="portal-home-lead text-[15px] leading-relaxed md:text-[13px] md:leading-snug"
+                fallback="Om uw traject correct te starten, vragen wij u om deze stappen zo snel mogelijk in orde te brengen:"
+              />
+            </div>
+            <ul className="mt-0 list-none space-y-3">
               <li className="flex gap-3 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
                 <StepNum n={1} />
                 <span>
@@ -262,19 +264,21 @@ export function ModelPortalHomeContent({
           </SectionBlock>
 
           <SectionBlock>
-            <CmText
-              contentKey="portal.model.home.profile.title"
-              as="h3"
-              className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
-              fallback="Uw profiel (modellenfiche): altijd volledig en up-to-date"
-            />
-            <CmText
-              contentKey="portal.model.home.profile.intro"
-              as="p"
-              className="mt-2.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-muted"
-              fallback="Uw modellenfiche is uw professionele visitekaartje. Zorg daarom dat uw profiel:"
-            />
-            <ul className="mt-3 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
+            <div className="portal-home-head">
+              <CmText
+                contentKey="portal.model.home.profile.title"
+                as="h3"
+                className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
+                fallback="Uw profiel (modellenfiche): altijd volledig en up-to-date"
+              />
+              <CmText
+                contentKey="portal.model.home.profile.intro"
+                as="p"
+                className="portal-home-lead text-[15px] leading-relaxed md:text-[13px] md:leading-snug"
+                fallback="Uw modellenfiche is uw professionele visitekaartje. Zorg daarom dat uw profiel:"
+              />
+            </div>
+            <ul className="mt-0 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
               {[
                 {
                   key: 'portal.model.home.profile.0',
@@ -304,19 +308,21 @@ export function ModelPortalHomeContent({
           </SectionBlock>
 
           <SectionBlock>
-            <CmText
-              contentKey="portal.model.home.professional.title"
-              as="h3"
-              className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
-              fallback="Professioneel gedrag en samenwerking"
-            />
-            <CmText
-              contentKey="portal.model.home.professional.intro"
-              as="p"
-              className="mt-2.5 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90"
-              fallback="U bent toegelaten tot Class-Models omdat wij geloven in uw potentieel. Uw succes hangt sterk samen met uw houding, betrouwbaarheid en professionaliteit. Daarom verwachten wij dat u:"
-            />
-            <ul className="mt-3 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
+            <div className="portal-home-head">
+              <CmText
+                contentKey="portal.model.home.professional.title"
+                as="h3"
+                className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
+                fallback="Professioneel gedrag en samenwerking"
+              />
+              <CmText
+                contentKey="portal.model.home.professional.intro"
+                as="p"
+                className="portal-home-lead text-[15px] leading-relaxed md:text-[13px] md:leading-snug"
+                fallback="U bent toegelaten tot Class-Models omdat wij geloven in uw potentieel. Uw succes hangt sterk samen met uw houding, betrouwbaarheid en professionaliteit. Daarom verwachten wij dat u:"
+              />
+            </div>
+            <ul className="mt-0 space-y-2 text-[15px] leading-relaxed md:text-[13px] md:leading-snug text-ink/90">
               {[
                 {
                   key: 'portal.model.home.professional.0',
@@ -352,13 +358,15 @@ export function ModelPortalHomeContent({
 
         <aside className="min-w-0 space-y-3 lg:sticky lg:top-4">
           <div>
-            <CmText
-              contentKey="portal.model.home.quick.title"
-              as="h3"
-              className="portal-home-title font-serif text-lg font-semibold"
-              fallback="Direct regelen"
-            />
-            <div className="mt-3 space-y-2.5">
+            <div className="portal-home-head portal-home-head--solo">
+              <CmText
+                contentKey="portal.model.home.quick.title"
+                as="h3"
+                className="portal-home-title font-serif text-lg font-semibold"
+                fallback="Direct regelen"
+              />
+            </div>
+            <div className="mt-0 space-y-2.5">
               <Link
                 href={tab('push')}
                 className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition"
