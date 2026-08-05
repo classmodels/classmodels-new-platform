@@ -1746,7 +1746,7 @@
 .cm-kp-booking {
   display: grid;
   gap: 14px;
-}
+} /* booking layout */
 .cm-kp-booking-header {
   padding: 0 2px 6px;
 }
