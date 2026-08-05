@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 const TRAILERS = [
   {
@@ -43,17 +43,6 @@ const SCREEN = {
   height: '57.41%',
 } as const;
 
-const pickBtnStyle = (on: boolean): CSSProperties => ({
-  padding: '4px 8px',
-  fontSize: 10,
-  lineHeight: 1.2,
-  letterSpacing: '0.03em',
-  whiteSpace: 'nowrap',
-  background: on ? 'var(--n-gold)' : 'transparent',
-  color: on ? '#1a140c' : 'var(--n-ink)',
-  borderColor: on ? 'var(--n-gold)' : 'rgba(201, 162, 74, 0.4)',
-});
-
 export function TryoutTrailersContent({ headerActions }: { headerActions?: ReactNode }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -82,25 +71,8 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-          flexWrap: 'wrap',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            gap: 4,
-            flex: '1 1 auto',
-            minWidth: 0,
-          }}
-        >
+      <div className="nieuw-trailer-toolbar">
+        <div className="cm-kp-actions">
           {TRAILERS.map((t) => {
             const on = t.id === activeId;
             return (
@@ -109,45 +81,25 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
                 type="button"
                 title={t.title}
                 onClick={() => playTrailer(t.id)}
-                className="nieuw-btn"
-                style={pickBtnStyle(on)}
+                className={on ? 'nieuw-btn' : 'nieuw-btn nieuw-btn-ghost'}
+                aria-pressed={on}
               >
                 {t.label}
               </button>
             );
           })}
         </div>
-        {headerActions ? (
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 6,
-              flex: '0 1 auto',
-            }}
-          >
-            {headerActions}
-          </div>
-        ) : null}
+        {headerActions ? headerActions : null}
       </div>
 
-      <p
-        style={{
-          margin: '14px 0 0',
-          fontSize: 13,
-          lineHeight: 1.5,
-          color: 'var(--n-ink)',
-        }}
-      >
+      <p className="nieuw-trailer-hint">
         {active ? (
           <>
             Nu op het scherm:{' '}
             <strong style={{ color: 'var(--n-gold)', fontWeight: 600 }}>{active.title}</strong>
           </>
         ) : (
-          <span style={{ color: 'var(--n-mut)' }}>Nog geen trailer geselecteerd.</span>
+          <span>Selecteer een trailer om af te spelen</span>
         )}
       </p>
 
@@ -156,7 +108,7 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
         style={{
           padding: 0,
           overflow: 'hidden',
-          marginTop: 22,
+          marginTop: 32,
           marginLeft: -4,
           marginRight: -4,
         }}
@@ -222,24 +174,12 @@ export function TryoutTrailersContent({ headerActions }: { headerActions?: React
                 onClick={() => setMuted((m) => !m)}
                 aria-label={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
                 title={muted ? 'Geluid aanzetten' : 'Geluid uitzetten'}
+                className="nieuw-btn nieuw-btn-ghost"
                 style={{
                   position: 'absolute',
                   right: 8,
                   bottom: 8,
                   zIndex: 2,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  padding: '6px 10px',
-                  borderRadius: 3,
-                  border: '1px solid rgba(201, 162, 74, 0.55)',
-                  background: 'rgba(10, 10, 14, 0.82)',
-                  color: '#f3eee6',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  lineHeight: 1.2,
                   pointerEvents: 'auto',
                 }}
               >

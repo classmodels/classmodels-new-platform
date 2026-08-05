@@ -91,15 +91,9 @@ export function ModelPortalHomeContent({
         <div className="min-w-0 space-y-4 text-[13.5px] leading-relaxed text-ink/90">
           <SectionBlock>
             <CmText
-              contentKey="portal.model.home.welcome.small"
-              as="p"
-              className="text-[13.5px] font-medium leading-relaxed text-ink"
-              fallback="Welkom in je account."
-            />
-            <CmText
               contentKey="portal.model.home.welcome.title.v2"
               as="h3"
-              className="portal-home-title mt-2.5 font-serif text-lg font-semibold leading-snug md:text-xl"
+              className="portal-home-title font-serif text-lg font-semibold leading-snug md:text-xl"
               fallback="Welkom op het Modellenportaal van Class-Models"
             />
             <CmText

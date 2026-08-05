@@ -95,9 +95,9 @@ function responseMeta(mine: { status: string } | undefined): {
     case 'submitted':
       return { label: 'Ingeschreven', tone: 'submitted' };
     case 'withdrawn':
-      return { label: 'Teruggetrokken', tone: 'withdrawn' };
+      return { label: 'Uitgeschreven', tone: 'withdrawn' };
     default:
-      return { label: mine.status, tone: 'other' };
+      return { label: 'Onbekend', tone: 'other' };
   }
 }
 
@@ -105,6 +105,23 @@ function fmtAddr(a: Record<string, string>): string {
   const line1 = [a.organization, a.street, a.number].filter(Boolean).join(' ');
   const line2 = [a.postcode, a.municipality].filter(Boolean).join(' ');
   return [line1, line2].filter(Boolean).join('\n');
+}
+
+/** Korte plaatsregel voor de kaart (geen klantnaam). */
+function placeSummary(details: OpenBrief['details']): string {
+  const det = detailRecord(details);
+  const onA = asAddr(det.onLocationAddress);
+  const mainA = asAddr(det.mainAddress);
+  const pick = (a: Record<string, string>) => {
+    const street = [a.street, a.number].filter(Boolean).join(' ');
+    const city = [a.postcode, a.municipality].filter(Boolean).join(' ');
+    if (street && a.municipality) return `${street}, ${a.municipality}`;
+    if (city) return city;
+    if (street) return street;
+    if (a.organization) return a.organization;
+    return '';
+  };
+  return pick(onA) || pick(mainA) || 'Plaats nog niet bekend';
 }
 
 function detailRecord(details: OpenBrief['details']): Record<string, unknown> {
@@ -335,14 +352,14 @@ export function ModelOpdrachtenTab({
           {filtered.map((b) => {
             const mine = b.responses.find((r) => r.modelUserId === modelUserId);
             const badge = responseMeta(mine);
-            const clientLabel =
-              b.client.companyName ||
-              [b.client.firstName, b.client.lastName].filter(Boolean).join(' ') ||
-              'Class-Models';
+            const place = placeSummary(b.details);
             const sub = formatBriefSubtitle(b);
             const inAanmerking = forceEligible || b.eligibility?.eligible === true;
             const canApply =
-              canRespond && b.status === 'open' && !mine && inAanmerking;
+              canRespond &&
+              b.status === 'open' &&
+              inAanmerking &&
+              (!mine || mine.status === 'withdrawn');
             const blocked = mine?.status === 'declined';
             const det = detailRecord(b.details);
             const mainA = asAddr(det.mainAddress);
@@ -366,14 +383,14 @@ export function ModelOpdrachtenTab({
                       <span className={`nieuw-opdracht-badge tone-${badge.tone}`}>{badge.label}</span>
                     </div>
                     <h3 className="nieuw-opdracht-title">{b.title}</h3>
-                    <p className="nieuw-opdracht-client">Klant · {clientLabel}</p>
+                    <p className="nieuw-opdracht-place">{place}</p>
                   </div>
                   <div className="nieuw-opdracht-summary-side">
                     <span className={`nieuw-opdracht-elig ${inAanmerking ? 'is-yes' : 'is-no'}`}>
                       {inAanmerking ? 'In aanmerking' : 'Geen match'}
                     </span>
-                    <span className="nieuw-opdracht-chevron" aria-hidden>
-                      {open ? '−' : '+'}
+                    <span className={`nieuw-opdracht-meer${open ? ' is-open' : ''}`}>
+                      {open ? 'Sluiten' : 'Meer info'}
                     </span>
                   </div>
                 </button>
@@ -481,7 +498,8 @@ export function ModelOpdrachtenTab({
                       ) : mine?.status === 'submitted' ? (
                         <div className="nieuw-opdracht-action-row">
                           <p className="nieuw-opdracht-status-msg">
-                            U bent ingeschreven. U kunt zich nog uitschrijven zolang de selectie open is.
+                            Status: <strong>Ingeschreven</strong>. U kunt zich nog uitschrijven zolang de
+                            selectie open is.
                           </p>
                           <button
                             type="button"
@@ -494,15 +512,16 @@ export function ModelOpdrachtenTab({
                         </div>
                       ) : mine?.status === 'accepted' ? (
                         <p className="nieuw-opdracht-status-msg is-success">
-                          Gefeliciteerd — u bent gekozen. Neem contact op met Class-Models voor de
+                          Status: <strong>Geselecteerd</strong>. Neem contact op met Class-Models voor de
                           verdere afspraken.
-                        </p>
-                      ) : mine ? (
-                        <p className="nieuw-opdracht-status-msg">
-                          Status: <strong>{mine.status}</strong>
                         </p>
                       ) : canApply ? (
                         <div className="nieuw-opdracht-apply">
+                          {mine?.status === 'withdrawn' ? (
+                            <p className="nieuw-opdracht-status-msg" style={{ marginBottom: 12 }}>
+                              Status: <strong>Uitgeschreven</strong>. U kunt zich opnieuw inschrijven.
+                            </p>
+                          ) : null}
                           <label className="nieuw-opdracht-apply-label" htmlFor={`extra-${b.id}`}>
                             Extra info <span style={{ color: 'var(--n-mut)', fontWeight: 500 }}>(optioneel)</span>
                           </label>
@@ -518,7 +537,9 @@ export function ModelOpdrachtenTab({
                           />
                           <div className="nieuw-opdracht-apply-footer">
                             <p className="nieuw-lead" style={{ margin: 0, fontSize: 12 }}>
-                              U kunt direct inschrijven. Extra info is niet verplicht.
+                              {mine?.status === 'withdrawn'
+                                ? 'U was uitgeschreven. Schrijf u opnieuw in als u weer wilt meedoen.'
+                                : 'U kunt direct inschrijven. Extra info is niet verplicht.'}
                             </p>
                             <button
                               type="button"
@@ -526,10 +547,18 @@ export function ModelOpdrachtenTab({
                               disabled={busyId === b.id}
                               onClick={() => void submitInterest(b.id)}
                             >
-                              {busyId === b.id ? 'Bezig…' : 'Inschrijven'}
+                              {busyId === b.id
+                                ? 'Bezig…'
+                                : mine?.status === 'withdrawn'
+                                  ? 'Opnieuw inschrijven'
+                                  : 'Inschrijven'}
                             </button>
                           </div>
                         </div>
+                      ) : mine ? (
+                        <p className="nieuw-opdracht-status-msg">
+                          Status: <strong>{responseMeta(mine).label}</strong>
+                        </p>
                       ) : b.status === 'open' && !inAanmerking ? (
                         <div className="nieuw-opdracht-action-row">
                           <p className="nieuw-opdracht-status-msg is-warn">

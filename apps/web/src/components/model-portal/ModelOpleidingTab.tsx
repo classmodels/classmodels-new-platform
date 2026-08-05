@@ -4,9 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useAuth } from '@/context/auth-context';
 import { apiFetch } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
-import { CmText } from '@/components/CmText';
 import { OpleidingInfoContent } from '@/components/model-portal/opleiding-info-content';
-import { ModelTabPageHeader } from '@/components/model-portal/ModelTabPageHeader';
 
 const OPLEIDING_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
 
@@ -121,7 +119,7 @@ export function ModelOpleidingTab({
 
   const computedHeaderRight = useMemo(() => {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className={onHeaderRightChange ? 'cm-kp-actions' : 'nieuw-portal-toolbar cm-kp-actions'}>
         {headerBtn(
           panel === 'info' ? 'Terug' : 'Info opleiding',
           () => setPanel((p) => (p === 'info' ? 'summary' : 'info')),
@@ -134,7 +132,7 @@ export function ModelOpleidingTab({
         {booking ? headerBtn('Afspraak annuleren', cancelBooking, false, true) : null}
       </div>
     );
-  }, [booking, cancelBooking, headerBtn, loading, panel]);
+  }, [booking, cancelBooking, headerBtn, loading, onHeaderRightChange, panel]);
 
   useEffect(() => {
     onHeaderRightChange?.(computedHeaderRight);
@@ -155,25 +153,23 @@ export function ModelOpleidingTab({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {panel === 'info' ? (
-        <ModelTabPageHeader
-          title="Inschrijven voor de basisopleiding"
-          actions={!onHeaderRightChange ? computedHeaderRight : undefined}
-        />
+        !onHeaderRightChange ? computedHeaderRight : null
       ) : !onHeaderRightChange ? (
-        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
+        computedHeaderRight
       ) : null}
       {err ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div> : null}
 
       {loading ? (
         <div className="text-sm text-zinc-500">Laden…</div>
       ) : panel === 'info' ? (
-        <div className="nieuw-panel">
+        <div className="nieuw-panel nieuw-panel--legend">
+          <h1 className="nieuw-panel-legend">Inschrijven voor de basisopleiding</h1>
           <OpleidingInfoContent />
         </div>
       ) : panel === 'book' ? (
-        <div className="border border-zinc-300 bg-white px-3 py-3">
+        <div className="nieuw-panel">
           <GuestBookingPanel
             calendarSlug="opleiding"
             heading="Opleiding"
@@ -192,48 +188,34 @@ export function ModelOpleidingTab({
           </p>
         </div>
       ) : booking ? (
-        <div className="border border-zinc-300 bg-white px-4 py-3">
+        <div className="nieuw-panel">
           <p className="text-[13px] text-zinc-900">
             Uw opleidingsafspraak staat ingeboekt voor <strong>{fmtNl(booking.slotDate)}</strong> van{' '}
             <strong>{booking.startTime}</strong> tot <strong>{booking.endTime}</strong>.
           </p>
-          <dl className="mt-3 divide-y divide-zinc-200 border border-zinc-200 text-[13px]">
-            <div className="grid grid-cols-[110px_1fr] gap-2 px-3 py-1.5">
-              <dt className="font-semibold text-zinc-700">Datum</dt>
-              <dd className="text-right text-zinc-900">{fmtNl(booking.slotDate)}</dd>
+          <dl className="nieuw-portal-facts">
+            <div>
+              <dt>Datum</dt>
+              <dd>{fmtNl(booking.slotDate)}</dd>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-2 px-3 py-1.5">
-              <dt className="font-semibold text-zinc-700">Uur</dt>
-              <dd className="text-right tabular-nums text-zinc-900">
+            <div>
+              <dt>Uur</dt>
+              <dd className="tabular-nums">
                 {booking.startTime} - {booking.endTime}
               </dd>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-2 px-3 py-1.5">
-              <dt className="font-semibold text-zinc-700">Adres</dt>
-              <dd className="text-right text-zinc-900">{OPLEIDING_ADDRESS}</dd>
+            <div>
+              <dt>Adres</dt>
+              <dd>{OPLEIDING_ADDRESS}</dd>
             </div>
           </dl>
-          <div className="mt-3 border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[12px] leading-snug text-zinc-800">
-            <CmText
-              as="p"
-              contentKey="portal.model.opleiding.booked.prep.title"
-              className="text-[11px] font-bold uppercase text-zinc-700"
-              fallback="Voorzien voor opleiding"
-            />
-            <CmText
-              as="p"
-              contentKey="portal.model.opleiding.booked.prep.body"
-              className="mt-1.5"
-              fallback="Tijdens de opleiding overlopen we de werking van Class-Models, houding, presentatie, opdrachten en verwachtingen. Doe iets gemakkelijks aan, breng een hakschoentje mee en eventueel iets om te drinken. Het moment duurt drie uur: 14:00 tot 17:00."
-            />
-          </div>
         </div>
       ) : (
-        <div className="border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
-          <p className="font-semibold text-zinc-900">U hebt nog geen afspraak ingeboekt.</p>
-          <p className="mt-2 text-zinc-700">
+        <div className="nieuw-panel text-[13px] leading-snug">
+          <p className="font-semibold text-[color:var(--n-gold)]">U hebt nog geen afspraak ingeboekt.</p>
+          <p className="mt-2" style={{ color: 'var(--n-mut)' }}>
             Klik rechtsboven op &quot;Afspraak maken&quot; om een beschikbare datum te kiezen. Per dag is er één moment:{' '}
-            <strong className="text-zinc-900">14:00 tot 17:00</strong> (drie uur).
+            <strong style={{ color: 'var(--n-ink)' }}>14:00 tot 17:00</strong> (drie uur).
           </p>
         </div>
       )}

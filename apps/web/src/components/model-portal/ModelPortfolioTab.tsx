@@ -8,7 +8,6 @@ import { CmText } from '@/components/CmText';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
 import { downloadWithProgress, downloadProgressSublabel, type DownloadProgressUpdate } from '@/lib/download-with-progress';
 import { PortfolioInfoContent } from '@/components/model-portal/portfolio-info-content';
-import { ModelTabPageHeader } from '@/components/model-portal/ModelTabPageHeader';
 
 const PORTFOLIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
 
@@ -160,7 +159,7 @@ export function ModelPortfolioTab({
 
   const computedHeaderRight = useMemo(() => {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className={onHeaderRightChange ? 'cm-kp-actions' : 'nieuw-portal-toolbar cm-kp-actions'}>
         {headerBtn(
           panel === 'info' ? 'Terug' : 'Info portfolio',
           () => setPanel((p) => (p === 'info' ? 'summary' : 'info')),
@@ -173,7 +172,7 @@ export function ModelPortfolioTab({
         {booking ? headerBtn('Afspraak annuleren', cancelBooking, false, true) : null}
       </div>
     );
-  }, [booking, cancelBooking, headerBtn, loading, panel]);
+  }, [booking, cancelBooking, headerBtn, loading, onHeaderRightChange, panel]);
 
   useEffect(() => {
     onHeaderRightChange?.(computedHeaderRight);
@@ -187,14 +186,11 @@ export function ModelPortfolioTab({
     can('portal.model.media.read') && deliveryCount !== null && deliveryCount > 0;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {panel === 'info' ? (
-        <ModelTabPageHeader
-          title="Fotoshoot voor Portfolio"
-          actions={!onHeaderRightChange ? computedHeaderRight : undefined}
-        />
+        !onHeaderRightChange ? computedHeaderRight : null
       ) : !onHeaderRightChange ? (
-        <div className="mb-1 flex flex-wrap justify-end gap-2">{computedHeaderRight}</div>
+        computedHeaderRight
       ) : null}
       {downloadProgress ? (
         <CmProgressOverlay
@@ -226,11 +222,12 @@ export function ModelPortfolioTab({
       {loading ? (
         <div className="text-sm text-zinc-500">Laden…</div>
       ) : panel === 'info' ? (
-        <div className="nieuw-panel">
+        <div className="nieuw-panel nieuw-panel--legend">
+          <h1 className="nieuw-panel-legend">Fotoshoot voor Portfolio</h1>
           <PortfolioInfoContent />
         </div>
       ) : panel === 'book' ? (
-        <div className="border border-zinc-300 bg-white px-3 py-3">
+        <div className="nieuw-panel">
           <GuestBookingPanel
             calendarSlug="portfolio"
             heading="Portfolio"
@@ -253,54 +250,40 @@ export function ModelPortfolioTab({
           />
         </div>
       ) : booking ? (
-        <div className="border border-zinc-300 bg-white px-4 py-3">
+        <div className="nieuw-panel">
           <p className="text-[13px] text-zinc-900">
             Uw portfolio-afspraak staat ingeboekt voor <strong>{fmtNl(booking.slotDate)}</strong> van{' '}
             <strong>{booking.startTime}</strong> tot <strong>{booking.endTime}</strong>.
           </p>
-          <dl className="mt-3 divide-y divide-zinc-200 border border-zinc-200 text-[13px]">
-            <div className="grid grid-cols-[110px_1fr] gap-2 px-3 py-1.5">
-              <dt className="font-semibold text-zinc-700">Datum</dt>
-              <dd className="text-right text-zinc-900">{fmtNl(booking.slotDate)}</dd>
+          <dl className="nieuw-portal-facts">
+            <div>
+              <dt>Datum</dt>
+              <dd>{fmtNl(booking.slotDate)}</dd>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-2 px-3 py-1.5">
-              <dt className="font-semibold text-zinc-700">Uur</dt>
-              <dd className="text-right tabular-nums text-zinc-900">
+            <div>
+              <dt>Uur</dt>
+              <dd className="tabular-nums">
                 {booking.startTime} - {booking.endTime}
               </dd>
             </div>
-            <div className="grid grid-cols-[110px_1fr] gap-2 px-3 py-1.5">
-              <dt className="font-semibold text-zinc-700">Adres</dt>
-              <dd className="text-right text-zinc-900">{PORTFOLIO_ADDRESS}</dd>
+            <div>
+              <dt>Adres</dt>
+              <dd>{PORTFOLIO_ADDRESS}</dd>
             </div>
           </dl>
-          <div className="mt-3 border border-zinc-200 bg-zinc-50 px-3 py-2.5 text-[12px] leading-snug text-zinc-800">
-            <CmText
-              as="p"
-              contentKey="portal.model.portfolio.booked.prep.title"
-              className="text-[11px] font-bold uppercase text-zinc-700"
-              fallback="Voorzien voor portfolio"
-            />
-            <CmText
-              as="p"
-              contentKey="portal.model.portfolio.booked.prep.body"
-              className="mt-1.5"
-              fallback="Er worden totaal 6 outfits gefotografeerd. Breng 6 looks mee (variatie in stijl) met passende propere schoenen. Lingerie/bikini enkel als dat op uw modellenfiche staat aangeduid; anders een extra zomeroutfit in de plaats. Kledij proper en gestreken — vermijd grote logo’s. Kom zonder make-up: de make-upartiest verzorgt dit ter plaatse. Haar gewassen, droog en natuurlijk; verzorgde nagels. Wees 10 minuten op voorhand aanwezig; de shoot duurt gemiddeld 2 tot 3 uur."
-            />
-          </div>
         </div>
       ) : (
-        <div className="border border-zinc-300 bg-zinc-50 px-4 py-3 text-[13px] leading-snug text-zinc-800">
+        <div className="nieuw-panel text-[13px] leading-snug">
           <CmText
             as="p"
             contentKey="portal.model.portfolio.summary.empty.title"
-            className="font-semibold text-zinc-900"
+            className="font-semibold text-[color:var(--n-gold)]"
             fallback="U hebt nog geen afspraak ingeboekt."
           />
           <CmText
             as="p"
             contentKey="portal.model.portfolio.summary.empty.body"
-            className="mt-2 text-zinc-700"
+            className="mt-2"
             fallback='Klik rechtsboven op "Afspraak maken" om een moment te kiezen.'
           />
         </div>

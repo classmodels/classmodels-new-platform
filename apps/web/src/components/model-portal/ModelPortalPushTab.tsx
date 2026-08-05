@@ -447,10 +447,10 @@ export function ModelPortalPushTab({
   const clearSel = () => setSelected({});
 
   return (
-    <div className="text-sm">
-      {pushMsg ? <p className="mb-3 text-xs font-medium text-red-700">{pushMsg}</p> : null}
+    <div className="space-y-5 text-sm">
+      {pushMsg ? <p className="text-xs font-medium text-red-700">{pushMsg}</p> : null}
 
-      <div className="mb-3 flex flex-wrap items-center justify-end gap-1.5">
+      <div className="nieuw-portal-toolbar">
         <button
           type="button"
           disabled={busy || !inboxIds.length}
@@ -482,7 +482,7 @@ export function ModelPortalPushTab({
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-5">
           {loadErr ? <p className="text-xs text-red-700">{loadErr}</p> : null}
           <ul className="space-y-2">
             {filteredInbox.map((row) => (

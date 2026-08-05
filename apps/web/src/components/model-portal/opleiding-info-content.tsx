@@ -46,30 +46,7 @@ export function OpleidingInfoContent() {
   return (
     <div style={{ display: 'grid', gap: 0, fontSize: 12.5, lineHeight: 1.65, color: 'var(--n-mut)' }}>
       <header style={{ paddingBottom: 18 }}>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--n-gold)',
-            lineHeight: 1.4,
-          }}
-        >
-          Model, Mannequin &amp; Dressman
-        </p>
-        <p
-          style={{
-            margin: '14px 0 0',
-            fontSize: 13.5,
-            fontWeight: 600,
-            color: 'var(--n-ink)',
-            lineHeight: 1.45,
-          }}
-        >
-          Een praktijkgerichte eerste stap in de mode- en modellenwereld
-        </p>
+        <SectionTitle>Model, Mannequin &amp; Dressman</SectionTitle>
         <p style={{ margin: '12px 0 0' }}>
           Bent u klaar om uw eerste stappen te zetten in de modellenwereld? Bij Class-Models volgt u een
           doelgerichte basisopleiding waarin u de essentiële vaardigheden, kennis en professionele houding

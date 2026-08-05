@@ -7,7 +7,6 @@ import { portalTitlebarPillClass } from '@/components/model-portal/portal-titleb
 import { TryoutModeshowInfoContent } from '@/components/model-portal/tryout-modeshow-info-content';
 import { TryoutTrailersContent } from '@/components/model-portal/tryout-trailers-content';
 import { TryoutTermsContent } from '@/components/model-portal/tryout-terms-content';
-import { ModelTabPageHeader } from '@/components/model-portal/ModelTabPageHeader';
 import { createPortal } from 'react-dom';
 import { goToExternalCheckout, paymentReturnOrigin } from '@/lib/storage';
 
@@ -295,13 +294,6 @@ export function ModelTryoutModeshowTab({
     void checkout();
   }, [termsTick, hasTerms, checkout]);
 
-  const compactBtnStyle: CSSProperties = {
-    padding: '5px 10px',
-    fontSize: 11,
-    lineHeight: 1.25,
-    whiteSpace: 'nowrap',
-  };
-
   const headerBtn = useCallback(
     (
       label: string,
@@ -312,11 +304,10 @@ export function ModelTryoutModeshowTab({
       const inline = !onHeaderRightChange;
       if (inline) {
         let className = 'nieuw-btn nieuw-btn-ghost';
-        let style: CSSProperties = { ...compactBtnStyle };
+        let style: CSSProperties | undefined;
         if (variant === 'join') {
           className = 'nieuw-btn';
           style = {
-            ...compactBtnStyle,
             background: '#b8e0c8',
             color: '#14301f',
             borderColor: '#8fc9a6',
@@ -324,7 +315,6 @@ export function ModelTryoutModeshowTab({
         } else if (variant === 'decline') {
           className = 'nieuw-btn';
           style = {
-            ...compactBtnStyle,
             background: '#c43c3c',
             color: '#fff',
             borderColor: '#a83232',
@@ -352,10 +342,10 @@ export function ModelTryoutModeshowTab({
           className={portalTitlebarPillClass(variant === 'primary' || variant === 'join')}
           style={
             variant === 'join'
-              ? { ...compactBtnStyle, background: '#b8e0c8', color: '#14301f', borderColor: '#8fc9a6' }
+              ? { background: '#b8e0c8', color: '#14301f', borderColor: '#8fc9a6' }
               : variant === 'decline'
-                ? { ...compactBtnStyle, background: '#c43c3c', color: '#fff', borderColor: '#a83232' }
-                : compactBtnStyle
+                ? { background: '#c43c3c', color: '#fff', borderColor: '#a83232' }
+                : undefined
           }
         >
           {label}
@@ -377,10 +367,10 @@ export function ModelTryoutModeshowTab({
 
     if (paid) {
       return (
-        <div className="flex flex-wrap justify-end gap-1.5">
+        <div className="nieuw-portal-toolbar cm-kp-actions">
           {infoBtn}
           {trailersBtn}
-          <span className="self-center text-[11px] font-medium" style={{ color: 'var(--n-gold)' }}>
+          <span className="nieuw-btn" style={{ cursor: 'default', pointerEvents: 'none' }}>
             Ingeschreven{reg?.isFree ? ' (gratis)' : ''}
           </span>
         </div>
@@ -411,7 +401,11 @@ export function ModelTryoutModeshowTab({
 
     buttons.push(infoBtn, trailersBtn);
 
-    return <div className="flex flex-wrap justify-end gap-1.5">{buttons}</div>;
+    return (
+      <div className="nieuw-portal-toolbar cm-kp-actions">
+        {buttons}
+      </div>
+    );
   }, [
     attemptCheckout,
     attemptPay,
@@ -468,14 +462,9 @@ export function ModelTryoutModeshowTab({
   const showRegister = interested || paid;
 
   return (
-    <div className="space-y-4 text-sm leading-relaxed">
-      {panel === 'info' ? (
-        <ModelTabPageHeader
-          title="Schrijf je in voor de Try-out Modeshow!"
-          actions={!onHeaderRightChange ? computedHeaderRight : undefined}
-        />
-      ) : panel === 'trailers' ? null : !onHeaderRightChange ? (
-        <div className="mb-1 flex flex-wrap justify-end gap-1.5">{computedHeaderRight}</div>
+    <div className="space-y-5 text-sm leading-relaxed">
+      {panel === 'info' || (panel !== 'trailers' && !onHeaderRightChange) ? (
+        !onHeaderRightChange ? computedHeaderRight : null
       ) : null}
 
       {err ? (
@@ -485,7 +474,8 @@ export function ModelTryoutModeshowTab({
       ) : null}
 
       {panel === 'info' ? (
-        <div className="nieuw-panel">
+        <div className="nieuw-panel nieuw-panel--legend">
+          <h1 className="nieuw-panel-legend">Schrijf je in voor de Try-out Modeshow!</h1>
           <TryoutModeshowInfoContent priceLabel={priceLabel} />
         </div>
       ) : panel === 'trailers' ? (
@@ -494,14 +484,9 @@ export function ModelTryoutModeshowTab({
         />
       ) : (
         <>
-          <div className="nieuw-panel">
-            <p
-              className="nieuw-label"
-              style={{ color: 'var(--n-gold)', letterSpacing: '0.14em', margin: 0 }}
-            >
-              {e.title}
-            </p>
-            <p style={{ margin: '12px 0 0', fontWeight: 700, color: 'var(--n-ink)', fontSize: 16 }}>
+          <div className="nieuw-panel nieuw-panel--legend">
+            <h1 className="nieuw-panel-legend">{e.title}</h1>
+            <p style={{ margin: 0, fontWeight: 700, color: 'var(--n-ink)', fontSize: 16 }}>
               {e.dateLabelNl}
             </p>
             <p style={{ margin: '8px 0 0', color: 'var(--n-mut)', fontSize: 13 }}>
@@ -522,9 +507,9 @@ export function ModelTryoutModeshowTab({
           </div>
 
           {status === 'none' ? (
-            <div className="nieuw-panel">
-              <p style={{ margin: 0, fontWeight: 600, color: 'var(--n-ink)' }}>Uw keuze</p>
-              <p style={{ margin: '10px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
+            <div className="nieuw-panel nieuw-panel--legend">
+              <h2 className="nieuw-panel-legend">Uw keuze</h2>
+              <p style={{ margin: 0, color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
                 Gebruik de knoppen rechtsboven om aan te geven of u wilt deelnemen aan de try-out modeshow, of bekijk
                 eerst de info of de trailers.
               </p>
@@ -532,9 +517,9 @@ export function ModelTryoutModeshowTab({
           ) : null}
 
           {declined ? (
-            <div className="nieuw-panel">
-              <p style={{ margin: 0, fontWeight: 600, color: 'var(--n-ink)' }}>Uw keuze</p>
-              <p style={{ margin: '10px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
+            <div className="nieuw-panel nieuw-panel--legend">
+              <h2 className="nieuw-panel-legend">Uw keuze</h2>
+              <p style={{ margin: 0, color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.6 }}>
                 U heeft aangegeven niet deel te nemen
                 {reg?.declineReason ? (
                   <>
@@ -549,10 +534,8 @@ export function ModelTryoutModeshowTab({
           ) : null}
 
           {showRegister ? (
-            <div className="nieuw-panel" ref={registerRef} id="inschrijven-tryout-modeshow">
-              <p style={{ margin: 0, fontWeight: 600, color: 'var(--n-ink)', fontSize: 15 }}>
-                Inschrijven try-out modeshow
-              </p>
+            <div className="nieuw-panel nieuw-panel--legend" ref={registerRef} id="inschrijven-tryout-modeshow">
+              <h2 className="nieuw-panel-legend">Inschrijven try-out modeshow</h2>
 
               {paid ? (
                 <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>

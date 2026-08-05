@@ -69,19 +69,7 @@ export function PortfolioInfoContent() {
   return (
     <div style={{ display: 'grid', gap: 0, fontSize: 12.5, lineHeight: 1.65, color: 'var(--n-mut)' }}>
       <header style={{ paddingBottom: 18 }}>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            color: 'var(--n-gold)',
-            lineHeight: 1.4,
-          }}
-        >
-          Informatie &amp; benodigdheden
-        </p>
+        <SectionTitle>Informatie &amp; benodigdheden</SectionTitle>
         <p
           style={{
             margin: '14px 0 0',
