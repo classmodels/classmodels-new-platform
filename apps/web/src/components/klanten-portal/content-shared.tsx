@@ -7,15 +7,34 @@ export function KpTitel({ children }: { children: ReactNode }) {
   return <h3 className="cm-kp-titel">{children}</h3>;
 }
 
-/** Eenvoudige bolletjeslijst (zoals Class Events). */
-export function KpBullet({ items }: { items: ReactNode[] }) {
+/**
+ * Lijst met gouden vierkantjes + vinkje (of nummer).
+ * Stijl zoals «Waarom Class-Models»-checklist.
+ */
+export function KpChecks({
+  items,
+  numbered = false,
+}: {
+  items: ReactNode[];
+  numbered?: boolean;
+}) {
   return (
-    <ul className="cm-kp-bullet">
+    <ul className="cm-kp-checks">
       {items.map((item, i) => (
-        <li key={i}>{item}</li>
+        <li key={i}>
+          <span aria-hidden className="cm-kp-mark">
+            {numbered ? i + 1 : '✓'}
+          </span>
+          <span className="cm-kp-checks-tekst">{item}</span>
+        </li>
       ))}
     </ul>
   );
+}
+
+/** @deprecated gebruik KpChecks */
+export function KpBullet({ items }: { items: ReactNode[] }) {
+  return <KpChecks items={items} />;
 }
 
 export function KpCard({ children, className = '' }: { children: ReactNode; className?: string }) {

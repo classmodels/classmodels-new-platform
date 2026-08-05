@@ -705,7 +705,6 @@ export function KlantenPortalClient() {
           </Link>
         </div>
       </div>
-      <PartnersStrip />
     </section>
   );
 }

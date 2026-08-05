@@ -1,4 +1,4 @@
-import { KpBullet, KpCard, KpImageCard, KpSplit, KpTitel } from './content-shared';
+import { KpCard, KpChecks, KpSplit, KpTitel } from './content-shared';
 
 export function KlantenEventContent() {
   return (
@@ -12,105 +12,111 @@ export function KlantenEventContent() {
           inhoud en het succes van uw bedrijf, terwijl de organisatie van het evenement in goede
           handen is — van een intieme receptie tot een groot bedrijfsgala.
         </p>
-        <KpBullet
+        <KpChecks
           items={[
-            'Volledige bemensing: ontvangst, bar, vestiaire, hostessen',
-            'Locatie, aankleding, catering en entertainment op aanvraag',
-            'Personeelsfeesten, kerstborrels en nieuwjaarsrecepties',
-            'Bedrijfsopeningen, galas, lanceringen en klantenevents',
-            'Persoonlijke briefing en nazorg na elk evenement',
+            <>
+              <strong>Volledige bemensing:</strong> ontvangst, bar, vestiaire, hostessen.
+            </>,
+            <>
+              <strong>Productie op aanvraag:</strong> locatie, aankleding, catering, entertainment.
+            </>,
+            <>
+              <strong>Seizoensevents:</strong> personeelsfeesten, kerstborrels, nieuwjaarsrecepties.
+            </>,
+            <>
+              <strong>Zakelijke events:</strong> openings, galas, lanceringen, klantenevents.
+            </>,
+            <>
+              <strong>Nazorg:</strong> persoonlijke briefing en feedback na afloop.
+            </>,
           ]}
         />
       </KpCard>
 
-      <div className="cm-kp-split">
-        <KpCard className="cm-kp-card--fill">
-          <KpTitel>Wij verzorgen onder andere:</KpTitel>
-          <KpBullet
-            items={[
-              'Ontvangst en gastenregistratie',
-              'Begeleiding en zaalassistentie',
-              'Bar- en cateringondersteuning',
-              'Vestiaire / cloakroom',
-              'PR-medewerkers en hostessen',
-              'Promo-activaties tijdens uw event',
-              'Coördinatie en teamleiding',
-            ]}
-          />
-        </KpCard>
-        <KpImageCard src="/nieuw/hero-4.jpg" alt="Eventpersoneel Class-Models" />
-      </div>
+      {/* Foto rechts */}
+      <KpSplit foto="/nieuw/hero-4.jpg" alt="Eventpersoneel Class-Models" fotoRechts>
+        <KpTitel>Wij verzorgen onder andere:</KpTitel>
+        <KpChecks
+          items={[
+            'Ontvangst en gastenregistratie',
+            'Begeleiding en zaalassistentie',
+            'Bar- en cateringondersteuning',
+            'Vestiaire / cloakroom',
+            'PR-medewerkers en hostessen',
+            'Promo-activaties tijdens uw event',
+            'Coördinatie en teamleiding',
+          ]}
+        />
+      </KpSplit>
 
-      <div className="cm-kp-masonry">
-        <div className="cm-kp-masonry-col">
-          <KpCard>
-            <KpTitel>Professioneel personeel maakt het verschil</KpTitel>
-            <p>
-              Representatieve, goed gebriefde medewerkers zorgen ervoor dat gasten zich welkom
-              voelen en dat uw evenement vlot verloopt — tot in de details.
-            </p>
-            <p>
-              Of het nu een formele receptie is of een uitbundige avond: wij matchen het team aan
-              uw bedrijfscultuur en budget.
-            </p>
-          </KpCard>
-          <KpImageCard src="/nieuw/hero-6.jpg" alt="Samenwerking op een Class-Models event" />
-          <KpCard>
-            <KpTitel>Wij voorzien onder andere:</KpTitel>
-            <KpBullet
-              items={[
-                'Personeelsfeest & teambuilding',
-                'Kerstborrel en nieuwjaarsreceptie',
-                'Bedrijfsopening / bedrijfshappening',
-                'Bedrijfsgala en galadiner',
-                'Productlancering en awards',
-              ]}
-            />
-          </KpCard>
-        </div>
-        <div className="cm-kp-masonry-col">
-          <KpImageCard src="/nieuw/modellenportaal.jpg" alt="Hosting bij Class-Models" />
-          <KpCard>
-            <KpTitel>Wij denken mee over:</KpTitel>
-            <KpBullet
-              items={[
-                'Concept en sfeer van uw event',
-                'Aantal gasten en flow van de avond',
-                'Looks, dresscode en huisstijl',
-                'Timing, briefing en back-up',
-                'Nazorg en feedback na afloop',
-              ]}
-            />
-          </KpCard>
-          <KpCard>
-            <KpTitel>Onze werkwijze</KpTitel>
-            <KpBullet
-              items={[
-                'Intakegesprek — concept, locatie, wensen',
-                'Personeelsselectie op maat van uw briefing',
-                'Gedetailleerde briefing per medewerker',
-                'Dag van het event: tijdig, professioneel, klaar',
-                'Nazorg: factuur en korte feedback',
-              ]}
-            />
-            <p style={{ marginTop: 12 }}>
-              Interesse? Gebruik <strong>Modellen boeken / tarieven</strong> om een offerte of
-              bestelling in te dienen en beschrijf uw event in het opmerkingenveld.
-            </p>
-          </KpCard>
-        </div>
-      </div>
+      {/* Foto links */}
+      <KpSplit foto="/nieuw/hero-6.jpg" alt="Samenwerking op een Class-Models event">
+        <KpTitel>Professioneel personeel maakt het verschil</KpTitel>
+        <p>
+          Representatieve, goed gebriefde medewerkers zorgen ervoor dat gasten zich welkom voelen en
+          dat uw evenement vlot verloopt — tot in de details.
+        </p>
+        <p>
+          Of het nu een formele receptie is of een uitbundige avond: wij matchen het team aan uw
+          bedrijfscultuur en budget.
+        </p>
+      </KpSplit>
 
-      <KpSplit foto="/nieuw/hero-home.jpg" alt="Event sfeerbeeld" fotoRechts>
+      {/* Foto rechts */}
+      <KpSplit foto="/nieuw/modellenportaal.jpg" alt="Hosting bij Class-Models" fotoRechts>
+        <KpTitel>Wij denken mee over:</KpTitel>
+        <KpChecks
+          items={[
+            <>
+              <strong>Concept &amp; sfeer:</strong> van formal tot feestelijk.
+            </>,
+            <>
+              <strong>Gastenflow:</strong> aantal gasten en timing van de avond.
+            </>,
+            <>
+              <strong>Looks:</strong> dresscode en huisstijl.
+            </>,
+            <>
+              <strong>Planning:</strong> briefing en back-up.
+            </>,
+            <>
+              <strong>Nazorg:</strong> factuur en korte feedback.
+            </>,
+          ]}
+        />
+      </KpSplit>
+
+      {/* Foto links */}
+      <KpSplit foto="/nieuw/hero-home.jpg" alt="Event sfeerbeeld">
         <KpTitel>Personeelsfeest, kerstborrel of bedrijfsopening</KpTitel>
         <p>
           Een personeelsfeest versterkt de band tussen medewerkers. Een kerstborrel of
           nieuwjaarsreceptie is hét moment om samen bij te praten. Een bedrijfsopening profileert uw
           merk en versterkt relaties.
         </p>
-        <p>
-          Wij nemen al uw zorgen uit handen: van locatie en catering tot entertainment en
-          decoratie. <strong>Samen maken we er een onvergetelijke gebeurtenis van.</strong>
+        <KpChecks
+          numbered
+          items={[
+            <>
+              <strong>Intake:</strong> concept, locatie en wensen.
+            </>,
+            <>
+              <strong>Selectie:</strong> team op maat van uw briefing.
+            </>,
+            <>
+              <strong>Briefing:</strong> elk teamlid kent uw evenement.
+            </>,
+            <>
+              <strong>Uitvoering:</strong> tijdig, professioneel, klaar.
+            </>,
+            <>
+              <strong>Nazorg:</strong> factuur en feedback.
+            </>,
+          ]}
+        />
+        <p style={{ marginTop: 12 }}>
+          Interesse? Gebruik <strong>Modellen boeken / tarieven</strong> om een offerte of bestelling
+          in te dienen en beschrijf uw event in het opmerkingenveld.
         </p>
       </KpSplit>
     </div>

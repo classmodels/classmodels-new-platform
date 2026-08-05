@@ -1516,6 +1516,48 @@
   border-radius: 50%;
   background: rgba(243, 238, 230, 0.55);
 }
+/* Gouden vierkantjes met vinkje / nummer */
+.cm-kp-checks {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.cm-kp-checks > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--kp-card-edge);
+  border-radius: 4px;
+  background: #0e0e10;
+}
+.cm-kp-mark {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  background: var(--n-gold);
+  color: #0a0a0c;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cm-kp-checks-tekst {
+  flex: 1;
+  min-width: 0;
+  color: var(--kp-body);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.cm-kp-checks-tekst strong {
+  color: #f3eee6;
+  font-weight: 600;
+}
 .cm-kp-cellen {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

@@ -1,8 +1,7 @@
 import {
   KpAccordeon,
-  KpBullet,
   KpCard,
-  KpImageCard,
+  KpChecks,
   KpPartnerGrid,
   KpSplit,
   KpTitel,
@@ -20,18 +19,29 @@ export function KlantenWaarStaatContent() {
           transparant en persoonlijk. Hieronder leest u waar wij voor staan en waarom bedrijven in
           heel België met ons samenwerken.
         </p>
-        <KpBullet
+        <KpChecks
           items={[
-            'Kant-en-klare modeshows, afgestemd op uw winkel of merk',
-            'Geen concurrerende winkels in gezamenlijke shows',
-            '20 jaar ervaring als toonaangevend modellenbureau',
-            'Modellen van alle leeftijden, maten en achtergronden',
-            'Persoonlijke aanpak — elke casting start met een gesprek',
+            <>
+              <strong>Kant-en-klare modeshows:</strong> afgestemd op uw winkel of merk.
+            </>,
+            <>
+              <strong>Geen concurrentie in joint shows:</strong> uw merk blijft op de voorgrond.
+            </>,
+            <>
+              <strong>20 jaar ervaring:</strong> toonaangevend modellenbureau in België.
+            </>,
+            <>
+              <strong>Divers bestand:</strong> alle leeftijden, maten en achtergronden.
+            </>,
+            <>
+              <strong>Persoonlijke aanpak:</strong> elke casting start met een gesprek.
+            </>,
           ]}
         />
       </KpCard>
 
-      <KpSplit foto="/nieuw/klantenportaal.jpg" alt="Overleg bij Class-Models" fotoRechts>
+      {/* Foto links */}
+      <KpSplit foto="/nieuw/klantenportaal.jpg" alt="Overleg bij Class-Models">
         <KpTitel>Waar staat Class-Models voor?</KpTitel>
         <p>
           Bij Class-Models begrijpen we dat het organiseren van een modeshow voor uw winkel een
@@ -45,48 +55,19 @@ export function KlantenWaarStaatContent() {
         </p>
       </KpSplit>
 
-      <div className="cm-kp-masonry">
-        <div className="cm-kp-masonry-col">
-          <KpCard>
-            <KpTitel>Professionele opleiding en examenshow</KpTitel>
-            <p>
-              Onze modellen volgen een intensief opleidingsprogramma. Aan het einde nemen zij deel
-              aan de <strong>examenshow</strong> (try-out modeshow), waaruit blijkt wie doorstroomt
-              als professioneel mannequin, foto-model of reclamester.
-            </p>
-            <p>
-              Voor kledingzaken betekent dit een aantrekkelijke prijsstelling en een frisse
-              selectie: u ziet nieuw talent aan het werk vóór u boekt.
-            </p>
-          </KpCard>
-          <KpCard>
-            <KpTitel>Waarom met ons samenwerken?</KpTitel>
-            <KpBullet
-              items={[
-                'Persoonlijke aanpak — geen automatische selectie',
-                'Snelle respons binnen 24 uur',
-                'Transparante tarieven, geen verrassingen',
-                'Kwaliteitsgarantie en back-up bij uitval',
-                'Volledig ontzorgd: casting, contracten, briefing',
-              ]}
-            />
-          </KpCard>
-        </div>
-        <div className="cm-kp-masonry-col">
-          <KpImageCard src="/nieuw/hero-home.jpg" alt="Modeshow Class-Models" />
-          <KpCard>
-            <KpTitel>Onze missie</KpTitel>
-            <p>
-              Door uw verwachtingen te begrijpen, vinden wij de geschikte modellen, hostessen of
-              promo boys &amp; girls voor modeshows, beurzen, congressen en thema-avonden.
-            </p>
-            <p>
-              Tweetalig en hoogopgeleid personeel zorgt voor een vlotte ontvangst en begeleiding —
-              de basis van een geslaagd evenement.
-            </p>
-          </KpCard>
-        </div>
-      </div>
+      {/* Foto rechts */}
+      <KpSplit foto="/nieuw/hero-home.jpg" alt="Modeshow Class-Models" fotoRechts>
+        <KpTitel>Professionele opleiding en examenshow</KpTitel>
+        <p>
+          Onze modellen volgen een intensief opleidingsprogramma. Aan het einde nemen zij deel aan
+          de <strong>examenshow</strong> (try-out modeshow), waaruit blijkt wie doorstroomt als
+          professioneel mannequin, foto-model of reclamester.
+        </p>
+        <p>
+          Voor kledingzaken betekent dit een aantrekkelijke prijsstelling en een frisse selectie: u
+          ziet nieuw talent aan het werk vóór u boekt.
+        </p>
+      </KpSplit>
 
       <div className="cm-kp-split">
         <KpCard className="cm-kp-card--fill">
@@ -104,6 +85,43 @@ export function KlantenWaarStaatContent() {
           </p>
         </KpCard>
       </div>
+
+      {/* Foto links */}
+      <KpSplit foto="/nieuw/hero-1.jpg" alt="Team Class-Models">
+        <KpTitel>Waarom met ons samenwerken?</KpTitel>
+        <KpChecks
+          items={[
+            <>
+              <strong>Persoonlijke aanpak:</strong> geen automatische selectie.
+            </>,
+            <>
+              <strong>Snelle respons:</strong> binnen 24 uur.
+            </>,
+            <>
+              <strong>Transparante tarieven:</strong> geen verrassingen achteraf.
+            </>,
+            <>
+              <strong>Kwaliteitsgarantie:</strong> back-up bij uitval.
+            </>,
+            <>
+              <strong>Volledig ontzorgd:</strong> casting, contracten en briefing.
+            </>,
+          ]}
+        />
+      </KpSplit>
+
+      {/* Foto rechts */}
+      <KpSplit foto="/nieuw/hero-2.jpg" alt="Class-Models in actie" fotoRechts>
+        <KpTitel>Onze missie</KpTitel>
+        <p>
+          Door uw verwachtingen te begrijpen, vinden wij de geschikte modellen, hostessen of promo
+          boys &amp; girls voor modeshows, beurzen, congressen en thema-avonden.
+        </p>
+        <p>
+          Tweetalig en hoogopgeleid personeel zorgt voor een vlotte ontvangst en begeleiding — de
+          basis van een geslaagd evenement.
+        </p>
+      </KpSplit>
 
       <KpAccordeon titel="Wij werkten al samen met">
         <p style={{ marginBottom: 14 }}>
