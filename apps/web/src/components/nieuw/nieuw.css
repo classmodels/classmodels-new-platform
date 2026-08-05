@@ -1422,8 +1422,15 @@
 
 /* ---------- Klantenportaal info-inhoud (zakelijk, compact) ---------- */
 .cm-kp {
-  --kp-panel: color-mix(in srgb, var(--n-bg-3) 90%, var(--n-ink));
-  --kp-body: color-mix(in srgb, var(--n-mut) 52%, var(--n-ink));
+  /* Warme goudtint i.p.v. vlak grijs — zelfde sfeer als de pagina-glow rechtsboven */
+  --kp-panel: #1a1610;
+  --kp-glow: rgba(212, 175, 106, 0.28);
+  --kp-glow-soft: rgba(212, 175, 106, 0.1);
+  --kp-body: color-mix(in srgb, var(--n-mut) 40%, var(--n-ink));
+  --kp-surface:
+    radial-gradient(ellipse 115% 95% at 100% 0%, var(--kp-glow), transparent 58%),
+    radial-gradient(ellipse 90% 75% at 0% 100%, var(--kp-glow-soft), transparent 52%),
+    linear-gradient(165deg, #1f1a12 0%, #14110c 55%, #100e0b 100%);
   display: grid;
   gap: 16px;
   font-size: 12.5px;
@@ -1443,8 +1450,8 @@
   line-height: 1.2;
 }
 .cm-kp-panel {
-  background: var(--kp-panel);
-  border: 1px solid var(--n-hair);
+  background: var(--kp-surface);
+  border: 1px solid rgba(212, 175, 106, 0.28);
   padding: 22px 26px;
 }
 .cm-kp-titel {
@@ -1497,7 +1504,7 @@
   height: 15px;
   border-radius: 50%;
   border: 1px solid var(--n-gold-hair);
-  background: rgba(212, 175, 106, 0.12);
+  background: rgba(212, 175, 106, 0.16);
   color: var(--n-gold);
   font-size: 10px;
   font-weight: 700;
@@ -1519,8 +1526,10 @@
   margin-top: 12px;
 }
 .cm-kp-cel {
-  background: color-mix(in srgb, var(--kp-panel) 86%, var(--n-ink));
-  border: 1px solid var(--n-hair);
+  background:
+    radial-gradient(ellipse 120% 100% at 100% 0%, rgba(212, 175, 106, 0.18), transparent 60%),
+    #16130f;
+  border: 1px solid rgba(212, 175, 106, 0.22);
   border-left: 2px solid var(--n-gold);
   padding: 9px 12px;
 }
@@ -1528,8 +1537,8 @@
 .cm-kp-cel span { font-size: 11px; color: var(--kp-body); }
 /* Accordeon (details/summary, geen JS nodig) */
 .cm-kp-acc {
-  background: var(--kp-panel);
-  border: 1px solid var(--n-hair);
+  background: var(--kp-surface);
+  border: 1px solid rgba(212, 175, 106, 0.28);
 }
 .cm-kp-acc > summary {
   cursor: pointer;
@@ -1562,7 +1571,10 @@
   justify-content: center;
 }
 .cm-kp-acc[open] > summary::after { content: '−'; }
-.cm-kp-acc[open] > summary { color: var(--n-gold); border-bottom: 1px solid var(--n-hair); }
+.cm-kp-acc[open] > summary {
+  color: var(--n-gold);
+  border-bottom: 1px solid rgba(212, 175, 106, 0.22);
+}
 .cm-kp-acc > .cm-kp-acc-body { padding: 16px 20px 20px; }
 .cm-kp-partnergrid {
   display: grid;
@@ -1586,10 +1598,10 @@
   object-fit: contain;
   display: block;
 }
-/* Bestaande nieuw-componenten binnen .cm-kp: compacter + meer contrast */
+/* Bestaande nieuw-componenten binnen .cm-kp: compacter + warme goudtint */
 .cm-kp .nieuw-panel {
-  background: var(--kp-panel);
-  border-color: var(--n-hair);
+  background: var(--kp-surface);
+  border-color: rgba(212, 175, 106, 0.28);
   padding: 22px 26px;
   color: var(--kp-body);
 }
@@ -1616,8 +1628,8 @@
 .cm-kp .nieuw-field select,
 .cm-kp .nieuw-field textarea {
   font-size: 12.5px;
-  background: color-mix(in srgb, var(--kp-panel) 80%, var(--n-bg));
-  border-color: color-mix(in srgb, var(--n-hair) 60%, var(--n-ink));
+  background: rgba(10, 8, 6, 0.45);
+  border-color: rgba(212, 175, 106, 0.28);
   color: var(--n-ink);
 }
 .cm-kp .nieuw-models-field span { font-size: 11px; color: var(--kp-body); }
