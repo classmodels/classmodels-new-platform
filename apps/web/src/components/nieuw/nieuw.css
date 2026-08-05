@@ -2640,13 +2640,18 @@
   font-size: 13.5px;
   line-height: 1.65;
 }
-.nieuw-root .model-portal-home :is(h3, .font-serif) {
+.nieuw-root .model-portal-home .portal-home-title,
+.nieuw-root .nieuw-panel .model-portal-home .portal-home-title,
+.nieuw-root .nieuw-themed .model-portal-home .portal-home-title,
+.nieuw-root .model-portal-home h3.portal-home-title {
   font-family: var(--n-serif) !important;
   font-size: clamp(20px, 2vw, 24px) !important;
   color: var(--n-gold) !important;
   line-height: 1.25 !important;
 }
-.nieuw-root .model-portal-home .portal-aside-card h3 {
+.nieuw-root .model-portal-home .portal-aside-card h3,
+.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card h3,
+.nieuw-root .model-portal-home .portal-aside-card > div:first-child h3 {
   color: #fff !important;
   font-size: 13.5px !important;
 }

@@ -99,7 +99,7 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.welcome.title.v2"
               as="h3"
-              className="mt-2.5 font-serif text-lg font-semibold leading-snug text-ink md:text-xl"
+              className="portal-home-title mt-2.5 font-serif text-lg font-semibold leading-snug md:text-xl"
               fallback="Welkom op het Modellenportaal van Class-Models"
             />
             <CmText
@@ -137,7 +137,7 @@ export function ModelPortalHomeContent({
               <CmText
                 contentKey="portal.model.home.portallist.title"
                 as="h3"
-                className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
+                className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
                 fallback="Wat u via het modellenportaal kunt regelen"
               />
               <CmText
@@ -182,7 +182,7 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.steps.title"
               as="h3"
-              className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
+              className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
               fallback="Verplichte eerste stappen (nieuwe modellen)"
             />
             <CmText
@@ -265,7 +265,7 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.profile.title"
               as="h3"
-              className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
+              className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
               fallback="Uw profiel (modellenfiche): altijd volledig en up-to-date"
             />
             <CmText
@@ -307,7 +307,7 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.professional.title"
               as="h3"
-              className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
+              className="portal-home-title font-serif text-base font-semibold leading-snug md:text-lg"
               fallback="Professioneel gedrag en samenwerking"
             />
             <CmText
@@ -355,7 +355,7 @@ export function ModelPortalHomeContent({
             <CmText
               contentKey="portal.model.home.quick.title"
               as="h3"
-              className="font-serif text-lg font-semibold text-ink"
+              className="portal-home-title font-serif text-lg font-semibold"
               fallback="Direct regelen"
             />
             <div className="mt-3 space-y-2.5">
