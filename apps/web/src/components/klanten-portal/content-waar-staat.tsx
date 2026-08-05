@@ -69,7 +69,7 @@ export function KlantenWaarStaatContent() {
         </p>
       </KpSplit>
 
-      <div className="cm-kp-split">
+      <div className="cm-kp-duo">
         <KpCard className="cm-kp-card--fill">
           <KpTitel>Diversiteit en inclusiviteit</KpTitel>
           <p>

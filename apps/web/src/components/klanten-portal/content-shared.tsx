@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import partnersJson from '@/data/partners.json';
 
-/** Class Events-achtige kaarten voor het klantenportaal. */
+/** Strakke, zakelijke bouwstenen voor de klantenportaal-pagina's. */
 
 export function KpTitel({ children }: { children: ReactNode }) {
   return <h3 className="cm-kp-titel">{children}</h3>;
@@ -9,7 +9,6 @@ export function KpTitel({ children }: { children: ReactNode }) {
 
 /**
  * Lijst met gouden vierkantjes + vinkje (of nummer).
- * Stijl zoals «Waarom Class-Models»-checklist.
  */
 export function KpChecks({
   items,
@@ -32,25 +31,11 @@ export function KpChecks({
   );
 }
 
-/** @deprecated gebruik KpChecks */
-export function KpBullet({ items }: { items: ReactNode[] }) {
-  return <KpChecks items={items} />;
-}
-
 export function KpCard({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <section className={`cm-kp-card ${className}`.trim()}>{children}</section>;
 }
 
-export function KpImageCard({ src, alt }: { src: string; alt: string }) {
-  return (
-    <figure className="cm-kp-card cm-kp-card--media">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} loading="lazy" decoding="async" />
-    </figure>
-  );
-}
-
-/** Rij met twee aparte kaarten: tekst + foto (of omgekeerd). */
+/** Foto en tekst in één doorlopend kader; `fotoRechts` wisselt de volgorde. */
 export function KpSplit({
   foto,
   alt,
@@ -62,22 +47,19 @@ export function KpSplit({
   fotoRechts?: boolean;
   children: ReactNode;
 }) {
-  const tekst = <KpCard className="cm-kp-card--fill">{children}</KpCard>;
-  const beeld = <KpImageCard src={foto} alt={alt} />;
   return (
-    <div className="cm-kp-split">
-      {fotoRechts ? (
-        <>
-          {tekst}
-          {beeld}
-        </>
-      ) : (
-        <>
-          {beeld}
-          {tekst}
-        </>
-      )}
-    </div>
+    <section className="cm-kp-card cm-kp-split">
+      <div
+        className={`cm-kp-media${fotoRechts ? ' cm-kp-media--rechts' : ''}`}
+        style={{ order: fotoRechts ? 2 : 0 }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={foto} alt={alt} loading="lazy" decoding="async" />
+      </div>
+      <div className="cm-kp-body" style={{ order: 1 }}>
+        {children}
+      </div>
+    </section>
   );
 }
 

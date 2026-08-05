@@ -403,7 +403,7 @@ export function KlantenPortalClient() {
       <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
         <div className="nieuw-wrap cm-kp">
           <ModellenBoekenPanel token={token || ''} />
-          <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <div className="cm-kp-actions" style={{ marginTop: 12 }}>
             <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=modellen">
               Modellen kiezen in catalogus
             </Link>
@@ -696,7 +696,7 @@ export function KlantenPortalClient() {
     <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
       <div className="nieuw-wrap">
         <KlantenWaarStaatContent />
-        <div className="nieuw-hero-actions" style={{ marginTop: 28 }}>
+        <div className="cm-kp-actions" style={{ marginTop: 16 }}>
           <Link className="nieuw-btn" href="/klanten?tab=modellen-boeken">
             Modellen boeken / tarieven
           </Link>
