@@ -5,10 +5,12 @@ exports.normalizeEmailContentAlignment = normalizeEmailContentAlignment;
 exports.extractEmailBodyContent = extractEmailBodyContent;
 exports.buildClassModelsEmailDocument = buildClassModelsEmailDocument;
 exports.coerceOutgoingEmailHtml = coerceOutgoingEmailHtml;
-/** Breedte witte inhoud (zoals WordPress-mail / bijlage 2). */
+/** Breedte witte inhoud. */
 exports.CM_EMAIL_CONTENT_WIDTH = 800;
-const HEADER_BG = '#0a1628';
-const BRAND_RED = '#9a1c28';
+/** Site-stijl: warme donkere header + goud (niet rood/blauw). */
+const HEADER_BG = '#0e0d0d';
+const BRAND_GOLD = '#d4af6a';
+const HEADER_MUTED = '#9a917f';
 function escHtml(s) {
     return s
         .replace(/&/g, '&amp;')
@@ -41,13 +43,13 @@ function extractEmailBodyContent(html) {
 }
 function emailHeaderRow() {
     return `<tr>
-<td style="background:${HEADER_BG};padding:18px 28px;text-align:left;">
-<div style="font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:700;color:${BRAND_RED};line-height:1.15;">class-Models</div>
-<div style="font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:11px;color:#b8c0cc;margin-top:4px;">Modeling Agency</div>
+<td style="background:${HEADER_BG};padding:16px 28px;text-align:left;border-bottom:2px solid ${BRAND_GOLD};">
+<div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:${BRAND_GOLD};line-height:1.2;">Class-Models</div>
+<div style="font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:${HEADER_MUTED};margin-top:4px;">Modeling Agency</div>
 </td>
 </tr>`;
 }
-/** Volledige HTML-mail met donkerblauwe balk + witte inhoud 800px, links uitgelijnd. */
+/** Volledige HTML-mail met donkere goud-header + witte inhoud, links uitgelijnd. */
 function buildClassModelsEmailDocument(bodyHtml) {
     const body = normalizeEmailContentAlignment(bodyHtml.trim() || '<p></p>');
     const w = exports.CM_EMAIL_CONTENT_WIDTH;
@@ -55,13 +57,13 @@ function buildClassModelsEmailDocument(bodyHtml) {
 <html lang="nl">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Class-Models</title></head>
-<body style="margin:0;padding:0;background:#e8e8ec;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#e8e8ec;padding:24px 16px;">
+<body style="margin:0;padding:0;background:#eceae6;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eceae6;padding:24px 16px;">
 <tr><td align="center" style="padding:0;">
-<table role="presentation" width="${w}" cellspacing="0" cellpadding="0" style="width:100%;max-width:${w}px;background:#ffffff;border:1px solid #d4d4d8;border-collapse:collapse;">
+<table role="presentation" width="${w}" cellspacing="0" cellpadding="0" style="width:100%;max-width:${w}px;background:#ffffff;border:1px solid #e0d9ce;border-collapse:collapse;">
 ${emailHeaderRow()}
 <tr>
-<td style="padding:28px 32px;background:#ffffff;color:#18181b;font-size:15px;line-height:1.6;text-align:left;">
+<td style="padding:28px 32px;background:#ffffff;color:#26221e;font-size:15px;line-height:1.7;text-align:left;">
 <div style="text-align:left;">${body}</div>
 </td>
 </tr>
@@ -77,6 +79,10 @@ function coerceOutgoingEmailHtml(inner) {
     if (!t.includes('<')) {
         const body = escHtml(t).replace(/\r\n/g, '\n').replace(/\n/g, '<br/>\n');
         return buildClassModelsEmailDocument(body);
+    }
+    /** Al een volledige Class-Models-mail (eigen header) → niet opnieuw wrappen. */
+    if (/Class-Models/i.test(t) && /border-bottom:\s*2px\s+solid/i.test(t) && /<!DOCTYPE/i.test(t)) {
+        return t;
     }
     const content = extractEmailBodyContent(t);
     return buildClassModelsEmailDocument(content);

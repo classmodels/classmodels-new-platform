@@ -28,8 +28,8 @@ const CM = {
   site: 'www.class-models.be',
 };
 
-const GOLD = '#c8a662';
-const DARK = '#121110';
+const GOLD = '#d4af6a';
+const DARK = '#0e0d0d';
 const PAPER = '#ffffff';
 const INK = '#26221e';
 const MUT = '#8a8378';
@@ -228,15 +228,36 @@ function slotZin(s: SlotDto, i: number): string {
 }
 
 function mailSectie(titel: string): string {
-  return `<tr><td colspan="2" style="padding:28px 0 12px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${GOLD};border-bottom:1px solid ${HAIR};">${titel}</td></tr>`;
+  return `<div style="margin:22px 0 12px;padding-bottom:8px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${GOLD};border-bottom:1px solid ${HAIR};">${titel}</div>`;
 }
 
-function mailRij(label: string, val: string | undefined | null): string {
+/** Compacte 2-koloms cel: label + waarde. */
+function mailCel(label: string, val: string | undefined | null): string {
   if (!val) return '';
-  return `<tr>
-    <td style="padding:10px 18px 10px 0;font-size:13px;color:${MUT};white-space:nowrap;vertical-align:top;border-bottom:1px solid ${HAIR};">${esc(label)}</td>
-    <td style="padding:10px 0;font-size:13px;color:${INK};line-height:1.55;border-bottom:1px solid ${HAIR};">${esc(val)}</td>
-  </tr>`;
+  return `<td style="width:50%;padding:0 16px 14px 0;vertical-align:top;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${GOLD};margin-bottom:4px;">${esc(label)}</div>
+    <div style="font-size:13.5px;color:${INK};line-height:1.45;">${esc(val)}</div>
+  </td>`;
+}
+
+/** Rijen van 2 cellen (wat bij elkaar hoort naast elkaar). */
+function mailDuo(
+  a: [string, string | undefined | null],
+  b?: [string, string | undefined | null],
+): string {
+  const left = mailCel(a[0], a[1]);
+  const right = b ? mailCel(b[0], b[1]) : '<td style="width:50%;"></td>';
+  if (!left && !right.replace(/<td[^>]*><\/td>/, '')) return '';
+  if (!left) return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;"><tr>${right}<td style="width:50%;"></td></tr></table>`;
+  return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;"><tr>${left}${right}</tr></table>`;
+}
+
+function mailFull(label: string, val: string | undefined | null): string {
+  if (!val) return '';
+  return `<div style="padding:0 0 14px;">
+    <div style="font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${GOLD};margin-bottom:4px;">${esc(label)}</div>
+    <div style="font-size:13.5px;color:${INK};line-height:1.5;">${esc(val)}</div>
+  </div>`;
 }
 
 function buildBrandedEmail(dto: CreateClientOfferteDto): string {
@@ -245,38 +266,44 @@ function buildBrandedEmail(dto: CreateClientOfferteDto): string {
     new Date(),
   );
 
-  const klantRijen = [
-    mailRij('Naam', dto.naam),
-    mailRij('Bedrijfsnaam', dto.bedrijfsnaam),
-    mailRij('Soort bedrijf', dto.soortBedrijf),
-    mailRij('BTW-nummer', dto.btw),
-    mailRij('Adres', [dto.straat, dto.nr].filter(Boolean).join(' ')),
-    mailRij('Postcode & gemeente', [dto.postcode, dto.gemeente].filter(Boolean).join(' ')),
-    mailRij('GSM', dto.gsm),
-    mailRij('E-mail', dto.clientEmail),
-    mailRij('Website', dto.website),
+  const adres = [dto.straat, dto.nr].filter(Boolean).join(' ');
+  const plaats = [dto.postcode, dto.gemeente].filter(Boolean).join(' ');
+
+  const klantBlok = [
+    mailDuo(['Naam', dto.naam], ['Bedrijfsnaam', dto.bedrijfsnaam]),
+    mailDuo(['Soort bedrijf', dto.soortBedrijf], ['BTW-nummer', dto.btw]),
+    mailDuo(['Adres', adres], ['Postcode & gemeente', plaats]),
+    mailDuo(['GSM', dto.gsm], ['E-mail', dto.clientEmail]),
+    dto.website ? mailDuo(['Website', dto.website]) : '',
   ].join('');
 
-  const slotRijen = (dto.slots ?? [])
+  const slotBlok = (dto.slots ?? [])
     .filter((s) => (s.aantal ?? 0) > 0)
-    .map((s, i) => mailRij(`Groep ${i + 1}`, slotZin(s, i).replace(`Groep ${i + 1}: `, '')))
+    .map((s, i) => mailFull(`Groep ${i + 1}`, slotZin(s, i).replace(`Groep ${i + 1}: `, '')))
     .join('');
 
   const e = dto.extraDiensten;
-  const opdrachtRijen = [
-    mailRij('Type opdracht', dto.typeOpdracht),
-    mailRij('Datum', dto.datum),
-    slotRijen,
-    e?.visagiste ? mailRij('Visagiste', `${e.visagiste} uur`) : '',
-    e?.hairstyliste ? mailRij('Hairstyliste', `${e.hairstyliste} uur`) : '',
-    e?.fotograaf ? mailRij('Fotograaf', `${e.fotograaf} uur`) : '',
-    e?.medewerker ? mailRij('Medewerk(st)er', `${e.medewerker} uur`) : '',
-    dto.doorpassen ? mailRij('Doorpassen', 'Ja (+ € 50 forfait)') : '',
-    dto.lingerie ? mailRij('Lingerie / badmode', 'Ja (+50% toeslag)') : '',
-    mailRij('Auteursrechten', dto.auteursrechten || undefined),
-    mailRij('Adres opdracht', dto.adresOpdracht),
-    dto.afstandKm ? mailRij('Afstand', `${dto.afstandKm} km (enkele rit)`) : '',
-    mailRij('Opmerkingen', dto.opmerkingen),
+  const extras: string[] = [];
+  if (e?.visagiste) extras.push(`Visagiste: ${e.visagiste}u`);
+  if (e?.hairstyliste) extras.push(`Hairstyliste: ${e.hairstyliste}u`);
+  if (e?.fotograaf) extras.push(`Fotograaf: ${e.fotograaf}u`);
+  if (e?.medewerker) extras.push(`Medewerk(st)er: ${e.medewerker}u`);
+
+  const opties: string[] = [];
+  if (dto.doorpassen) opties.push('Doorpassen (+ € 50)');
+  if (dto.lingerie) opties.push('Lingerie / badmode (+50%)');
+  if (dto.auteursrechten) opties.push(`Auteursrechten: ${dto.auteursrechten}`);
+
+  const opdrachtBlok = [
+    mailDuo(['Type opdracht', dto.typeOpdracht], ['Datum', dto.datum]),
+    slotBlok,
+    extras.length ? mailFull('Extra diensten', extras.join(' · ')) : '',
+    opties.length ? mailFull('Opties', opties.join(' · ')) : '',
+    mailDuo(
+      ['Adres opdracht', dto.adresOpdracht],
+      ['Afstand', dto.afstandKm ? `${dto.afstandKm} km (enkele rit)` : undefined],
+    ),
+    mailFull('Opmerkingen', dto.opmerkingen),
   ].join('');
 
   let prijsBlok = '';
@@ -284,14 +311,14 @@ function buildBrandedEmail(dto: CreateClientOfferteDto): string {
     const rijen = dto.prijsRegels
       .map(
         (r) => `<tr>
-          <td style="padding:10px 18px 10px 0;font-size:13px;color:${INK};line-height:1.5;border-bottom:1px solid ${HAIR};">${esc(r.label)}</td>
-          <td style="padding:10px 0;font-size:13px;color:${INK};text-align:right;white-space:nowrap;border-bottom:1px solid ${HAIR};">€ ${fmt(r.bedrag)}</td>
+          <td style="padding:11px 18px 11px 0;font-size:13px;color:${INK};line-height:1.5;border-bottom:1px solid ${HAIR};">${esc(r.label)}</td>
+          <td style="padding:11px 0;font-size:13px;color:${INK};text-align:right;white-space:nowrap;border-bottom:1px solid ${HAIR};">€ ${fmt(r.bedrag)}</td>
         </tr>`,
       )
       .join('');
     prijsBlok = `
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-top:8px;">
-        ${mailSectie('Prijsoverzicht')}
+      ${mailSectie('Prijsoverzicht')}
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
         ${rijen}
         <tr>
           <td style="padding:16px 18px 6px 0;font-size:13px;font-weight:700;color:${INK};">Totaal excl. BTW</td>
@@ -302,8 +329,8 @@ function buildBrandedEmail(dto: CreateClientOfferteDto): string {
           <td style="padding:4px 0;font-size:12.5px;color:${MUT};text-align:right;">€ ${fmt(dto.btw21 ?? 0)}</td>
         </tr>
         <tr>
-          <td style="padding:8px 18px 0 0;font-size:16px;font-weight:700;color:${INK};">Totaal incl. BTW</td>
-          <td style="padding:8px 0 0;font-size:16px;font-weight:700;color:${GOLD};text-align:right;">€ ${fmt(dto.totaalIncl ?? 0)}</td>
+          <td style="padding:10px 18px 0 0;font-size:16px;font-weight:700;color:${INK};">Totaal incl. BTW</td>
+          <td style="padding:10px 0 0;font-size:16px;font-weight:700;color:${GOLD};text-align:right;">€ ${fmt(dto.totaalIncl ?? 0)}</td>
         </tr>
       </table>`;
   }
@@ -312,51 +339,45 @@ function buildBrandedEmail(dto: CreateClientOfferteDto): string {
 <html lang="nl">
 <head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${esc(type)} — Class-Models</title></head>
 <body style="margin:0;padding:0;background:#eceae6;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eceae6;padding:28px 16px;">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#eceae6;padding:24px 16px;">
 <tr><td align="center">
 <table role="presentation" width="680" cellspacing="0" cellpadding="0" style="width:100%;max-width:680px;border-collapse:collapse;">
 
-  <!-- Header: logo -->
   <tr>
-    <td style="background:${DARK};padding:26px 36px;border-bottom:2px solid ${GOLD};">
-      <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:600;letter-spacing:0.22em;color:${GOLD};text-transform:uppercase;">Class-Models</div>
-      <div style="font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:#9a917f;margin-top:5px;">Modeling Agency</div>
+    <td style="background:${DARK};padding:16px 32px;border-bottom:2px solid ${GOLD};">
+      <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;font-weight:600;letter-spacing:0.2em;color:${GOLD};text-transform:uppercase;">Class-Models</div>
+      <div style="font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:#9a917f;margin-top:4px;">Modeling Agency</div>
     </td>
   </tr>
 
-  <!-- Titel -->
   <tr>
-    <td style="background:${PAPER};padding:30px 36px 0;">
-      <div style="font-family:Georgia,'Times New Roman',serif;font-size:21px;color:${INK};">${esc(type)}</div>
-      <div style="font-size:12px;color:${MUT};margin-top:4px;">Ontvangen op ${esc(now)}</div>
+    <td style="background:${PAPER};padding:24px 32px 8px;">
+      <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;color:${INK};">${esc(type)}</div>
+      <div style="font-size:12px;color:${MUT};margin-top:6px;line-height:1.5;">Ontvangen op ${esc(now)}</div>
     </td>
   </tr>
 
-  <!-- Inhoud -->
   <tr>
-    <td style="background:${PAPER};padding:6px 36px 30px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-        ${mailSectie('Uw gegevens')}
-        ${klantRijen}
-        ${mailSectie('Opdracht')}
-        ${opdrachtRijen}
-      </table>
+    <td style="background:${PAPER};padding:4px 32px 28px;">
+      ${mailSectie('Uw gegevens')}
+      ${klantBlok}
+      ${mailSectie('Opdracht')}
+      ${opdrachtBlok}
       ${prijsBlok}
-      <p style="font-size:12px;color:${MUT};margin:26px 0 0;border-top:1px solid ${HAIR};padding-top:16px;">
+      <p style="font-size:12px;color:${MUT};margin:24px 0 0;border-top:1px solid ${HAIR};padding-top:16px;line-height:1.6;">
         ${
           dto.isBestelling
-            ? `Dit is een <strong style="color:${INK};">bevestigde bestelling</strong>. Class-Models neemt zo snel mogelijk contact met u op voor de verdere opvolging.`
+            ? `Dit is een <strong style="color:${INK};">bevestigde bestelling</strong>. Class-Models neemt zo snel mogelijk contact met u op.`
             : `Dit is een <strong style="color:${INK};">vrijblijvende offerteaanvraag</strong>. Class-Models bezorgt u een definitieve offerte na bespreking.`
         }
       </p>
     </td>
   </tr>
 
-  <!-- Footer -->
   <tr>
-    <td style="background:${DARK};padding:22px 36px;border-top:2px solid ${GOLD};">
-      <div style="font-family:Georgia,'Times New Roman',serif;font-size:13px;letter-spacing:0.18em;color:${GOLD};text-transform:uppercase;">Class-Models</div>
-      <div style="font-size:11px;line-height:1.8;color:#b5ac9c;margin-top:8px;">
+    <td style="background:${DARK};padding:16px 32px;border-top:2px solid ${GOLD};">
+      <div style="font-family:Georgia,'Times New Roman',serif;font-size:12px;letter-spacing:0.16em;color:${GOLD};text-transform:uppercase;">Class-Models</div>
+      <div style="font-size:11px;line-height:1.75;color:#b5ac9c;margin-top:8px;">
         ${esc(CM.adres)} · <a href="mailto:${CM.email}" style="color:${GOLD};text-decoration:none;">${CM.email}</a> · ${esc(CM.telefoon)}<br/>
         BTW ${esc(CM.btw)} · IBAN ${esc(CM.iban)} · <a href="https://${CM.site}" style="color:${GOLD};text-decoration:none;">${CM.site}</a>
       </div>
