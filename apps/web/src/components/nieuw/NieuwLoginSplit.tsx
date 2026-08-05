@@ -133,14 +133,19 @@ export function NieuwLoginSplit() {
                     onChange={(e) => setModelPass(e.target.value)}
                   />
                 </label>
-                <label className="nieuw-login-remember">
-                  <input
-                    type="checkbox"
-                    checked={modelRemember}
-                    onChange={(e) => setModelRemember(e.target.checked)}
-                  />
-                  <span>Wachtwoord onthouden</span>
-                </label>
+                <div className="nieuw-login-row">
+                  <label className="nieuw-login-remember">
+                    <input
+                      type="checkbox"
+                      checked={modelRemember}
+                      onChange={(e) => setModelRemember(e.target.checked)}
+                    />
+                    <span>Wachtwoord onthouden</span>
+                  </label>
+                  <Link className="nieuw-link nieuw-login-forgot" href="/modellen/wachtwoord-vergeten">
+                    Wachtwoord vergeten?
+                  </Link>
+                </div>
                 <button
                   className="nieuw-btn"
                   type="submit"
@@ -151,9 +156,6 @@ export function NieuwLoginSplit() {
                 </button>
               </form>
               <div className="nieuw-login-meta">
-                <Link className="nieuw-link" href="/modellen/wachtwoord-vergeten">
-                  Wachtwoord vergeten?
-                </Link>
                 <p className="nieuw-login-register">
                   Nog geen account?
                   <Link className="nieuw-link" href="/modellen/registreren">
@@ -194,14 +196,19 @@ export function NieuwLoginSplit() {
                     onChange={(e) => setClientPass(e.target.value)}
                   />
                 </label>
-                <label className="nieuw-login-remember">
-                  <input
-                    type="checkbox"
-                    checked={clientRemember}
-                    onChange={(e) => setClientRemember(e.target.checked)}
-                  />
-                  <span>Wachtwoord onthouden</span>
-                </label>
+                <div className="nieuw-login-row">
+                  <label className="nieuw-login-remember">
+                    <input
+                      type="checkbox"
+                      checked={clientRemember}
+                      onChange={(e) => setClientRemember(e.target.checked)}
+                    />
+                    <span>Wachtwoord onthouden</span>
+                  </label>
+                  <Link className="nieuw-link nieuw-login-forgot" href="/modellen/wachtwoord-vergeten">
+                    Wachtwoord vergeten?
+                  </Link>
+                </div>
                 <button
                   className="nieuw-btn"
                   type="submit"
@@ -212,9 +219,6 @@ export function NieuwLoginSplit() {
                 </button>
               </form>
               <div className="nieuw-login-meta">
-                <Link className="nieuw-link" href="/modellen/wachtwoord-vergeten">
-                  Wachtwoord vergeten?
-                </Link>
                 <p className="nieuw-login-register">
                   Nog geen account?
                   <Link className="nieuw-link" href="/klanten/registreren">
