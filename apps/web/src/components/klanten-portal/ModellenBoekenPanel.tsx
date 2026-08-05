@@ -18,8 +18,22 @@ const TARIEVEN_PERSONEN = [
 
 const TARIEVEN_OVERIG = [
   { label: 'Doorpassen (forfaitair, max. 2u)', tarief: 50 },
-  { label: 'Reiskosten', info: '€ 0,70/km (enkele rit × 2) + 25% uurtarief' },
+  { label: 'Reiskosten', info: '€ 0,70/km, heen en terug (kantoor Hulshout → adres opdracht)' },
 ];
+
+/** Bedrijfsgegevens Class-Models — voorbeeldvulling voor admins. */
+const CLASS_MODELS_ACCOUNT = {
+  street: 'Provinciebaan',
+  houseNumber: '3',
+  postalCode: '2235',
+  city: 'Hulshout',
+  phone: '+32 485 322 307',
+  companyName: 'Class-Models',
+  companyType: 'andere',
+  vatNumber: 'BE 0504.801.460',
+  email: 'info@class-models.be',
+  website: 'www.class-models.be',
+};
 
 const AUTEURSRECHTEN_OPTIES = [
   { value: '', label: '— geen —', prijs: 0 },
@@ -88,7 +102,9 @@ type FormState = {
   lingerie: boolean;
   datum: string;
   geenDatum: boolean;
+  adresOpdracht: string;
   afstandKm: string;
+  kopieEmail: string;
 };
 
 type AccountForm = {
@@ -140,18 +156,19 @@ function berekenPrijs(f: FormState): PrijsRegel[] {
   const uurTarief = uurtariefVoorType(f.typeOpdracht);
   let modelTotaal = 0;
 
-  f.slots.forEach((slot, i) => {
+  f.slots.forEach((slot) => {
     if (slot.aantal > 0 && slot.uurVan && slot.uurTot) {
       const uren = hoursBetween(slot.uurVan, slot.uurTot);
       if (uren > 0) {
         const bedrag = slot.aantal * uren * uurTarief;
         modelTotaal += bedrag;
+        const urenLabel = Number.isInteger(uren) ? `${uren}` : uren.toFixed(1).replace('.', ',');
         const leeftijd =
           slot.leeftijdVan || slot.leeftijdTot
-            ? `, ${slot.leeftijdVan || '?'}–${slot.leeftijdTot || '?'} j`
+            ? ` (leeftijd ${slot.leeftijdVan || '?'}–${slot.leeftijdTot || '?'} jaar)`
             : '';
         regels.push({
-          label: `Slot ${i + 1}: ${slot.aantal} × ${uren.toFixed(2)}u × €${uurTarief}${leeftijd}`,
+          label: `${slot.aantal} ${slot.aantal === 1 ? 'model' : 'modellen'} × ${urenLabel} uur × € ${uurTarief}/u${leeftijd}`,
           bedrag,
         });
       }
@@ -178,8 +195,8 @@ function berekenPrijs(f: FormState): PrijsRegel[] {
   const km = parseFloat(f.afstandKm) || 0;
   if (km > 0) {
     regels.push({
-      label: `Reiskosten (${km} km heen+terug × €0,70 + 25% uur)`,
-      bedrag: km * 2 * 0.7 + uurTarief * 0.25,
+      label: `Reiskosten: ${km} km × 2 (heen en terug) × € 0,70`,
+      bedrag: km * 2 * 0.7,
     });
   }
 
@@ -208,7 +225,9 @@ const DEFAULT_FORM: FormState = {
   lingerie: false,
   datum: '',
   geenDatum: false,
+  adresOpdracht: '',
   afstandKm: '',
+  kopieEmail: '',
 };
 
 function AccountValue({ label, value }: { label: string; value: string }) {
@@ -221,7 +240,7 @@ function AccountValue({ label, value }: { label: string; value: string }) {
 }
 
 export function ModellenBoekenPanel({ token }: { token: string }) {
-  const { user, refreshMe } = useAuth();
+  const { user, refreshMe, hasBackofficeAccess } = useAuth();
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [account, setAccount] = useState<AccountForm>({
     lastName: '',
@@ -239,27 +258,31 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
   });
   const [editingAccount, setEditingAccount] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [afstandBusy, setAfstandBusy] = useState(false);
+  const [afstandInfo, setAfstandInfo] = useState<string | null>(null);
   const [sent, setSent] = useState<'offerte' | 'bestelling' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
     const cp = user.clientProfile ?? {};
+    /** Admin: Class-Models-gegevens als voorbeeldvulling (zo ziet u het als klant). */
+    const cm = hasBackofficeAccess ? CLASS_MODELS_ACCOUNT : null;
     setAccount({
       lastName: user.lastName ?? '',
       firstName: user.firstName ?? '',
-      street: cp.street ?? '',
-      houseNumber: cp.houseNumber ?? '',
-      postalCode: cp.postalCode ?? '',
-      city: cp.city ?? '',
-      phone: user.phone ?? '',
-      companyName: user.companyName ?? '',
-      companyType: cp.companyType ?? '',
-      vatNumber: cp.vatNumber ?? '',
-      email: user.email ?? '',
-      website: cp.website ?? '',
+      street: cp.street || cm?.street || '',
+      houseNumber: cp.houseNumber || cm?.houseNumber || '',
+      postalCode: cp.postalCode || cm?.postalCode || '',
+      city: cp.city || cm?.city || '',
+      phone: user.phone || cm?.phone || '',
+      companyName: user.companyName || cm?.companyName || '',
+      companyType: cp.companyType || cm?.companyType || '',
+      vatNumber: cp.vatNumber || cm?.vatNumber || '',
+      email: cm?.email || user.email || '',
+      website: cp.website || cm?.website || '',
     });
-  }, [user]);
+  }, [user, hasBackofficeAccess]);
 
   const set = useCallback(<K extends keyof FormState>(key: K, val: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: val }));
@@ -316,6 +339,30 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
     }
   };
 
+  const berekenAfstand = async () => {
+    const adres = form.adresOpdracht.trim();
+    if (adres.length < 6) {
+      setError('Vul eerst het adres van de opdracht in (straat nr, gemeente).');
+      return;
+    }
+    setAfstandBusy(true);
+    setError(null);
+    try {
+      const r = await apiFetch<{ km: number; label: string }>('/portal/client/offerte/afstand', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ adres }),
+      });
+      set('afstandKm', String(r.km));
+      setAfstandInfo(`${r.km} km enkele rit — heen en terug wordt aangerekend (× 2 × € 0,70).`);
+    } catch (e) {
+      setAfstandInfo(null);
+      setError(e instanceof Error ? e.message : 'Afstand berekenen mislukt.');
+    } finally {
+      setAfstandBusy(false);
+    }
+  };
+
   const validate = (): string | null => {
     if (!account.lastName.trim() || !account.firstName.trim()) return 'Naam en voornaam zijn verplicht.';
     if (!account.email.trim()) return 'E-mailadres is verplicht.';
@@ -334,14 +381,6 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
     setError(null);
     setBusy(true);
     try {
-      const slotLines = form.slots
-        .filter((s) => s.aantal > 0)
-        .map(
-          (s, i) =>
-            `Slot ${i + 1}: ${s.aantal} model(len), leeftijd ${s.leeftijdVan || '?'}–${s.leeftijdTot || '?'}, ${s.uurVan || '?'}–${s.uurTot || '?'}`,
-        )
-        .join('\n');
-
       await apiFetch('/portal/client/offerte', {
         method: 'POST',
         token,
@@ -358,9 +397,20 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
           gsm: account.phone,
           website: account.website,
           clientEmail: account.email,
+          kopieEmail: form.kopieEmail.trim() || undefined,
           typeOpdracht: form.typeOpdracht,
-          opmerkingen: [form.opmerkingen, slotLines].filter(Boolean).join('\n\n'),
+          opmerkingen: form.opmerkingen,
+          slots: form.slots
+            .filter((s) => s.aantal > 0)
+            .map((s) => ({
+              aantal: s.aantal,
+              leeftijdVan: s.leeftijdVan,
+              leeftijdTot: s.leeftijdTot,
+              uurVan: s.uurVan,
+              uurTot: s.uurTot,
+            })),
           datum: form.geenDatum ? 'Nog geen datum voorzien' : form.datum,
+          adresOpdracht: form.adresOpdracht.trim() || undefined,
           afstandKm: parseFloat(form.afstandKm) || 0,
           lingerie: form.lingerie,
           doorpassen: form.doorpassen,
@@ -579,9 +629,11 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
             ) : null}
           </fieldset>
 
-          {/* Opdracht */}
+          {/* Opdracht: links type + slots, rechts extra diensten */}
           <fieldset className="cm-kp-form-section cm-kp-form-section--full">
             <legend>Opdracht</legend>
+            <div className="cm-kp-opdracht-grid">
+              <div className="cm-kp-opdracht-left">
             <label className="nieuw-field cm-kp-type-field">
               <span>Type opdracht *</span>
               <select
@@ -680,14 +732,11 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                 placeholder="Stijl, look, bijzondere vereisten…"
               />
             </label>
-          </fieldset>
+              </div>
 
-          {/* Onderste rij: opties/reis links, prijs rechts */}
-          <div className="cm-kp-bottom-grid">
-            <div className="cm-kp-bottom-left">
-              <fieldset className="cm-kp-form-section">
-                <legend>Extra diensten</legend>
-                <div className="cm-kp-check-grid">
+              <div className="cm-kp-opdracht-right">
+                <p className="cm-kp-subkop">Extra diensten</p>
+                <div className="cm-kp-check-grid cm-kp-check-grid--stack">
                   {(
                     [
                       { key: 'visagiste', urenKey: 'visagisteUren', label: 'Visagiste (€ 95/u)', uren: form.visagisteUren },
@@ -718,65 +767,100 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                     </div>
                   ))}
                 </div>
-              </fieldset>
+              </div>
+            </div>
+          </fieldset>
 
+          {/* Onderste rij: opties/reis links, prijs rechts */}
+          <div className="cm-kp-bottom-grid">
+            <div className="cm-kp-bottom-left">
               <fieldset className="cm-kp-form-section">
                 <legend>Opties &amp; reiskosten</legend>
-                <label className="cm-kp-check-plain">
-                  <input type="checkbox" checked={form.doorpassen} onChange={(e) => set('doorpassen', e.target.checked)} />
-                  <span>Doorpassen (+ € 50)</span>
-                </label>
-                <label className="cm-kp-check-plain">
-                  <input type="checkbox" checked={form.lingerie} onChange={(e) => set('lingerie', e.target.checked)} />
-                  <span>Lingerie / badmode (+50%)</span>
-                </label>
-                <label className="nieuw-field" style={{ marginTop: 8 }}>
-                  <span>Auteursrechten</span>
-                  <select
-                    className="cm-kp-select"
-                    value={form.auteursrechten}
-                    onChange={(e) => set('auteursrechten', e.target.value)}
-                  >
-                    {AUTEURSRECHTEN_OPTIES.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                        {o.prijs ? ` — € ${o.prijs}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="cm-kp-inline-2" style={{ marginTop: 8 }}>
-                  <label className="nieuw-field">
-                    <span>Datum</span>
-                    <input
-                      type="date"
-                      value={form.datum}
-                      disabled={form.geenDatum}
-                      onChange={(e) => set('datum', e.target.value)}
-                    />
-                  </label>
-                  <label className="nieuw-field">
-                    <span>Afstand km</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={form.afstandKm}
-                      onChange={(e) => set('afstandKm', e.target.value)}
-                      placeholder="0"
-                    />
-                  </label>
+                <div className="cm-kp-opties-grid">
+                  <div className="cm-kp-opties-checks">
+                    <label className="cm-kp-check-plain">
+                      <input type="checkbox" checked={form.doorpassen} onChange={(e) => set('doorpassen', e.target.checked)} />
+                      <span>Doorpassen (+ € 50)</span>
+                    </label>
+                    <label className="cm-kp-check-plain">
+                      <input type="checkbox" checked={form.lingerie} onChange={(e) => set('lingerie', e.target.checked)} />
+                      <span>Lingerie / badmode (+50%)</span>
+                    </label>
+                  </div>
+                  <div className="cm-kp-opties-velden">
+                    <label className="nieuw-field">
+                      <span>Auteursrechten</span>
+                      <select
+                        className="cm-kp-select"
+                        value={form.auteursrechten}
+                        onChange={(e) => set('auteursrechten', e.target.value)}
+                      >
+                        {AUTEURSRECHTEN_OPTIES.map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                            {o.prijs ? ` — € ${o.prijs}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="nieuw-field">
+                      <span>Datum</span>
+                      <input
+                        type="date"
+                        value={form.datum}
+                        disabled={form.geenDatum}
+                        onChange={(e) => set('datum', e.target.value)}
+                      />
+                    </label>
+                    <label className="cm-kp-check-plain">
+                      <input
+                        type="checkbox"
+                        checked={form.geenDatum}
+                        onChange={(e) => {
+                          set('geenDatum', e.target.checked);
+                          if (e.target.checked) set('datum', '');
+                        }}
+                      />
+                      <span>Nog geen datum voorzien</span>
+                    </label>
+                  </div>
                 </div>
-                <label className="cm-kp-check-plain" style={{ marginTop: 6 }}>
-                  <input
-                    type="checkbox"
-                    checked={form.geenDatum}
-                    onChange={(e) => {
-                      set('geenDatum', e.target.checked);
-                      if (e.target.checked) set('datum', '');
-                    }}
-                  />
-                  <span>Nog geen datum voorzien</span>
-                </label>
+
+                <div className="cm-kp-travel">
+                  <p className="cm-kp-subkop">Reiskosten</p>
+                  <div className="cm-kp-travel-row">
+                    <label className="nieuw-field cm-kp-travel-adres">
+                      <span>Adres opdracht</span>
+                      <input
+                        value={form.adresOpdracht}
+                        onChange={(e) => set('adresOpdracht', e.target.value)}
+                        placeholder="Straat nr, gemeente"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="nieuw-btn nieuw-btn-ghost cm-kp-travel-btn"
+                      disabled={afstandBusy}
+                      onClick={() => void berekenAfstand()}
+                    >
+                      {afstandBusy ? 'Berekenen…' : 'Bereken afstand'}
+                    </button>
+                    <label className="nieuw-field cm-kp-travel-km">
+                      <span>Km (enkel)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={form.afstandKm}
+                        onChange={(e) => set('afstandKm', e.target.value)}
+                        placeholder="0"
+                      />
+                    </label>
+                  </div>
+                  <p className="cm-kp-travel-note">
+                    {afstandInfo ??
+                      'Afstand van Class-Models (Provinciebaan 3, Hulshout) naar het adres van de opdracht. Heen en terug × € 0,70/km.'}
+                  </p>
+                </div>
               </fieldset>
             </div>
 
@@ -808,6 +892,16 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                   </tfoot>
                 </table>
               </div>
+
+              <label className="nieuw-field cm-kp-kopie-field">
+                <span>Kopie naar e-mail (optioneel)</span>
+                <input
+                  type="email"
+                  value={form.kopieEmail}
+                  onChange={(e) => set('kopieEmail', e.target.value)}
+                  placeholder="extra@adres.be"
+                />
+              </label>
 
               {error ? <p className="cm-kp-form-error">{error}</p> : null}
 
