@@ -1420,6 +1420,173 @@
   min-height: 0;
 }
 
+/* ---------- Klantenportaal info-inhoud (zakelijk, compact) ---------- */
+.cm-kp {
+  --kp-panel: color-mix(in srgb, var(--n-bg-3) 90%, var(--n-ink));
+  --kp-body: color-mix(in srgb, var(--n-mut) 52%, var(--n-ink));
+  display: grid;
+  gap: 16px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--kp-body);
+}
+.cm-kp p { margin: 0; }
+.cm-kp p + p { margin-top: 9px; }
+.cm-kp strong { color: var(--n-ink); font-weight: 600; }
+.cm-kp-paginatitel {
+  margin: 0 0 2px;
+  font-family: var(--n-serif);
+  font-size: clamp(19px, 2.4vw, 26px);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--n-gold);
+  line-height: 1.2;
+}
+.cm-kp-panel {
+  background: var(--kp-panel);
+  border: 1px solid var(--n-hair);
+  padding: 22px 26px;
+}
+.cm-kp-titel {
+  margin: 0 0 10px;
+  font-family: var(--n-serif);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+  line-height: 1.3;
+}
+.cm-kp-2col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.cm-kp-2col > .cm-kp-tekst { padding: 22px 26px; min-width: 0; }
+.cm-kp-foto {
+  position: relative;
+  line-height: 0;
+  min-height: 240px;
+  align-self: stretch;
+}
+.cm-kp-foto img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (max-width: 760px) {
+  .cm-kp-2col { grid-template-columns: 1fr; }
+  .cm-kp-foto { min-height: 190px; order: 0 !important; }
+}
+.cm-kp-check {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.cm-kp-check li { display: flex; gap: 10px; align-items: flex-start; }
+.cm-kp-check .cm-kp-check-dot {
+  flex-shrink: 0;
+  margin-top: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--n-gold-hair);
+  background: rgba(212, 175, 106, 0.12);
+  color: var(--n-gold);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.cm-kp-kolommen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 26px;
+}
+@media (max-width: 760px) { .cm-kp-kolommen { grid-template-columns: 1fr; } }
+.cm-kp-cellen {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.cm-kp-cel {
+  background: color-mix(in srgb, var(--kp-panel) 86%, var(--n-ink));
+  border: 1px solid var(--n-hair);
+  border-left: 2px solid var(--n-gold);
+  padding: 9px 12px;
+}
+.cm-kp-cel b { display: block; font-size: 12px; font-weight: 600; color: var(--n-ink); }
+.cm-kp-cel span { font-size: 11px; color: var(--kp-body); }
+/* Accordeon (details/summary, geen JS nodig) */
+.cm-kp-acc {
+  background: var(--kp-panel);
+  border: 1px solid var(--n-hair);
+}
+.cm-kp-acc > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 20px;
+  font-family: var(--n-serif);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--n-ink);
+  user-select: none;
+}
+.cm-kp-acc > summary::-webkit-details-marker { display: none; }
+.cm-kp-acc > summary::after {
+  content: '+';
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--n-gold-hair);
+  color: var(--n-gold);
+  font-size: 14px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cm-kp-acc[open] > summary::after { content: '−'; }
+.cm-kp-acc[open] > summary { color: var(--n-gold); border-bottom: 1px solid var(--n-hair); }
+.cm-kp-acc > .cm-kp-acc-body { padding: 16px 20px 20px; }
+.cm-kp-partnergrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+.cm-kp-partnergrid .cm-kp-partnercel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  border: 1.5px solid #c9a24a;
+  height: 74px;
+  padding: 6px;
+}
+.cm-kp-partnergrid img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
 /* ---------- Uniforme theming van oude (lichte) componenten binnen /nieuw ---------- */
 .nieuw-root .nieuw-themed,
 .nieuw-root .nieuw-booking,
