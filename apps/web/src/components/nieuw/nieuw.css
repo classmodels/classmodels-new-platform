@@ -1422,15 +1422,14 @@
 
 /* ---------- Klantenportaal info-inhoud (zakelijk, compact) ---------- */
 .cm-kp {
-  /* Warme goudtint i.p.v. vlak grijs — zelfde sfeer als de pagina-glow rechtsboven */
-  --kp-panel: #1a1610;
-  --kp-glow: rgba(212, 175, 106, 0.28);
-  --kp-glow-soft: rgba(212, 175, 106, 0.1);
+  /* Subtiele warme tint — meer donker, zachte overgang */
+  --kp-panel: #12100c;
+  --kp-glow: rgba(212, 175, 106, 0.1);
+  --kp-glow-soft: rgba(212, 175, 106, 0.04);
   --kp-body: color-mix(in srgb, var(--n-mut) 40%, var(--n-ink));
   --kp-surface:
-    radial-gradient(ellipse 115% 95% at 100% 0%, var(--kp-glow), transparent 58%),
-    radial-gradient(ellipse 90% 75% at 0% 100%, var(--kp-glow-soft), transparent 52%),
-    linear-gradient(165deg, #1f1a12 0%, #14110c 55%, #100e0b 100%);
+    linear-gradient(105deg, rgba(212, 175, 106, 0.09) 0%, transparent 48%),
+    linear-gradient(165deg, #16130f 0%, #100e0b 100%);
   display: grid;
   gap: 16px;
   font-size: 12.5px;
@@ -1451,7 +1450,7 @@
 }
 .cm-kp-panel {
   background: var(--kp-surface);
-  border: 1px solid rgba(212, 175, 106, 0.28);
+  border: 1px solid rgba(212, 175, 106, 0.18);
   padding: 22px 26px;
 }
 .cm-kp-titel {
@@ -1527,9 +1526,9 @@
 }
 .cm-kp-cel {
   background:
-    radial-gradient(ellipse 120% 100% at 100% 0%, rgba(212, 175, 106, 0.18), transparent 60%),
-    #16130f;
-  border: 1px solid rgba(212, 175, 106, 0.22);
+    linear-gradient(105deg, rgba(212, 175, 106, 0.07) 0%, transparent 55%),
+    #12100c;
+  border: 1px solid rgba(212, 175, 106, 0.16);
   border-left: 2px solid var(--n-gold);
   padding: 9px 12px;
 }
@@ -1538,7 +1537,7 @@
 /* Accordeon (details/summary, geen JS nodig) */
 .cm-kp-acc {
   background: var(--kp-surface);
-  border: 1px solid rgba(212, 175, 106, 0.28);
+  border: 1px solid rgba(212, 175, 106, 0.18);
 }
 .cm-kp-acc > summary {
   cursor: pointer;
@@ -1573,7 +1572,7 @@
 .cm-kp-acc[open] > summary::after { content: '−'; }
 .cm-kp-acc[open] > summary {
   color: var(--n-gold);
-  border-bottom: 1px solid rgba(212, 175, 106, 0.22);
+  border-bottom: 1px solid rgba(212, 175, 106, 0.14);
 }
 .cm-kp-acc > .cm-kp-acc-body { padding: 16px 20px 20px; }
 .cm-kp-partnergrid {
@@ -1601,7 +1600,7 @@
 /* Bestaande nieuw-componenten binnen .cm-kp: compacter + warme goudtint */
 .cm-kp .nieuw-panel {
   background: var(--kp-surface);
-  border-color: rgba(212, 175, 106, 0.28);
+  border-color: rgba(212, 175, 106, 0.18);
   padding: 22px 26px;
   color: var(--kp-body);
 }
@@ -1628,8 +1627,8 @@
 .cm-kp .nieuw-field select,
 .cm-kp .nieuw-field textarea {
   font-size: 12.5px;
-  background: rgba(10, 8, 6, 0.45);
-  border-color: rgba(212, 175, 106, 0.28);
+  background: rgba(8, 7, 5, 0.4);
+  border-color: rgba(212, 175, 106, 0.18);
   color: var(--n-ink);
 }
 .cm-kp .nieuw-models-field span { font-size: 11px; color: var(--kp-body); }
