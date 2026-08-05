@@ -17,9 +17,9 @@ import {
 import { getApiBase } from '@/lib/api';
 
 const CARD = '#1b1a1a';
-const LINE = 'rgba(214, 202, 182, 0.14)';
-const TEXT = '#f3eee6';
-const TEXT_SOFT = '#9e9689';
+const LINE = 'rgba(214, 202, 182, 0.12)';
+const TEXT = '#ece6da';
+const TEXT_SOFT = 'rgba(232, 226, 214, 0.72)';
 const ACCENT = '#d4af6a';
 const CTA_BG = '#d4af6a';
 const CTA_TEXT = '#14110a';

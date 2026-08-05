@@ -67,12 +67,26 @@ function runEnsureTryoutCouponsSchemaSync(root) {
   return r.status === 0;
 }
 
+function runEnsureLoginCriticalSchemaSync(root) {
+  const runner = path.join(root, 'scripts', 'ensure-login-critical-schema.cjs');
+  const r = spawnSync(
+    process.execPath,
+    [
+      '-e',
+      `require(${JSON.stringify(runner)}).runEnsureLoginCriticalSchema(${JSON.stringify(root)}).then((ok)=>process.exit(ok?0:1)).catch((e)=>{console.error(e);process.exit(1)})`,
+    ],
+    { cwd: root, env: process.env, stdio: 'inherit' },
+  );
+  return r.status === 0;
+}
+
 function runCombellDbSetup(root) {
   const migrated = runPrismaMigrateDeploy(root);
-  // Altijd kolommen forceren — ook als migrate faalde (anders 500 op feedback/admin).
+  // Altijd kolommen forceren — ook als migrate faalde (anders 500 op feedback/admin/login).
   const ensureOk = runEnsureTestshootFeedbackSchemaSync(root);
   const tryoutOk = runEnsureTryoutCouponsSchemaSync(root);
-  if (!migrated && !ensureOk && !tryoutOk) return false;
+  const loginOk = runEnsureLoginCriticalSchemaSync(root);
+  if (!migrated && !ensureOk && !tryoutOk && !loginOk) return false;
   const { runCombellBootstrapDb } = require('./combell-bootstrap-db.cjs');
   return runCombellBootstrapDb(root);
 }

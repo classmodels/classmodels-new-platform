@@ -1,21 +1,21 @@
-/* Class-Models — nieuwe site (/nieuw) — professionele agency look */
+/* Class-Models — nieuwe site (/nieuw) — warme donkere look (zelfde als klantenportaal) */
 .nieuw-root {
-  --n-bg: #08080b;
-  --n-bg-2: #101016;
-  --n-bg-3: #16161e;
-  --n-ink: #f3eee6;
-  --n-mut: #9e9689;
-  --n-dim: #6a645a;
+  --n-bg: #0e0d0d;
+  --n-bg-2: #1b1a1a;
+  --n-bg-3: #242120;
+  --n-ink: #ece6da;
+  --n-mut: rgba(232, 226, 214, 0.72);
+  --n-dim: #9a9080;
   --n-gold: #d4af6a;
   --n-gold-2: #e6c98a;
-  --n-hair: rgba(243, 238, 230, 0.1);
+  --n-hair: rgba(214, 202, 182, 0.12);
   --n-gold-hair: rgba(212, 175, 106, 0.38);
   --n-serif: 'Cormorant Garamond', Georgia, serif;
   --n-display: 'Montserrat', 'Arial Black', Impact, sans-serif;
   --n-sans: Inter, -apple-system, 'Segoe UI', sans-serif;
   --n-radius: 2px;
   background:
-    radial-gradient(ellipse 70% 50% at 85% 0%, rgba(212, 175, 106, 0.12), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 0%, rgba(212, 175, 106, 0.1), transparent 55%),
     var(--n-bg);
   color: var(--n-ink);
   font-family: var(--n-sans);
@@ -27,6 +27,17 @@
 
 .nieuw-root * { box-sizing: border-box; }
 .nieuw-wrap { width: min(1140px, 92vw); margin: 0 auto; }
+
+/* Geen blauwe browser-focus; goud zoals klantenportaal */
+.nieuw-root :is(input, textarea, select, button):focus,
+.nieuw-root :is(input, textarea, select, button):focus-visible {
+  outline: none;
+}
+.nieuw-root :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus,
+.nieuw-root :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus-visible {
+  border-color: var(--n-gold) !important;
+  box-shadow: 0 0 0 1px rgba(212, 175, 106, 0.35);
+}
 
 /* Gsm/app-pagina's: desktop-kop/footer weg, zelfde donkere Class-Models-kleuren als desktop */
 @media (max-width: 767px) {
@@ -302,7 +313,7 @@
   top: 0;
   z-index: 80;
   width: 100%;
-  background: #000;
+  background: #0e0d0d;
   border-bottom: 1px solid var(--n-hair);
 }
 .nieuw-kop-inner {
@@ -320,7 +331,7 @@
 .nieuw-util-bar {
   position: relative;
   width: 100%;
-  background: #0a0a0e;
+  background: #141210;
   border-bottom: 1px solid var(--n-hair);
   overflow: hidden;
 }
@@ -334,9 +345,9 @@
   pointer-events: none;
   background: linear-gradient(
     90deg,
-    rgba(10, 10, 14, 0) 0%,
-    rgba(10, 10, 14, 0.55) 42%,
-    #0a0a0e 78%
+    rgba(20, 18, 16, 0) 0%,
+    rgba(20, 18, 16, 0.55) 42%,
+    #141210 78%
   );
   z-index: 1;
 }
@@ -395,7 +406,7 @@
   position: relative;
   z-index: 3;
   padding-left: 12px;
-  background: #0a0a0e;
+  background: #141210;
 }
 .nieuw-util-actions a,
 .nieuw-util-actions .nieuw-back-btn {
@@ -2801,6 +2812,24 @@
   color: var(--n-ink);
   padding: 10px 12px;
   font-size: 13px;
+  outline: none;
+  box-shadow: none;
+  border-radius: 0;
+  caret-color: var(--n-gold);
+}
+.nieuw-login-field input:focus {
+  outline: none;
+  border-color: var(--n-gold);
+  box-shadow: 0 0 0 1px rgba(212, 175, 106, 0.35);
+}
+.nieuw-login-field input:-webkit-autofill,
+.nieuw-login-field input:-webkit-autofill:hover,
+.nieuw-login-field input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--n-ink);
+  caret-color: var(--n-gold);
+  box-shadow: 0 0 0 1000px var(--n-bg) inset;
+  transition: background-color 99999s ease-out;
+  border-color: var(--n-gold-hair);
 }
 .nieuw-login-remember {
   display: flex;

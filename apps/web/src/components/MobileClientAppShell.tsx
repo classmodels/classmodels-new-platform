@@ -6,10 +6,10 @@ import { useState, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { parseKlantenTab, type KlantenTabId } from '@/components/nieuw/KlantenPortalClient';
 
-const BG = '#08080b';
+const BG = '#0e0d0d';
 const CARD = '#1b1a1a';
-const LINE = 'rgba(214, 202, 182, 0.14)';
-const TEXT = '#f3eee6';
+const LINE = 'rgba(214, 202, 182, 0.12)';
+const TEXT = '#ece6da';
 const BAR = '#0e0d0d';
 const BAR_TEXT = '#f3ead8';
 const CTA_BG = '#d4af6a';

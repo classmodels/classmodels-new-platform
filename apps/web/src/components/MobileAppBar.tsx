@@ -110,7 +110,7 @@ function AppBarBackRow() {
     <>
       {/* Vast onder de app-balk zodat Terug/Beginpagina altijd zichtbaar blijven. */}
       <div
-        className="fixed inset-x-0 z-30 flex items-center justify-between gap-2.5 border-b border-[rgba(214,202,182,0.14)] bg-[#08080b] px-4 py-2.5"
+        className="fixed inset-x-0 z-30 flex items-center justify-between gap-2.5 border-b border-[rgba(214,202,182,0.12)] bg-[#0e0d0d] px-4 py-2.5"
         style={{ top: 'calc(48px + env(safe-area-inset-top, 0px))' }}
       >
         <button

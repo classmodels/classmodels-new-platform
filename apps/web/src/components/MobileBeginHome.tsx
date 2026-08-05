@@ -30,11 +30,11 @@ import '@/components/nieuw/nieuw.css';
  * Kleuren: zelfde donkere Class-Models-look als klanten- en modellenportaal (zwart + goud).
  */
 
-const BG = '#08080b';
+const BG = '#0e0d0d';
 const CARD = '#1b1a1a';
-const LINE = 'rgba(214, 202, 182, 0.14)';
-const TEXT = '#f3eee6';
-const TEXT_SOFT = '#9e9689';
+const LINE = 'rgba(214, 202, 182, 0.12)';
+const TEXT = '#ece6da';
+const TEXT_SOFT = 'rgba(232, 226, 214, 0.72)';
 const ACCENT = '#d4af6a';
 const BAR = '#0e0d0d';
 const BAR_TEXT = '#f3ead8';
