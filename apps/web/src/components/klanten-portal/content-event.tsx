@@ -1,12 +1,12 @@
-import { KpCard, KpChecks, KpSplit, KpTitel } from './content-shared';
+import { KpChecks, KpIntro, KpSplit, KpTitel } from './content-shared';
 
 export function KlantenEventContent() {
   return (
     <div className="cm-kp">
-      <KpCard>
-        <h1 className="cm-kp-paginatitel" style={{ marginBottom: 12 }}>
-          Een event organiseren? Wij helpen u!
-        </h1>
+      <KpIntro
+        label="Class-Models Events"
+        titel={<>Concept.<br />Organisatie.<br /><em>Uitvoering.</em></>}
+      >
         <p>
           Maak gebruik van ons professioneel eventsbureau. Zo kunt u zich volledig richten op de
           inhoud en het succes van uw bedrijf, terwijl de organisatie van het evenement in goede
@@ -31,7 +31,7 @@ export function KlantenEventContent() {
             </>,
           ]}
         />
-      </KpCard>
+      </KpIntro>
 
       {/* Foto rechts */}
       <KpSplit foto="/nieuw/hero-4.jpg" alt="Eventpersoneel Class-Models" fotoRechts>

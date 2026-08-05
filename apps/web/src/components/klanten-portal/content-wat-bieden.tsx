@@ -1,12 +1,12 @@
-import { KpCard, KpChecks, KpSplit, KpTitel } from './content-shared';
+import { KpCard, KpChecks, KpIntro, KpSplit, KpTitel } from './content-shared';
 
 export function KlantenWatBiedenContent() {
   return (
     <div className="cm-kp">
-      <KpCard>
-        <h1 className="cm-kp-paginatitel" style={{ marginBottom: 12 }}>
-          Wat bieden we aan
-        </h1>
+      <KpIntro
+        label="Ons aanbod"
+        titel={<>Talent.<br />Selectie.<br /><em>Resultaat.</em></>}
+      >
         <p>
           Bij Class-Models gaan diversiteit en professionaliteit hand in hand. Elk model in ons
           bestand heeft een uitgebreide opleiding genoten én met succes een examen afgelegd —
@@ -33,7 +33,7 @@ export function KlantenWatBiedenContent() {
             </>,
           ]}
         />
-      </KpCard>
+      </KpIntro>
 
       {/* Foto links */}
       <KpSplit foto="/nieuw/hero-1.jpg" alt="Modellen van Class-Models">

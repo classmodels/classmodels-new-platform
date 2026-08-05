@@ -2,6 +2,7 @@ import {
   KpAccordeon,
   KpCard,
   KpChecks,
+  KpIntro,
   KpPartnerGrid,
   KpSplit,
   KpTitel,
@@ -10,10 +11,10 @@ import {
 export function KlantenWaarStaatContent() {
   return (
     <div className="cm-kp">
-      <KpCard>
-        <h1 className="cm-kp-paginatitel" style={{ marginBottom: 12 }}>
-          Welkom bij Class-Models: jouw partner in stijl en professionalisme
-        </h1>
+      <KpIntro
+        label="Waarom Class-Models"
+        titel={<>Stijl.<br />Service.<br /><em>Professionalisme.</em></>}
+      >
         <p>
           Class-Models verbindt merken, bedrijven en organisaties met het juiste talent — snel,
           transparant en persoonlijk. Hieronder leest u waar wij voor staan en waarom bedrijven in
@@ -38,7 +39,7 @@ export function KlantenWaarStaatContent() {
             </>,
           ]}
         />
-      </KpCard>
+      </KpIntro>
 
       {/* Foto links */}
       <KpSplit foto="/nieuw/klantenportaal.jpg" alt="Overleg bij Class-Models">

@@ -366,74 +366,60 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <header style={{ paddingBottom: 2 }}>
+    <div className="cm-kp-booking">
+      <header className="cm-kp-booking-header">
         <h1 className="cm-kp-paginatitel">Modellen boeken / tarieven</h1>
-        <p style={{ marginTop: 8, maxWidth: 720 }}>
+        <p>
           Bekijk hieronder onze tarieven en bereken meteen zelf de prijs van uw opdracht. Vraag een
           offerte aan of plaats direct een bestelling — u ontvangt een bevestiging per e-mail.
         </p>
       </header>
 
       {/* ─── Prijslijst ──────────────────────────────────────────────────── */}
-      <section className="nieuw-panel">
+      <section className="nieuw-panel cm-kp-rates">
         <h2 className="cm-kp-titel">Prijslijst (excl. btw)</h2>
         <p className="nieuw-lead" style={{ marginBottom: 12 }}>
           Onderstaande tarieven zijn richtprijzen. De definitieve prijs wordt bevestigd na uw aanvraag.
         </p>
         <div style={{ overflowX: 'auto' }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: 12.5,
-              color: 'var(--n-ink)',
-            }}
-          >
+          <table className="cm-kp-rates-table">
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--n-hair)' }}>
-                <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--n-mut)', fontWeight: 600 }}>
-                  Dienst
-                </th>
-                <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--n-mut)', fontWeight: 600 }}>
-                  Tarief
-                </th>
+              <tr className="cm-kp-rates-section">
+                <th colSpan={2}>Modellen &amp; personeel</th>
               </tr>
             </thead>
             <tbody>
               {TARIEVEN_PERSONEN.map((t) => (
-                <tr key={t.label} style={{ borderBottom: '1px solid var(--n-hair)' }}>
-                  <td style={{ padding: '7px 8px' }}>{t.label}</td>
-                  <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--n-gold)', fontWeight: 600 }}>
+                <tr key={t.label}>
+                  <td>{t.label}</td>
+                  <td>
                     € {t.tarief}/u
                   </td>
                 </tr>
               ))}
+              <tr className="cm-kp-rates-section">
+                <th colSpan={2}>Toeslagen &amp; reiskosten</th>
+              </tr>
               {TARIEVEN_OVERIG.map((t) => (
-                <tr key={t.label} style={{ borderBottom: '1px solid var(--n-hair)' }}>
-                  <td style={{ padding: '7px 8px' }}>
+                <tr key={t.label}>
+                  <td>
                     {t.label}
                     {'info' in t && t.info ? (
-                      <span style={{ color: 'var(--n-mut)', marginLeft: 6, fontSize: 11 }}>({t.info})</span>
+                      <span className="cm-kp-rate-note">({t.info})</span>
                     ) : null}
                   </td>
-                  <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--n-gold)', fontWeight: 600 }}>
+                  <td>
                     {'tarief' in t && typeof t.tarief === 'number' ? `€ ${t.tarief}` : '—'}
                   </td>
                 </tr>
               ))}
-              <tr>
-                <td
-                  colSpan={2}
-                  style={{ padding: '10px 8px 4px', color: 'var(--n-mut)', fontWeight: 600, fontSize: 12 }}
-                >
-                  Auteursrechten (eenmalig)
-                </td>
+              <tr className="cm-kp-rates-section">
+                <th colSpan={2}>Auteursrechten (eenmalig)</th>
               </tr>
               {AUTEURSRECHTEN_OPTIES.filter((o) => o.value).map((o) => (
-                <tr key={o.value} style={{ borderBottom: '1px solid var(--n-hair)' }}>
-                  <td style={{ padding: '6px 8px', paddingLeft: 20 }}>{o.label}</td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right', color: 'var(--n-gold)', fontWeight: 600 }}>
+                <tr key={o.value}>
+                  <td>{o.label}</td>
+                  <td>
                     € {o.prijs}
                   </td>
                 </tr>

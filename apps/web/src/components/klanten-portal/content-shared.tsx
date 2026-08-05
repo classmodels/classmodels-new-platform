@@ -35,6 +35,27 @@ export function KpCard({ children, className = '' }: { children: ReactNode; clas
   return <section className={`cm-kp-card ${className}`.trim()}>{children}</section>;
 }
 
+/** Intro in twee duidelijke kolommen: statement links, inhoud rechts. */
+export function KpIntro({
+  label,
+  titel,
+  children,
+}: {
+  label: string;
+  titel: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="cm-kp-card cm-kp-intro">
+      <header className="cm-kp-intro-heading">
+        <span className="cm-kp-eyebrow">{label}</span>
+        <h1 className="cm-kp-intro-title">{titel}</h1>
+      </header>
+      <div className="cm-kp-intro-content">{children}</div>
+    </section>
+  );
+}
+
 /** Foto en tekst in één doorlopend kader; `fotoRechts` wisselt de volgorde. */
 export function KpSplit({
   foto,

@@ -1430,13 +1430,13 @@
   --kp-body: rgba(232, 226, 214, 0.72);
   --kp-ink: #ece6da;
   display: grid;
-  gap: 14px;
+  gap: 22px;
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--kp-body);
 }
 .cm-kp p { margin: 0; }
-.cm-kp p + p { margin-top: 8px; }
+.cm-kp p + p { margin-top: 12px; }
 .cm-kp strong { color: var(--kp-ink); font-weight: 600; }
 .cm-kp-paginatitel {
   margin: 0;
@@ -1455,8 +1455,54 @@
   box-sizing: border-box;
 }
 .cm-kp-card--fill { height: 100%; }
+.cm-kp-intro {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.25fr);
+  gap: 46px;
+  padding: 30px 32px;
+  align-items: start;
+}
+.cm-kp-intro-heading {
+  padding-top: 2px;
+}
+.cm-kp-eyebrow {
+  display: block;
+  margin-bottom: 16px;
+  color: var(--n-gold);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.cm-kp-intro-title {
+  margin: 0;
+  color: var(--kp-ink);
+  font-size: clamp(25px, 3.1vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.015em;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+.cm-kp-intro-title em {
+  color: var(--n-gold);
+  font-style: normal;
+}
+.cm-kp-intro-content > p:first-child {
+  margin-top: 2px;
+}
+.cm-kp-intro-content .cm-kp-checks {
+  margin-top: 20px;
+}
+@media (max-width: 800px) {
+  .cm-kp-intro {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 24px 22px;
+  }
+  .cm-kp-intro-title { font-size: clamp(24px, 9vw, 34px); }
+}
 .cm-kp-titel {
-  margin: 0 0 10px;
+  margin: 0 0 14px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -1499,7 +1545,7 @@
   background: linear-gradient(270deg, transparent 72%, rgba(27, 26, 26, 0.55) 100%);
 }
 .cm-kp-split > .cm-kp-body {
-  padding: 20px 22px;
+  padding: 25px 26px;
   min-width: 0;
   align-self: center;
 }
@@ -1514,7 +1560,7 @@
 .cm-kp-duo {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px;
+  gap: 22px;
   align-items: stretch;
 }
 @media (max-width: 800px) {
@@ -1523,7 +1569,7 @@
 /* Vierkantjes met vinkje / nummer — compacte rijen */
 .cm-kp-checks {
   list-style: none;
-  margin: 12px 0 0;
+  margin: 18px 0 0;
   padding: 0;
   display: grid;
   gap: 6px;
@@ -1687,6 +1733,118 @@
   color: var(--kp-ink);
 }
 .cm-kp .nieuw-models-field span { font-size: 11px; color: var(--kp-body); }
+
+/* Modellen boeken — compacte zakelijke formulier- en prijslijststijl */
+.cm-kp-booking {
+  display: grid;
+  gap: 14px;
+}
+.cm-kp-booking-header {
+  padding: 0 2px 6px;
+}
+.cm-kp-booking-header .cm-kp-paginatitel {
+  font-size: 16px;
+}
+.cm-kp-booking-header p {
+  max-width: 760px;
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+.cm-kp-booking .nieuw-panel {
+  padding: 16px 18px;
+}
+.cm-kp-booking .cm-kp-titel {
+  margin-bottom: 9px;
+  font-size: 10px;
+}
+.cm-kp-booking .nieuw-lead {
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.cm-kp-booking fieldset {
+  margin-bottom: 17px !important;
+  padding-bottom: 2px !important;
+  border-bottom: 1px solid var(--kp-edge) !important;
+}
+.cm-kp-booking fieldset legend {
+  margin-bottom: 9px !important;
+  font-size: 9.5px !important;
+  letter-spacing: 0.12em !important;
+  color: var(--n-gold) !important;
+}
+.cm-kp-booking .nieuw-form-grid {
+  gap: 9px 12px;
+}
+.cm-kp-booking .nieuw-field span {
+  margin-bottom: 4px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+.cm-kp-booking .nieuw-field input,
+.cm-kp-booking .nieuw-field select,
+.cm-kp-booking .nieuw-field textarea {
+  min-height: 32px;
+  padding: 6px 9px;
+  border-radius: 2px;
+  font-size: 11.5px;
+}
+.cm-kp-booking .nieuw-field textarea {
+  min-height: 66px;
+}
+.cm-kp-booking .mb-grid {
+  gap: 6px !important;
+  margin-bottom: 7px;
+}
+.cm-kp-booking input[type='checkbox'] {
+  width: 14px !important;
+  height: 14px !important;
+}
+.cm-kp-rates-table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--kp-body);
+  font-size: 11.5px;
+}
+.cm-kp-rates-table tr:not(.cm-kp-rates-section) {
+  border-bottom: 1px solid var(--kp-edge);
+}
+.cm-kp-rates-table td {
+  padding: 6px 8px;
+}
+.cm-kp-rates-table td:last-child {
+  width: 150px;
+  color: var(--kp-ink);
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+.cm-kp-rates-table .cm-kp-rates-section th {
+  padding: 15px 8px 7px;
+  border-bottom: 1px solid rgba(212, 175, 106, 0.3);
+  color: var(--n-gold);
+  font-family: var(--n-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: left;
+  text-transform: uppercase;
+}
+.cm-kp-rates-table thead .cm-kp-rates-section th {
+  padding-top: 5px;
+}
+.cm-kp-rate-note {
+  margin-left: 7px;
+  color: var(--n-mut);
+  font-size: 10px;
+}
+@media (max-width: 620px) {
+  .cm-kp-booking .mb-grid {
+    grid-template-columns: 1fr 72px 72px !important;
+  }
+  .cm-kp-booking .mb-grid > :last-child { display: none; }
+  .cm-kp-rate-note { display: block; margin: 2px 0 0; }
+}
 
 /* ---------- Uniforme theming van oude (lichte) componenten binnen /nieuw ---------- */
 .nieuw-root .nieuw-themed,
