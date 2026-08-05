@@ -125,6 +125,10 @@ export class CreateClientOfferteDto {
 
   @IsOptional()
   @IsString()
+  website?: string;
+
+  @IsOptional()
+  @IsString()
   typeOpdracht?: string;
 
   @IsOptional()
@@ -213,6 +217,7 @@ function buildEmailBody(dto: CreateClientOfferteDto): string {
   row('Adres', [dto.straat, dto.nr, dto.postcode, dto.gemeente].filter(Boolean).join(' '));
   row('GSM', dto.gsm);
   row('E-mail', dto.clientEmail);
+  row('Website', dto.website);
   row('Type opdracht', dto.typeOpdracht);
   row('Datum', dto.datum);
   row('Lingerie / badmode', dto.lingerie ? 'Ja (+50% toeslag)' : undefined);

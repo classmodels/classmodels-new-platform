@@ -27,6 +27,7 @@ export class UsersController {
       phone: u.phone,
       bio: u.bio,
       companyName: u.companyName,
+      clientProfile: u.clientProfile ?? null,
       defaultPortal: u.defaultPortal,
       modelSheet: u.modelSheet ?? null,
       profilePhotoAssetId: u.profilePhotoAssetId ?? null,

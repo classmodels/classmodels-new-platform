@@ -33,6 +33,15 @@ export type AuthUser = {
   phone?: string | null;
   bio?: string | null;
   companyName?: string | null;
+  clientProfile?: {
+    street?: string;
+    houseNumber?: string;
+    postalCode?: string;
+    city?: string;
+    companyType?: string;
+    vatNumber?: string;
+    website?: string;
+  } | null;
   defaultPortal?: string | null;
   /** Modellenfiche (WP cm_* velden in camelCase), server: Json */
   modelSheet?: Record<string, unknown> | null;
@@ -66,6 +75,7 @@ export type RegisterInput = {
   lastName?: string;
   phone?: string;
   companyName?: string;
+  clientProfile?: NonNullable<AuthUser['clientProfile']>;
 };
 
 type AuthContextValue = AuthState & {

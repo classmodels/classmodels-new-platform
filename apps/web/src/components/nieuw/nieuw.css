@@ -1816,31 +1816,17 @@
 }
 .cm-kp-booking-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 14px 18px;
-}
-.cm-kp-booking-form > .cm-kp-form-section--full,
-.cm-kp-booking-form > .cm-kp-form-total,
-.cm-kp-booking-form > .cm-kp-form-actions,
-.cm-kp-booking-form > .cm-kp-form-disclaimer,
-.cm-kp-booking-form > p {
-  grid-column: 1 / -1;
+  gap: 14px;
 }
 .cm-kp-booking-form .cm-kp-form-section {
   min-width: 0;
   margin: 0 !important;
-  padding: 13px !important;
+  padding: 14px 16px !important;
   border: 1px solid var(--kp-edge) !important;
-  background: rgba(14, 13, 13, 0.28);
+  background: var(--kp-card);
 }
 .cm-kp-booking-form .cm-kp-form-section legend {
   padding: 0 6px;
-}
-.cm-kp-booking-form .cm-kp-form-total {
-  margin: 2px 0 0 !important;
-}
-.cm-kp-booking-form .cm-kp-form-actions {
-  margin-top: 2px;
 }
 .cm-kp-booking .cm-kp-titel {
   margin-bottom: 9px;
@@ -1850,19 +1836,12 @@
   font-size: 11.5px;
   line-height: 1.5;
 }
-.cm-kp-booking fieldset {
-  margin-bottom: 17px !important;
-  padding-bottom: 2px !important;
-  border-bottom: 1px solid var(--kp-edge) !important;
-}
 .cm-kp-booking fieldset legend {
-  margin-bottom: 9px !important;
+  margin-bottom: 10px !important;
   font-size: 9.5px !important;
   letter-spacing: 0.12em !important;
   color: var(--n-gold) !important;
-}
-.cm-kp-booking .nieuw-form-grid {
-  gap: 9px 12px;
+  text-transform: uppercase;
 }
 .cm-kp-booking .nieuw-field span {
   margin-bottom: 4px;
@@ -1871,22 +1850,224 @@
 }
 .cm-kp-booking .nieuw-field input,
 .cm-kp-booking .nieuw-field select,
-.cm-kp-booking .nieuw-field textarea {
-  min-height: 32px;
-  padding: 6px 9px;
+.cm-kp-booking .nieuw-field textarea,
+.cm-kp-booking .cm-kp-select,
+.cm-kp-booking .cm-kp-uren {
+  min-height: 30px;
+  padding: 5px 8px;
   border-radius: 2px;
   font-size: 11.5px;
+  background: var(--kp-deep) !important;
+  border: 1px solid var(--kp-edge) !important;
+  color: var(--kp-ink) !important;
+  color-scheme: dark;
 }
-.cm-kp-booking .nieuw-field textarea {
-  min-height: 66px;
+.cm-kp-booking .nieuw-field textarea { min-height: 56px; }
+.cm-kp-booking select,
+.cm-kp-booking .cm-kp-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--n-gold) 50%),
+    linear-gradient(135deg, var(--n-gold) 50%, transparent 50%);
+  background-position: calc(100% - 14px) calc(50% - 2px), calc(100% - 9px) calc(50% - 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 26px !important;
 }
-.cm-kp-booking .mb-grid {
-  gap: 6px !important;
-  margin-bottom: 7px;
+.cm-kp-booking select option {
+  background: #1b1a1a;
+  color: #ece6da;
 }
 .cm-kp-booking input[type='checkbox'] {
-  width: 14px !important;
-  height: 14px !important;
+  width: 13px !important;
+  height: 13px !important;
+  accent-color: var(--n-gold);
+}
+
+/* Account 2 kolommen + verticale lijn */
+.cm-kp-account-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.cm-kp-account-toolbar p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--kp-body);
+}
+.cm-kp-account-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0 42px;
+  position: relative;
+}
+.cm-kp-account-grid::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 50%;
+  width: 1px;
+  background: rgba(214, 202, 182, 0.16);
+  transform: translateX(-50%);
+}
+.cm-kp-account-col {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.cm-kp-account-field {
+  display: grid;
+  gap: 2px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(214, 202, 182, 0.06);
+}
+.cm-kp-account-field span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+}
+.cm-kp-account-field strong {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--kp-ink);
+}
+.cm-kp-account-save { margin-top: 12px; }
+.cm-kp-inline-2 {
+  display: grid;
+  grid-template-columns: 1fr 72px;
+  gap: 8px;
+}
+.cm-kp-inline-2 .cm-kp-narrow { max-width: none; }
+.cm-kp-type-field { max-width: 280px; margin-bottom: 12px; }
+
+/* Opdracht-slots */
+.cm-kp-slots { display: grid; gap: 7px; }
+.cm-kp-slot-row {
+  display: grid;
+  grid-template-columns: 70px 78px 78px 92px 92px auto;
+  gap: 7px;
+  align-items: end;
+}
+.cm-kp-slot-actions {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 1px;
+}
+.cm-kp-slot-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(212, 175, 106, 0.4);
+  background: var(--kp-raised);
+  color: var(--n-gold);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.cm-kp-slot-spacer { width: 28px; height: 28px; }
+
+/* Onderste grid: opties links / prijs rechts */
+.cm-kp-bottom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 14px 18px;
+  align-items: start;
+}
+.cm-kp-bottom-left {
+  display: grid;
+  gap: 12px;
+}
+.cm-kp-check-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.cm-kp-check-row,
+.cm-kp-check-plain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--kp-body);
+}
+.cm-kp-check-row label,
+.cm-kp-check-plain {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  flex: 1;
+}
+.cm-kp-uren { width: 58px; }
+.cm-kp-price-box {
+  padding: 14px 16px;
+  border: 1px solid var(--kp-edge);
+  background: var(--kp-card);
+}
+.cm-kp-price-box h3 {
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+}
+.cm-kp-price-box table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.cm-kp-price-box td {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--kp-edge);
+  color: var(--kp-body);
+}
+.cm-kp-price-box td:last-child {
+  text-align: right;
+  color: var(--kp-ink);
+  white-space: nowrap;
+}
+.cm-kp-price-box tfoot tr:first-child td {
+  padding-top: 9px;
+  border-top: 1px solid rgba(212, 175, 106, 0.28);
+  border-bottom: none;
+  font-weight: 600;
+  color: var(--kp-ink);
+}
+.cm-kp-price-box tfoot tr:first-child td:last-child { color: var(--n-gold); }
+.cm-kp-price-box tfoot tr:nth-child(2) td {
+  border-bottom: none;
+  color: var(--n-mut);
+  font-size: 11px;
+}
+.cm-kp-price-box tfoot tr:last-child td {
+  border-bottom: none;
+  padding-top: 4px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--kp-ink);
+}
+.cm-kp-price-box tfoot tr:last-child td:last-child { color: var(--n-gold); }
+.cm-kp-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cm-kp-form-disclaimer {
+  margin: 8px 0 0;
+  text-align: right;
+  font-size: 10.5px;
+  color: var(--n-mut);
+}
+.cm-kp-form-error {
+  margin: 10px 0 0;
+  color: #e8a0a0;
+  font-size: 12px;
 }
 .cm-kp-rates-table {
   width: 100%;
@@ -1897,9 +2078,7 @@
 .cm-kp-rates-table tr:not(.cm-kp-rates-section) {
   border-bottom: 1px solid var(--kp-edge);
 }
-.cm-kp-rates-table td {
-  padding: 6px 8px;
-}
+.cm-kp-rates-table td { padding: 6px 8px; }
 .cm-kp-rates-table td:last-child {
   width: 150px;
   color: var(--kp-ink);
@@ -1918,21 +2097,24 @@
   text-align: left;
   text-transform: uppercase;
 }
-.cm-kp-rates-table thead .cm-kp-rates-section th {
-  padding-top: 5px;
-}
+.cm-kp-rates-table thead .cm-kp-rates-section th { padding-top: 5px; }
 .cm-kp-rate-note {
   margin-left: 7px;
   color: var(--n-mut);
   font-size: 10px;
 }
-@media (max-width: 620px) {
-  .cm-kp-booking-form { grid-template-columns: 1fr; }
-  .cm-kp-booking-form > .cm-kp-form-section { grid-column: 1; }
-  .cm-kp-booking .mb-grid {
-    grid-template-columns: 1fr 72px 72px !important;
+@media (max-width: 900px) {
+  .cm-kp-account-grid,
+  .cm-kp-bottom-grid,
+  .cm-kp-check-grid { grid-template-columns: 1fr; }
+  .cm-kp-account-grid::before { display: none; }
+  .cm-kp-slot-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .cm-kp-booking .mb-grid > :last-child { display: none; }
+  .cm-kp-form-actions,
+  .cm-kp-form-disclaimer { justify-content: flex-start; text-align: left; }
+}
+@media (max-width: 620px) {
   .cm-kp-rate-note { display: block; margin: 2px 0 0; }
 }
 

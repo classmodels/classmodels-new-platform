@@ -103,6 +103,7 @@ export class UsersService {
     lastName: string | null;
     phone: string | null;
     companyName: string | null;
+    clientProfile?: Record<string, string> | null;
   }) {
     const email = params.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({ where: { email } });
@@ -122,6 +123,7 @@ export class UsersService {
         lastName: params.lastName,
         phone: params.phone,
         companyName: params.companyName,
+        clientProfile: params.clientProfile ?? undefined,
         defaultPortal,
         status: 'active',
         roles: { create: [{ role: { connect: { id: role.id } } }] },
@@ -158,6 +160,7 @@ export class UsersService {
         phone: true,
         bio: true,
         companyName: true,
+        clientProfile: true,
         modelSheet: true,
         profilePhotoAssetId: true,
         roles: { include: { role: { select: { slug: true } } } },
@@ -176,6 +179,16 @@ export class UsersService {
     }
     if (dto.bio !== undefined) data.bio = dto.bio || null;
     if (dto.companyName !== undefined) data.companyName = dto.companyName || null;
+    if (dto.clientProfile !== undefined) {
+      const prev =
+        before.clientProfile && typeof before.clientProfile === 'object' && !Array.isArray(before.clientProfile)
+          ? (before.clientProfile as Record<string, unknown>)
+          : {};
+      data.clientProfile = {
+        ...prev,
+        ...dto.clientProfile,
+      };
+    }
 
     if (dto.modelSheet !== undefined) {
       const merged = sanitizeModelSheetMerge(before.modelSheet ?? null, dto.modelSheet) as Record<string, unknown>;
@@ -232,6 +245,7 @@ export class UsersService {
           phone: true,
           bio: true,
           companyName: true,
+          clientProfile: true,
           defaultPortal: true,
           modelSheet: true,
         },
@@ -251,6 +265,7 @@ export class UsersService {
         phone: true,
         bio: true,
         companyName: true,
+        clientProfile: true,
         defaultPortal: true,
         modelSheet: true,
       },
@@ -261,6 +276,7 @@ export class UsersService {
     if (dto.phone !== undefined) labels.push('Telefoon');
     if (dto.bio !== undefined) labels.push('Bio');
     if (dto.companyName !== undefined) labels.push('Bedrijfsnaam');
+    if (dto.clientProfile !== undefined) labels.push('Klantprofiel');
     if (dto.modelSheet !== undefined) labels.push('Modellenfiche');
     if (dto.profilePhotoAssetId !== undefined) labels.push('Hoofdfoto');
     if (labels.length) {

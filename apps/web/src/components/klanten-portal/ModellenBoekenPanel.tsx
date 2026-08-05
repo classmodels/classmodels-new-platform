@@ -1,18 +1,19 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useAuth } from '@/context/auth-context';
 
 // ─── Tarieven ────────────────────────────────────────────────────────────────
 
 const TARIEVEN_PERSONEN = [
-  { label: 'Mannequin / Dressman', per: 'uur', tarief: 75 },
-  { label: 'Fotoshoot (model)', per: 'uur', tarief: 150 },
-  { label: 'Hostessen / Host', per: 'uur', tarief: 40 },
-  { label: 'Promo Girls / Boys', per: 'uur', tarief: 60 },
-  { label: 'Visagiste / Hairstyliste', per: 'uur', tarief: 95 },
-  { label: 'Fotograaf', per: 'uur', tarief: 175 },
-  { label: 'Medewerk(st)er', per: 'uur', tarief: 40 },
+  { label: 'Mannequin / Dressman', tarief: 75 },
+  { label: 'Fotoshoot (model)', tarief: 150 },
+  { label: 'Hostessen / Host', tarief: 40 },
+  { label: 'Promo Girls / Boys', tarief: 60 },
+  { label: 'Visagiste / Hairstyliste', tarief: 95 },
+  { label: 'Fotograaf', tarief: 175 },
+  { label: 'Medewerk(st)er', tarief: 40 },
 ];
 
 const TARIEVEN_OVERIG = [
@@ -32,6 +33,12 @@ const AUTEURSRECHTEN_OPTIES = [
   { value: 'folders', label: 'Folders / drukwerk', prijs: 600 },
 ];
 
+const SOORT_BEDRIJF: Record<string, string> = {
+  kledingzaak: 'Kledingzaak',
+  reclamebureau: 'Reclamebureau',
+  andere: 'Andere',
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function parseTime(val: string): number {
@@ -49,34 +56,25 @@ function fmt(n: number): string {
   return n.toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function newId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type GroepRij = {
+type ModelSlot = {
+  id: string;
   aantal: number;
-  van: string;
-  tot: string;
+  leeftijdVan: string;
+  leeftijdTot: string;
+  uurVan: string;
+  uurTot: string;
 };
 
 type FormState = {
-  // Klantgegevens
-  naam: string;
-  bedrijfsnaam: string;
-  soortBedrijf: string;
-  btw: string;
-  straat: string;
-  nr: string;
-  postcode: string;
-  gemeente: string;
-  gsm: string;
-  email: string;
-  // Opdracht
   typeOpdracht: string;
-  mannen: GroepRij;
-  vrouwen: GroepRij;
-  kinderenJongen: GroepRij;
-  kinderenMeisje: GroepRij;
+  slots: ModelSlot[];
   opmerkingen: string;
-  // Extra diensten
   visagiste: boolean;
   visagisteUren: number;
   hairstyliste: boolean;
@@ -85,21 +83,41 @@ type FormState = {
   fotografUren: number;
   medewerker: boolean;
   medewerkerUren: number;
-  // Auteursrechten
   auteursrechten: string;
-  // Opties
   doorpassen: boolean;
   lingerie: boolean;
-  // Datum
   datum: string;
   geenDatum: boolean;
-  // Afstand
   afstandKm: string;
+};
+
+type AccountForm = {
+  lastName: string;
+  firstName: string;
+  street: string;
+  houseNumber: string;
+  postalCode: string;
+  city: string;
+  phone: string;
+  companyName: string;
+  companyType: string;
+  vatNumber: string;
+  email: string;
+  website: string;
 };
 
 type PrijsRegel = { label: string; bedrag: number };
 
-// ─── Pricing calculator ───────────────────────────────────────────────────────
+function emptySlot(): ModelSlot {
+  return {
+    id: newId(),
+    aantal: 0,
+    leeftijdVan: '',
+    leeftijdTot: '',
+    uurVan: '',
+    uurTot: '',
+  };
+}
 
 function uurtariefVoorType(type: string): number {
   switch (type) {
@@ -120,38 +138,30 @@ function uurtariefVoorType(type: string): number {
 function berekenPrijs(f: FormState): PrijsRegel[] {
   const regels: PrijsRegel[] = [];
   const uurTarief = uurtariefVoorType(f.typeOpdracht);
-
-  // Model groepen
   let modelTotaal = 0;
-  const groepen: { label: string; rij: GroepRij }[] = [
-    { label: 'Mannen', rij: f.mannen },
-    { label: 'Vrouwen', rij: f.vrouwen },
-    { label: 'Kinderen (jongen)', rij: f.kinderenJongen },
-    { label: 'Kinderen (meisje)', rij: f.kinderenMeisje },
-  ];
-  for (const { label, rij } of groepen) {
-    if (rij.aantal > 0 && rij.van && rij.tot) {
-      const uren = hoursBetween(rij.van, rij.tot);
+
+  f.slots.forEach((slot, i) => {
+    if (slot.aantal > 0 && slot.uurVan && slot.uurTot) {
+      const uren = hoursBetween(slot.uurVan, slot.uurTot);
       if (uren > 0) {
-        const bedrag = rij.aantal * uren * uurTarief;
+        const bedrag = slot.aantal * uren * uurTarief;
         modelTotaal += bedrag;
-        regels.push({ label: `${label} (${rij.aantal} × ${uren.toFixed(2)}u × €${uurTarief})`, bedrag });
+        const leeftijd =
+          slot.leeftijdVan || slot.leeftijdTot
+            ? `, ${slot.leeftijdVan || '?'}–${slot.leeftijdTot || '?'} j`
+            : '';
+        regels.push({
+          label: `Slot ${i + 1}: ${slot.aantal} × ${uren.toFixed(2)}u × €${uurTarief}${leeftijd}`,
+          bedrag,
+        });
       }
     }
-  }
+  });
 
-  // Lingerie toeslag (+50% op modellen)
   if (f.lingerie && modelTotaal > 0) {
-    const toeslag = modelTotaal * 0.5;
-    regels.push({ label: 'Lingerie toeslag (+50%)', bedrag: toeslag });
+    regels.push({ label: 'Lingerie toeslag (+50%)', bedrag: modelTotaal * 0.5 });
   }
-
-  // Doorpassen
-  if (f.doorpassen) {
-    regels.push({ label: 'Doorpassen (forfait)', bedrag: 50 });
-  }
-
-  // Extra diensten
+  if (f.doorpassen) regels.push({ label: 'Doorpassen (forfait)', bedrag: 50 });
   if (f.visagiste && f.visagisteUren > 0) {
     regels.push({ label: `Visagiste (${f.visagisteUren}u × €95)`, bedrag: f.visagisteUren * 95 });
   }
@@ -165,16 +175,14 @@ function berekenPrijs(f: FormState): PrijsRegel[] {
     regels.push({ label: `Medewerk(st)er (${f.medewerkerUren}u × €40)`, bedrag: f.medewerkerUren * 40 });
   }
 
-  // Reiskosten
   const km = parseFloat(f.afstandKm) || 0;
   if (km > 0) {
-    const kmKost = km * 2 * 0.70;
-    const tijdKost = uurTarief * 0.25;
-    const reisKost = kmKost + tijdKost;
-    regels.push({ label: `Reiskosten (${km} km heen+terug × €0,70 + 25% uur)`, bedrag: reisKost });
+    regels.push({
+      label: `Reiskosten (${km} km heen+terug × €0,70 + 25% uur)`,
+      bedrag: km * 2 * 0.7 + uurTarief * 0.25,
+    });
   }
 
-  // Auteursrechten
   const autOpt = AUTEURSRECHTEN_OPTIES.find((o) => o.value === f.auteursrechten);
   if (autOpt && autOpt.prijs > 0) {
     regels.push({ label: `Auteursrechten: ${autOpt.label}`, bedrag: autOpt.prijs });
@@ -183,35 +191,18 @@ function berekenPrijs(f: FormState): PrijsRegel[] {
   return regels;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-const DEFAULT_GROEP: GroepRij = { aantal: 0, van: '', tot: '' };
-
 const DEFAULT_FORM: FormState = {
-  naam: '',
-  bedrijfsnaam: '',
-  soortBedrijf: '',
-  btw: '',
-  straat: '',
-  nr: '',
-  postcode: '',
-  gemeente: '',
-  gsm: '',
-  email: '',
   typeOpdracht: 'modeshow',
-  mannen: { ...DEFAULT_GROEP },
-  vrouwen: { ...DEFAULT_GROEP },
-  kinderenJongen: { ...DEFAULT_GROEP },
-  kinderenMeisje: { ...DEFAULT_GROEP },
+  slots: [emptySlot()],
   opmerkingen: '',
   visagiste: false,
-  visagisteUren: 0,
+  visagisteUren: 1,
   hairstyliste: false,
-  hairslisteUren: 0,
+  hairslisteUren: 1,
   fotograaf: false,
-  fotografUren: 0,
+  fotografUren: 1,
   medewerker: false,
-  medewerkerUren: 0,
+  medewerkerUren: 1,
   auteursrechten: '',
   doorpassen: false,
   lingerie: false,
@@ -220,71 +211,115 @@ const DEFAULT_FORM: FormState = {
   afstandKm: '',
 };
 
-function GroepRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: GroepRij;
-  onChange: (v: GroepRij) => void;
-}) {
+function AccountValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mb-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 80px 90px 90px', gap: 8, alignItems: 'end' }}>
-      <label className="nieuw-field" style={{ margin: 0 }}>
-        <span>{label} — aantal</span>
-        <input
-          type="number"
-          min={0}
-          value={value.aantal || ''}
-          onChange={(e) => onChange({ ...value, aantal: parseInt(e.target.value) || 0 })}
-          placeholder="0"
-        />
-      </label>
-      <label className="nieuw-field" style={{ margin: 0 }}>
-        <span>Van</span>
-        <input
-          type="time"
-          value={value.van}
-          onChange={(e) => onChange({ ...value, van: e.target.value })}
-        />
-      </label>
-      <label className="nieuw-field" style={{ margin: 0 }}>
-        <span>Tot</span>
-        <input
-          type="time"
-          value={value.tot}
-          onChange={(e) => onChange({ ...value, tot: e.target.value })}
-        />
-      </label>
-      <div style={{ fontSize: 12, color: 'var(--n-mut)', paddingBottom: 8, alignSelf: 'end' }}>
-        {value.aantal > 0 && value.van && value.tot
-          ? `${hoursBetween(value.van, value.tot).toFixed(2)}u`
-          : ''}
-      </div>
+    <div className="cm-kp-account-field">
+      <span>{label}</span>
+      <strong>{value?.trim() || '—'}</strong>
     </div>
   );
 }
 
 export function ModellenBoekenPanel({ token }: { token: string }) {
+  const { user, refreshMe } = useAuth();
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
+  const [account, setAccount] = useState<AccountForm>({
+    lastName: '',
+    firstName: '',
+    street: '',
+    houseNumber: '',
+    postalCode: '',
+    city: '',
+    phone: '',
+    companyName: '',
+    companyType: '',
+    vatNumber: '',
+    email: '',
+    website: '',
+  });
+  const [editingAccount, setEditingAccount] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<'offerte' | 'bestelling' | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    const cp = user.clientProfile ?? {};
+    setAccount({
+      lastName: user.lastName ?? '',
+      firstName: user.firstName ?? '',
+      street: cp.street ?? '',
+      houseNumber: cp.houseNumber ?? '',
+      postalCode: cp.postalCode ?? '',
+      city: cp.city ?? '',
+      phone: user.phone ?? '',
+      companyName: user.companyName ?? '',
+      companyType: cp.companyType ?? '',
+      vatNumber: cp.vatNumber ?? '',
+      email: user.email ?? '',
+      website: cp.website ?? '',
+    });
+  }, [user]);
 
   const set = useCallback(<K extends keyof FormState>(key: K, val: FormState[K]) => {
     setForm((f) => ({ ...f, [key]: val }));
   }, []);
 
+  const updateSlot = (id: string, patch: Partial<ModelSlot>) => {
+    setForm((f) => ({
+      ...f,
+      slots: f.slots.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+    }));
+  };
+
   const regels = useMemo(() => berekenPrijs(form), [form]);
+  const displayRegels = regels.length
+    ? regels
+    : [
+        { label: 'Modellen', bedrag: 0 },
+        { label: 'Extra diensten', bedrag: 0 },
+        { label: 'Toeslagen / reiskosten', bedrag: 0 },
+      ];
   const totaalExcl = useMemo(() => regels.reduce((s, r) => s + r.bedrag, 0), [regels]);
   const btw21 = totaalExcl * 0.21;
   const totaalIncl = totaalExcl + btw21;
 
+  const saveAccount = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch('/users/me', {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify({
+          firstName: account.firstName,
+          lastName: account.lastName,
+          phone: account.phone,
+          companyName: account.companyName,
+          clientProfile: {
+            street: account.street,
+            houseNumber: account.houseNumber,
+            postalCode: account.postalCode,
+            city: account.city,
+            companyType: account.companyType,
+            vatNumber: account.vatNumber,
+            website: account.website,
+          },
+        }),
+      });
+      await refreshMe(token);
+      setEditingAccount(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Opslaan mislukt.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const validate = (): string | null => {
-    if (!form.naam.trim()) return 'Naam is verplicht.';
-    if (!form.email.trim()) return 'E-mailadres is verplicht.';
-    if (!form.gsm.trim()) return 'GSM is verplicht.';
+    if (!account.lastName.trim() || !account.firstName.trim()) return 'Naam en voornaam zijn verplicht.';
+    if (!account.email.trim()) return 'E-mailadres is verplicht.';
+    if (!account.phone.trim()) return 'GSM is verplicht.';
     if (!form.typeOpdracht) return 'Type opdracht is verplicht.';
     if (!form.datum && !form.geenDatum) return 'Kies een datum of vink "Nog geen datum" aan.';
     return null;
@@ -292,27 +327,39 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
 
   const handleSubmit = async (isBestelling: boolean) => {
     const err = validate();
-    if (err) { setError(err); return; }
+    if (err) {
+      setError(err);
+      return;
+    }
     setError(null);
     setBusy(true);
     try {
+      const slotLines = form.slots
+        .filter((s) => s.aantal > 0)
+        .map(
+          (s, i) =>
+            `Slot ${i + 1}: ${s.aantal} model(len), leeftijd ${s.leeftijdVan || '?'}–${s.leeftijdTot || '?'}, ${s.uurVan || '?'}–${s.uurTot || '?'}`,
+        )
+        .join('\n');
+
       await apiFetch('/portal/client/offerte', {
         method: 'POST',
         token,
         body: JSON.stringify({
           isBestelling,
-          naam: form.naam,
-          bedrijfsnaam: form.bedrijfsnaam,
-          soortBedrijf: form.soortBedrijf,
-          btw: form.btw,
-          straat: form.straat,
-          nr: form.nr,
-          postcode: form.postcode,
-          gemeente: form.gemeente,
-          gsm: form.gsm,
-          clientEmail: form.email,
+          naam: `${account.firstName} ${account.lastName}`.trim(),
+          bedrijfsnaam: account.companyName,
+          soortBedrijf: account.companyType,
+          btw: account.vatNumber,
+          straat: account.street,
+          nr: account.houseNumber,
+          postcode: account.postalCode,
+          gemeente: account.city,
+          gsm: account.phone,
+          website: account.website,
+          clientEmail: account.email,
           typeOpdracht: form.typeOpdracht,
-          opmerkingen: form.opmerkingen,
+          opmerkingen: [form.opmerkingen, slotLines].filter(Boolean).join('\n\n'),
           datum: form.geenDatum ? 'Nog geen datum voorzien' : form.datum,
           afstandKm: parseFloat(form.afstandKm) || 0,
           lingerie: form.lingerie,
@@ -323,12 +370,6 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
             hairstyliste: form.hairstyliste ? form.hairslisteUren : 0,
             fotograaf: form.fotograaf ? form.fotografUren : 0,
             medewerker: form.medewerker ? form.medewerkerUren : 0,
-          },
-          groepen: {
-            mannen: form.mannen,
-            vrouwen: form.vrouwen,
-            kinderenJongen: form.kinderenJongen,
-            kinderenMeisje: form.kinderenMeisje,
           },
           prijsRegels: regels,
           totaalExcl,
@@ -351,13 +392,16 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
           {sent === 'bestelling' ? '✓ Bestelling ontvangen' : '✓ Offerte aanvraag ontvangen'}
         </h3>
         <p className="nieuw-lead">
-          Bedankt. We nemen zo snel mogelijk contact op via <strong>{form.email}</strong>.
+          Bedankt. We nemen zo snel mogelijk contact op via <strong>{account.email}</strong>.
         </p>
         <button
           type="button"
           className="nieuw-btn nieuw-btn-ghost"
           style={{ marginTop: 18 }}
-          onClick={() => { setForm(DEFAULT_FORM); setSent(null); }}
+          onClick={() => {
+            setForm(DEFAULT_FORM);
+            setSent(null);
+          }}
         >
           Nieuw formulier
         </button>
@@ -370,16 +414,15 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
       <header className="cm-kp-booking-header">
         <h1 className="cm-kp-paginatitel">Modellen boeken / tarieven</h1>
         <p>
-          Bekijk hieronder onze tarieven en bereken meteen zelf de prijs van uw opdracht. Vraag een
-          offerte aan of plaats direct een bestelling — u ontvangt een bevestiging per e-mail.
+          Bekijk onze tarieven en bereken meteen de prijs. Accountgegevens komen uit uw
+          bedrijfsprofiel.
         </p>
       </header>
 
-      {/* ─── Prijslijst ──────────────────────────────────────────────────── */}
       <section className="nieuw-panel cm-kp-rates">
         <h2 className="cm-kp-titel">Prijslijst (excl. btw)</h2>
         <p className="nieuw-lead" style={{ marginBottom: 12 }}>
-          Onderstaande tarieven zijn richtprijzen. De definitieve prijs wordt bevestigd na uw aanvraag.
+          Richtprijzen. Definitieve prijs na uw aanvraag.
         </p>
         <div style={{ overflowX: 'auto' }}>
           <table className="cm-kp-rates-table">
@@ -392,9 +435,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
               {TARIEVEN_PERSONEN.map((t) => (
                 <tr key={t.label}>
                   <td>{t.label}</td>
-                  <td>
-                    € {t.tarief}/u
-                  </td>
+                  <td>€ {t.tarief}/u</td>
                 </tr>
               ))}
               <tr className="cm-kp-rates-section">
@@ -404,13 +445,9 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                 <tr key={t.label}>
                   <td>
                     {t.label}
-                    {'info' in t && t.info ? (
-                      <span className="cm-kp-rate-note">({t.info})</span>
-                    ) : null}
+                    {'info' in t && t.info ? <span className="cm-kp-rate-note">({t.info})</span> : null}
                   </td>
-                  <td>
-                    {'tarief' in t && typeof t.tarief === 'number' ? `€ ${t.tarief}` : '—'}
-                  </td>
+                  <td>{'tarief' in t && typeof t.tarief === 'number' ? `€ ${t.tarief}` : '—'}</td>
                 </tr>
               ))}
               <tr className="cm-kp-rates-section">
@@ -419,325 +456,374 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
               {AUTEURSRECHTEN_OPTIES.filter((o) => o.value).map((o) => (
                 <tr key={o.value}>
                   <td>{o.label}</td>
-                  <td>
-                    € {o.prijs}
-                  </td>
+                  <td>€ {o.prijs}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p style={{ marginTop: 12, fontSize: 11, color: 'var(--n-mut)' }}>
-          * Alle prijzen excl. 21% BTW. Lingerie en badmode: +50% op modelhonorarium.
-        </p>
       </section>
 
-      {/* ─── Offerte / Bestelling formulier ──────────────────────────────── */}
-      <details className="cm-kp-booking-accordion">
+      <details className="cm-kp-booking-accordion" open>
         <summary>
           <span>
             <b>Offerte / bestelling aanvragen</b>
-            <small>Open het formulier en bereken uw opdracht</small>
+            <small>Accountgegevens, opdracht en live prijsberekening</small>
           </span>
         </summary>
-        <section className="nieuw-panel cm-kp-booking-form">
 
-        {/* Klantgegevens */}
-        <fieldset className="cm-kp-form-section cm-kp-form-section--full" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
-          <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Uw gegevens
-          </legend>
-          <div className="nieuw-form-grid">
-            <label className="nieuw-field">
-              <span>Naam *</span>
-              <input required value={form.naam} onChange={(e) => set('naam', e.target.value)} />
-            </label>
-            <label className="nieuw-field">
-              <span>Bedrijfsnaam</span>
-              <input value={form.bedrijfsnaam} onChange={(e) => set('bedrijfsnaam', e.target.value)} />
-            </label>
-            <label className="nieuw-field">
-              <span>Soort bedrijf</span>
-              <select value={form.soortBedrijf} onChange={(e) => set('soortBedrijf', e.target.value)}>
-                <option value="">— kies —</option>
-                <option value="kledingzaak">Kledingzaak</option>
-                <option value="reclamebureau">Reclamebureau</option>
-                <option value="andere">Andere</option>
+        <section className="nieuw-panel cm-kp-booking-form">
+          {/* Accountgegevens — 2 kolommen met verticale lijn */}
+          <fieldset className="cm-kp-form-section cm-kp-form-section--full cm-kp-account">
+            <legend>Uw gegevens</legend>
+            <div className="cm-kp-account-toolbar">
+              <p>Gegevens uit uw klantenaccount</p>
+              <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={() => setEditingAccount((v) => !v)}>
+                {editingAccount ? 'Annuleren' : 'Wijzigen'}
+              </button>
+            </div>
+
+            {editingAccount ? (
+              <div className="cm-kp-account-grid">
+                <div className="cm-kp-account-col">
+                  <label className="nieuw-field">
+                    <span>Naam *</span>
+                    <input value={account.lastName} onChange={(e) => setAccount({ ...account, lastName: e.target.value })} />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>Voornaam *</span>
+                    <input value={account.firstName} onChange={(e) => setAccount({ ...account, firstName: e.target.value })} />
+                  </label>
+                  <div className="cm-kp-inline-2">
+                    <label className="nieuw-field">
+                      <span>Straat</span>
+                      <input value={account.street} onChange={(e) => setAccount({ ...account, street: e.target.value })} />
+                    </label>
+                    <label className="nieuw-field cm-kp-narrow">
+                      <span>Nr.</span>
+                      <input value={account.houseNumber} onChange={(e) => setAccount({ ...account, houseNumber: e.target.value })} />
+                    </label>
+                  </div>
+                  <div className="cm-kp-inline-2">
+                    <label className="nieuw-field cm-kp-narrow">
+                      <span>Postcode</span>
+                      <input value={account.postalCode} onChange={(e) => setAccount({ ...account, postalCode: e.target.value })} />
+                    </label>
+                    <label className="nieuw-field">
+                      <span>Gemeente</span>
+                      <input value={account.city} onChange={(e) => setAccount({ ...account, city: e.target.value })} />
+                    </label>
+                  </div>
+                  <label className="nieuw-field">
+                    <span>GSM *</span>
+                    <input value={account.phone} onChange={(e) => setAccount({ ...account, phone: e.target.value })} />
+                  </label>
+                </div>
+                <div className="cm-kp-account-col">
+                  <label className="nieuw-field">
+                    <span>Bedrijfsnaam</span>
+                    <input value={account.companyName} onChange={(e) => setAccount({ ...account, companyName: e.target.value })} />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>Soort bedrijf</span>
+                    <select
+                      className="cm-kp-select"
+                      value={account.companyType}
+                      onChange={(e) => setAccount({ ...account, companyType: e.target.value })}
+                    >
+                      <option value="">— kies —</option>
+                      <option value="kledingzaak">Kledingzaak</option>
+                      <option value="reclamebureau">Reclamebureau</option>
+                      <option value="andere">Andere</option>
+                    </select>
+                  </label>
+                  <label className="nieuw-field">
+                    <span>BTW-nummer</span>
+                    <input value={account.vatNumber} onChange={(e) => setAccount({ ...account, vatNumber: e.target.value })} />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>E-mailadres *</span>
+                    <input value={account.email} disabled />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>Website</span>
+                    <input value={account.website} onChange={(e) => setAccount({ ...account, website: e.target.value })} />
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <div className="cm-kp-account-grid">
+                <div className="cm-kp-account-col">
+                  <AccountValue label="Naam" value={account.lastName} />
+                  <AccountValue label="Voornaam" value={account.firstName} />
+                  <AccountValue label="Straat & nr." value={[account.street, account.houseNumber].filter(Boolean).join(' ')} />
+                  <AccountValue label="Postcode & gemeente" value={[account.postalCode, account.city].filter(Boolean).join(' ')} />
+                  <AccountValue label="GSM" value={account.phone} />
+                </div>
+                <div className="cm-kp-account-col">
+                  <AccountValue label="Bedrijfsnaam" value={account.companyName} />
+                  <AccountValue label="Soort bedrijf" value={SOORT_BEDRIJF[account.companyType] || account.companyType} />
+                  <AccountValue label="BTW-nummer" value={account.vatNumber} />
+                  <AccountValue label="E-mailadres" value={account.email} />
+                  <AccountValue label="Website" value={account.website} />
+                </div>
+              </div>
+            )}
+
+            {editingAccount ? (
+              <div className="cm-kp-account-save">
+                <button type="button" className="nieuw-btn" disabled={busy} onClick={() => void saveAccount()}>
+                  {busy ? 'Opslaan…' : 'Gegevens opslaan'}
+                </button>
+              </div>
+            ) : null}
+          </fieldset>
+
+          {/* Opdracht */}
+          <fieldset className="cm-kp-form-section cm-kp-form-section--full">
+            <legend>Opdracht</legend>
+            <label className="nieuw-field cm-kp-type-field">
+              <span>Type opdracht *</span>
+              <select
+                className="cm-kp-select"
+                value={form.typeOpdracht}
+                onChange={(e) => set('typeOpdracht', e.target.value)}
+              >
+                <option value="modeshow">Modeshow (€ 75/u)</option>
+                <option value="showroom">Showroom (€ 75/u)</option>
+                <option value="fotoshoot">Fotoshoot (€ 150/u)</option>
+                <option value="promowerk">Promowerk (€ 60/u)</option>
+                <option value="hostess">Hostessen (€ 40/u)</option>
               </select>
             </label>
-            <label className="nieuw-field">
-              <span>BTW-nummer</span>
-              <input value={form.btw} onChange={(e) => set('btw', e.target.value)} placeholder="BE 0123.456.789" />
-            </label>
-            <label className="nieuw-field">
-              <span>Straat</span>
-              <input value={form.straat} onChange={(e) => set('straat', e.target.value)} />
-            </label>
-            <label className="nieuw-field" style={{ maxWidth: 100 }}>
-              <span>Nr.</span>
-              <input value={form.nr} onChange={(e) => set('nr', e.target.value)} />
-            </label>
-            <label className="nieuw-field" style={{ maxWidth: 120 }}>
-              <span>Postcode</span>
-              <input value={form.postcode} onChange={(e) => set('postcode', e.target.value)} />
-            </label>
-            <label className="nieuw-field">
-              <span>Gemeente</span>
-              <input value={form.gemeente} onChange={(e) => set('gemeente', e.target.value)} />
-            </label>
-            <label className="nieuw-field">
-              <span>GSM *</span>
-              <input required type="tel" value={form.gsm} onChange={(e) => set('gsm', e.target.value)} />
-            </label>
-            <label className="nieuw-field">
-              <span>E-mailadres *</span>
-              <input required type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
-            </label>
-          </div>
-        </fieldset>
 
-        {/* Type opdracht */}
-        <fieldset className="cm-kp-form-section cm-kp-form-section--full" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
-          <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Opdracht
-          </legend>
-          <label className="nieuw-field" style={{ maxWidth: 280, marginBottom: 20 }}>
-            <span>Type opdracht *</span>
-            <select value={form.typeOpdracht} onChange={(e) => set('typeOpdracht', e.target.value)}>
-              <option value="modeshow">Modeshow (€ 75/u)</option>
-              <option value="showroom">Showroom (€ 75/u)</option>
-              <option value="fotoshoot">Fotoshoot (€ 150/u)</option>
-              <option value="promowerk">Promowerk (€ 60/u)</option>
-              <option value="hostess">Hostessen (€ 40/u)</option>
-            </select>
-          </label>
-
-          <p style={{ fontSize: 12, color: 'var(--n-mut)', marginBottom: 12 }}>
-            Aantal modellen per categorie + tijdsblok:
-          </p>
-          <GroepRow label="Mannen" value={form.mannen} onChange={(v) => set('mannen', v)} />
-          <GroepRow label="Vrouwen" value={form.vrouwen} onChange={(v) => set('vrouwen', v)} />
-          <GroepRow label="Kinderen (jongen)" value={form.kinderenJongen} onChange={(v) => set('kinderenJongen', v)} />
-          <GroepRow label="Kinderen (meisje)" value={form.kinderenMeisje} onChange={(v) => set('kinderenMeisje', v)} />
-
-          <label className="nieuw-field nieuw-field-full" style={{ marginTop: 16 }}>
-            <span>Opmerkingen</span>
-            <textarea
-              rows={3}
-              value={form.opmerkingen}
-              onChange={(e) => set('opmerkingen', e.target.value)}
-              placeholder="Stijl, look, bijzondere vereisten…"
-            />
-          </label>
-        </fieldset>
-
-        {/* Extra diensten */}
-        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
-          <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Extra diensten
-          </legend>
-          <div className="nieuw-form-grid">
-            {([
-              { key: 'visagiste', urenKey: 'visagisteUren', label: 'Visagiste (€ 95/u)', uren: form.visagisteUren },
-              { key: 'hairstyliste', urenKey: 'hairslisteUren', label: 'Hairstyliste (€ 95/u)', uren: form.hairslisteUren },
-              { key: 'fotograaf', urenKey: 'fotografUren', label: 'Fotograaf (€ 175/u)', uren: form.fotografUren },
-              { key: 'medewerker', urenKey: 'medewerkerUren', label: 'Medewerk(st)er (€ 40/u)', uren: form.medewerkerUren },
-            ] as { key: keyof FormState; urenKey: keyof FormState; label: string; uren: number }[]).map(
-              ({ key, urenKey, label, uren }) => (
-                <div key={String(key)} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}>
+            <div className="cm-kp-slots">
+              {form.slots.map((slot, idx) => (
+                <div key={slot.id} className="cm-kp-slot-row">
+                  <label className="nieuw-field">
+                    <span>Aantal</span>
                     <input
-                      type="checkbox"
-                      checked={Boolean(form[key])}
-                      onChange={(e) => set(key, e.target.checked as FormState[typeof key])}
-                      style={{ accentColor: 'var(--n-gold)', width: 16, height: 16 }}
+                      type="number"
+                      min={0}
+                      value={slot.aantal || ''}
+                      onChange={(e) => updateSlot(slot.id, { aantal: parseInt(e.target.value) || 0 })}
                     />
-                    <span style={{ fontSize: 13 }}>{label}</span>
                   </label>
-                  {form[key] ? (
-                    <label className="nieuw-field" style={{ margin: 0, maxWidth: 90 }}>
-                      <span style={{ fontSize: 11 }}>Uren</span>
-                      <input
-                        type="number"
-                        min={0.5}
-                        step={0.5}
-                        value={uren || ''}
-                        onChange={(e) => set(urenKey, parseFloat(e.target.value) || 0 as FormState[typeof urenKey])}
-                      />
-                    </label>
-                  ) : null}
+                  <label className="nieuw-field">
+                    <span>Leeftijd van</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={slot.leeftijdVan}
+                      onChange={(e) => updateSlot(slot.id, { leeftijdVan: e.target.value })}
+                    />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>Leeftijd tot</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={slot.leeftijdTot}
+                      onChange={(e) => updateSlot(slot.id, { leeftijdTot: e.target.value })}
+                    />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>Uur van</span>
+                    <input
+                      type="time"
+                      value={slot.uurVan}
+                      onChange={(e) => updateSlot(slot.id, { uurVan: e.target.value })}
+                    />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>Uur tot</span>
+                    <input
+                      type="time"
+                      value={slot.uurTot}
+                      onChange={(e) => updateSlot(slot.id, { uurTot: e.target.value })}
+                    />
+                  </label>
+                  <div className="cm-kp-slot-actions">
+                    {form.slots.length > 1 ? (
+                      <button
+                        type="button"
+                        className="cm-kp-slot-btn"
+                        aria-label="Slot verwijderen"
+                        onClick={() => setForm((f) => ({ ...f, slots: f.slots.filter((s) => s.id !== slot.id) }))}
+                      >
+                        −
+                      </button>
+                    ) : (
+                      <span className="cm-kp-slot-spacer" />
+                    )}
+                    {idx === form.slots.length - 1 ? (
+                      <button
+                        type="button"
+                        className="cm-kp-slot-btn"
+                        aria-label="Slot toevoegen"
+                        onClick={() => setForm((f) => ({ ...f, slots: [...f.slots, emptySlot()] }))}
+                      >
+                        +
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              ),
-            )}
-          </div>
-        </fieldset>
-
-        {/* Opties */}
-        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
-          <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Opties
-          </legend>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, marginBottom: 16 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-              <input
-                type="checkbox"
-                checked={form.doorpassen}
-                onChange={(e) => set('doorpassen', e.target.checked)}
-                style={{ accentColor: 'var(--n-gold)', width: 16, height: 16 }}
-              />
-              Doorpassen (+ € 50 forfait)
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
-              <input
-                type="checkbox"
-                checked={form.lingerie}
-                onChange={(e) => set('lingerie', e.target.checked)}
-                style={{ accentColor: 'var(--n-gold)', width: 16, height: 16 }}
-              />
-              Lingerie / badmode (+50% op modelen)
-            </label>
-          </div>
-          <label className="nieuw-field" style={{ maxWidth: 280 }}>
-            <span>Auteursrechten</span>
-            <select value={form.auteursrechten} onChange={(e) => set('auteursrechten', e.target.value)}>
-              {AUTEURSRECHTEN_OPTIES.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}{o.prijs ? ` — € ${o.prijs}` : ''}</option>
               ))}
-            </select>
-          </label>
-        </fieldset>
+            </div>
 
-        {/* Datum */}
-        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
-          <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Datum
-          </legend>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'end' }}>
-            <label className="nieuw-field" style={{ margin: 0 }}>
-              <span>Datum van de opdracht</span>
-              <input
-                type="date"
-                value={form.datum}
-                disabled={form.geenDatum}
-                onChange={(e) => set('datum', e.target.value)}
+            <label className="nieuw-field" style={{ marginTop: 10 }}>
+              <span>Opmerkingen</span>
+              <textarea
+                rows={2}
+                value={form.opmerkingen}
+                onChange={(e) => set('opmerkingen', e.target.value)}
+                placeholder="Stijl, look, bijzondere vereisten…"
               />
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, paddingBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={form.geenDatum}
-                onChange={(e) => { set('geenDatum', e.target.checked); if (e.target.checked) set('datum', ''); }}
-                style={{ accentColor: 'var(--n-gold)', width: 16, height: 16 }}
-              />
-              Nog geen datum voorzien
-            </label>
-          </div>
-        </fieldset>
+          </fieldset>
 
-        {/* Reiskosten */}
-        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 28 }}>
-          <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-            Reiskosten (optioneel)
-          </legend>
-          <label className="nieuw-field" style={{ maxWidth: 200 }}>
-            <span>Afstand in km (enkele rit)</span>
-            <input
-              type="number"
-              min={0}
-              step={1}
-              value={form.afstandKm}
-              onChange={(e) => set('afstandKm', e.target.value)}
-              placeholder="0"
-            />
-          </label>
-          <p style={{ fontSize: 11, color: 'var(--n-mut)', marginTop: 6 }}>
-            Berekening: (km × 2) × € 0,70 + 25% van het uurtarief.
-          </p>
-        </fieldset>
-
-        {/* Live prijsoverzicht */}
-        <div
-          className="nieuw-panel cm-kp-form-total"
-          style={{
-            background: 'var(--n-bg-2)',
-            border: '1px solid var(--n-hair)',
-            marginBottom: 24,
-            padding: '18px 20px',
-          }}
-        >
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--n-gold)', marginBottom: 14 }}>
-            Prijsoverzicht (live berekening)
-          </h3>
-          {regels.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--n-mut)' }}>
-              Vul het formulier in om een prijs te berekenen.
-            </p>
-          ) : (
-            <>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <tbody>
-                  {regels.map((r, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid var(--n-hair)' }}>
-                      <td style={{ padding: '5px 0', color: 'var(--n-ink)' }}>{r.label}</td>
-                      <td style={{ padding: '5px 0', textAlign: 'right', color: 'var(--n-ink)', whiteSpace: 'nowrap' }}>
-                        € {fmt(r.bedrag)}
-                      </td>
-                    </tr>
+          {/* Onderste rij: opties/reis links, prijs rechts */}
+          <div className="cm-kp-bottom-grid">
+            <div className="cm-kp-bottom-left">
+              <fieldset className="cm-kp-form-section">
+                <legend>Extra diensten</legend>
+                <div className="cm-kp-check-grid">
+                  {(
+                    [
+                      { key: 'visagiste', urenKey: 'visagisteUren', label: 'Visagiste (€ 95/u)', uren: form.visagisteUren },
+                      { key: 'hairstyliste', urenKey: 'hairslisteUren', label: 'Hairstyliste (€ 95/u)', uren: form.hairslisteUren },
+                      { key: 'fotograaf', urenKey: 'fotografUren', label: 'Fotograaf (€ 175/u)', uren: form.fotografUren },
+                      { key: 'medewerker', urenKey: 'medewerkerUren', label: 'Medewerk(st)er (€ 40/u)', uren: form.medewerkerUren },
+                    ] as const
+                  ).map(({ key, urenKey, label, uren }) => (
+                    <div key={key} className="cm-kp-check-row">
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={form[key]}
+                          onChange={(e) => set(key, e.target.checked)}
+                        />
+                        <span>{label}</span>
+                      </label>
+                      {form[key] ? (
+                        <input
+                          className="cm-kp-uren"
+                          type="number"
+                          min={0.5}
+                          step={0.5}
+                          value={uren || ''}
+                          onChange={(e) => set(urenKey, parseFloat(e.target.value) || 0)}
+                        />
+                      ) : null}
+                    </div>
                   ))}
-                </tbody>
-                <tfoot>
-                  <tr style={{ borderTop: '2px solid var(--n-hair)' }}>
-                    <td style={{ padding: '8px 0 4px', fontWeight: 600, color: 'var(--n-ink)' }}>Totaal excl. BTW</td>
-                    <td style={{ padding: '8px 0 4px', textAlign: 'right', fontWeight: 700, color: 'var(--n-gold)' }}>
-                      € {fmt(totaalExcl)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '3px 0', color: 'var(--n-mut)', fontSize: 12 }}>BTW 21%</td>
-                    <td style={{ padding: '3px 0', textAlign: 'right', color: 'var(--n-mut)', fontSize: 12 }}>
-                      € {fmt(btw21)}
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '4px 0 0', fontWeight: 700, fontSize: 15, color: 'var(--n-ink)' }}>
-                      Totaal incl. BTW
-                    </td>
-                    <td style={{ padding: '4px 0 0', textAlign: 'right', fontWeight: 700, fontSize: 15, color: 'var(--n-gold)' }}>
-                      € {fmt(totaalIncl)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </>
-          )}
-        </div>
+                </div>
+              </fieldset>
 
-        {error ? (
-          <p style={{ color: '#e8a0a0', fontSize: 13, marginBottom: 14 }}>{error}</p>
-        ) : null}
+              <fieldset className="cm-kp-form-section">
+                <legend>Opties &amp; reiskosten</legend>
+                <label className="cm-kp-check-plain">
+                  <input type="checkbox" checked={form.doorpassen} onChange={(e) => set('doorpassen', e.target.checked)} />
+                  <span>Doorpassen (+ € 50)</span>
+                </label>
+                <label className="cm-kp-check-plain">
+                  <input type="checkbox" checked={form.lingerie} onChange={(e) => set('lingerie', e.target.checked)} />
+                  <span>Lingerie / badmode (+50%)</span>
+                </label>
+                <label className="nieuw-field" style={{ marginTop: 8 }}>
+                  <span>Auteursrechten</span>
+                  <select
+                    className="cm-kp-select"
+                    value={form.auteursrechten}
+                    onChange={(e) => set('auteursrechten', e.target.value)}
+                  >
+                    {AUTEURSRECHTEN_OPTIES.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                        {o.prijs ? ` — € ${o.prijs}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="cm-kp-inline-2" style={{ marginTop: 8 }}>
+                  <label className="nieuw-field">
+                    <span>Datum</span>
+                    <input
+                      type="date"
+                      value={form.datum}
+                      disabled={form.geenDatum}
+                      onChange={(e) => set('datum', e.target.value)}
+                    />
+                  </label>
+                  <label className="nieuw-field">
+                    <span>Afstand km</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.afstandKm}
+                      onChange={(e) => set('afstandKm', e.target.value)}
+                      placeholder="0"
+                    />
+                  </label>
+                </div>
+                <label className="cm-kp-check-plain" style={{ marginTop: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={form.geenDatum}
+                    onChange={(e) => {
+                      set('geenDatum', e.target.checked);
+                      if (e.target.checked) set('datum', '');
+                    }}
+                  />
+                  <span>Nog geen datum voorzien</span>
+                </label>
+              </fieldset>
+            </div>
 
-        <div className="cm-kp-form-actions" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            className="nieuw-btn nieuw-btn-ghost"
-            disabled={busy}
-            onClick={() => void handleSubmit(false)}
-          >
-            {busy ? 'Bezig…' : 'Offerte aanvragen →'}
-          </button>
-          <button
-            type="button"
-            className="nieuw-btn"
-            disabled={busy}
-            onClick={() => void handleSubmit(true)}
-          >
-            {busy ? 'Bezig…' : 'Bestellen →'}
-          </button>
-        </div>
-        <p className="cm-kp-form-disclaimer" style={{ fontSize: 11, color: 'var(--n-mut)', marginTop: 10 }}>
-          Bij "Bestellen" bevestigt u de opdracht definitief. Bij "Offerte aanvragen" ontvangt u een
-          vrijblijvende prijsopgave.
-        </p>
+            <div className="cm-kp-bottom-right">
+              <div className="cm-kp-price-box">
+                <h3>Prijsoverzicht</h3>
+                <table>
+                  <tbody>
+                    {displayRegels.map((r, i) => (
+                      <tr key={i}>
+                        <td>{r.label}</td>
+                        <td>€ {fmt(r.bedrag)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td>Totaal excl. BTW</td>
+                      <td>€ {fmt(totaalExcl)}</td>
+                    </tr>
+                    <tr>
+                      <td>BTW 21%</td>
+                      <td>€ {fmt(btw21)}</td>
+                    </tr>
+                    <tr>
+                      <td>Totaal incl. BTW</td>
+                      <td>€ {fmt(totaalIncl)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {error ? <p className="cm-kp-form-error">{error}</p> : null}
+
+              <div className="cm-kp-form-actions">
+                <button type="button" className="nieuw-btn nieuw-btn-ghost" disabled={busy} onClick={() => void handleSubmit(false)}>
+                  {busy ? 'Bezig…' : 'Offerte aanvragen'}
+                </button>
+                <button type="button" className="nieuw-btn" disabled={busy} onClick={() => void handleSubmit(true)}>
+                  {busy ? 'Bezig…' : 'Bestellen'}
+                </button>
+              </div>
+              <p className="cm-kp-form-disclaimer">
+                Bij «Bestellen» bevestigt u de opdracht. Bij «Offerte» ontvangt u een vrijblijvende prijsopgave.
+              </p>
+            </div>
+          </div>
         </section>
       </details>
     </div>

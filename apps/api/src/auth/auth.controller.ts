@@ -1,5 +1,5 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
-import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
 import type { JwtPayload } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { Permissions } from './permissions.decorator';
@@ -40,6 +40,18 @@ class RegisterDto {
   @IsOptional()
   @IsString()
   companyName?: string;
+
+  @IsOptional()
+  @IsObject()
+  clientProfile?: {
+    street?: string;
+    houseNumber?: string;
+    postalCode?: string;
+    city?: string;
+    companyType?: string;
+    vatNumber?: string;
+    website?: string;
+  };
 }
 
 @Controller('auth')
@@ -71,6 +83,7 @@ export class AuthController {
       lastName: dto.lastName,
       phone: dto.phone,
       companyName: dto.companyName,
+      clientProfile: dto.clientProfile,
     });
   }
 

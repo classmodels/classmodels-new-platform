@@ -61,6 +61,8 @@ model User {
   phone           String?
   bio             String?    @db.Text
   companyName     String?
+  /// Zakelijke klantgegevens (straat, nummer, postcode, gemeente, bedrijfstype, btw, website).
+  clientProfile   Json?
   status          UserStatus @default(active)
   defaultPortal   Portal?
   isPremium       Boolean    @default(false)

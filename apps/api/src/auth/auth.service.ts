@@ -78,6 +78,7 @@ export class AuthService {
         phone: user.phone,
         bio: user.bio,
         companyName: user.companyName,
+        clientProfile: (user as { clientProfile?: unknown }).clientProfile ?? null,
         defaultPortal: user.defaultPortal,
         modelSheet: user.modelSheet ?? null,
         profilePhotoAssetId: user.profilePhotoAssetId ?? null,
@@ -227,6 +228,15 @@ export class AuthService {
     lastName?: string;
     phone?: string;
     companyName?: string;
+    clientProfile?: {
+      street?: string;
+      houseNumber?: string;
+      postalCode?: string;
+      city?: string;
+      companyType?: string;
+      vatNumber?: string;
+      website?: string;
+    };
   }) {
     const email = params.email.toLowerCase().trim();
     const firstName = params.firstName?.trim() || null;
@@ -243,6 +253,17 @@ export class AuthService {
       }
     }
     const hash = await bcrypt.hash(params.password, 10);
+    const profile = params.clientProfile
+      ? {
+          street: params.clientProfile.street?.trim() || '',
+          houseNumber: params.clientProfile.houseNumber?.trim() || '',
+          postalCode: params.clientProfile.postalCode?.trim() || '',
+          city: params.clientProfile.city?.trim() || '',
+          companyType: params.clientProfile.companyType?.trim() || '',
+          vatNumber: params.clientProfile.vatNumber?.trim() || '',
+          website: params.clientProfile.website?.trim() || '',
+        }
+      : null;
     const user = await this.users.createRegisteredUser({
       email,
       passwordHash: hash,
@@ -251,6 +272,7 @@ export class AuthService {
       lastName,
       phone,
       companyName,
+      clientProfile: params.role === 'client' ? profile : null,
     });
     return this.buildAuthResponse(user);
   }

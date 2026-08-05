@@ -26,6 +26,11 @@ export class PatchProfileDto {
   @MaxLength(200)
   companyName?: string;
 
+  /** Zakelijke klantgegevens (winkel/bedrijf). */
+  @IsOptional()
+  @IsObject()
+  clientProfile?: Record<string, unknown>;
+
   /** Modellenfiche (WordPress cm_* velden, camelCase). */
   @IsOptional()
   @IsObject()
