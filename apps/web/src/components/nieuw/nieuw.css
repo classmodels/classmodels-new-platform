@@ -1420,124 +1420,122 @@
   min-height: 0;
 }
 
-/* ---------- Klantenportaal info-inhoud (zakelijk, compact) ---------- */
+/* ---------- Klantenportaal — Class Events-stijl (donkere kaarten) ---------- */
 .cm-kp {
-  /* Subtiele warme tint — meer donker, zachte overgang */
-  --kp-panel: #12100c;
-  --kp-glow: rgba(212, 175, 106, 0.1);
-  --kp-glow-soft: rgba(212, 175, 106, 0.04);
-  --kp-body: color-mix(in srgb, var(--n-mut) 40%, var(--n-ink));
-  --kp-surface:
-    linear-gradient(105deg, rgba(212, 175, 106, 0.09) 0%, transparent 48%),
-    linear-gradient(165deg, #16130f 0%, #100e0b 100%);
+  --kp-card: #121214;
+  --kp-card-edge: rgba(255, 255, 255, 0.07);
+  --kp-body: rgba(243, 238, 230, 0.78);
   display: grid;
-  gap: 16px;
-  font-size: 12.5px;
+  gap: 18px;
+  font-size: 13px;
   line-height: 1.65;
   color: var(--kp-body);
 }
 .cm-kp p { margin: 0; }
-.cm-kp p + p { margin-top: 9px; }
-.cm-kp strong { color: var(--n-ink); font-weight: 600; }
+.cm-kp p + p { margin-top: 10px; }
+.cm-kp strong { color: #f3eee6; font-weight: 600; }
 .cm-kp-paginatitel {
   margin: 0 0 2px;
   font-family: var(--n-serif);
-  font-size: clamp(19px, 2.4vw, 26px);
+  font-size: clamp(20px, 2.5vw, 28px);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--n-gold);
   line-height: 1.2;
 }
-.cm-kp-panel {
-  background: var(--kp-surface);
-  border: 1px solid rgba(212, 175, 106, 0.18);
-  padding: 22px 26px;
+.cm-kp-card {
+  background: var(--kp-card);
+  border: 1px solid var(--kp-card-edge);
+  border-radius: 6px;
+  padding: 22px 24px;
+  box-sizing: border-box;
 }
-.cm-kp-titel {
-  margin: 0 0 10px;
-  font-family: var(--n-serif);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--n-gold);
-  line-height: 1.3;
-}
-.cm-kp-2col {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0;
+.cm-kp-card--fill { height: 100%; }
+.cm-kp-card--media {
   padding: 0;
   overflow: hidden;
-}
-.cm-kp-2col > .cm-kp-tekst { padding: 22px 26px; min-width: 0; }
-.cm-kp-foto {
-  position: relative;
   line-height: 0;
-  min-height: 240px;
-  align-self: stretch;
+  min-height: 220px;
 }
-.cm-kp-foto img {
-  position: absolute;
-  inset: 0;
+.cm-kp-card--media img {
+  display: block;
   width: 100%;
   height: 100%;
+  min-height: 220px;
   object-fit: cover;
 }
-@media (max-width: 760px) {
-  .cm-kp-2col { grid-template-columns: 1fr; }
-  .cm-kp-foto { min-height: 190px; order: 0 !important; }
+.cm-kp-titel {
+  margin: 0 0 12px;
+  font-family: var(--n-serif);
+  font-size: clamp(17px, 2vw, 20px);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--n-gold);
+  line-height: 1.25;
 }
-.cm-kp-check {
+.cm-kp-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 18px;
+  align-items: stretch;
+}
+.cm-kp-masonry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.cm-kp-masonry-col {
+  display: grid;
+  gap: 18px;
+}
+@media (max-width: 800px) {
+  .cm-kp-split,
+  .cm-kp-masonry { grid-template-columns: 1fr; }
+}
+.cm-kp-bullet {
   list-style: none;
   margin: 12px 0 0;
   padding: 0;
   display: grid;
-  gap: 7px;
+  gap: 8px;
 }
-.cm-kp-check li { display: flex; gap: 10px; align-items: flex-start; }
-.cm-kp-check .cm-kp-check-dot {
-  flex-shrink: 0;
-  margin-top: 2px;
-  width: 15px;
-  height: 15px;
+.cm-kp-bullet li {
+  position: relative;
+  padding-left: 16px;
+  color: var(--kp-body);
+}
+.cm-kp-bullet li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  border: 1px solid var(--n-gold-hair);
-  background: rgba(212, 175, 106, 0.16);
-  color: var(--n-gold);
-  font-size: 10px;
-  font-weight: 700;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
+  background: rgba(243, 238, 230, 0.55);
 }
-.cm-kp-kolommen {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 26px;
-}
-@media (max-width: 760px) { .cm-kp-kolommen { grid-template-columns: 1fr; } }
 .cm-kp-cellen {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 8px;
-  margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
 }
 .cm-kp-cel {
-  background:
-    linear-gradient(105deg, rgba(212, 175, 106, 0.07) 0%, transparent 55%),
-    #12100c;
-  border: 1px solid rgba(212, 175, 106, 0.16);
+  background: #0c0c0e;
+  border: 1px solid var(--kp-card-edge);
+  border-radius: 4px;
   border-left: 2px solid var(--n-gold);
-  padding: 9px 12px;
+  padding: 10px 12px;
 }
-.cm-kp-cel b { display: block; font-size: 12px; font-weight: 600; color: var(--n-ink); }
-.cm-kp-cel span { font-size: 11px; color: var(--kp-body); }
-/* Accordeon (details/summary, geen JS nodig) */
+.cm-kp-cel b { display: block; font-size: 12.5px; font-weight: 600; color: #f3eee6; }
+.cm-kp-cel span { font-size: 11.5px; color: var(--kp-body); }
+/* Accordeon — alleen voor «Wij werkten al samen» */
 .cm-kp-acc {
-  background: var(--kp-surface);
-  border: 1px solid rgba(212, 175, 106, 0.18);
+  background: var(--kp-card);
+  border: 1px solid var(--kp-card-edge);
+  border-radius: 6px;
 }
 .cm-kp-acc > summary {
   cursor: pointer;
@@ -1546,38 +1544,34 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 13px 20px;
+  padding: 16px 22px;
   font-family: var(--n-serif);
-  font-size: 13px;
+  font-size: clamp(16px, 1.8vw, 19px);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--n-ink);
+  color: var(--n-gold);
   user-select: none;
 }
 .cm-kp-acc > summary::-webkit-details-marker { display: none; }
 .cm-kp-acc > summary::after {
   content: '+';
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  border: 1px solid var(--n-gold-hair);
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(212, 175, 106, 0.35);
+  border-radius: 3px;
   color: var(--n-gold);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 .cm-kp-acc[open] > summary::after { content: '−'; }
-.cm-kp-acc[open] > summary {
-  color: var(--n-gold);
-  border-bottom: 1px solid rgba(212, 175, 106, 0.14);
-}
-.cm-kp-acc > .cm-kp-acc-body { padding: 16px 20px 20px; }
+.cm-kp-acc[open] > summary { border-bottom: 1px solid var(--kp-card-edge); }
+.cm-kp-acc > .cm-kp-acc-body { padding: 16px 22px 22px; }
 .cm-kp-partnergrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 10px;
 }
 .cm-kp-partnergrid .cm-kp-partnercel {
@@ -1586,7 +1580,8 @@
   justify-content: center;
   background: #000;
   border: 1.5px solid #c9a24a;
-  height: 74px;
+  border-radius: 3px;
+  height: 70px;
   padding: 6px;
 }
 .cm-kp-partnergrid img {
@@ -1597,41 +1592,37 @@
   object-fit: contain;
   display: block;
 }
-/* Bestaande nieuw-componenten binnen .cm-kp: compacter + warme goudtint */
+/* Formulieren / bestaande nieuw-componenten in dezelfde kaartstijl */
 .cm-kp .nieuw-panel {
-  background: var(--kp-surface);
-  border-color: rgba(212, 175, 106, 0.18);
-  padding: 22px 26px;
+  background: var(--kp-card);
+  border: 1px solid var(--kp-card-edge);
+  border-radius: 6px;
+  padding: 22px 24px;
   color: var(--kp-body);
 }
 .cm-kp .nieuw-lead {
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 1.65;
   color: var(--kp-body);
   max-width: none;
 }
-.cm-kp .nieuw-h3 {
-  font-family: var(--n-serif);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.cm-kp .nieuw-h3,
+.cm-kp .cm-kp-titel {
   color: var(--n-gold);
-  line-height: 1.3;
 }
 .cm-kp .nieuw-field span {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--kp-body);
 }
 .cm-kp .nieuw-field input,
 .cm-kp .nieuw-field select,
 .cm-kp .nieuw-field textarea {
-  font-size: 12.5px;
-  background: rgba(8, 7, 5, 0.4);
-  border-color: rgba(212, 175, 106, 0.18);
-  color: var(--n-ink);
+  font-size: 13px;
+  background: #0c0c0e;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f3eee6;
 }
-.cm-kp .nieuw-models-field span { font-size: 11px; color: var(--kp-body); }
+.cm-kp .nieuw-models-field span { font-size: 11.5px; color: var(--kp-body); }
 
 /* ---------- Uniforme theming van oude (lichte) componenten binnen /nieuw ---------- */
 .nieuw-root .nieuw-themed,
