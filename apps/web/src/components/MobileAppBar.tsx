@@ -110,7 +110,7 @@ function AppBarBackRow() {
     <>
       {/* Vast onder de app-balk zodat Terug/Beginpagina altijd zichtbaar blijven. */}
       <div
-        className="fixed inset-x-0 z-30 flex items-center justify-between gap-2.5 border-b border-[#ddd5c7] bg-[#f1eee8] px-4 py-2.5"
+        className="fixed inset-x-0 z-30 flex items-center justify-between gap-2.5 border-b border-[rgba(214,202,182,0.14)] bg-[#08080b] px-4 py-2.5"
         style={{ top: 'calc(48px + env(safe-area-inset-top, 0px))' }}
       >
         <button
@@ -119,13 +119,13 @@ function AppBarBackRow() {
             if (typeof window !== 'undefined' && window.history.length > 1) router.back();
             else router.push('/');
           }}
-          className="rounded-full border border-[#c9bfae] bg-white px-4 py-1.5 text-[13px] font-semibold text-[#372c1f]"
+          className="rounded-full border border-[rgba(214,202,182,0.22)] bg-[#1b1a1a] px-4 py-1.5 text-[13px] font-semibold text-[#f3eee6]"
         >
           ← Terug
         </button>
         <Link
           href="/"
-          className="rounded-full border border-[#372c1f] bg-[#372c1f] px-4 py-1.5 text-[13px] font-semibold text-[#f6efe2]"
+          className="rounded-full border border-[#d4af6a] bg-[#d4af6a] px-4 py-1.5 text-[13px] font-semibold text-[#14110a]"
         >
           Beginpagina
         </Link>

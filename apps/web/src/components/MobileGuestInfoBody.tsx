@@ -16,13 +16,13 @@ import {
 } from '@/components/guest-portal/guest-portal-data';
 import { getApiBase } from '@/lib/api';
 
-const CARD = '#faf8f4';
-const LINE = '#ddd5c7';
-const TEXT = '#372c1f';
-const TEXT_SOFT = '#7a6e5d';
-const ACCENT = '#8a6a3b';
-const CTA_BG = '#372c1f';
-const CTA_TEXT = '#f6efe2';
+const CARD = '#1b1a1a';
+const LINE = 'rgba(214, 202, 182, 0.14)';
+const TEXT = '#f3eee6';
+const TEXT_SOFT = '#9e9689';
+const ACCENT = '#d4af6a';
+const CTA_BG = '#d4af6a';
+const CTA_TEXT = '#14110a';
 
 export const MOBILE_INFO_KEYS = [
   'model-worden',

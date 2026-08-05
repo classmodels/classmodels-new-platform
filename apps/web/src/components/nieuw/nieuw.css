@@ -28,21 +28,9 @@
 .nieuw-root * { box-sizing: border-box; }
 .nieuw-wrap { width: min(1140px, 92vw); margin: 0 auto; }
 
-/* Gsm/app-pagina's (testshoot e.d.): desktop-kop/footer weg, cream app-look */
+/* Gsm/app-pagina's: desktop-kop/footer weg, zelfde donkere Class-Models-kleuren als desktop */
 @media (max-width: 767px) {
   .nieuw-root--app-mobile-page {
-    --n-bg: #f1eee8;
-    --n-bg-2: #faf8f4;
-    --n-bg-3: #ffffff;
-    --n-ink: #372c1f;
-    --n-mut: #7a6e5d;
-    --n-dim: #9a8f80;
-    --n-gold: #8a6a3b;
-    --n-gold-2: #a67c45;
-    --n-hair: #ddd5c7;
-    --n-gold-hair: rgba(138, 106, 59, 0.35);
-    background: #f1eee8;
-    color: #372c1f;
     min-height: 100dvh;
   }
   .nieuw-root--app-mobile-page > .nieuw-chrome-desktop {
@@ -56,40 +44,6 @@
     max-width: none;
     margin: 0;
   }
-  .nieuw-root--app-mobile-page .nieuw-h1,
-  .nieuw-root--app-mobile-page .nieuw-h2,
-  .nieuw-root--app-mobile-page .nieuw-h3,
-  .nieuw-root--app-mobile-page .nieuw-display {
-    color: #372c1f;
-  }
-  .nieuw-root--app-mobile-page .nieuw-lead {
-    color: rgba(55, 44, 31, 0.72);
-  }
-  .nieuw-root--app-mobile-page .nieuw-panel {
-    background: #faf8f4;
-    border-color: #ddd5c7;
-    color: #372c1f;
-  }
-  .nieuw-root--app-mobile-page .nieuw-btn {
-    background: #372c1f;
-    color: #f6efe2;
-    border-color: #372c1f;
-  }
-  .nieuw-root--app-mobile-page .nieuw-btn-ghost {
-    background: transparent;
-    color: #372c1f;
-    border-color: #ddd5c7;
-  }
-  .nieuw-root--app-mobile-page .nieuw-link {
-    color: #8a6a3b;
-  }
-  .nieuw-root--app-mobile-page input,
-  .nieuw-root--app-mobile-page textarea,
-  .nieuw-root--app-mobile-page select {
-    background: #ffffff !important;
-    border-color: #ddd5c7 !important;
-    color: #372c1f !important;
-  }
   .nieuw-root--app-mobile-page .nieuw-main {
     padding-top: 4px;
   }
@@ -102,13 +56,6 @@
     grid-template-columns: 1fr;
     gap: 18px;
   }
-  .nieuw-root--app-mobile-page .nieuw-hero-card {
-    background: #faf8f4;
-    border-color: #ddd5c7;
-  }
-  .nieuw-root--app-mobile-page .nieuw-hero-card-body h2 {
-    color: #372c1f;
-  }
   .nieuw-root--app-mobile-page .nieuw-grid-3 {
     grid-template-columns: 1fr;
   }
@@ -116,27 +63,9 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
-  .nieuw-root--app-mobile-page .nieuw-model {
-    background: #faf8f4;
-    border-color: #ddd5c7;
-  }
   .nieuw-root--app-mobile-page .nieuw-model:hover {
     transform: none;
     box-shadow: none;
-  }
-  .nieuw-root--app-mobile-page .nieuw-model-foto {
-    background: #e8e2d8;
-  }
-  .nieuw-root--app-mobile-page .nieuw-model-meta h4,
-  .nieuw-root--app-mobile-page .nieuw-model-meta p {
-    color: #372c1f;
-  }
-  .nieuw-root--app-mobile-page .nieuw-price {
-    color: #8a6a3b;
-  }
-  .nieuw-root--app-mobile-page .nieuw-checklist li,
-  .nieuw-root--app-mobile-page .nieuw-klant-can-do li {
-    color: #7a6e5d;
   }
 }
 .nieuw-label {
@@ -384,7 +313,7 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 12px clamp(16px, 3vw, 40px);
+  padding: 14px clamp(16px, 3vw, 40px);
   box-sizing: border-box;
 }
 /* Tweede balk: portaalmenu links (40px) + reviews/contact/cta rechts, fade naar zwart */
@@ -509,9 +438,9 @@
 }
 .nieuw-merk-logo {
   display: block;
-  height: clamp(42px, 5.2vw, 58px);
+  height: clamp(54px, 6.8vw, 74px);
   width: auto;
-  max-width: min(360px, 52vw);
+  max-width: min(420px, 58vw);
   object-fit: contain;
   object-position: left center;
 }
@@ -3238,8 +3167,8 @@
     white-space: normal;
   }
   .nieuw-merk-logo {
-    height: clamp(34px, 9vw, 48px);
-    max-width: min(280px, 72vw);
+    height: clamp(44px, 11vw, 60px);
+    max-width: min(320px, 78vw);
   }
   .nieuw-kop-actions {
     justify-content: flex-end;

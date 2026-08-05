@@ -19,6 +19,7 @@ import {
   MOBILE_INTRO_VIDEO_SRC,
   SiteIntroOverlay,
 } from '@/components/SiteIntroOverlay';
+import '@/components/nieuw/nieuw.css';
 
 /**
  * Mobiele versie (gsm + app). Schermen gestuurd met `?m=`:
@@ -26,19 +27,19 @@ import {
  * - `?m=guest`: gastenportaal (testshoot, casting, intake, info).
  * - `?m=model`: modellenportaal — inloggen / account (contractmodellen).
  * - `?m=client`: klantenportaal — inloggen / account (bedrijven & merken).
- * Kleuren: licht warmgrijs met donkerbruine en bronzen accenten.
+ * Kleuren: zelfde donkere Class-Models-look als klanten- en modellenportaal (zwart + goud).
  */
 
-const BG = '#f1eee8';
-const CARD = '#faf8f4';
-const LINE = '#ddd5c7';
-const TEXT = '#372c1f';
-const TEXT_SOFT = '#7a6e5d';
-const ACCENT = '#8a6a3b';
-const BAR = '#221c15';
+const BG = '#08080b';
+const CARD = '#1b1a1a';
+const LINE = 'rgba(214, 202, 182, 0.14)';
+const TEXT = '#f3eee6';
+const TEXT_SOFT = '#9e9689';
+const ACCENT = '#d4af6a';
+const BAR = '#0e0d0d';
 const BAR_TEXT = '#f3ead8';
-const CTA_BG = '#372c1f';
-const CTA_TEXT = '#f6efe2';
+const CTA_BG = '#d4af6a';
+const CTA_TEXT = '#14110a';
 
 function parseApiError(err: unknown, fallback: string): string {
   if (!(err instanceof Error)) return fallback;
@@ -564,7 +565,7 @@ function MobileBookView({ bookKey }: { bookKey: string }) {
         </p>
 
         <div
-          className="mt-5 overflow-hidden rounded-xl px-3 py-4 shadow-sm"
+          className="nieuw-root nieuw-booking nieuw-themed mt-5 overflow-hidden rounded-xl px-3 py-4 shadow-sm"
           style={{ background: CARD, border: `1px solid ${LINE}` }}
         >
           <GuestBookingPanel
@@ -950,7 +951,7 @@ function ModelView() {
         {/* Duidelijke vermelding: alleen voor modellen met een contract. */}
         <div
           className="mt-3 rounded-xl px-4 py-3"
-          style={{ background: '#f5edda', border: `1px solid ${ACCENT}66` }}
+          style={{ background: 'rgba(212, 175, 106, 0.12)', border: `1px solid ${ACCENT}66` }}
         >
           <p className="m-0 text-[13.5px] leading-snug" style={{ color: TEXT }}>
             <strong style={{ color: ACCENT }}>Let op:</strong> alleen voor modellen met een contract
@@ -1026,7 +1027,7 @@ function ModelView() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 accent-[#8a6a3b]"
+                  className="h-4 w-4 accent-[#d4af6a]"
                 />
                 Aangemeld blijven
               </label>
@@ -1331,7 +1332,7 @@ function ClientView() {
 
         <div
           className="mt-3 rounded-xl px-4 py-3"
-          style={{ background: '#f5edda', border: `1px solid ${ACCENT}66` }}
+          style={{ background: 'rgba(212, 175, 106, 0.12)', border: `1px solid ${ACCENT}66` }}
         >
           <p className="m-0 text-[13.5px] leading-snug" style={{ color: TEXT }}>
             <strong style={{ color: ACCENT }}>Voor bedrijven &amp; merken.</strong> Casting

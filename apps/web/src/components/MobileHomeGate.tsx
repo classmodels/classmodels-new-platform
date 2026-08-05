@@ -48,7 +48,7 @@ export function MobileHomeGate({ children }: { children: ReactNode }) {
   const onIntroDone = useCallback(() => setShowIntro(false), []);
 
   if (isMobile === null) {
-    return <div className="min-h-[100dvh] bg-[#f1eee8] md:bg-[#0d0d11]" aria-hidden />;
+    return <div className="min-h-[100dvh] bg-[#08080b]" aria-hidden />;
   }
 
   if (isMobile) return <MobileBeginHome />;

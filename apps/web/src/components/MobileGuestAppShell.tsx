@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
 
-const BG = '#f1eee8';
-const CARD = '#faf8f4';
-const LINE = '#ddd5c7';
-const TEXT = '#372c1f';
-const BAR = '#221c15';
+const BG = '#08080b';
+const CARD = '#1b1a1a';
+const LINE = 'rgba(214, 202, 182, 0.14)';
+const TEXT = '#f3eee6';
+const BAR = '#0e0d0d';
 const BAR_TEXT = '#f3ead8';
-const CTA_BG = '#372c1f';
-const CTA_TEXT = '#f6efe2';
+const CTA_BG = '#d4af6a';
+const CTA_TEXT = '#14110a';
 
 const GUEST_MENU_LINKS = [
   { label: 'Gastenportaal (home)', href: '/?m=guest' },

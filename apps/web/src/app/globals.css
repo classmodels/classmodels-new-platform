@@ -76,7 +76,7 @@ body {
     overflow-y: scroll !important;
     scrollbar-gutter: stable;
     scrollbar-width: thin;
-    scrollbar-color: rgba(180, 140, 70, 0.95) rgba(228, 220, 205, 0.95);
+    scrollbar-color: rgba(212, 175, 106, 0.85) rgba(27, 26, 26, 0.95);
   }
   .nieuw-agenda-scroll::-webkit-scrollbar {
     -webkit-appearance: none;
