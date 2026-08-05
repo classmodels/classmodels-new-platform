@@ -14,12 +14,13 @@ export function KlantenWaarStaatContent() {
       <KpIntro
         label="Waarom Class-Models"
         titel={<>Stijl.<br />Service.<br /><em>Professionalisme.</em></>}
+        intro={
+          <p>
+            Class-Models verbindt merken, bedrijven en organisaties met het juiste talent — snel,
+            transparant en persoonlijk. Ontdek waarom bedrijven in heel België met ons samenwerken.
+          </p>
+        }
       >
-        <p>
-          Class-Models verbindt merken, bedrijven en organisaties met het juiste talent — snel,
-          transparant en persoonlijk. Hieronder leest u waar wij voor staan en waarom bedrijven in
-          heel België met ons samenwerken.
-        </p>
         <KpChecks
           items={[
             <>

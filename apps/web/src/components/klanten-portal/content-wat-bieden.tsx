@@ -6,12 +6,13 @@ export function KlantenWatBiedenContent() {
       <KpIntro
         label="Ons aanbod"
         titel={<>Talent.<br />Selectie.<br /><em>Resultaat.</em></>}
+        intro={
+          <p>
+            Bij Class-Models gaan diversiteit en professionaliteit hand in hand. Elk model heeft
+            een uitgebreide opleiding genoten en met succes een examen afgelegd.
+          </p>
+        }
       >
-        <p>
-          Bij Class-Models gaan diversiteit en professionaliteit hand in hand. Elk model in ons
-          bestand heeft een uitgebreide opleiding genoten én met succes een examen afgelegd —
-          garantie op een professioneel portfolio en een sterke uitstraling voor de camera.
-        </p>
         <KpChecks
           items={[
             <>

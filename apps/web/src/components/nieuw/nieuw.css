@@ -1430,7 +1430,7 @@
   --kp-body: rgba(232, 226, 214, 0.72);
   --kp-ink: #ece6da;
   display: grid;
-  gap: 22px;
+  gap: 30px;
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--kp-body);
@@ -1458,7 +1458,7 @@
 .cm-kp-intro {
   display: grid;
   grid-template-columns: minmax(250px, 0.9fr) minmax(0, 1.25fr);
-  gap: 46px;
+  gap: 52px;
   padding: 30px 32px;
   align-items: start;
 }
@@ -1480,18 +1480,25 @@
   font-size: clamp(25px, 3.1vw, 40px);
   font-weight: 700;
   letter-spacing: 0.015em;
-  line-height: 1.08;
+  line-height: 1.18;
   text-transform: uppercase;
 }
 .cm-kp-intro-title em {
   color: var(--n-gold);
   font-style: normal;
 }
-.cm-kp-intro-content > p:first-child {
-  margin-top: 2px;
+.cm-kp-intro-text {
+  max-width: 430px;
+  margin-top: 28px;
+  color: var(--kp-body);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.cm-kp-intro-content {
+  padding-top: 34px;
 }
 .cm-kp-intro-content .cm-kp-checks {
-  margin-top: 20px;
+  margin-top: 0;
 }
 @media (max-width: 800px) {
   .cm-kp-intro {
@@ -1500,9 +1507,10 @@
     padding: 24px 22px;
   }
   .cm-kp-intro-title { font-size: clamp(24px, 9vw, 34px); }
+  .cm-kp-intro-content { padding-top: 0; }
 }
 .cm-kp-titel {
-  margin: 0 0 14px;
+  margin: 0 0 18px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -1545,9 +1553,9 @@
   background: linear-gradient(270deg, transparent 72%, rgba(27, 26, 26, 0.55) 100%);
 }
 .cm-kp-split > .cm-kp-body {
-  padding: 25px 26px;
+  padding: 23px 26px 28px;
   min-width: 0;
-  align-self: center;
+  align-self: stretch;
 }
 @media (max-width: 800px) {
   .cm-kp-split { grid-template-columns: 1fr; }
@@ -1754,6 +1762,86 @@
 .cm-kp-booking .nieuw-panel {
   padding: 16px 18px;
 }
+.cm-kp-booking-accordion {
+  overflow: hidden;
+  border: 1px solid var(--kp-edge);
+  border-radius: 2px;
+  background: var(--kp-card);
+}
+.cm-kp-booking-accordion > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px;
+  padding: 12px 18px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.cm-kp-booking-accordion > summary::-webkit-details-marker { display: none; }
+.cm-kp-booking-accordion > summary > span {
+  display: grid;
+  gap: 3px;
+}
+.cm-kp-booking-accordion > summary b {
+  color: var(--n-gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.cm-kp-booking-accordion > summary small {
+  color: var(--kp-body);
+  font-size: 10.5px;
+}
+.cm-kp-booking-accordion > summary::after {
+  content: '+';
+  display: grid;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  margin-left: 18px;
+  place-items: center;
+  border: 1px solid rgba(212, 175, 106, 0.35);
+  color: var(--n-gold);
+  font-size: 14px;
+}
+.cm-kp-booking-accordion[open] > summary {
+  border-bottom: 1px solid var(--kp-edge);
+}
+.cm-kp-booking-accordion[open] > summary::after { content: '−'; }
+.cm-kp-booking-accordion > .cm-kp-booking-form {
+  border: 0;
+  background: transparent;
+}
+.cm-kp-booking-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px 18px;
+}
+.cm-kp-booking-form > .cm-kp-form-section--full,
+.cm-kp-booking-form > .cm-kp-form-total,
+.cm-kp-booking-form > .cm-kp-form-actions,
+.cm-kp-booking-form > .cm-kp-form-disclaimer,
+.cm-kp-booking-form > p {
+  grid-column: 1 / -1;
+}
+.cm-kp-booking-form .cm-kp-form-section {
+  min-width: 0;
+  margin: 0 !important;
+  padding: 13px !important;
+  border: 1px solid var(--kp-edge) !important;
+  background: rgba(14, 13, 13, 0.28);
+}
+.cm-kp-booking-form .cm-kp-form-section legend {
+  padding: 0 6px;
+}
+.cm-kp-booking-form .cm-kp-form-total {
+  margin: 2px 0 0 !important;
+}
+.cm-kp-booking-form .cm-kp-form-actions {
+  margin-top: 2px;
+}
 .cm-kp-booking .cm-kp-titel {
   margin-bottom: 9px;
   font-size: 10px;
@@ -1839,6 +1927,8 @@
   font-size: 10px;
 }
 @media (max-width: 620px) {
+  .cm-kp-booking-form { grid-template-columns: 1fr; }
+  .cm-kp-booking-form > .cm-kp-form-section { grid-column: 1; }
   .cm-kp-booking .mb-grid {
     grid-template-columns: 1fr 72px 72px !important;
   }

@@ -433,13 +433,17 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
       </section>
 
       {/* ─── Offerte / Bestelling formulier ──────────────────────────────── */}
-      <section className="nieuw-panel">
-        <h2 className="cm-kp-titel" style={{ marginBottom: 18 }}>
-          Offerte / Bestelling aanvragen
-        </h2>
+      <details className="cm-kp-booking-accordion">
+        <summary>
+          <span>
+            <b>Offerte / bestelling aanvragen</b>
+            <small>Open het formulier en bereken uw opdracht</small>
+          </span>
+        </summary>
+        <section className="nieuw-panel cm-kp-booking-form">
 
         {/* Klantgegevens */}
-        <fieldset style={{ border: 'none', padding: 0, marginBottom: 24 }}>
+        <fieldset className="cm-kp-form-section cm-kp-form-section--full" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
           <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             Uw gegevens
           </legend>
@@ -493,7 +497,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
         </fieldset>
 
         {/* Type opdracht */}
-        <fieldset style={{ border: 'none', padding: 0, marginBottom: 24 }}>
+        <fieldset className="cm-kp-form-section cm-kp-form-section--full" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
           <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             Opdracht
           </legend>
@@ -528,7 +532,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
         </fieldset>
 
         {/* Extra diensten */}
-        <fieldset style={{ border: 'none', padding: 0, marginBottom: 24 }}>
+        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
           <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             Extra diensten
           </legend>
@@ -569,7 +573,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
         </fieldset>
 
         {/* Opties */}
-        <fieldset style={{ border: 'none', padding: 0, marginBottom: 24 }}>
+        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
           <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             Opties
           </legend>
@@ -604,7 +608,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
         </fieldset>
 
         {/* Datum */}
-        <fieldset style={{ border: 'none', padding: 0, marginBottom: 24 }}>
+        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 24 }}>
           <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             Datum
           </legend>
@@ -631,7 +635,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
         </fieldset>
 
         {/* Reiskosten */}
-        <fieldset style={{ border: 'none', padding: 0, marginBottom: 28 }}>
+        <fieldset className="cm-kp-form-section" style={{ border: 'none', padding: 0, marginBottom: 28 }}>
           <legend style={{ color: 'var(--n-mut)', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
             Reiskosten (optioneel)
           </legend>
@@ -653,7 +657,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
 
         {/* Live prijsoverzicht */}
         <div
-          className="nieuw-panel"
+          className="nieuw-panel cm-kp-form-total"
           style={{
             background: 'var(--n-bg-2)',
             border: '1px solid var(--n-hair)',
@@ -712,7 +716,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
           <p style={{ color: '#e8a0a0', fontSize: 13, marginBottom: 14 }}>{error}</p>
         ) : null}
 
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="cm-kp-form-actions" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <button
             type="button"
             className="nieuw-btn nieuw-btn-ghost"
@@ -730,11 +734,12 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
             {busy ? 'Bezig…' : 'Bestellen →'}
           </button>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--n-mut)', marginTop: 10 }}>
+        <p className="cm-kp-form-disclaimer" style={{ fontSize: 11, color: 'var(--n-mut)', marginTop: 10 }}>
           Bij "Bestellen" bevestigt u de opdracht definitief. Bij "Offerte aanvragen" ontvangt u een
           vrijblijvende prijsopgave.
         </p>
-      </section>
+        </section>
+      </details>
     </div>
   );
 }

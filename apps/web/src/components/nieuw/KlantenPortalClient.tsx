@@ -403,14 +403,6 @@ export function KlantenPortalClient() {
       <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
         <div className="nieuw-wrap cm-kp">
           <ModellenBoekenPanel token={token || ''} />
-          <div className="cm-kp-actions" style={{ marginTop: 12 }}>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=modellen">
-              Modellen kiezen in catalogus
-            </Link>
-            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=aanvraag">
-              Castingaanvraag met shortlist
-            </Link>
-          </div>
         </div>
       </section>
     );
@@ -696,14 +688,6 @@ export function KlantenPortalClient() {
     <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
       <div className="nieuw-wrap">
         <KlantenWaarStaatContent />
-        <div className="cm-kp-actions" style={{ marginTop: 16 }}>
-          <Link className="nieuw-btn" href="/klanten?tab=modellen-boeken">
-            Modellen boeken / tarieven
-          </Link>
-          <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=modellen">
-            Catalogus bekijken
-          </Link>
-        </div>
       </div>
     </section>
   );

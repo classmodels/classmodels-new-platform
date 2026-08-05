@@ -6,12 +6,13 @@ export function KlantenEventContent() {
       <KpIntro
         label="Class-Models Events"
         titel={<>Concept.<br />Organisatie.<br /><em>Uitvoering.</em></>}
+        intro={
+          <p>
+            Richt u volledig op de inhoud en het succes van uw bedrijf. Wij nemen de organisatie
+            professioneel in handen, van een intieme receptie tot een groot bedrijfsgala.
+          </p>
+        }
       >
-        <p>
-          Maak gebruik van ons professioneel eventsbureau. Zo kunt u zich volledig richten op de
-          inhoud en het succes van uw bedrijf, terwijl de organisatie van het evenement in goede
-          handen is — van een intieme receptie tot een groot bedrijfsgala.
-        </p>
         <KpChecks
           items={[
             <>

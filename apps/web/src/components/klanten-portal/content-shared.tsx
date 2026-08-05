@@ -39,10 +39,12 @@ export function KpCard({ children, className = '' }: { children: ReactNode; clas
 export function KpIntro({
   label,
   titel,
+  intro,
   children,
 }: {
   label: string;
   titel: ReactNode;
+  intro: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -50,6 +52,7 @@ export function KpIntro({
       <header className="cm-kp-intro-heading">
         <span className="cm-kp-eyebrow">{label}</span>
         <h1 className="cm-kp-intro-title">{titel}</h1>
+        <div className="cm-kp-intro-text">{intro}</div>
       </header>
       <div className="cm-kp-intro-content">{children}</div>
     </section>
