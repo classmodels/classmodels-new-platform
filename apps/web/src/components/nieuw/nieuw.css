@@ -1618,7 +1618,7 @@
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   column-gap: 8px;
   row-gap: 18px;
-  margin-top: 12px;
+  margin-top: 28px;
 }
 .cm-kp-cel {
   background: var(--kp-raised);
@@ -1841,6 +1841,10 @@
   font-size: 11px;
   color: var(--n-gold);
 }
+.cm-kp-rates > .cm-kp-titel {
+  text-align: right;
+  color: var(--n-gold) !important;
+}
 .cm-kp-booking .nieuw-lead {
   font-size: 12px;
   line-height: 1.6;
@@ -1973,44 +1977,226 @@
   grid-template-columns: 90px 1fr;
 }
 .cm-kp-inline-2 .cm-kp-narrow { max-width: none; }
+.cm-kp-type-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 0 0 24px;
+}
+.cm-kp-type-label {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+  line-height: 1.2;
+}
+.cm-kp-type-options {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.cm-kp-type-opt {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1 1 0;
+  justify-content: center;
+  min-width: 0;
+  padding: 5px 6px;
+  border: 1px solid var(--kp-edge);
+  border-radius: 2px;
+  background: var(--kp-deep);
+  color: var(--kp-ink);
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.15;
+  white-space: nowrap;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cm-kp-type-opt:hover {
+  border-color: rgba(212, 175, 106, 0.45);
+}
+.cm-kp-type-opt--on {
+  border-color: rgba(212, 175, 106, 0.7);
+  background: var(--kp-raised);
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 106, 0.2);
+}
+.cm-kp-type-opt-naam {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--kp-ink);
+}
+.cm-kp-type-opt-prijs {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--n-gold);
+  opacity: 0.85;
+}
 .cm-kp-type-field { max-width: 300px; margin-bottom: 16px; }
 
 /* Opdracht-slots */
-.cm-kp-slots { display: grid; gap: 12px; }
+.cm-kp-slots { display: grid; gap: 8px; }
 .cm-kp-slot-row {
-  display: grid;
-  grid-template-columns: 70px 78px 78px 92px 92px auto;
-  gap: 12px;
-  align-items: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--kp-edge);
+  border-radius: 2px;
+  background: var(--kp-deep);
+  box-sizing: border-box;
 }
 .cm-kp-slot-actions {
   display: flex;
-  gap: 6px;
-  padding-bottom: 2px;
+  gap: 4px;
+  flex: 0 0 auto;
+  align-items: center;
 }
 .cm-kp-slot-btn {
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgba(212, 175, 106, 0.4);
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(212, 175, 106, 0.45);
+  border-radius: 2px;
   background: var(--kp-raised);
   color: var(--n-gold);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
   cursor: pointer;
+  flex-shrink: 0;
 }
-.cm-kp-slot-spacer { width: 30px; height: 30px; }
+.cm-kp-slot-btn:hover {
+  border-color: rgba(212, 175, 106, 0.75);
+}
+.cm-kp-slot-spacer { width: 26px; height: 26px; }
+.cm-kp-slot-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+}
+.cm-kp-slot-field span {
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+  white-space: nowrap;
+  margin: 0 !important;
+}
+.cm-kp-slot-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  min-height: 26px !important;
+  padding: 3px 6px !important;
+  font-size: 11px !important;
+  background: var(--kp-card) !important;
+  border: 1px solid var(--kp-edge) !important;
+  border-radius: 2px;
+  color: var(--kp-ink) !important;
+  color-scheme: dark;
+}
+.cm-kp-slot-field input[type='time'] {
+  padding-right: 4px !important;
+  position: relative;
+}
+.cm-kp-slot-field input[type='time']::-webkit-calendar-picker-indicator {
+  display: block;
+  opacity: 1;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  filter: invert(72%) sepia(28%) saturate(550%) hue-rotate(5deg) brightness(95%);
+}
 
 /* Opdracht: links type + slots, rechts extra diensten */
 .cm-kp-opdracht-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
-  gap: 0 32px;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 260px);
+  gap: 0 24px;
+  align-items: start;
 }
 .cm-kp-opdracht-left { min-width: 0; }
 .cm-kp-opdracht-right {
   min-width: 0;
+  align-self: start;
+  margin-top: -2px;
   border-left: 1px solid var(--kp-edge);
-  padding-left: 28px;
+  padding-left: 22px;
+}
+.cm-kp-opdracht-right .cm-kp-subkop {
+  margin: 0 0 22px;
+}
+.cm-kp-extra-list {
+  display: grid;
+  gap: 6px;
+}
+.cm-kp-extra-opt-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+  width: 100%;
+}
+.cm-kp-extra-opt-main input[type='checkbox'] {
+  margin: 0;
+  flex-shrink: 0;
+  align-self: center;
+}
+.cm-kp-extra-opt-main .cm-kp-type-opt-naam {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.cm-kp-extra-opt-main .cm-kp-type-opt-prijs {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-right: 4px;
+  text-align: right;
+  white-space: nowrap;
+}
+.cm-kp-extra-opt .cm-kp-uren {
+  width: 46px;
+  min-height: 24px !important;
+  padding: 2px 4px !important;
+  font-size: 11px !important;
+  flex-shrink: 0;
+}
+.cm-kp-extra-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 5px 12px 5px 8px;
+  border: 1px solid var(--kp-edge);
+  border-radius: 2px;
+  background: var(--kp-deep);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.cm-kp-extra-opt:hover {
+  border-color: rgba(212, 175, 106, 0.45);
+}
+.cm-kp-extra-opt--on {
+  border-color: rgba(212, 175, 106, 0.7);
+  background: var(--kp-raised);
+  box-shadow: inset 0 0 0 1px rgba(212, 175, 106, 0.2);
+}
+.cm-kp-opdracht-right .cm-kp-check-grid--stack {
+  gap: 8px;
 }
 .cm-kp-subkop {
   margin: 0 0 18px;
@@ -2020,30 +2206,91 @@
   text-transform: uppercase;
   color: var(--n-gold);
 }
-/* Opmerkingen: duidelijk los van de slot-rij */
-.cm-kp-opdracht-left > .nieuw-field {
+/* Opmerkingen: lijn + meer ruimte t.o.v. slots */
+.cm-kp-opmerkingen {
   margin-top: 28px !important;
+  padding-top: 22px;
+  border-top: 1px solid var(--kp-edge);
   display: block;
 }
-
-/* Opties & reiskosten */
-.cm-kp-opties-grid {
+.cm-kp-meta-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 20px 28px;
-  align-items: start;
+  gap: 22px;
+  margin: 0 0 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--kp-edge);
 }
-.cm-kp-opties-checks {
-  display: grid;
-  gap: 18px;
-  align-content: start;
-  padding-top: 6px;
+.cm-kp-meta-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+  line-height: 1.2;
 }
-.cm-kp-opties-velden { display: grid; gap: 16px; }
-.cm-kp-travel {
-  margin-top: 22px;
-  padding-top: 20px;
-  border-top: 1px solid var(--kp-edge);
+.cm-kp-meta-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  max-width: 560px;
+}
+.cm-kp-meta-datum {
+  margin: 0 !important;
+  flex: 1 1 220px;
+  max-width: 280px;
+  min-width: 0;
+}
+.cm-kp-meta-datum input {
+  width: 100%;
+  min-height: 34px !important;
+  height: 34px;
+  box-sizing: border-box;
+}
+.cm-kp-meta-geen-datum {
+  margin: 0 !important;
+  flex: 1 1 220px;
+  max-width: 280px;
+  min-width: 0;
+  height: 34px;
+  min-height: 34px !important;
+  padding: 0 12px 0 10px !important;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+}
+.cm-kp-meta-geen-datum .cm-kp-extra-opt-main {
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.cm-kp-meta-geen-datum .cm-kp-type-opt-naam {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--kp-ink);
+  line-height: 1.2;
+}
+.cm-kp-meta-geen-datum input[type='checkbox'] {
+  width: 13px !important;
+  height: 13px !important;
+}
+.cm-kp-auteurs-field {
+  display: block;
+  margin-top: 22px !important;
+}
+.cm-kp-auteurs-field .cm-kp-select {
+  width: 100%;
+}
+.cm-kp-travel--solo {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.cm-kp-travel-adres-titel {
+  margin: 4px 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--kp-edge);
 }
 .cm-kp-travel-fields {
   display: grid;
@@ -2052,14 +2299,48 @@
 .cm-kp-travel-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
-  gap: 14px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
 }
-.cm-kp-travel-btn { white-space: nowrap; }
-.cm-kp-travel-km { width: 100px; }
-.cm-kp-travel-note {
-  margin: 18px 0 0;
+.cm-kp-travel-btn {
+  white-space: nowrap;
+  min-height: 34px !important;
+  padding: 0 14px !important;
+  font-size: 11px !important;
+  letter-spacing: 0.06em;
+}
+.cm-kp-travel-km-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--kp-edge);
+  border-radius: 2px;
+  background: var(--kp-deep);
+  box-sizing: border-box;
+}
+.cm-kp-travel-km-box input {
+  width: 52px;
+  min-height: 28px !important;
+  padding: 2px 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--kp-ink) !important;
+  font-size: 12px !important;
+  text-align: right;
+}
+.cm-kp-travel-km-box span {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+}
+.cm-kp .cm-kp-travel-note {
+  margin: 40px 0 0 !important;
+  padding-top: 8px;
   font-size: 11px;
   line-height: 1.65;
   color: var(--kp-body);
@@ -2165,8 +2446,8 @@
   gap: 10px;
   margin-top: 22px;
 }
-.cm-kp-form-disclaimer {
-  margin: 22px 0 0;
+.cm-kp .cm-kp-form-disclaimer {
+  margin: 36px 0 0 !important;
   text-align: right;
   font-size: 11px;
   line-height: 1.6;
@@ -2227,9 +2508,12 @@
     padding-top: 20px;
   }
   .cm-kp-travel-actions { flex-direction: column; align-items: stretch; }
-  .cm-kp-travel-km { width: 100%; }
+  .cm-kp-travel-km-box { width: 100%; justify-content: flex-end; }
   .cm-kp-slot-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex-wrap: wrap;
+  }
+  .cm-kp-slot-field {
+    flex: 1 1 calc(50% - 20px);
   }
   .cm-kp-form-actions,
   .cm-kp-form-disclaimer { justify-content: flex-start; text-align: left; }

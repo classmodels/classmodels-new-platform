@@ -47,6 +47,14 @@ const AUTEURSRECHTEN_OPTIES = [
   { value: 'folders', label: 'Folders / drukwerk', prijs: 600 },
 ];
 
+const TYPE_OPDRACHT = [
+  { value: 'modeshow', label: 'Modeshow', prijs: '€ 75/u' },
+  { value: 'showroom', label: 'Showroom', prijs: '€ 75/u' },
+  { value: 'fotoshoot', label: 'Fotoshoot', prijs: '€ 150/u' },
+  { value: 'promowerk', label: 'Promowerk', prijs: '€ 60/u' },
+  { value: 'hostess', label: 'Hostessen', prijs: '€ 40/u' },
+] as const;
+
 const SOORT_BEDRIJF: Record<string, string> = {
   kledingzaak: 'Kledingzaak',
   reclamebureau: 'Reclamebureau',
@@ -504,9 +512,6 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
 
       <section className="nieuw-panel cm-kp-rates">
         <h2 className="cm-kp-titel">Prijslijst (excl. btw)</h2>
-        <p className="nieuw-lead" style={{ marginBottom: 12 }}>
-          Richtprijzen. Definitieve prijs na uw aanvraag.
-        </p>
         <div style={{ overflowX: 'auto' }}>
           <table className="cm-kp-rates-table">
             <thead>
@@ -667,80 +672,66 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
             <legend>Opdracht</legend>
             <div className="cm-kp-opdracht-grid">
               <div className="cm-kp-opdracht-left">
-            <label className="nieuw-field cm-kp-type-field">
-              <span>Type opdracht *</span>
-              <select
-                className="cm-kp-select"
-                value={form.typeOpdracht}
-                onChange={(e) => set('typeOpdracht', e.target.value)}
-              >
-                <option value="modeshow">Modeshow (€ 75/u)</option>
-                <option value="showroom">Showroom (€ 75/u)</option>
-                <option value="fotoshoot">Fotoshoot (€ 150/u)</option>
-                <option value="promowerk">Promowerk (€ 60/u)</option>
-                <option value="hostess">Hostessen (€ 40/u)</option>
-              </select>
-            </label>
+            <div className="cm-kp-meta-row">
+              <span className="cm-kp-meta-title">Datum opdracht:</span>
+              <div className="cm-kp-meta-controls">
+                <label className="nieuw-field cm-kp-meta-datum">
+                  <input
+                    type="date"
+                    value={form.datum}
+                    disabled={form.geenDatum}
+                    onChange={(e) => set('datum', e.target.value)}
+                  />
+                </label>
+                <label
+                  className={
+                    form.geenDatum
+                      ? 'cm-kp-extra-opt cm-kp-extra-opt--on cm-kp-meta-geen-datum'
+                      : 'cm-kp-extra-opt cm-kp-meta-geen-datum'
+                  }
+                >
+                  <span className="cm-kp-extra-opt-main">
+                    <input
+                      type="checkbox"
+                      checked={form.geenDatum}
+                      onChange={(e) => {
+                        set('geenDatum', e.target.checked);
+                        if (e.target.checked) set('datum', '');
+                      }}
+                    />
+                    <span className="cm-kp-type-opt-naam">Nog geen datum voorzien</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="cm-kp-type-row">
+              <span className="cm-kp-type-label">Type opdracht *</span>
+              <div className="cm-kp-type-options" role="radiogroup" aria-label="Type opdracht">
+                {TYPE_OPDRACHT.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={form.typeOpdracht === opt.value}
+                    className={
+                      form.typeOpdracht === opt.value
+                        ? 'cm-kp-type-opt cm-kp-type-opt--on'
+                        : 'cm-kp-type-opt'
+                    }
+                    onClick={() => set('typeOpdracht', opt.value)}
+                  >
+                    <span className="cm-kp-type-opt-naam">{opt.label}</span>
+                    <span className="cm-kp-type-opt-prijs">{opt.prijs}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="cm-kp-slots">
               {form.slots.map((slot, idx) => (
                 <div key={slot.id} className="cm-kp-slot-row">
-                  <label className="nieuw-field">
-                    <span>Aantal</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={slot.aantal || ''}
-                      onChange={(e) => updateSlot(slot.id, { aantal: parseInt(e.target.value) || 0 })}
-                    />
-                  </label>
-                  <label className="nieuw-field">
-                    <span>Leeftijd van</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={slot.leeftijdVan}
-                      onChange={(e) => updateSlot(slot.id, { leeftijdVan: e.target.value })}
-                    />
-                  </label>
-                  <label className="nieuw-field">
-                    <span>Leeftijd tot</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={slot.leeftijdTot}
-                      onChange={(e) => updateSlot(slot.id, { leeftijdTot: e.target.value })}
-                    />
-                  </label>
-                  <label className="nieuw-field">
-                    <span>Uur van</span>
-                    <input
-                      type="time"
-                      value={slot.uurVan}
-                      onChange={(e) => updateSlot(slot.id, { uurVan: e.target.value })}
-                    />
-                  </label>
-                  <label className="nieuw-field">
-                    <span>Uur tot</span>
-                    <input
-                      type="time"
-                      value={slot.uurTot}
-                      onChange={(e) => updateSlot(slot.id, { uurTot: e.target.value })}
-                    />
-                  </label>
                   <div className="cm-kp-slot-actions">
-                    {form.slots.length > 1 ? (
-                      <button
-                        type="button"
-                        className="cm-kp-slot-btn"
-                        aria-label="Slot verwijderen"
-                        onClick={() => setForm((f) => ({ ...f, slots: f.slots.filter((s) => s.id !== slot.id) }))}
-                      >
-                        −
-                      </button>
-                    ) : (
-                      <span className="cm-kp-slot-spacer" />
-                    )}
                     {idx === form.slots.length - 1 ? (
                       <button
                         type="button"
@@ -750,13 +741,68 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                       >
                         +
                       </button>
+                    ) : (
+                      <span className="cm-kp-slot-spacer" />
+                    )}
+                    {form.slots.length > 1 ? (
+                      <button
+                        type="button"
+                        className="cm-kp-slot-btn"
+                        aria-label="Slot verwijderen"
+                        onClick={() => setForm((f) => ({ ...f, slots: f.slots.filter((s) => s.id !== slot.id) }))}
+                      >
+                        −
+                      </button>
                     ) : null}
                   </div>
+                  <label className="cm-kp-slot-field">
+                    <span>Aantal</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={slot.aantal || ''}
+                      onChange={(e) => updateSlot(slot.id, { aantal: parseInt(e.target.value) || 0 })}
+                    />
+                  </label>
+                  <label className="cm-kp-slot-field">
+                    <span>Leeftijd van</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={slot.leeftijdVan}
+                      onChange={(e) => updateSlot(slot.id, { leeftijdVan: e.target.value })}
+                    />
+                  </label>
+                  <label className="cm-kp-slot-field">
+                    <span>Leeftijd tot</span>
+                    <input
+                      type="number"
+                      min={0}
+                      value={slot.leeftijdTot}
+                      onChange={(e) => updateSlot(slot.id, { leeftijdTot: e.target.value })}
+                    />
+                  </label>
+                  <label className="cm-kp-slot-field">
+                    <span>Uur van</span>
+                    <input
+                      type="time"
+                      value={slot.uurVan}
+                      onChange={(e) => updateSlot(slot.id, { uurVan: e.target.value })}
+                    />
+                  </label>
+                  <label className="cm-kp-slot-field">
+                    <span>Uur tot</span>
+                    <input
+                      type="time"
+                      value={slot.uurTot}
+                      onChange={(e) => updateSlot(slot.id, { uurTot: e.target.value })}
+                    />
+                  </label>
                 </div>
               ))}
             </div>
 
-            <label className="nieuw-field" style={{ marginTop: 10 }}>
+            <label className="nieuw-field cm-kp-opmerkingen">
               <span>Opmerkingen</span>
               <textarea
                 rows={2}
@@ -769,23 +815,27 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
 
               <div className="cm-kp-opdracht-right">
                 <p className="cm-kp-subkop">Extra diensten</p>
-                <div className="cm-kp-check-grid cm-kp-check-grid--stack">
+                <div className="cm-kp-extra-list">
                   {(
                     [
-                      { key: 'visagiste', urenKey: 'visagisteUren', label: 'Visagiste (€ 95/u)', uren: form.visagisteUren },
-                      { key: 'hairstyliste', urenKey: 'hairslisteUren', label: 'Hairstyliste (€ 95/u)', uren: form.hairslisteUren },
-                      { key: 'fotograaf', urenKey: 'fotografUren', label: 'Fotograaf (€ 175/u)', uren: form.fotografUren },
-                      { key: 'medewerker', urenKey: 'medewerkerUren', label: 'Medewerk(st)er (€ 40/u)', uren: form.medewerkerUren },
+                      { key: 'visagiste', urenKey: 'visagisteUren', label: 'Visagiste', prijs: '€ 95/u', uren: form.visagisteUren },
+                      { key: 'hairstyliste', urenKey: 'hairslisteUren', label: 'Hairstyliste', prijs: '€ 95/u', uren: form.hairslisteUren },
+                      { key: 'fotograaf', urenKey: 'fotografUren', label: 'Fotograaf', prijs: '€ 175/u', uren: form.fotografUren },
+                      { key: 'medewerker', urenKey: 'medewerkerUren', label: 'Medewerk(st)er', prijs: '€ 40/u', uren: form.medewerkerUren },
                     ] as const
-                  ).map(({ key, urenKey, label, uren }) => (
-                    <div key={key} className="cm-kp-check-row">
-                      <label>
+                  ).map(({ key, urenKey, label, prijs, uren }) => (
+                    <div
+                      key={key}
+                      className={form[key] ? 'cm-kp-extra-opt cm-kp-extra-opt--on' : 'cm-kp-extra-opt'}
+                    >
+                      <label className="cm-kp-extra-opt-main">
                         <input
                           type="checkbox"
                           checked={form[key]}
                           onChange={(e) => set(key, e.target.checked)}
                         />
-                        <span>{label}</span>
+                        <span className="cm-kp-type-opt-naam">{label}</span>
+                        <span className="cm-kp-type-opt-prijs">{prijs}</span>
                       </label>
                       {form[key] ? (
                         <input
@@ -795,11 +845,58 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                           step={0.5}
                           value={uren || ''}
                           onChange={(e) => set(urenKey, parseFloat(e.target.value) || 0)}
+                          aria-label={`${label} uren`}
                         />
                       ) : null}
                     </div>
                   ))}
+                  <label
+                    className={
+                      form.doorpassen ? 'cm-kp-extra-opt cm-kp-extra-opt--on' : 'cm-kp-extra-opt'
+                    }
+                  >
+                    <span className="cm-kp-extra-opt-main">
+                      <input
+                        type="checkbox"
+                        checked={form.doorpassen}
+                        onChange={(e) => set('doorpassen', e.target.checked)}
+                      />
+                      <span className="cm-kp-type-opt-naam">Doorpassen</span>
+                      <span className="cm-kp-type-opt-prijs">+ € 50</span>
+                    </span>
+                  </label>
+                  <label
+                    className={
+                      form.lingerie ? 'cm-kp-extra-opt cm-kp-extra-opt--on' : 'cm-kp-extra-opt'
+                    }
+                  >
+                    <span className="cm-kp-extra-opt-main">
+                      <input
+                        type="checkbox"
+                        checked={form.lingerie}
+                        onChange={(e) => set('lingerie', e.target.checked)}
+                      />
+                      <span className="cm-kp-type-opt-naam">Lingerie / badmode</span>
+                      <span className="cm-kp-type-opt-prijs">+50%</span>
+                    </span>
+                  </label>
                 </div>
+
+                <label className="nieuw-field cm-kp-auteurs-field">
+                  <span>Auteursrechten</span>
+                  <select
+                    className="cm-kp-select"
+                    value={form.auteursrechten}
+                    onChange={(e) => set('auteursrechten', e.target.value)}
+                  >
+                    {AUTEURSRECHTEN_OPTIES.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                        {o.prijs ? ` — € ${o.prijs}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
             </div>
           </fieldset>
@@ -808,59 +905,9 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
           <div className="cm-kp-bottom-grid">
             <div className="cm-kp-bottom-left">
               <fieldset className="cm-kp-form-section">
-                <legend>Opties &amp; reiskosten</legend>
-                <div className="cm-kp-opties-grid">
-                  <div className="cm-kp-opties-checks">
-                    <label className="cm-kp-check-plain">
-                      <input type="checkbox" checked={form.doorpassen} onChange={(e) => set('doorpassen', e.target.checked)} />
-                      <span>Doorpassen (+ € 50)</span>
-                    </label>
-                    <label className="cm-kp-check-plain">
-                      <input type="checkbox" checked={form.lingerie} onChange={(e) => set('lingerie', e.target.checked)} />
-                      <span>Lingerie / badmode (+50%)</span>
-                    </label>
-                  </div>
-                  <div className="cm-kp-opties-velden">
-                    <label className="nieuw-field">
-                      <span>Auteursrechten</span>
-                      <select
-                        className="cm-kp-select"
-                        value={form.auteursrechten}
-                        onChange={(e) => set('auteursrechten', e.target.value)}
-                      >
-                        {AUTEURSRECHTEN_OPTIES.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                            {o.prijs ? ` — € ${o.prijs}` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="nieuw-field">
-                      <span>Datum</span>
-                      <input
-                        type="date"
-                        value={form.datum}
-                        disabled={form.geenDatum}
-                        onChange={(e) => set('datum', e.target.value)}
-                      />
-                    </label>
-                    <label className="cm-kp-check-plain">
-                      <input
-                        type="checkbox"
-                        checked={form.geenDatum}
-                        onChange={(e) => {
-                          set('geenDatum', e.target.checked);
-                          if (e.target.checked) set('datum', '');
-                        }}
-                      />
-                      <span>Nog geen datum voorzien</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="cm-kp-travel">
-                  <p className="cm-kp-subkop">Reiskosten</p>
+                <legend>Reiskosten</legend>
+                <div className="cm-kp-travel cm-kp-travel--solo">
+                  <p className="cm-kp-subkop cm-kp-travel-adres-titel">Adres van de opdracht</p>
                   <div className="cm-kp-travel-fields">
                     <div className="cm-kp-inline-2">
                       <label className="nieuw-field">
@@ -901,22 +948,23 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                     <div className="cm-kp-travel-actions">
                       <button
                         type="button"
-                        className="nieuw-btn nieuw-btn-ghost cm-kp-travel-btn"
+                        className="nieuw-btn cm-kp-travel-btn"
                         disabled={afstandBusy}
                         onClick={() => void berekenAfstand()}
                       >
-                        {afstandBusy ? 'Berekenen…' : 'Bereken afstand'}
+                        {afstandBusy ? 'Berekenen…' : 'Bereken afstand heen en weer'}
                       </button>
-                      <label className="nieuw-field cm-kp-travel-km">
-                        <span>Km (enkel)</span>
+                      <div className="cm-kp-travel-km-box">
                         <input
                           type="number"
                           min={0}
                           value={form.afstandKm}
                           onChange={(e) => set('afstandKm', e.target.value)}
                           placeholder="0"
+                          aria-label="Kilometers enkele rit"
                         />
-                      </label>
+                        <span>km</span>
+                      </div>
                     </div>
                   </div>
                   <p className="cm-kp-travel-note">

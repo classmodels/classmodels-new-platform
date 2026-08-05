@@ -89,7 +89,7 @@ export function KlantenWaarStaatContent() {
       </div>
 
       {/* Foto links */}
-      <KpSplit foto="/nieuw/hero-1.jpg" alt="Team Class-Models">
+      <KpSplit foto="/nieuw/samenwerken.jpg" alt="Team Class-Models">
         <KpTitel>Waarom met ons samenwerken?</KpTitel>
         <KpChecks
           items={[
@@ -113,7 +113,7 @@ export function KlantenWaarStaatContent() {
       </KpSplit>
 
       {/* Foto rechts */}
-      <KpSplit foto="/nieuw/hero-2.jpg" alt="Class-Models in actie" fotoRechts>
+      <KpSplit foto="/nieuw/missie.jpg" alt="Class-Models in actie" fotoRechts>
         <KpTitel>Onze missie</KpTitel>
         <p>
           Door uw verwachtingen te begrijpen, vinden wij de geschikte modellen, hostessen of promo

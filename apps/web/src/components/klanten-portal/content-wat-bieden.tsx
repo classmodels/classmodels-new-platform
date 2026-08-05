@@ -37,7 +37,11 @@ export function KlantenWatBiedenContent() {
       </KpIntro>
 
       {/* Foto links */}
-      <KpSplit foto="/nieuw/hero-1.jpg" alt="Modellen van Class-Models">
+      <KpSplit
+        foto="/nieuw/modellen-selectie.jpg"
+        alt="Modellen van Class-Models"
+        objectPosition="center top"
+      >
         <KpTitel>Selectie van modellen</KpTitel>
         <p>
           Wij bieden niet alleen traditionele modellen met «perfecte maten», maar ook modellen die
@@ -62,7 +66,12 @@ export function KlantenWatBiedenContent() {
       </KpSplit>
 
       {/* Foto rechts */}
-      <KpSplit foto="/nieuw/hero-2.jpg" alt="Hostessen Class-Models" fotoRechts>
+      <KpSplit
+        foto="/nieuw/hostessen-team.jpg"
+        alt="Hostessen Class-Models"
+        fotoRechts
+        objectPosition="20% center"
+      >
         <KpTitel>Hostessen boeken</KpTitel>
         <p>
           Professionele hosts en hostessen tillen uw event naar een hoger niveau — of het nu gaat om
@@ -90,7 +99,11 @@ export function KlantenWatBiedenContent() {
       </KpSplit>
 
       {/* Foto links */}
-      <KpSplit foto="/nieuw/gastenportaal.jpg" alt="Promoteam Class-Models">
+      <KpSplit
+        foto="/nieuw/promoteam.jpg"
+        alt="Promoteam Class-Models"
+        objectPosition="center top"
+      >
         <KpTitel>Onze promoteams</KpTitel>
         <p>
           Zij tillen uw evenementen op een hoger niveau — niet alleen met looks, maar met een
@@ -116,7 +129,7 @@ export function KlantenWatBiedenContent() {
       </KpSplit>
 
       {/* Foto rechts */}
-      <KpSplit foto="/nieuw/hero-4.jpg" alt="Modeshow productie" fotoRechts>
+      <KpSplit foto="/nieuw/events/gala-runway.jpg" alt="Spectaculaire modeshow productie" fotoRechts>
         <KpTitel>Spectaculaire modeshows</KpTitel>
         <KpChecks
           numbered

@@ -64,11 +64,14 @@ export function KpSplit({
   foto,
   alt,
   fotoRechts = false,
+  objectPosition,
   children,
 }: {
   foto: string;
   alt: string;
   fotoRechts?: boolean;
+  /** CSS object-position, bv. "center top" of "left center" */
+  objectPosition?: string;
   children: ReactNode;
 }) {
   return (
@@ -78,7 +81,13 @@ export function KpSplit({
         style={{ order: fotoRechts ? 2 : 0 }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={foto} alt={alt} loading="lazy" decoding="async" />
+        <img
+          src={foto}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          style={objectPosition ? { objectPosition } : undefined}
+        />
       </div>
       <div className="cm-kp-body" style={{ order: 1 }}>
         {children}
