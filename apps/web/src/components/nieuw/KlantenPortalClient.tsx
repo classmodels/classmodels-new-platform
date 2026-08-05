@@ -8,56 +8,36 @@ import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
 import type { CatalogModel } from '@/components/models-catalog/ModelsCatalogGrid';
 import { PartnersStrip } from '@/components/PartnersStrip';
 import { useIsMobile } from '@/lib/use-is-mobile';
+import { ModellenBoekenPanel } from '@/components/klanten-portal/ModellenBoekenPanel';
+import { KlantenWaarStaatContent } from '@/components/klanten-portal/content-waar-staat';
+import { KlantenWatBiedenContent } from '@/components/klanten-portal/content-wat-bieden';
+import { KlantenEventContent } from '@/components/klanten-portal/content-event';
 
-const PACKAGES = [
-  {
-    name: 'Starter casting',
-    price: 'vanaf € 350',
-    blurb: 'Ideaal voor een snelle selectie van 3–5 passende modellen.',
-    items: [
-      'Briefing intake (telefonisch of mail)',
-      'Voorselectie op basis van look & beschikbaarheid',
-      'Digitale castingfiche per model',
-      'Eén herzieningsronde',
-    ],
-  },
-  {
-    name: 'Campagne selectie',
-    price: 'vanaf € 790',
-    blurb: 'Voor merken die een gerichte shortlist willen met duidelijke opties.',
-    items: [
-      'Uitgebreide briefing & moodboard-afstemming',
-      'Shortlist van 8–12 modellen',
-      'Vergelijkbare look-alternatieven',
-      'Ondersteuning bij opties & bevestiging',
-    ],
-  },
-  {
-    name: 'Full production support',
-    price: 'op maat',
-    blurb: 'Casting + planning + opvolging voor shoots, events of modeshows.',
-    items: [
-      'Volledige casting tot definitieve boeking',
-      'Contract & callsheet-ondersteuning',
-      'Backup-modellen bij uitval',
-      'Dedicated contactpersoon',
-    ],
-  },
-] as const;
-
-export type KlantenTabId = 'home' | 'tarieven' | 'modellen' | 'gekozen' | 'aanvraag' | 'aanvragen';
+export type KlantenTabId =
+  | 'waar-staat'
+  | 'wat-bieden'
+  | 'modellen-boeken'
+  | 'event'
+  | 'modellen'
+  | 'gekozen'
+  | 'aanvraag'
+  | 'aanvragen';
 
 export function parseKlantenTab(raw: string | null): KlantenTabId {
   if (
-    raw === 'tarieven' ||
+    raw === 'wat-bieden' ||
+    raw === 'modellen-boeken' ||
+    raw === 'event' ||
     raw === 'modellen' ||
     raw === 'gekozen' ||
     raw === 'aanvraag' ||
-    raw === 'aanvragen'
+    raw === 'aanvragen' ||
+    raw === 'tarieven' // oude link → modellen-boeken
   ) {
+    if (raw === 'tarieven') return 'modellen-boeken';
     return raw;
   }
-  return 'home';
+  return 'waar-staat';
 }
 
 function shortlistKey(userId: string) {
@@ -119,9 +99,9 @@ function GuestLanding() {
               </Link>
             </div>
             <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen na inloggen">
-              <li>Tarieven en castingformules bekijken</li>
+              <li>Info over Class-Models en ons aanbod</li>
+              <li>Tarieven berekenen en offerte / bestelling aanvragen</li>
               <li>Alle modellen selecteren voor uw shortlist</li>
-              <li>Gekozen modellen beheren</li>
               <li>Een castingaanvraag versturen</li>
             </ul>
           </div>
@@ -408,42 +388,39 @@ export function KlantenPortalClient() {
     );
   }
 
-  if (tab === 'tarieven') {
+  if (tab === 'wat-bieden') {
     return (
-      <section className="nieuw-sectie" style={{ paddingTop: 36, paddingBottom: 80 }}>
+      <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
         <div className="nieuw-wrap">
-          <span className="nieuw-label">Tarieven</span>
-          <h2 className="nieuw-display nieuw-display-md">
-            Duidelijke <em>formules</em>
-          </h2>
-          <p className="nieuw-lead">
-            Indicatieve casting- en selectietarieven. Modelhonoraria hangen af van gebruik,
-            exclusiviteit en productieduur — die bevestigen we na uw briefing.
-          </p>
-          <div className="nieuw-grid-3" style={{ marginTop: 28 }}>
-            {PACKAGES.map((p) => (
-              <article key={p.name} className="nieuw-panel nieuw-price-card">
-                <span className="nieuw-label">{p.name}</span>
-                <div className="nieuw-price">{p.price}</div>
-                <p className="nieuw-lead" style={{ marginTop: 10, maxWidth: 'none' }}>
-                  {p.blurb}
-                </p>
-                <ul className="nieuw-checklist" style={{ marginTop: 16 }}>
-                  {p.items.map((item) => (
-                    <li key={item}>
-                      <span className="v">✓</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-          <div style={{ marginTop: 28 }}>
-            <Link className="nieuw-btn" href="/klanten?tab=aanvraag">
-              Casting aanvragen
+          <KlantenWatBiedenContent />
+        </div>
+      </section>
+    );
+  }
+
+  if (tab === 'modellen-boeken') {
+    return (
+      <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
+        <div className="nieuw-wrap">
+          <ModellenBoekenPanel token={token || ''} />
+          <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=modellen">
+              Modellen kiezen in catalogus
+            </Link>
+            <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=aanvraag">
+              Castingaanvraag met shortlist
             </Link>
           </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (tab === 'event') {
+    return (
+      <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
+        <div className="nieuw-wrap">
+          <KlantenEventContent />
         </div>
       </section>
     );
@@ -714,70 +691,19 @@ export function KlantenPortalClient() {
   }
 
   return (
-    <>
-      <section className="nieuw-hero nieuw-hero-compact">
-        <div className="nieuw-wrap nieuw-hero-grid">
-          <div>
-            <span className="nieuw-label">Klantenportaal</span>
-            <h1 className="nieuw-display">
-              Modellen
-              <br />
-              <em>boeken</em>
-            </h1>
-            <p className="nieuw-lead nieuw-hero-lead">
-              Welkom. Via het menu hierboven beheert u tarieven, uw modelselectie en castingaanvragen.
-            </p>
-            <div className="nieuw-hero-actions">
-              <Link className="nieuw-btn" href="/klanten?tab=modellen">
-                Modellen kiezen
-              </Link>
-              <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=aanvraag">
-                Casting aanvragen
-              </Link>
-            </div>
-            <ul className="nieuw-klant-can-do" aria-label="Wat u kunt doen">
-              <li>
-                <Link href="/klanten?tab=tarieven">Tarieven</Link> — castingformules bekijken
-              </li>
-              <li>
-                <Link href="/klanten?tab=modellen">Modellen</Link> — alle modellen aanvinken
-              </li>
-              <li>
-                <Link href="/klanten?tab=gekozen">Gekozen</Link> — uw shortlist beheren (
-                {selectedIds.length})
-              </li>
-              <li>
-                <Link href="/klanten?tab=aanvraag">Casting aanvragen</Link> — briefing versturen
-              </li>
-              <li>
-                <Link href="/klanten?tab=aanvragen">Mijn aanvragen</Link> — status opvolgen
-              </li>
-            </ul>
-          </div>
-          <aside className="nieuw-hero-card">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/nieuw/klantenportaal.jpg"
-              alt="Klantenoverleg bij Class-Models"
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-              width={800}
-              height={600}
-            />
-            <div className="nieuw-hero-card-body">
-              <h2>Wat u krijgt</h2>
-              <ul>
-                <li>Gerichte shortlist op look &amp; beschikbaarheid</li>
-                <li>Heldere fiches per model</li>
-                <li>Ondersteuning tot op de set</li>
-                <li>Backup-opties bij uitval</li>
-              </ul>
-            </div>
-          </aside>
+    <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
+      <div className="nieuw-wrap">
+        <KlantenWaarStaatContent />
+        <div className="nieuw-hero-actions" style={{ marginTop: 28 }}>
+          <Link className="nieuw-btn" href="/klanten?tab=modellen-boeken">
+            Modellen boeken / tarieven
+          </Link>
+          <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=modellen">
+            Catalogus bekijken
+          </Link>
         </div>
-      </section>
+      </div>
       <PartnersStrip />
-    </>
+    </section>
   );
 }

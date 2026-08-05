@@ -36,8 +36,10 @@ const MODELLEN_NAV = [
 ] as const;
 
 const KLANTEN_NAV = [
-  { href: '/klanten', label: 'Home' },
-  { href: '/klanten?tab=tarieven', label: 'Tarieven' },
+  { href: '/klanten', label: 'Waar staat Class-Models voor?' },
+  { href: '/klanten?tab=wat-bieden', label: 'Wat bieden we aan' },
+  { href: '/klanten?tab=modellen-boeken', label: 'Modellen boeken / tarieven' },
+  { href: '/klanten?tab=event', label: 'Een event organiseren?' },
   { href: '/klanten?tab=modellen', label: 'Modellen' },
   { href: '/klanten?tab=gekozen', label: 'Gekozen' },
   { href: '/klanten?tab=aanvraag', label: 'Casting aanvragen' },

@@ -16,8 +16,10 @@ const CTA_BG = '#372c1f';
 const CTA_TEXT = '#f6efe2';
 
 const KLANTEN_TABS: { id: KlantenTabId; label: string; href: string }[] = [
-  { id: 'home', label: 'Home', href: '/klanten' },
-  { id: 'tarieven', label: 'Tarieven', href: '/klanten?tab=tarieven' },
+  { id: 'waar-staat', label: 'Waar staat Class-Models voor?', href: '/klanten' },
+  { id: 'wat-bieden', label: 'Wat bieden we aan', href: '/klanten?tab=wat-bieden' },
+  { id: 'modellen-boeken', label: 'Modellen boeken / tarieven', href: '/klanten?tab=modellen-boeken' },
+  { id: 'event', label: 'Een event organiseren?', href: '/klanten?tab=event' },
   { id: 'modellen', label: 'Modellen', href: '/klanten?tab=modellen' },
   { id: 'gekozen', label: 'Gekozen', href: '/klanten?tab=gekozen' },
   { id: 'aanvraag', label: 'Casting aanvragen', href: '/klanten?tab=aanvraag' },
