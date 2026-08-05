@@ -2643,8 +2643,12 @@
 .nieuw-root .model-portal-home :is(h3, .font-serif) {
   font-family: var(--n-serif) !important;
   font-size: clamp(20px, 2vw, 24px) !important;
-  color: var(--n-ink) !important;
+  color: var(--n-gold) !important;
   line-height: 1.25 !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card h3 {
+  color: #fff !important;
+  font-size: 13.5px !important;
 }
 .nieuw-root .model-portal-home .portal-quick-link {
   background: var(--n-bg-3) !important;

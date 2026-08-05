@@ -97,16 +97,16 @@ export function ModelPortalHomeContent({
               fallback="Welkom in je account."
             />
             <CmText
-              contentKey="portal.model.home.welcome.title"
+              contentKey="portal.model.home.welcome.title.v2"
               as="h3"
               className="mt-2.5 font-serif text-lg font-semibold leading-snug text-ink md:text-xl"
-              fallback="Welkom op het Modellenplatform van Class-Models"
+              fallback="Welkom op het Modellenportaal van Class-Models"
             />
             <CmText
-              contentKey="portal.model.home.welcome.body"
+              contentKey="portal.model.home.welcome.body.v2"
               as="p"
               className="mt-3 text-[13.5px] leading-relaxed text-ink/90"
-              fallback="Gefeliciteerd met uw inschrijving bij Class-Models. Uw persoonlijk profiel is succesvol aangemaakt. Via dit platform beheert u als model uw gegevens, aanvragen en communicatie met het team. Een volledig en actueel profiel is essentieel om in aanmerking te komen voor opdrachten."
+              fallback="Gefeliciteerd met uw inschrijving bij Class-Models. Uw persoonlijk profiel is succesvol aangemaakt. Via dit portaal beheert u als model uw gegevens, aanvragen en communicatie met het team. Een volledig en actueel profiel is essentieel om in aanmerking te komen voor opdrachten."
             />
             <div className="mt-4 rounded-cm border border-line bg-panel px-3 py-2.5">
               <CmText
@@ -133,12 +133,12 @@ export function ModelPortalHomeContent({
           </SectionBlock>
 
           <SectionBlock>
-            <div className="min-w-0 border-l-4 border-burgundy pl-3 md:pl-4">
+            <div className="min-w-0">
               <CmText
-                contentKey="portal.model.home.platformlist.title"
+                contentKey="portal.model.home.portallist.title"
                 as="h3"
                 className="font-serif text-base font-semibold leading-snug text-ink md:text-lg"
-                fallback="Wat u via het platform kunt regelen"
+                fallback="Wat u via het modellenportaal kunt regelen"
               />
               <CmText
                 contentKey="portal.model.home.platformlist.intro"
@@ -479,7 +479,7 @@ export function ModelPortalHomeContent({
             bodyKey="portal.model.home.aside.opdrachten.body"
             bodyFallback={`Op uw modellenfiche kunnen openstaande opdrachten verschijnen waarvoor de klant nog geen definitieve keuze heeft gemaakt. Wanneer u binnen het gevraagde profiel past, kunt u zich hiervoor inschrijven.
 
-Let op: een groot deel van de opdrachten wordt rechtstreeks door klanten toegewezen aan een specifiek model. Deze opdrachten verschijnen niet altijd als “open opdracht” op het platform.`}
+Let op: een groot deel van de opdrachten wordt rechtstreeks door klanten toegewezen aan een specifiek model. Deze opdrachten verschijnen niet altijd als “open opdracht” op het portaal.`}
           />
 
           <AsideInfoCard
@@ -500,7 +500,7 @@ Let op: een groot deel van de opdrachten wordt rechtstreeks door klanten toegewe
             titleKey="portal.model.home.aside.slot.title"
             titleFallback="Tot slot"
             bodyKey="portal.model.home.aside.slot.body"
-            bodyFallback={`Wij wensen u veel succes binnen Class-Models en kijken uit naar een professionele en aangename samenwerking. Heeft u vragen of opmerkingen? Neem gerust contact op met het Class-Models team via het platform.`}
+            bodyFallback={`Wij wensen u veel succes binnen Class-Models en kijken uit naar een professionele en aangename samenwerking. Heeft u vragen of opmerkingen? Neem gerust contact op met het Class-Models team via het portaal.`}
           />
 
           <p className="border-t border-zinc-200 px-2 pt-2 text-xs leading-snug text-muted md:text-[10px] md:leading-tight">

@@ -44,6 +44,7 @@ const LITERAL_KEYS: string[] = [
   'portal.model.home.steps.3.body',
   'portal.model.home.steps.outro',
   'portal.model.home.platformlist.title',
+  'portal.model.home.portallist.title',
   'portal.model.home.platformlist.intro',
   'portal.model.home.platformlist.0',
   'portal.model.home.platformlist.1',
