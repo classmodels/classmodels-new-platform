@@ -401,9 +401,9 @@ export function KlantenPortalClient() {
   if (tab === 'modellen-boeken') {
     return (
       <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
-        <div className="nieuw-wrap">
+        <div className="nieuw-wrap cm-kp">
           <ModellenBoekenPanel token={token || ''} />
-          <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Link className="nieuw-btn nieuw-btn-ghost" href="/klanten?tab=modellen">
               Modellen kiezen in catalogus
             </Link>
@@ -428,15 +428,15 @@ export function KlantenPortalClient() {
 
   if (tab === 'modellen') {
     return (
-      <section className="nieuw-sectie" style={{ paddingTop: 36, paddingBottom: 80 }}>
-        <div className="nieuw-wrap">
-          <span className="nieuw-label">Selectie</span>
-          <h2 className="nieuw-display nieuw-display-md">
-            Alle <em>modellen</em>
-          </h2>
-          <p className="nieuw-lead">
-            Klik op een model om het te kiezen. Gekozen modellen verschijnen onder Gekozen.
-          </p>
+      <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
+        <div className="nieuw-wrap cm-kp">
+          <header style={{ paddingBottom: 2 }}>
+            <h1 className="cm-kp-paginatitel">Alle modellen</h1>
+            <p style={{ marginTop: 8, maxWidth: 720 }}>
+              Klik op een model om het te kiezen. Gekozen modellen verschijnen onder{' '}
+              <strong>Gekozen</strong>.
+            </p>
+          </header>
           <div className="nieuw-klant-models-toolbar">
             <label className="nieuw-models-field" style={{ margin: 0, flex: 1, maxWidth: 360 }}>
               <span>Zoeken</span>
@@ -487,17 +487,16 @@ export function KlantenPortalClient() {
 
   if (tab === 'gekozen') {
     return (
-      <section className="nieuw-sectie" style={{ paddingTop: 36, paddingBottom: 80 }}>
-        <div className="nieuw-wrap">
-          <span className="nieuw-label">Shortlist</span>
-          <h2 className="nieuw-display nieuw-display-md">
-            Gekozen <em>modellen</em>
-          </h2>
-          <p className="nieuw-lead">
-            Dit zijn de modellen die u heeft aangevinkt. U kunt ze hier verwijderen of meenemen in
-            uw castingaanvraag.
-          </p>
-          <div className="nieuw-hero-actions" style={{ marginTop: 20 }}>
+      <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
+        <div className="nieuw-wrap cm-kp">
+          <header style={{ paddingBottom: 2 }}>
+            <h1 className="cm-kp-paginatitel">Gekozen modellen</h1>
+            <p style={{ marginTop: 8, maxWidth: 720 }}>
+              Dit zijn de modellen die u heeft aangevinkt. U kunt ze hier verwijderen of meenemen in
+              uw castingaanvraag.
+            </p>
+          </header>
+          <div className="nieuw-hero-actions" style={{ marginTop: 4 }}>
             <Link className="nieuw-btn" href="/klanten?tab=modellen">
               Meer modellen kiezen
             </Link>
@@ -543,19 +542,23 @@ export function KlantenPortalClient() {
 
   if (tab === 'aanvraag') {
     return (
-      <section className="nieuw-sectie" style={{ paddingTop: 36, paddingBottom: 80 }}>
-        <div className="nieuw-wrap" style={{ maxWidth: 760 }}>
-          <span className="nieuw-label">Aanvraag</span>
-          <h2 className="nieuw-display nieuw-display-md">
-            Casting <em>aanvragen</em>
-          </h2>
-          <p className="nieuw-lead">
-            Shortlist: {selectedModels.length ? selectedModels.map((m) => m.displayName).join(', ') : 'nog geen selectie'}{' '}
-            ·{' '}
-            <Link className="nieuw-link" href="/klanten?tab=modellen">
-              Modellen kiezen
-            </Link>
-          </p>
+      <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
+        <div className="nieuw-wrap cm-kp" style={{ maxWidth: 760 }}>
+          <header style={{ paddingBottom: 2 }}>
+            <h1 className="cm-kp-paginatitel">Casting aanvragen</h1>
+            <p style={{ marginTop: 8 }}>
+              Shortlist:{' '}
+              <strong>
+                {selectedModels.length
+                  ? selectedModels.map((m) => m.displayName).join(', ')
+                  : 'nog geen selectie'}
+              </strong>{' '}
+              ·{' '}
+              <Link className="nieuw-link" href="/klanten?tab=modellen">
+                Modellen kiezen
+              </Link>
+            </p>
+          </header>
           {sent ? (
             <div className="nieuw-panel" style={{ marginTop: 24, borderColor: 'var(--n-gold-hair)' }}>
               <h3 className="nieuw-h3">Aanvraag ontvangen</h3>
@@ -645,13 +648,12 @@ export function KlantenPortalClient() {
 
   if (tab === 'aanvragen') {
     return (
-      <section className="nieuw-sectie" style={{ paddingTop: 36, paddingBottom: 80 }}>
-        <div className="nieuw-wrap" style={{ maxWidth: 760 }}>
-          <span className="nieuw-label">Overzicht</span>
-          <h2 className="nieuw-display nieuw-display-md">
-            Mijn <em>aanvragen</em>
-          </h2>
-          <p className="nieuw-lead">Uw eerdere castingaanvragen bij Class-Models.</p>
+      <section className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 80 }}>
+        <div className="nieuw-wrap cm-kp" style={{ maxWidth: 760 }}>
+          <header style={{ paddingBottom: 2 }}>
+            <h1 className="cm-kp-paginatitel">Mijn aanvragen</h1>
+            <p style={{ marginTop: 8 }}>Uw eerdere castingaanvragen bij Class-Models.</p>
+          </header>
           {briefsLoading ? <p className="nieuw-lead">Laden…</p> : null}
           {!briefsLoading && briefs.length === 0 ? (
             <div className="nieuw-panel" style={{ marginTop: 24, textAlign: 'center' }}>

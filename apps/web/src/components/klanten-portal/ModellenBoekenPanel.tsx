@@ -366,16 +366,19 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
   }
 
   return (
-    <div>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <header style={{ paddingBottom: 2 }}>
+        <h1 className="cm-kp-paginatitel">Modellen boeken / tarieven</h1>
+        <p style={{ marginTop: 8, maxWidth: 720 }}>
+          Bekijk hieronder onze tarieven en bereken meteen zelf de prijs van uw opdracht. Vraag een
+          offerte aan of plaats direct een bestelling — u ontvangt een bevestiging per e-mail.
+        </p>
+      </header>
+
       {/* ─── Prijslijst ──────────────────────────────────────────────────── */}
-      <section className="nieuw-panel" style={{ marginBottom: 32 }}>
-        <h2
-          className="nieuw-h3"
-          style={{ color: 'var(--n-gold)', marginBottom: 16, fontWeight: 700, fontSize: 18 }}
-        >
-          Prijslijst (excl. btw)
-        </h2>
-        <p className="nieuw-lead" style={{ marginBottom: 12, fontSize: 13 }}>
+      <section className="nieuw-panel">
+        <h2 className="cm-kp-titel">Prijslijst (excl. btw)</h2>
+        <p className="nieuw-lead" style={{ marginBottom: 12 }}>
           Onderstaande tarieven zijn richtprijzen. De definitieve prijs wordt bevestigd na uw aanvraag.
         </p>
         <div style={{ overflowX: 'auto' }}>
@@ -383,7 +386,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
             style={{
               width: '100%',
               borderCollapse: 'collapse',
-              fontSize: 13,
+              fontSize: 12.5,
               color: 'var(--n-ink)',
             }}
           >
@@ -445,10 +448,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
 
       {/* ─── Offerte / Bestelling formulier ──────────────────────────────── */}
       <section className="nieuw-panel">
-        <h2
-          className="nieuw-h3"
-          style={{ color: 'var(--n-gold)', marginBottom: 20, fontWeight: 700, fontSize: 18 }}
-        >
+        <h2 className="cm-kp-titel" style={{ marginBottom: 18 }}>
           Offerte / Bestelling aanvragen
         </h2>
 

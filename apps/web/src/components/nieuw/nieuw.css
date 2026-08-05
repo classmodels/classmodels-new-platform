@@ -1586,6 +1586,41 @@
   object-fit: contain;
   display: block;
 }
+/* Bestaande nieuw-componenten binnen .cm-kp: compacter + meer contrast */
+.cm-kp .nieuw-panel {
+  background: var(--kp-panel);
+  border-color: var(--n-hair);
+  padding: 22px 26px;
+  color: var(--kp-body);
+}
+.cm-kp .nieuw-lead {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--kp-body);
+  max-width: none;
+}
+.cm-kp .nieuw-h3 {
+  font-family: var(--n-serif);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--n-gold);
+  line-height: 1.3;
+}
+.cm-kp .nieuw-field span {
+  font-size: 11px;
+  color: var(--kp-body);
+}
+.cm-kp .nieuw-field input,
+.cm-kp .nieuw-field select,
+.cm-kp .nieuw-field textarea {
+  font-size: 12.5px;
+  background: color-mix(in srgb, var(--kp-panel) 80%, var(--n-bg));
+  border-color: color-mix(in srgb, var(--n-hair) 60%, var(--n-ink));
+  color: var(--n-ink);
+}
+.cm-kp .nieuw-models-field span { font-size: 11px; color: var(--kp-body); }
 
 /* ---------- Uniforme theming van oude (lichte) componenten binnen /nieuw ---------- */
 .nieuw-root .nieuw-themed,
