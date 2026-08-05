@@ -361,7 +361,7 @@ export function ModelPortalHomeContent({
             <div className="mt-3 space-y-2.5">
               <Link
                 href={tab('push')}
-                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition"
               >
                 <span className="flex items-center justify-between gap-2">
                   <CmText
@@ -387,7 +387,7 @@ export function ModelPortalHomeContent({
               </Link>
               <Link
                 href={tab('opleiding')}
-                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition"
               >
                 <CmText
                   contentKey="portal.model.home.quick.opleiding.title"
@@ -404,7 +404,7 @@ export function ModelPortalHomeContent({
               </Link>
               <Link
                 href={tab('portfolio')}
-                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition"
               >
                 <CmText
                   contentKey="portal.model.home.quick.portfolio.title"
@@ -421,7 +421,7 @@ export function ModelPortalHomeContent({
               </Link>
               <Link
                 href={tab('opdrachten')}
-                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition"
               >
                 <CmText
                   contentKey="portal.model.home.quick.opdrachten.title"
@@ -438,7 +438,7 @@ export function ModelPortalHomeContent({
               </Link>
               <Link
                 href={tab('bericht')}
-                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition"
               >
                 <CmText
                   contentKey="portal.model.home.quick.bericht.title"
@@ -455,7 +455,7 @@ export function ModelPortalHomeContent({
               </Link>
               <Link
                 href={tab('profiel')}
-                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition hover:border-burgundy/30 hover:bg-white"
+                className="portal-quick-link block rounded-cm border border-line bg-panel px-4 py-4 text-[13.5px] font-semibold text-ink shadow-sm transition"
               >
                 <CmText
                   contentKey="portal.model.home.quick.profiel.title"

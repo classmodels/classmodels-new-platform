@@ -2653,10 +2653,16 @@
   padding: 18px 16px !important;
   min-height: 76px;
   box-shadow: none !important;
+  outline: none !important;
 }
-.nieuw-root .model-portal-home .portal-quick-link:hover {
-  border-color: var(--n-gold-hair) !important;
-  background: #15151c !important;
+.nieuw-root .model-portal-home .portal-quick-link:hover,
+.nieuw-root .model-portal-home .portal-quick-link:focus,
+.nieuw-root .model-portal-home .portal-quick-link:focus-visible {
+  border-color: var(--n-gold) !important;
+  background: var(--n-bg-2) !important;
+  color: var(--n-ink) !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 .nieuw-root .model-portal-home .portal-quick-title,
 .nieuw-root .model-portal-home .portal-quick-sub {
