@@ -227,16 +227,15 @@ function slotZin(s: SlotDto, i: number): string {
   return `Groep ${i + 1}: ${modellen}${leeftijd}${uren}`;
 }
 
-/** Sectiekop in de mail (goud, kapitalen). */
 function mailSectie(titel: string): string {
-  return `<tr><td colspan="2" style="padding:22px 0 8px;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${GOLD};border-bottom:1px solid ${HAIR};">${titel}</td></tr>`;
+  return `<tr><td colspan="2" style="padding:28px 0 12px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${GOLD};border-bottom:1px solid ${HAIR};">${titel}</td></tr>`;
 }
 
 function mailRij(label: string, val: string | undefined | null): string {
   if (!val) return '';
   return `<tr>
-    <td style="padding:7px 14px 7px 0;font-size:12.5px;color:${MUT};white-space:nowrap;vertical-align:top;border-bottom:1px solid ${HAIR};">${esc(label)}</td>
-    <td style="padding:7px 0;font-size:12.5px;color:${INK};border-bottom:1px solid ${HAIR};">${esc(val)}</td>
+    <td style="padding:10px 18px 10px 0;font-size:13px;color:${MUT};white-space:nowrap;vertical-align:top;border-bottom:1px solid ${HAIR};">${esc(label)}</td>
+    <td style="padding:10px 0;font-size:13px;color:${INK};line-height:1.55;border-bottom:1px solid ${HAIR};">${esc(val)}</td>
   </tr>`;
 }
 
@@ -285,26 +284,26 @@ function buildBrandedEmail(dto: CreateClientOfferteDto): string {
     const rijen = dto.prijsRegels
       .map(
         (r) => `<tr>
-          <td style="padding:7px 14px 7px 0;font-size:12.5px;color:${INK};border-bottom:1px solid ${HAIR};">${esc(r.label)}</td>
-          <td style="padding:7px 0;font-size:12.5px;color:${INK};text-align:right;white-space:nowrap;border-bottom:1px solid ${HAIR};">€ ${fmt(r.bedrag)}</td>
+          <td style="padding:10px 18px 10px 0;font-size:13px;color:${INK};line-height:1.5;border-bottom:1px solid ${HAIR};">${esc(r.label)}</td>
+          <td style="padding:10px 0;font-size:13px;color:${INK};text-align:right;white-space:nowrap;border-bottom:1px solid ${HAIR};">€ ${fmt(r.bedrag)}</td>
         </tr>`,
       )
       .join('');
     prijsBlok = `
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-top:4px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-top:8px;">
         ${mailSectie('Prijsoverzicht')}
         ${rijen}
         <tr>
-          <td style="padding:10px 14px 4px 0;font-size:13px;font-weight:700;color:${INK};">Totaal excl. BTW</td>
-          <td style="padding:10px 0 4px;font-size:13px;font-weight:700;color:${GOLD};text-align:right;">€ ${fmt(dto.totaalExcl ?? 0)}</td>
+          <td style="padding:16px 18px 6px 0;font-size:13px;font-weight:700;color:${INK};">Totaal excl. BTW</td>
+          <td style="padding:16px 0 6px;font-size:13px;font-weight:700;color:${GOLD};text-align:right;">€ ${fmt(dto.totaalExcl ?? 0)}</td>
         </tr>
         <tr>
-          <td style="padding:2px 14px 2px 0;font-size:12px;color:${MUT};">BTW 21%</td>
-          <td style="padding:2px 0;font-size:12px;color:${MUT};text-align:right;">€ ${fmt(dto.btw21 ?? 0)}</td>
+          <td style="padding:4px 18px 4px 0;font-size:12.5px;color:${MUT};">BTW 21%</td>
+          <td style="padding:4px 0;font-size:12.5px;color:${MUT};text-align:right;">€ ${fmt(dto.btw21 ?? 0)}</td>
         </tr>
         <tr>
-          <td style="padding:4px 14px 0 0;font-size:15px;font-weight:700;color:${INK};">Totaal incl. BTW</td>
-          <td style="padding:4px 0 0;font-size:15px;font-weight:700;color:${GOLD};text-align:right;">€ ${fmt(dto.totaalIncl ?? 0)}</td>
+          <td style="padding:8px 18px 0 0;font-size:16px;font-weight:700;color:${INK};">Totaal incl. BTW</td>
+          <td style="padding:8px 0 0;font-size:16px;font-weight:700;color:${GOLD};text-align:right;">€ ${fmt(dto.totaalIncl ?? 0)}</td>
         </tr>
       </table>`;
   }

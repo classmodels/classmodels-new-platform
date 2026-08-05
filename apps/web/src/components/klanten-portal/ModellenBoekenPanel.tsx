@@ -102,7 +102,10 @@ type FormState = {
   lingerie: boolean;
   datum: string;
   geenDatum: boolean;
-  adresOpdracht: string;
+  adresStraat: string;
+  adresNr: string;
+  adresPostcode: string;
+  adresGemeente: string;
   afstandKm: string;
   kopieEmail: string;
 };
@@ -225,7 +228,10 @@ const DEFAULT_FORM: FormState = {
   lingerie: false,
   datum: '',
   geenDatum: false,
-  adresOpdracht: '',
+  adresStraat: '',
+  adresNr: '',
+  adresPostcode: '',
+  adresGemeente: '',
   afstandKm: '',
   kopieEmail: '',
 };
@@ -340,27 +346,43 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
   };
 
   const berekenAfstand = async () => {
-    const adres = form.adresOpdracht.trim();
-    if (adres.length < 6) {
-      setError('Vul eerst het adres van de opdracht in (straat nr, gemeente).');
+    const straat = form.adresStraat.trim();
+    const nr = form.adresNr.trim();
+    const postcode = form.adresPostcode.trim();
+    const gemeente = form.adresGemeente.trim();
+    if (!straat || !gemeente) {
+      setError('Vul minstens straat en gemeente van de opdracht in.');
       return;
     }
     setAfstandBusy(true);
     setError(null);
     try {
-      const r = await apiFetch<{ km: number; label: string }>('/portal/client/offerte/afstand', {
+      const res = await fetch('/api/klant-afstand', {
         method: 'POST',
-        token,
-        body: JSON.stringify({ adres }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ straat, nr, postcode, gemeente }),
       });
-      set('afstandKm', String(r.km));
-      setAfstandInfo(`${r.km} km enkele rit — heen en terug wordt aangerekend (× 2 × € 0,70).`);
+      const data = (await res.json()) as { km?: number; label?: string; message?: string };
+      if (!res.ok || data.km == null) {
+        throw new Error(data.message || 'Afstand berekenen mislukt.');
+      }
+      set('afstandKm', String(data.km));
+      setAfstandInfo(
+        data.label ??
+          `${data.km} km enkele rit — heen en terug wordt aangerekend (× 2 × € 0,70).`,
+      );
     } catch (e) {
       setAfstandInfo(null);
       setError(e instanceof Error ? e.message : 'Afstand berekenen mislukt.');
     } finally {
       setAfstandBusy(false);
     }
+  };
+
+  const opdrachtAdresLabel = () => {
+    const line1 = [form.adresStraat.trim(), form.adresNr.trim()].filter(Boolean).join(' ');
+    const line2 = [form.adresPostcode.trim(), form.adresGemeente.trim()].filter(Boolean).join(' ');
+    return [line1, line2].filter(Boolean).join(', ');
   };
 
   const validate = (): string | null => {
@@ -398,7 +420,15 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
           website: account.website,
           clientEmail: account.email,
           kopieEmail: form.kopieEmail.trim() || undefined,
-          typeOpdracht: form.typeOpdracht,
+          typeOpdracht: (
+            {
+              modeshow: 'Modeshow',
+              showroom: 'Showroom',
+              fotoshoot: 'Fotoshoot',
+              promowerk: 'Promowerk',
+              hostess: 'Hostessen',
+            } as Record<string, string>
+          )[form.typeOpdracht] || form.typeOpdracht,
           opmerkingen: form.opmerkingen,
           slots: form.slots
             .filter((s) => s.aantal > 0)
@@ -410,11 +440,14 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
               uurTot: s.uurTot,
             })),
           datum: form.geenDatum ? 'Nog geen datum voorzien' : form.datum,
-          adresOpdracht: form.adresOpdracht.trim() || undefined,
+          adresOpdracht: opdrachtAdresLabel() || undefined,
           afstandKm: parseFloat(form.afstandKm) || 0,
           lingerie: form.lingerie,
           doorpassen: form.doorpassen,
-          auteursrechten: form.auteursrechten,
+          auteursrechten:
+            AUTEURSRECHTEN_OPTIES.find((o) => o.value === form.auteursrechten)?.label ||
+            form.auteursrechten ||
+            undefined,
           extraDiensten: {
             visagiste: form.visagiste ? form.visagisteUren : 0,
             hairstyliste: form.hairstyliste ? form.hairslisteUren : 0,
@@ -828,33 +861,63 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
 
                 <div className="cm-kp-travel">
                   <p className="cm-kp-subkop">Reiskosten</p>
-                  <div className="cm-kp-travel-row">
-                    <label className="nieuw-field cm-kp-travel-adres">
-                      <span>Adres opdracht</span>
-                      <input
-                        value={form.adresOpdracht}
-                        onChange={(e) => set('adresOpdracht', e.target.value)}
-                        placeholder="Straat nr, gemeente"
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="nieuw-btn nieuw-btn-ghost cm-kp-travel-btn"
-                      disabled={afstandBusy}
-                      onClick={() => void berekenAfstand()}
-                    >
-                      {afstandBusy ? 'Berekenen…' : 'Bereken afstand'}
-                    </button>
-                    <label className="nieuw-field cm-kp-travel-km">
-                      <span>Km (enkel)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        value={form.afstandKm}
-                        onChange={(e) => set('afstandKm', e.target.value)}
-                        placeholder="0"
-                      />
-                    </label>
+                  <div className="cm-kp-travel-fields">
+                    <div className="cm-kp-inline-2">
+                      <label className="nieuw-field">
+                        <span>Straat</span>
+                        <input
+                          value={form.adresStraat}
+                          onChange={(e) => set('adresStraat', e.target.value)}
+                          placeholder="Straatnaam"
+                        />
+                      </label>
+                      <label className="nieuw-field cm-kp-narrow">
+                        <span>Nr.</span>
+                        <input
+                          value={form.adresNr}
+                          onChange={(e) => set('adresNr', e.target.value)}
+                          placeholder="Nr."
+                        />
+                      </label>
+                    </div>
+                    <div className="cm-kp-inline-2 cm-kp-inline-post">
+                      <label className="nieuw-field cm-kp-narrow">
+                        <span>Postcode</span>
+                        <input
+                          value={form.adresPostcode}
+                          onChange={(e) => set('adresPostcode', e.target.value)}
+                          placeholder="2235"
+                        />
+                      </label>
+                      <label className="nieuw-field">
+                        <span>Gemeente</span>
+                        <input
+                          value={form.adresGemeente}
+                          onChange={(e) => set('adresGemeente', e.target.value)}
+                          placeholder="Gemeente"
+                        />
+                      </label>
+                    </div>
+                    <div className="cm-kp-travel-actions">
+                      <button
+                        type="button"
+                        className="nieuw-btn nieuw-btn-ghost cm-kp-travel-btn"
+                        disabled={afstandBusy}
+                        onClick={() => void berekenAfstand()}
+                      >
+                        {afstandBusy ? 'Berekenen…' : 'Bereken afstand'}
+                      </button>
+                      <label className="nieuw-field cm-kp-travel-km">
+                        <span>Km (enkel)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={form.afstandKm}
+                          onChange={(e) => set('afstandKm', e.target.value)}
+                          placeholder="0"
+                        />
+                      </label>
+                    </div>
                   </div>
                   <p className="cm-kp-travel-note">
                     {afstandInfo ??
@@ -899,7 +962,7 @@ export function ModellenBoekenPanel({ token }: { token: string }) {
                   type="email"
                   value={form.kopieEmail}
                   onChange={(e) => set('kopieEmail', e.target.value)}
-                  placeholder="extra@adres.be"
+                  placeholder="optioneel@adres.be"
                 />
               </label>
 
