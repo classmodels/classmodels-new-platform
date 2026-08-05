@@ -313,7 +313,7 @@
   top: 0;
   z-index: 80;
   width: 100%;
-  background: #0e0d0d;
+  background: #000;
   border-bottom: 1px solid var(--n-hair);
 }
 .nieuw-kop-inner {
@@ -326,6 +326,7 @@
   margin: 0;
   padding: 14px clamp(16px, 3vw, 40px);
   box-sizing: border-box;
+  background: #000;
 }
 /* Tweede balk: portaalmenu links (40px) + reviews/contact/cta rechts, fade naar zwart */
 .nieuw-util-bar {
