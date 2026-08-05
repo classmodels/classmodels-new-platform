@@ -154,8 +154,8 @@ export function NieuwLoginSplit() {
                 <Link className="nieuw-link" href="/modellen/wachtwoord-vergeten">
                   Wachtwoord vergeten?
                 </Link>
-                <p>
-                  Nog geen account?{' '}
+                <p className="nieuw-login-register">
+                  Nog geen account?
                   <Link className="nieuw-link" href="/modellen/registreren">
                     Maak hier één aan
                   </Link>
@@ -215,8 +215,8 @@ export function NieuwLoginSplit() {
                 <Link className="nieuw-link" href="/modellen/wachtwoord-vergeten">
                   Wachtwoord vergeten?
                 </Link>
-                <p>
-                  Nog geen account?{' '}
+                <p className="nieuw-login-register">
+                  Nog geen account?
                   <Link className="nieuw-link" href="/klanten/registreren">
                     Maak hier één aan
                   </Link>
