@@ -17,6 +17,32 @@ type BookingRow = {
   displayName: string;
 };
 
+/** Voor matching ZIP-naam ↔ modelnaam. */
+function normalizePersonKey(raw: string): string {
+  return raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\.zip$/i, '')
+    .replace(/class[\s._-]*models/gi, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function matchBookingForZip(fileName: string, bookings: BookingRow[]): BookingRow | null {
+  const key = normalizePersonKey(fileName);
+  if (!key) return null;
+  const withAccount = bookings.filter((b) => b.modelUserId);
+  const exact = withAccount.filter((b) => normalizePersonKey(b.displayName) === key);
+  if (exact.length === 1) return exact[0];
+  const partial = withAccount.filter((b) => {
+    const n = normalizePersonKey(b.displayName);
+    return n.length >= 2 && (key.includes(n) || n.includes(key));
+  });
+  if (partial.length === 1) return partial[0];
+  return null;
+}
+
 export default function PhotographerPage() {
   const { token } = useAuth();
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -66,10 +92,52 @@ export default function PhotographerPage() {
     return b?.displayName ?? '';
   }, [bookings, modelUserId]);
 
+  const uploadOne = async (
+    file: File,
+    kind: 'zip' | 'image',
+    targetModelId: string | undefined,
+    progressLabel: string,
+  ) => {
+    if (!token) throw new Error('Niet ingelogd.');
+    const fd = new FormData();
+    fd.append('file', file);
+    const params = new URLSearchParams();
+    params.set('folderSlug', folderSlug);
+    if (folderSlug === 'portfolio-fotograaf' && targetModelId) {
+      params.set('modelUserId', targetModelId);
+    }
+    const path = kind === 'zip' ? '/photographer/upload-zip' : '/photographer/upload';
+    const text = await uploadWithProgress(`${getLargeUploadApiBase()}${path}?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+      onProgress: (p) => {
+        setUploadProgress({
+          percent: p.percent,
+          sublabel: `${progressLabel} — nog ${formatEtaSeconds(p.etaSeconds)}.`,
+        });
+      },
+      onUploadBytesComplete: () => {
+        setUploadProgress({
+          percent: 100,
+          sublabel: `${progressLabel} — server verwerkt nog…`,
+        });
+      },
+    });
+    const body = JSON.parse(text) as {
+      error?: string;
+      id?: string;
+      assetId?: string;
+      message?: string;
+      ok?: boolean;
+    };
+    if (body?.error) throw new Error(body.error);
+    if (body?.message && !body.id && !body.assetId && body.ok !== true) throw new Error(body.message);
+  };
+
   const upload = async (file: File | null, kind: 'zip' | 'image') => {
     if (!file || !token) return;
     if (folderSlug === 'portfolio-fotograaf' && !modelUserId.trim()) {
-      setMsg('Kies eerst een model.');
+      setMsg('Kies eerst een model (of gebruik «Meerdere ZIP’s» met bestandsnamen).');
       return;
     }
     if (kind === 'zip' && !/\.zip$/i.test(file.name)) {
@@ -80,50 +148,17 @@ export default function PhotographerPage() {
     setMsg('');
     setUploadProgress({
       percent: 0,
-      sublabel:
-        kind === 'zip'
-          ? 'ZIP uploaden rechtstreeks naar de API — laat dit venster open (tot 4 GB).'
-          : 'Foto uploaden — laat dit venster open.',
+      sublabel: kind === 'zip' ? 'ZIP uploaden…' : 'Foto uploaden…',
     });
     try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const params = new URLSearchParams();
-      params.set('folderSlug', folderSlug);
-      if (folderSlug === 'portfolio-fotograaf' && modelUserId.trim()) {
-        params.set('modelUserId', modelUserId.trim());
-      }
-      const path = kind === 'zip' ? '/photographer/upload-zip' : '/photographer/upload';
-      const text = await uploadWithProgress(
-        `${getLargeUploadApiBase()}${path}?${params.toString()}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          body: fd,
-          onProgress: (p) => {
-            setUploadProgress({
-              percent: p.percent,
-              sublabel: `Dit kan even duren — nog ${formatEtaSeconds(p.etaSeconds)}.`,
-            });
-          },
-          onUploadBytesComplete: () => {
-            setUploadProgress({
-              percent: 100,
-              sublabel: 'Bestand ontvangen — de server verwerkt nog. Dit kan even duren.',
-            });
-          },
-        },
-      );
-      const body = JSON.parse(text) as { error?: string; id?: string; assetId?: string; message?: string; ok?: boolean };
-      if (body?.error) throw new Error(body.error);
-      if (body?.message && !body.id && !body.assetId && body.ok !== true) throw new Error(body.message);
-      const label = selectedName ? `${selectedName} class-models` : file.name;
-      setMsg(`Geüpload: ${label}`);
+      await uploadOne(file, kind, modelUserId.trim() || undefined, selectedName || file.name);
+      setMsg(`Geüpload: ${selectedName ? `${selectedName} class-models` : file.name}`);
       await load();
     } catch (e) {
       const raw = e instanceof Error ? e.message : 'Upload mislukt';
       setMsg(
         /netwerk|network|failed to fetch|abortr/i.test(raw)
-          ? `${raw} Tip: probeer een kleinere ZIP of een stabieler netwerk; ZIP’s gaan rechtstreeks naar api.class-models.be.`
+          ? `${raw} Tip: kleinere ZIP of stabieler netwerk.`
           : raw,
       );
     } finally {
@@ -132,7 +167,54 @@ export default function PhotographerPage() {
     }
   };
 
-  const canUpload = !busy && (folderSlug !== 'portfolio-fotograaf' || !!modelUserId.trim());
+  /** Meerdere ZIP’s: bestandsnaam moet overeenkomen met modelnaam (bv. «Jan Peeters.zip»). */
+  const uploadManyZips = async (files: FileList | File[] | null) => {
+    if (!token || !files?.length) return;
+    const list = Array.from(files).filter((f) => /\.zip$/i.test(f.name));
+    if (!list.length) {
+      setMsg('Geen .zip-bestanden geselecteerd.');
+      return;
+    }
+    if (folderSlug !== 'portfolio-fotograaf') {
+      setMsg('Meerdere ZIP’s alleen voor map «Portfolio (→ model)».');
+      return;
+    }
+
+    setBusy(true);
+    setMsg('');
+    const ok: string[] = [];
+    const fail: string[] = [];
+
+    try {
+      for (let i = 0; i < list.length; i++) {
+        const file = list[i]!;
+        const match = matchBookingForZip(file.name, bookings);
+        if (!match?.modelUserId) {
+          fail.push(`${file.name} → geen uniek model gevonden`);
+          continue;
+        }
+        const label = `${i + 1}/${list.length}: ${match.displayName}`;
+        setUploadProgress({ percent: 0, sublabel: `${label} — starten…` });
+        try {
+          await uploadOne(file, 'zip', match.modelUserId, label);
+          ok.push(`${match.displayName} (${file.name})`);
+        } catch (e) {
+          fail.push(`${file.name} → ${e instanceof Error ? e.message : 'mislukt'}`);
+        }
+      }
+      const parts: string[] = [];
+      if (ok.length) parts.push(`OK (${ok.length}): ${ok.join('; ')}`);
+      if (fail.length) parts.push(`Mislukt (${fail.length}): ${fail.join('; ')}`);
+      setMsg(parts.join(' — ') || 'Geen bestanden verwerkt.');
+      await load();
+    } finally {
+      setBusy(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const canUploadSingle = !busy && (folderSlug !== 'portfolio-fotograaf' || !!modelUserId.trim());
+  const canUploadBatch = !busy && folderSlug === 'portfolio-fotograaf' && bookings.some((b) => b.modelUserId);
 
   return (
     <div className="space-y-6">
@@ -144,13 +226,14 @@ export default function PhotographerPage() {
         />
       ) : null}
       <p className="text-sm leading-relaxed text-muted">
-        Kies een model uit de lijst en upload bij voorkeur één <strong className="text-ink">ZIP</strong> met alle
-        foto&apos;s in hoge kwaliteit (tot 4 GB). Losse foto&apos;s kunnen ook. Bestanden worden hernoemd naar{' '}
-        <strong className="text-ink">«naam class-models»</strong> en verschijnen als download in de modellenfiche.
+        Upload per model een <strong className="text-ink">ZIP</strong> (tot 4 GB), of meerdere ZIP’s tegelijk. Bestanden
+        heten dan bv. <strong className="text-ink">«Voornaam Achternaam.zip»</strong> of{' '}
+        <strong className="text-ink">«Voornaam Achternaam class-models.zip»</strong> — zo koppelt het systeem automatisch
+        aan het juiste model.
       </p>
       <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950">
-        Tip: gebruik de knop <strong>ZIP kiezen</strong> (niet «foto&apos;s») — zo opent de bestandenkiezer ZIP-bestanden
-        correct (o.a. op Mac/Safari).
+        Tip: <strong>Meerdere ZIP’s</strong> = geen model vooraf selecteren; de bestandsnaam moet overeenkomen met de
+        naam in de lijst hieronder.
       </p>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
@@ -218,7 +301,7 @@ export default function PhotographerPage() {
       </section>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-burgundy">Upload per model</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wide text-burgundy">Upload</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-xs">
             <span className="font-medium text-ink">Map</span>
@@ -233,9 +316,9 @@ export default function PhotographerPage() {
           </label>
           {folderSlug === 'portfolio-fotograaf' ? (
             <div className="text-xs">
-              <span className="font-medium text-ink">Geselecteerd model</span>
+              <span className="font-medium text-ink">Geselecteerd model (voor 1 bestand)</span>
               <p className="mt-1 rounded border border-line bg-panel px-2 py-1.5 text-sm text-ink">
-                {selectedName || (modelUserId ? modelUserId : 'Nog geen model gekozen')}
+                {selectedName || (modelUserId ? modelUserId : 'Nog geen model — of gebruik meerdere ZIP’s')}
               </p>
             </div>
           ) : null}
@@ -243,15 +326,34 @@ export default function PhotographerPage() {
         <div className="mt-4 flex flex-wrap gap-2">
           <label
             className={`inline-block cursor-pointer rounded bg-burgundy px-4 py-2 text-sm font-medium text-white hover:bg-burgundyDeep ${
-              !canUpload ? 'pointer-events-none opacity-50' : ''
+              !canUploadBatch ? 'pointer-events-none opacity-50' : ''
             }`}
           >
-            {busy ? 'Bezig…' : 'ZIP kiezen…'}
+            {busy ? 'Bezig…' : 'Meerdere ZIP’s…'}
+            <input
+              type="file"
+              accept=".zip,application/zip,application/x-zip-compressed"
+              multiple
+              className="hidden"
+              disabled={!canUploadBatch}
+              onChange={(e) => {
+                const files = e.target.files;
+                e.target.value = '';
+                void uploadManyZips(files);
+              }}
+            />
+          </label>
+          <label
+            className={`inline-block cursor-pointer rounded border border-burgundy bg-white px-4 py-2 text-sm font-medium text-burgundy hover:bg-burgundy/[0.06] ${
+              !canUploadSingle ? 'pointer-events-none opacity-50' : ''
+            }`}
+          >
+            {busy ? 'Bezig…' : '1 ZIP (geselecteerd model)…'}
             <input
               type="file"
               accept=".zip,application/zip,application/x-zip-compressed"
               className="hidden"
-              disabled={!canUpload}
+              disabled={!canUploadSingle}
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 e.target.value = '';
@@ -260,8 +362,8 @@ export default function PhotographerPage() {
             />
           </label>
           <label
-            className={`inline-block cursor-pointer rounded border border-burgundy bg-white px-4 py-2 text-sm font-medium text-burgundy hover:bg-burgundy/[0.06] ${
-              !canUpload ? 'pointer-events-none opacity-50' : ''
+            className={`inline-block cursor-pointer rounded border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-panel ${
+              !canUploadSingle ? 'pointer-events-none opacity-50' : ''
             }`}
           >
             {busy ? 'Bezig…' : 'Losse foto’s…'}
@@ -269,7 +371,7 @@ export default function PhotographerPage() {
               type="file"
               accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic"
               className="hidden"
-              disabled={!canUpload}
+              disabled={!canUploadSingle}
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 e.target.value = '';
@@ -278,7 +380,7 @@ export default function PhotographerPage() {
             />
           </label>
         </div>
-        {msg ? <p className="mt-2 text-xs text-ink">{msg}</p> : null}
+        {msg ? <p className="mt-2 text-xs leading-relaxed text-ink">{msg}</p> : null}
       </section>
     </div>
   );
