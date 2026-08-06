@@ -60,7 +60,7 @@ function formatCreated(d?: string): string {
   }
 }
 
-export function AdminModellenProfielenPageContent() {
+function AdminModellenProfielenPageContent() {
   const { token, can } = useAuth();
   const searchParams = useSearchParams();
   const [rows, setRows] = useState<UserRow[]>([]);

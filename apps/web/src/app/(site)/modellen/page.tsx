@@ -555,6 +555,8 @@ export default function NieuwModellenPage() {
             body="Stuur rechtstreeks een bericht naar Class-Models vanuit je portaal — alleen beschikbaar met premium."
           />
         );
+      } else if (!token) {
+        main = <ModuleUnavailable label="Bericht sturen" />;
       } else {
         const name = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ') || 'Model';
         main = (
