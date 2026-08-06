@@ -261,28 +261,52 @@ export function ModelOpdrachtenTab({
   return (
     <div className="nieuw-opdrachten">
       <header className="nieuw-opdrachten-head">
-        <div>
+        <div className="nieuw-opdrachten-hero-copy">
           <span className="nieuw-label">Modellenportaal</span>
-          <h2 className="nieuw-h2" style={{ marginTop: 10, fontSize: 'clamp(22px, 3vw, 32px)' }}>
-            Openstaande <em>opdrachten</em>
+          <h2 className="nieuw-opdrachten-display">
+            <span>Openstaande</span>
+            <em>Opdrachten</em>
           </h2>
-          <p className="nieuw-lead" style={{ marginTop: 12, maxWidth: '62ch' }}>
+          <p className="nieuw-lead nieuw-opdrachten-lead">
             Opdrachten staan op datum gesorteerd. Vul uw modellenfiche aan (geboortedatum als JJJJ-MM-DD en
             geslacht) voor een correcte match. Extra info bij inschrijven is optioneel.
           </p>
         </div>
-        <div className="nieuw-opdrachten-stats" aria-label="Samenvatting">
-          <div>
-            <strong>{counts.all}</strong>
-            <span>open</span>
+
+        <div className="nieuw-opdrachten-side">
+          <div className="nieuw-opdrachten-stats" aria-label="Samenvatting">
+            <div>
+              <strong>{counts.all}</strong>
+              <span>open</span>
+            </div>
+            <div>
+              <strong>{counts.eligible}</strong>
+              <span>match</span>
+            </div>
+            <div>
+              <strong>{counts.subscribed}</strong>
+              <span>inschrijvingen</span>
+            </div>
           </div>
-          <div>
-            <strong>{counts.eligible}</strong>
-            <span>match</span>
-          </div>
-          <div>
-            <strong>{counts.subscribed}</strong>
-            <span>inschrijvingen</span>
+
+          <div className="nieuw-opdrachten-filters" role="tablist" aria-label="Filter opdrachten">
+            {filters.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                role="tab"
+                aria-selected={briefFilter === f.id}
+                className={`nieuw-opdrachten-filter${briefFilter === f.id ? ' is-active' : ''}`}
+                onClick={() => setBriefFilter(f.id)}
+              >
+                <span className="nieuw-opdrachten-filter-mark" aria-hidden>
+                  ✓
+                </span>
+                <span className="nieuw-opdrachten-filter-label">
+                  <strong>{f.label}:</strong> {f.count}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       </header>
@@ -295,22 +319,6 @@ export function ModelOpdrachtenTab({
           </PremiumUpsellBanner>
         </div>
       ) : null}
-
-      <div className="nieuw-opdrachten-filters" role="tablist" aria-label="Filter opdrachten">
-        {filters.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            role="tab"
-            aria-selected={briefFilter === f.id}
-            className={`nieuw-opdrachten-filter${briefFilter === f.id ? ' is-active' : ''}`}
-            onClick={() => setBriefFilter(f.id)}
-          >
-            {f.label}
-            <span>{f.count}</span>
-          </button>
-        ))}
-      </div>
 
       {briefErr ? (
         <p className="nieuw-opdrachten-alert is-error" role="alert">
@@ -498,8 +506,8 @@ export function ModelOpdrachtenTab({
                       ) : mine?.status === 'submitted' ? (
                         <div className="nieuw-opdracht-action-row">
                           <p className="nieuw-opdracht-status-msg">
-                            Status: <strong>Ingeschreven</strong>. U kunt zich nog uitschrijven zolang de
-                            selectie open is.
+                            Status: <strong className="is-ingeschreven">Ingeschreven</strong>. U kunt zich nog
+                            uitschrijven zolang de selectie open is.
                           </p>
                           <button
                             type="button"
@@ -519,11 +527,12 @@ export function ModelOpdrachtenTab({
                         <div className="nieuw-opdracht-apply">
                           {mine?.status === 'withdrawn' ? (
                             <p className="nieuw-opdracht-status-msg" style={{ marginBottom: 12 }}>
-                              Status: <strong>Uitgeschreven</strong>. U kunt zich opnieuw inschrijven.
+                              Status: <strong className="is-uitgeschreven">Uitgeschreven</strong>. U kunt zich
+                              opnieuw inschrijven.
                             </p>
                           ) : null}
                           <label className="nieuw-opdracht-apply-label" htmlFor={`extra-${b.id}`}>
-                            Extra info <span style={{ color: 'var(--n-mut)', fontWeight: 500 }}>(optioneel)</span>
+                            Extra info <span className="is-optioneel">(optioneel)</span>
                           </label>
                           <textarea
                             id={`extra-${b.id}`}
@@ -557,7 +566,18 @@ export function ModelOpdrachtenTab({
                         </div>
                       ) : mine ? (
                         <p className="nieuw-opdracht-status-msg">
-                          Status: <strong>{responseMeta(mine).label}</strong>
+                          Status:{' '}
+                          <strong
+                            className={
+                              mine.status === 'submitted'
+                                ? 'is-ingeschreven'
+                                : mine.status === 'withdrawn'
+                                  ? 'is-uitgeschreven'
+                                  : undefined
+                            }
+                          >
+                            {responseMeta(mine).label}
+                          </strong>
                         </p>
                       ) : b.status === 'open' && !inAanmerking ? (
                         <div className="nieuw-opdracht-action-row">

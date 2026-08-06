@@ -26,6 +26,8 @@ function isSmtpRateOrQuotaError(msg: string): boolean {
 export type SendHtmlMailOptions = {
   /** Minder retries (bevestigingsmail bij boeking). */
   fast?: boolean;
+  /** Reply-To (bv. e-mail van het model). */
+  replyTo?: string;
 };
 
 /** SMTP-mail zonder pool — betrouwbaarder voor losse transactionele mails. */
@@ -74,6 +76,7 @@ export async function sendHtmlMailDetailed(
         subject,
         html,
         text: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+        ...(opts?.replyTo?.trim() ? { replyTo: opts.replyTo.trim() } : {}),
       });
       log.log(`E-mail verstuurd naar ${addr} via ${cfg.host} (${cfg.source})`);
       return { ok: true, smtpSource: cfg.source };

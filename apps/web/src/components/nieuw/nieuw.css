@@ -1,22 +1,23 @@
-/* Class-Models — nieuwe site (/nieuw) — warme donkere look (zelfde als klantenportaal) */
+/* Class-Models — nieuwe site (/nieuw) — koel zwart + goud (geen bruine warmte) */
 .nieuw-root {
-  --n-bg: #0e0d0d;
-  --n-bg-2: #1b1a1a;
-  --n-bg-3: #242120;
-  --n-ink: #ece6da;
-  --n-mut: rgba(232, 226, 214, 0.72);
-  --n-dim: #9a9080;
+  --n-bg: #0a0a0a;
+  --n-bg-2: #141414;
+  --n-bg-3: #1c1c1c;
+  --n-ink: #eae9e6;
+  --n-mut: rgba(234, 233, 230, 0.7);
+  --n-dim: #8c8a86;
   --n-gold: #d4af6a;
   --n-gold-2: #e6c98a;
   --n-gold-deep: #856b3f;
-  --n-hair: rgba(214, 202, 182, 0.12);
+  --n-gold-title: #9a8048;
+  --n-hair: rgba(255, 255, 255, 0.1);
   --n-gold-hair: rgba(212, 175, 106, 0.38);
   --n-serif: 'Cormorant Garamond', Georgia, serif;
   --n-display: 'Montserrat', 'Arial Black', Impact, sans-serif;
   --n-sans: Inter, -apple-system, 'Segoe UI', sans-serif;
   --n-radius: 2px;
   background:
-    radial-gradient(ellipse 70% 50% at 85% 0%, rgba(212, 175, 106, 0.1), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 0%, rgba(212, 175, 106, 0.05), transparent 55%),
     var(--n-bg);
   color: var(--n-ink);
   font-family: var(--n-sans);
@@ -34,8 +35,8 @@
 .nieuw-root :is(input, textarea, select, button):focus-visible {
   outline: none;
 }
-.nieuw-root :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus,
-.nieuw-root :is(input:not([type='checkbox']):not([type='radio']), textarea, select):focus-visible {
+.nieuw-root :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), textarea, select):focus,
+.nieuw-root :is(input:not([type='checkbox']):not([type='radio']):not([type='range']), textarea, select):focus-visible {
   border-color: var(--n-gold) !important;
   box-shadow: 0 0 0 1px rgba(212, 175, 106, 0.35);
 }
@@ -154,6 +155,12 @@
   transition: background 0.2s, transform 0.2s;
 }
 .nieuw-btn:hover { background: var(--n-gold-2); transform: translateY(-1px); }
+.nieuw-btn:disabled,
+.nieuw-btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
 .nieuw-btn-ghost {
   background: transparent;
   color: var(--n-ink);
@@ -710,23 +717,30 @@
   top: 90px;
   border: 1px solid var(--n-hair);
   background: var(--n-bg-2);
-  padding: 20px 18px;
+  padding: 12px 12px 14px;
 }
 .nieuw-models-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 18px;
+  gap: 9px;
+  margin: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--n-gold-hair);
+}
+.nieuw-models-field:first-child {
+  padding-top: 4px;
 }
 .nieuw-models-field:last-of-type {
-  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 8px;
 }
 .nieuw-models-field > span {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--n-dim);
+  color: var(--n-gold-deep);
+  opacity: 0.9;
 }
 .nieuw-models-field input[type='search'],
 .nieuw-models-field input[type='number'] {
@@ -735,13 +749,115 @@
   background: #141419;
   border: 1px solid rgba(238, 233, 223, 0.12);
   color: var(--n-ink);
-  padding: 10px 12px;
-  font-size: 13px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+.nieuw-models-age-range {
+  display: grid;
+  gap: 8px;
+}
+.nieuw-models-age-values {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--n-gold);
+  font-variant-numeric: tabular-nums;
+}
+.nieuw-models-age-slider {
+  position: relative;
+  height: 18px;
+  margin: 2px 7px 0;
+  --age-left: 0%;
+  --age-right: 100%;
+}
+.nieuw-models-age-track,
+.nieuw-models-age-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 0;
+}
+.nieuw-models-age-track {
+  background: rgba(238, 233, 223, 0.22);
+}
+.nieuw-models-age-fill {
+  left: var(--age-left);
+  right: auto;
+  width: calc(var(--age-right) - var(--age-left));
+  background: var(--n-gold);
+}
+.nieuw-models-age-slider input[type='range'] {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: transparent !important;
+  pointer-events: none;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  z-index: 2;
+}
+.nieuw-models-age-slider input[type='range']:last-of-type {
+  z-index: 3;
+}
+.nieuw-models-age-slider input[type='range']::-webkit-slider-runnable-track {
+  height: 2px;
+  background: transparent;
+  border: none;
+}
+.nieuw-models-age-slider input[type='range']::-moz-range-track {
+  height: 2px;
+  background: transparent;
+  border: none;
+}
+.nieuw-models-age-slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  border-radius: 50%;
+  border: 1px solid #120f0a;
+  background: var(--n-gold) !important;
+  box-shadow: none;
+  cursor: pointer;
+}
+.nieuw-models-age-slider input[type='range']::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #120f0a;
+  background: var(--n-gold) !important;
+  box-shadow: none;
+  cursor: pointer;
+}
+.nieuw-models-age-slider input[type='range']:focus,
+.nieuw-models-age-slider input[type='range']:focus-visible {
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 .nieuw-models-age {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .nieuw-models-age input {
   flex: 1;
@@ -749,24 +865,33 @@
 }
 .nieuw-models-age span {
   color: var(--n-dim);
+  font-size: 10px;
 }
 .nieuw-models-checks {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 .nieuw-models-checks label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.3;
   color: var(--n-mut);
   cursor: pointer;
 }
 .nieuw-models-checks input[type='checkbox'] {
   accent-color: var(--n-gold);
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+.nieuw-models-filters .nieuw-btn {
+  margin-top: 10px;
+  padding: 7px 10px;
+  font-size: 9px;
+  letter-spacing: 0.1em;
 }
 .nieuw-models-main {
   min-width: 0;
@@ -1332,6 +1457,23 @@
   padding: 28px;
   color: var(--n-ink);
 }
+.nieuw-root .push-inbox-row {
+  background: var(--n-bg-3) !important;
+  border-color: var(--n-hair) !important;
+  box-shadow: none !important;
+}
+.nieuw-root .push-inbox-title {
+  color: var(--n-gold) !important;
+}
+.nieuw-root .push-inbox-row--unread {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  background: #222222 !important;
+}
+.nieuw-root .push-inbox-row--read {
+  background: #161616 !important;
+  border-color: var(--n-hair) !important;
+  opacity: 0.88;
+}
 .nieuw-panel--legend {
   position: relative;
   margin-top: 0.65em;
@@ -1347,19 +1489,20 @@
   max-width: calc(100% - 36px);
   box-sizing: border-box;
   background: var(--n-bg-2);
-  font-family: var(--n-serif);
-  font-size: clamp(18px, 2.3vw, 24px);
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  font-family: var(--n-display);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   line-height: 1.25;
-  color: var(--n-gold-deep);
-  opacity: 0.9;
+  color: var(--n-gold);
+  opacity: 1;
 }
 /* Buiten het panel is de themed-achtergrond vaak dezelfde tint — deksel de kaderlijn af */
 .nieuw-root .nieuw-themed .nieuw-panel-legend,
 .nieuw-root .nieuw-panel .nieuw-panel-legend {
   background: var(--n-bg-2);
-  color: var(--n-gold-deep) !important;
+  color: var(--n-gold) !important;
 }
 
 /* Uniforme actieknoppenrij boven tab-inhoud */
@@ -1429,15 +1572,15 @@
   min-height: 0;
 }
 
-/* ---------- Klantenportaal — strak zakelijk, warme neutrale tinten ---------- */
+/* ---------- Klantenportaal — strak zakelijk, koel zwart + goud ---------- */
 .cm-kp {
-  /* Warme tinten-trap: diep → kaart → verhoogd (geen blauwzweem) */
-  --kp-deep: #0e0d0d;
-  --kp-card: #1b1a1a;
-  --kp-raised: #242120;
-  --kp-edge: rgba(214, 202, 182, 0.1);
-  --kp-body: rgba(232, 226, 214, 0.72);
-  --kp-ink: #ece6da;
+  /* Neutrale tinten-trap: diep → kaart → verhoogd */
+  --kp-deep: #0a0a0a;
+  --kp-card: #141414;
+  --kp-raised: #1c1c1c;
+  --kp-edge: rgba(255, 255, 255, 0.1);
+  --kp-body: rgba(234, 233, 230, 0.7);
+  --kp-ink: #eae9e6;
   display: grid;
   gap: 36px;
   font-size: 13px;
@@ -1450,11 +1593,13 @@
 .cm-kp-paginatitel {
   margin: 0;
   font-family: var(--n-serif);
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--n-gold);
-  line-height: 1.25;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--n-gold-title);
+  line-height: 1.3;
+  opacity: 0.92;
 }
 .cm-kp-card {
   background: var(--kp-card);
@@ -1483,18 +1628,22 @@
   letter-spacing: 0.2em;
   text-transform: uppercase;
 }
+.nieuw-root .nieuw-themed .cm-kp-intro-title,
+.nieuw-root .nieuw-panel .cm-kp-intro-title,
 .cm-kp-intro-title {
   margin: 0;
+  font-family: var(--n-display) !important;
   color: var(--kp-ink);
   font-size: clamp(25px, 3.1vw, 40px);
-  font-weight: 700;
-  letter-spacing: 0.015em;
-  line-height: 1.18;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.14;
   text-transform: uppercase;
 }
 .cm-kp-intro-title em {
   color: var(--n-gold);
   font-style: normal;
+  font-weight: 800;
 }
 .cm-kp-intro-text {
   max-width: 430px;
@@ -1520,12 +1669,71 @@
 }
 .cm-kp-titel {
   margin: 0 0 18px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-family: var(--n-serif);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--n-gold);
-  line-height: 1.35;
+  color: var(--n-gold-title);
+  line-height: 1.3;
+  opacity: 0.92;
+}
+/*
+ * Gouden sectietitels site-breed = try-out «EEN COMPLETE PROFESSIONELE ERVARING»
+ * Serif, uppercase, gedempt goud (niet te fel)
+ */
+.nieuw-root .nieuw-gold-title,
+.nieuw-root .nieuw-gold-title *,
+.nieuw-root .cm-kp-titel,
+.nieuw-root .cm-kp-titel *,
+.nieuw-root .portal-home-title,
+.nieuw-root .portal-home-title *,
+.nieuw-root .nieuw-themed .portal-home-title,
+.nieuw-root .nieuw-panel .portal-home-title,
+.nieuw-root .model-portal-home .portal-home-title,
+.nieuw-root .model-portal-home h3.portal-home-title,
+.nieuw-root .model-portal-home h3.portal-home-title *,
+.nieuw-root .historiek-panel-title,
+.nieuw-root .historiek-panel-title *,
+.nieuw-root .nieuw-themed .historiek-panel-title,
+.nieuw-root .nieuw-panel .historiek-panel-title,
+.nieuw-root .model-contact-title,
+.nieuw-root .model-contact-title *,
+.nieuw-root .nieuw-themed .model-contact-title,
+.nieuw-root .nieuw-panel .model-contact-title,
+.nieuw-root .cm-kp-paginatitel,
+.nieuw-root .cm-kp-paginatitel * {
+  font-family: var(--n-serif) !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--n-gold-title) !important;
+  line-height: 1.3 !important;
+  -webkit-font-smoothing: antialiased;
+}
+.nieuw-root .nieuw-gold-title,
+.nieuw-root .cm-kp-titel,
+.nieuw-root .portal-home-title,
+.nieuw-root .historiek-panel-title,
+.nieuw-root .model-contact-title,
+.nieuw-root .cm-kp-paginatitel {
+  opacity: 0.9;
+}
+/* Kader-titels (op de lijn): feller goud + Montserrat (opvallender) */
+.nieuw-root .nieuw-panel-legend,
+.nieuw-root .nieuw-panel-legend *,
+.nieuw-root .nieuw-themed .nieuw-panel-legend,
+.nieuw-root .nieuw-panel .nieuw-panel-legend {
+  font-family: var(--n-display) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--n-gold) !important;
+  line-height: 1.25 !important;
+  opacity: 1 !important;
+  -webkit-font-smoothing: antialiased;
 }
 /* Foto + tekst in één doorlopend kader */
 .cm-kp-split {
@@ -1881,12 +2089,12 @@
 }
 .cm-kp-booking .cm-kp-titel {
   margin-bottom: 14px;
-  font-size: 11px;
-  color: var(--n-gold);
+  font-size: 15px;
+  color: var(--n-gold-title);
 }
 .cm-kp-rates > .cm-kp-titel {
   text-align: right;
-  color: var(--n-gold) !important;
+  color: var(--n-gold-title) !important;
 }
 .cm-kp-booking .nieuw-lead {
   font-size: 12px;
@@ -1895,11 +2103,14 @@
 }
 .cm-kp-booking fieldset legend {
   margin-bottom: 16px !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.14em !important;
-  color: var(--n-gold) !important;
+  font-family: var(--n-serif) !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  color: var(--n-gold-title) !important;
   text-transform: uppercase;
+  line-height: 1.3 !important;
+  opacity: 0.92;
 }
 .cm-kp-booking .nieuw-field {
   margin-bottom: 4px;
@@ -1938,8 +2149,8 @@
   padding-right: 28px !important;
 }
 .cm-kp-booking select option {
-  background: #1b1a1a;
-  color: #ece6da;
+  background: #141414;
+  color: #eae9e6;
 }
 .cm-kp-booking input[type='checkbox'] {
   width: 14px !important;
@@ -2653,13 +2864,13 @@
 }
 
 /* Agenda / formulier-inputs in donkere stijl */
-.nieuw-root .nieuw-booking input,
+.nieuw-root .nieuw-booking input:not([type='range']),
 .nieuw-root .nieuw-booking select,
 .nieuw-root .nieuw-booking textarea,
-.nieuw-root .nieuw-themed input:not([type='checkbox']):not([type='radio']),
+.nieuw-root .nieuw-themed input:not([type='checkbox']):not([type='radio']):not([type='range']),
 .nieuw-root .nieuw-themed select,
 .nieuw-root .nieuw-themed textarea,
-.nieuw-root .nieuw-panel input:not([type='checkbox']):not([type='radio']),
+.nieuw-root .nieuw-panel input:not([type='checkbox']):not([type='radio']):not([type='range']),
 .nieuw-root .nieuw-panel select,
 .nieuw-root .nieuw-panel textarea {
   background: var(--n-bg) !important;
@@ -2708,6 +2919,16 @@
   color: var(--n-ink);
   font-weight: 600;
 }
+.nieuw-root .historiek-panel-title,
+.nieuw-root .nieuw-themed .historiek-panel-title,
+.nieuw-root .nieuw-panel .historiek-panel-title {
+  color: var(--n-gold) !important;
+}
+.nieuw-root .model-contact-title,
+.nieuw-root .nieuw-themed .model-contact-title,
+.nieuw-root .nieuw-panel .model-contact-title {
+  color: var(--n-gold) !important;
+}
 
 /* Burgundy accent → goud in nieuwe site */
 .nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep),
@@ -2736,7 +2957,7 @@
   color: var(--n-gold) !important;
 }
 
-/* Modellenportaal home: Direct regelen + info-kadertjes uniform */
+/* Modellenportaal home: body + heads (titels via .nieuw-gold-title / .portal-home-title) */
 .nieuw-root .model-portal-home,
 .nieuw-root .model-portal-home :is(p, span, li, div) {
   font-size: 13.5px;
@@ -2746,10 +2967,6 @@
 .nieuw-root .nieuw-panel .model-portal-home .portal-home-title,
 .nieuw-root .nieuw-themed .model-portal-home .portal-home-title,
 .nieuw-root .model-portal-home h3.portal-home-title {
-  font-family: var(--n-serif) !important;
-  font-size: clamp(20px, 2vw, 24px) !important;
-  color: var(--n-gold) !important;
-  line-height: 1.25 !important;
   margin: 0 !important;
 }
 .nieuw-root .model-portal-home .portal-home-head {
@@ -2765,10 +2982,18 @@
   margin: 6px 0 0 !important;
   color: var(--n-mut) !important;
 }
-.nieuw-root .model-portal-home .portal-aside-card h3,
-.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card h3,
-.nieuw-root .model-portal-home .portal-aside-card > div:first-child h3 {
-  color: #fff !important;
+.nieuw-root .model-portal-home .portal-aside-card {
+  background: var(--n-bg-3) !important;
+  border-color: var(--n-hair) !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card > div:first-child {
+  background: transparent !important;
+  border-bottom: 1px solid var(--n-gold-hair) !important;
+  padding: 12px 14px !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card > div:last-child {
+  padding: 16px 14px !important;
+  color: var(--n-ink) !important;
   font-size: 13.5px !important;
 }
 .nieuw-root .model-portal-home .portal-quick-link {
@@ -2802,25 +3027,6 @@
 .nieuw-root .model-portal-home .portal-quick-sub {
   color: var(--n-mut) !important;
   font-weight: 400 !important;
-}
-.nieuw-root .model-portal-home .portal-aside-card {
-  background: var(--n-bg-3) !important;
-  border-color: var(--n-hair) !important;
-}
-.nieuw-root .model-portal-home .portal-aside-card > div:first-child {
-  background: rgba(200, 166, 98, 0.14) !important;
-  border-bottom: 1px solid var(--n-gold-hair) !important;
-  padding: 12px 14px !important;
-}
-.nieuw-root .model-portal-home .portal-aside-card > div:first-child :is(h3, span, p) {
-  color: var(--n-gold) !important;
-  font-size: 12px !important;
-  letter-spacing: 0.14em;
-}
-.nieuw-root .model-portal-home .portal-aside-card > div:last-child {
-  padding: 16px 14px !important;
-  color: var(--n-ink) !important;
-  font-size: 13.5px !important;
 }
 .nieuw-root .model-portal-home .push-menu-badge.bg-burgundy {
   background: var(--n-gold) !important;
@@ -3473,22 +3679,59 @@
   gap: 22px;
 }
 .nieuw-opdrachten-head {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.95fr) minmax(0, 1.2fr);
+  gap: 40px 52px;
+  align-items: start;
+  border: 1px solid var(--n-hair);
+  background: var(--n-bg-2);
+  padding: 28px 30px;
+}
+.nieuw-opdrachten-hero-copy {
+  min-width: 0;
+  padding-top: 2px;
+}
+.nieuw-root .nieuw-opdrachten-display,
+.nieuw-opdrachten-display {
+  margin: 14px 0 0;
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
+  flex-direction: column;
+  gap: 0.18em;
+  font-family: var(--n-display) !important;
+  font-size: clamp(25px, 3.1vw, 40px);
+  line-height: 1.14;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--n-ink) !important;
+}
+.nieuw-root .nieuw-opdrachten-display em,
+.nieuw-opdrachten-display em {
+  font-style: normal;
+  color: var(--n-gold) !important;
+  font-weight: 800;
+}
+.nieuw-opdrachten-lead {
+  margin: 18px 0 0;
+  max-width: 42ch;
+}
+.nieuw-opdrachten-side {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding-top: 4px;
 }
 .nieuw-opdrachten-stats {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .nieuw-opdrachten-stats > div {
-  min-width: 88px;
-  padding: 14px 16px;
+  flex: 1 1 0;
+  min-width: 76px;
+  padding: 12px 12px;
   border: 1px solid var(--n-hair);
-  background: var(--n-bg-2);
+  background: rgba(0, 0, 0, 0.22);
   text-align: center;
 }
 .nieuw-opdrachten-stats strong {
@@ -3504,7 +3747,7 @@
   margin-top: 6px;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--n-mut);
 }
@@ -3518,45 +3761,75 @@
   color: var(--n-ink) !important;
 }
 .nieuw-opdrachten-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--n-hair);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  background: linear-gradient(to bottom, var(--n-bg) 70%, transparent);
-  padding-bottom: 14px;
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  position: static;
+  background: transparent;
 }
 .nieuw-opdrachten-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
   border: 1px solid var(--n-hair);
-  background: var(--n-bg-2);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.18);
   color: var(--n-mut);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 10px 14px;
+  font: inherit;
+  padding: 8px 11px;
   cursor: pointer;
   transition: border-color 0.2s, color 0.2s, background 0.2s;
 }
-.nieuw-opdrachten-filter span {
-  min-width: 1.4em;
-  color: var(--n-gold);
-  font-variant-numeric: tabular-nums;
+.nieuw-opdrachten-filter-mark {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--n-gold);
+  color: #171310;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+.nieuw-opdrachten-filter-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--n-mut);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.nieuw-opdrachten-filter-label strong {
+  color: var(--n-ink);
+  font-weight: 600;
 }
 .nieuw-opdrachten-filter:hover {
   border-color: var(--n-gold-hair);
   color: var(--n-ink);
 }
 .nieuw-opdrachten-filter.is-active {
-  border-color: var(--n-gold);
-  color: var(--n-ink);
+  border-color: var(--n-gold-hair);
   background: rgba(212, 175, 106, 0.1);
+  color: var(--n-ink);
+}
+.nieuw-opdrachten-filter.is-active .nieuw-opdrachten-filter-label strong {
+  color: var(--n-gold);
+}
+@media (max-width: 820px) {
+  .nieuw-opdrachten-head {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 22px 18px;
+  }
 }
 .nieuw-opdrachten-alert {
   margin: 0;
@@ -3730,16 +4003,14 @@
   font-size: 12px;
   font-weight: 600;
   text-align: center;
+  background: var(--n-bg-3);
   border-bottom: 1px solid var(--n-hair);
 }
 .nieuw-opdracht-elig-banner.is-yes {
-  background: rgba(212, 175, 106, 0.16);
-  color: var(--n-gold);
-  border-bottom-color: var(--n-gold-hair);
+  color: #6fbf86;
 }
 .nieuw-opdracht-elig-banner.is-no {
-  background: rgba(220, 80, 80, 0.07);
-  color: #f0b4b4;
+  color: #e07070;
 }
 .nieuw-opdracht-elig-reason {
   display: block;
@@ -3840,6 +4111,12 @@
   max-width: 52ch;
   line-height: 1.55;
 }
+.nieuw-opdracht-status-msg strong.is-ingeschreven {
+  color: #6fbf86;
+}
+.nieuw-opdracht-status-msg strong.is-uitgeschreven {
+  color: #e07070;
+}
 .nieuw-opdracht-status-msg.is-success {
   color: #b8dfc4;
   font-weight: 600;
@@ -3859,7 +4136,15 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--n-gold);
+  color: var(--n-gold) !important;
+}
+.nieuw-root .nieuw-themed .nieuw-opdracht-apply-label,
+.nieuw-root .nieuw-panel .nieuw-opdracht-apply-label {
+  color: var(--n-gold) !important;
+}
+.nieuw-opdracht-apply-label .is-optioneel {
+  color: var(--n-mut) !important;
+  font-weight: 500;
 }
 .nieuw-opdracht-textarea {
   display: block;

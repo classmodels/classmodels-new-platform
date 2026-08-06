@@ -11,6 +11,7 @@ import { PortalClientBriefsController } from './portal-client-briefs.controller'
 import { PortalClientOfferteController } from './portal-client-offerte.controller';
 import { PortalModelAgendaController } from './portal-model-agenda.controller';
 import { PortalModelBriefsController } from './portal-model-briefs.controller';
+import { PortalModelContactController } from './portal-model-contact.controller';
 import { PortalModelHistoryController } from './portal-model-history.controller';
 import { PortalModelMediaController } from './portal-model-media.controller';
 import { PortalModelModeshowDownloadsController } from './portal-model-modeshow-downloads.controller';
@@ -35,6 +36,7 @@ import { ModelSetCardService } from './model-set-card.service';
     PortalModelMediaController,
     PortalModelAgendaController,
     PortalModelHistoryController,
+    PortalModelContactController,
     PortalModelTryoutModeshowController,
     PortalModelModeshowDownloadsController,
     PortalDownloadsController,

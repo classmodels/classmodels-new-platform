@@ -26,6 +26,7 @@ import { ModelTryoutModeshowTab } from '@/components/model-portal/ModelTryoutMod
 import { ModelModeshowDownloadsTab } from '@/components/model-portal/ModelModeshowDownloadsTab';
 import { ModelSetCardTab } from '@/components/model-portal/ModelSetCardTab';
 import { ModelPortalReviewTab } from '@/components/model-portal/ModelPortalReviewTab';
+import { ModelContactTab } from '@/components/model-portal/ModelContactTab';
 import { PremiumUpsellPanel } from '@/components/model-portal/PremiumUpsellBanner';
 import { ImpersonationBanner } from '@/components/model-portal/ImpersonationBanner';
 import { ModelOpdrachtenTab } from '@/components/nieuw/ModelOpdrachtenTab';
@@ -555,29 +556,14 @@ export default function NieuwModellenPage() {
           />
         );
       } else {
-        const subject = encodeURIComponent('Bericht Class-Models (model)');
         const name = [portalUser.firstName, portalUser.lastName].filter(Boolean).join(' ') || 'Model';
-        const bodyText = encodeURIComponent(
-          `\n\n---\nNaam: ${name}\nE-mail: ${portalUser.email}\nGSM: ${portalUser.phone ?? '—'}`,
-        );
         main = (
-          <div className="nieuw-panel" style={{ textAlign: 'center' }}>
-            <h2 className="nieuw-h2" style={{ fontSize: 28 }}>
-              Contacteer Class-Models
-            </h2>
-            <p className="nieuw-lead" style={{ margin: '14px auto 0', textAlign: 'center' }}>
-              Open uw e-mailprogramma om een bericht te sturen naar info@class-models.be. Uw gegevens worden
-              vooringevuld in het bericht.
-            </p>
-            <div style={{ marginTop: 28 }}>
-              <a
-                className="nieuw-btn"
-                href={`mailto:info@class-models.be?subject=${subject}&body=${bodyText}`}
-              >
-                E-mail openen
-              </a>
-            </div>
-          </div>
+          <ModelContactTab
+            token={token}
+            name={name}
+            email={portalUser.email}
+            phone={portalUser.phone}
+          />
         );
       }
     } else {

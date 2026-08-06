@@ -18,6 +18,9 @@ function availSlug(label: string) {
   return label.toLowerCase().trim().replace(/\s+/g, '-');
 }
 
+const AGE_TRACK_LO = 3;
+const AGE_TRACK_HI = 80;
+
 export function NieuwModelsGallery({
   title = 'Overzicht onze modellen',
 }: {
@@ -37,8 +40,8 @@ export function NieuwModelsGallery({
   const [avSel, setAvSel] = useState<Set<string>>(() => new Set());
   const [genderSel, setGenderSel] = useState<Set<string>>(() => new Set());
   const [flagSel, setFlagSel] = useState<Set<string>>(() => new Set());
-  const [ageMin, setAgeMin] = useState('');
-  const [ageMax, setAgeMax] = useState('');
+  const [ageMin, setAgeMin] = useState(AGE_TRACK_LO);
+  const [ageMax, setAgeMax] = useState(AGE_TRACK_HI);
   const [q, setQ] = useState('');
 
   useEffect(() => {
@@ -69,6 +72,30 @@ export function NieuwModelsGallery({
     };
   }, [token]);
 
+  /** Jongste/oudste model met leeftijd — standaardpositie van de bollen. */
+  const catalogAge = useMemo(() => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const m of models) {
+      if (m.isInactive && !isAdmin) continue;
+      if (m.age == null || !Number.isFinite(m.age)) continue;
+      lo = Math.min(lo, m.age);
+      hi = Math.max(hi, m.age);
+    }
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+      return { lo: AGE_TRACK_LO, hi: AGE_TRACK_HI };
+    }
+    return {
+      lo: Math.min(AGE_TRACK_HI, Math.max(AGE_TRACK_LO, lo)),
+      hi: Math.min(AGE_TRACK_HI, Math.max(AGE_TRACK_LO, hi)),
+    };
+  }, [models, isAdmin]);
+
+  useEffect(() => {
+    setAgeMin(catalogAge.lo);
+    setAgeMax(catalogAge.hi);
+  }, [catalogAge.lo, catalogAge.hi]);
+
   const allAvail = useMemo(() => {
     const s = new Set<string>();
     for (const m of models) {
@@ -89,8 +116,7 @@ export function NieuwModelsGallery({
   };
 
   const filtered = useMemo(() => {
-    const amin = parseInt(ageMin, 10);
-    const amax = parseInt(ageMax, 10);
+    const ageActive = ageMin > catalogAge.lo || ageMax < catalogAge.hi;
     const needle = q.trim().toLowerCase();
 
     return models.filter((m) => {
@@ -106,8 +132,9 @@ export function NieuwModelsGallery({
       if (genderSel.size) {
         if (!m.gender || !genderSel.has(m.gender)) return false;
       }
-      if (amin && (m.age == null || m.age < amin)) return false;
-      if (amax && (m.age == null || m.age > amax)) return false;
+      if (ageActive) {
+        if (m.age == null || m.age < ageMin || m.age > ageMax) return false;
+      }
       if (needle) {
         const name =
           `${m.displayName} ${m.firstName ?? ''} ${m.lastName ?? ''} ${m.gemeente ?? ''}`.toLowerCase();
@@ -115,7 +142,19 @@ export function NieuwModelsGallery({
       }
       return true;
     });
-  }, [models, avSel, genderSel, flagSel, ageMin, ageMax, q, isAdmin]);
+  }, [models, avSel, genderSel, flagSel, ageMin, ageMax, catalogAge.lo, catalogAge.hi, q, isAdmin]);
+
+  const onAgeMin = (raw: number) => {
+    const v = Math.min(Math.max(AGE_TRACK_LO, raw), ageMax);
+    setAgeMin(v);
+  };
+  const onAgeMax = (raw: number) => {
+    const v = Math.max(Math.min(AGE_TRACK_HI, raw), ageMin);
+    setAgeMax(v);
+  };
+  const ageSpan = AGE_TRACK_HI - AGE_TRACK_LO;
+  const ageLeftPct = ((ageMin - AGE_TRACK_LO) / ageSpan) * 100;
+  const ageRightPct = ((ageMax - AGE_TRACK_LO) / ageSpan) * 100;
 
   const openAsModel = async (m: CatalogModel) => {
     if (!token || !user?.email || !canImpersonate) return;
@@ -180,22 +219,39 @@ export function NieuwModelsGallery({
 
           <div className="nieuw-models-field">
             <span>Leeftijd</span>
-            <div className="nieuw-models-age">
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="min"
-                value={ageMin}
-                onChange={(e) => setAgeMin(e.target.value)}
-              />
-              <span>–</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                placeholder="max"
-                value={ageMax}
-                onChange={(e) => setAgeMax(e.target.value)}
-              />
+            <div className="nieuw-models-age-range">
+              <div className="nieuw-models-age-values">
+                <span>{ageMin} j.</span>
+                <span>{ageMax} j.</span>
+              </div>
+              <div
+                className="nieuw-models-age-slider"
+                style={{
+                  ['--age-left' as string]: `${ageLeftPct}%`,
+                  ['--age-right' as string]: `${ageRightPct}%`,
+                }}
+              >
+                <div className="nieuw-models-age-track" aria-hidden />
+                <div className="nieuw-models-age-fill" aria-hidden />
+                <input
+                  type="range"
+                  min={AGE_TRACK_LO}
+                  max={AGE_TRACK_HI}
+                  step={1}
+                  value={ageMin}
+                  aria-label="Minimumleeftijd"
+                  onChange={(e) => onAgeMin(Number(e.target.value))}
+                />
+                <input
+                  type="range"
+                  min={AGE_TRACK_LO}
+                  max={AGE_TRACK_HI}
+                  step={1}
+                  value={ageMax}
+                  aria-label="Maximumleeftijd"
+                  onChange={(e) => onAgeMax(Number(e.target.value))}
+                />
+              </div>
             </div>
           </div>
 
@@ -245,13 +301,13 @@ export function NieuwModelsGallery({
           <button
             type="button"
             className="nieuw-btn nieuw-btn-ghost"
-            style={{ width: '100%', marginTop: 8, fontSize: 10 }}
+            style={{ width: '100%' }}
             onClick={() => {
               setAvSel(new Set());
               setGenderSel(new Set());
               setFlagSel(new Set());
-              setAgeMin('');
-              setAgeMax('');
+              setAgeMin(catalogAge.lo);
+              setAgeMax(catalogAge.hi);
               setQ('');
             }}
           >

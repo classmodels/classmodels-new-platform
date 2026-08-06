@@ -12,12 +12,6 @@ export type HistoryRow = {
   createdAt: string;
 };
 
-function metaLines(meta: unknown): string[] {
-  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return [];
-  const o = meta as Record<string, unknown>;
-  return Object.entries(o).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}`);
-}
-
 export function ModelPortalHistoriekTab({
   token,
   lastLoginAt,
@@ -32,7 +26,6 @@ export function ModelPortalHistoriekTab({
 }) {
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -85,11 +78,14 @@ export function ModelPortalHistoriekTab({
               }
             })();
           }}
-          className="rounded border border-white/80 bg-white px-2.5 py-1 text-xs font-semibold text-burgundy shadow-sm hover:bg-white/95 disabled:opacity-50"
+          className="nieuw-btn nieuw-btn-ghost"
+          style={{ padding: '6px 12px', fontSize: 10 }}
         >
           Historiek resetten
         </button>
-        <span className="text-xs text-white/90">{lastLoginLabel}</span>
+        <span className="text-xs" style={{ color: 'var(--n-mut)' }}>
+          {lastLoginLabel}
+        </span>
       </div>
     ),
     [busy, lastLoginLabel, load, token],
@@ -120,10 +116,18 @@ export function ModelPortalHistoriekTab({
       ) : null}
       {err ? <p className="text-sm text-red-700">{err}</p> : null}
 
-      <div className="rounded-lg border border-zinc-200 bg-white shadow-sm">
+      <div className="nieuw-panel" style={{ padding: 0, overflow: 'hidden' }}>
         {!blurDetails ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3">
-            <h3 className="font-serif text-sm font-semibold uppercase tracking-wide text-ink">Historiek</h3>
+          <div
+            className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+            style={{ borderBottom: '1px solid var(--n-hair)' }}
+          >
+            <h3
+              className="historiek-panel-title"
+              style={{ margin: 0 }}
+            >
+              Historiek
+            </h3>
             <button
               type="button"
               disabled={busy}
@@ -142,7 +146,8 @@ export function ModelPortalHistoriekTab({
                   }
                 })();
               }}
-              className="rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-ink hover:bg-zinc-50 disabled:opacity-50"
+              className="nieuw-btn nieuw-btn-ghost"
+              style={{ padding: '6px 12px', fontSize: 10 }}
             >
               Historiek resetten
             </button>
@@ -151,57 +156,60 @@ export function ModelPortalHistoriekTab({
 
         <div className="p-4">
           {rows === null ? (
-            <p className="text-sm text-muted">Laden…</p>
+            <p className="text-sm" style={{ color: 'var(--n-mut)', margin: 0 }}>
+              Laden…
+            </p>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-muted">Nog geen gebeurtenissen geregistreerd.</p>
+            <p className="text-sm" style={{ color: 'var(--n-mut)', margin: 0 }}>
+              Nog geen gebeurtenissen geregistreerd.
+            </p>
           ) : (
-            <ul className="relative space-y-0 pl-0">
-              <div className="absolute bottom-2 left-[5.25rem] top-2 w-px bg-zinc-200" aria-hidden />
+            <ul className="relative space-y-0 pl-0" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              <div
+                className="absolute bottom-2 top-2 w-px"
+                style={{ left: '5.25rem', background: 'var(--n-gold-hair)' }}
+                aria-hidden
+              />
               {rows.map((row) => {
                 const d = new Date(row.createdAt);
                 const dateStr = new Intl.DateTimeFormat('nl-BE', { dateStyle: 'short' }).format(d);
                 const timeStr = new Intl.DateTimeFormat('nl-BE', { timeStyle: 'medium' }).format(d);
                 const title = historyTitle(row.action, row.meta);
                 const sub = historySubtitle(row.action, row.meta);
-                const open = expanded.has(row.id);
-                const lines = metaLines(row.meta);
                 return (
                   <li key={row.id} className="relative flex gap-3 py-3 pr-2">
-                    <div className="flex w-[4.5rem] shrink-0 flex-col text-right text-xs leading-tight text-muted">
+                    <div
+                      className="flex w-[4.5rem] shrink-0 flex-col text-right text-xs leading-tight"
+                      style={{ color: 'var(--n-mut)' }}
+                    >
                       <span>{dateStr}</span>
-                      <span className="text-[11px]">{timeStr}</span>
+                      <span style={{ fontSize: 11 }}>{timeStr}</span>
                     </div>
                     <div className="relative z-[1] flex shrink-0 flex-col items-center pt-1">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-teal-600 shadow-sm ring-2 ring-white" />
+                      <span
+                        className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                        style={{
+                          background: 'var(--n-gold)',
+                          boxShadow: '0 0 0 2px var(--n-bg-2)',
+                        }}
+                      />
                     </div>
                     <div className="relative min-w-0 flex-1 pb-1">
                       <div className={blurDetails ? 'select-none blur-[5px]' : undefined} aria-hidden={blurDetails}>
-                        <p className="text-sm font-semibold text-ink">{title}</p>
-                        {sub ? <p className="mt-0.5 text-xs text-zinc-600">{sub}</p> : null}
-                        {lines.length > 0 && !blurDetails ? (
-                          <button
-                            type="button"
-                            className="mt-1 text-xs font-medium text-sky-700 underline hover:text-sky-900"
-                            onClick={() =>
-                              setExpanded((prev) => {
-                                const n = new Set(prev);
-                                if (n.has(row.id)) n.delete(row.id);
-                                else n.add(row.id);
-                                return n;
-                              })
-                            }
-                          >
-                            {open ? 'info verbergen' : 'info'}
-                          </button>
-                        ) : null}
-                        {open && lines.length > 0 && !blurDetails ? (
-                          <pre className="mt-2 max-h-40 overflow-auto rounded border border-zinc-100 bg-zinc-50 p-2 text-[11px] leading-snug text-zinc-800">
-                            {lines.join('\n')}
-                          </pre>
+                        <p className="text-sm font-semibold" style={{ margin: 0, color: 'var(--n-gold)' }}>
+                          {title}
+                        </p>
+                        {sub ? (
+                          <p className="mt-0.5 text-xs" style={{ margin: '2px 0 0', color: 'var(--n-mut)' }}>
+                            {sub}
+                          </p>
                         ) : null}
                       </div>
                       {blurDetails ? (
-                        <p className="pointer-events-none absolute inset-0 flex items-center text-[10px] font-medium text-zinc-500">
+                        <p
+                          className="pointer-events-none absolute inset-0 flex items-center text-[10px] font-medium"
+                          style={{ color: 'var(--n-mut)' }}
+                        >
                           Premium vereist
                         </p>
                       ) : null}

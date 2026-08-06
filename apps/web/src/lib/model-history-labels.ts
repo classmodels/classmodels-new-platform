@@ -42,6 +42,8 @@ export function historyTitle(action: string, meta?: unknown): string {
       return 'Opdracht — niet geselecteerd';
     case 'message_mailto':
       return 'Bericht naar Class-Models (gestart)';
+    case 'message_sent':
+      return 'Bericht naar Class-Models';
     case 'premium_paid':
       return 'Premium betaald';
     case 'premium_revoked':
@@ -91,7 +93,7 @@ export function historySubtitle(action: string, meta: unknown): string {
   ) {
     return String(m.briefTitle ?? '');
   }
-  if (k === 'message_mailto') {
+  if (k === 'message_mailto' || k === 'message_sent') {
     const s = String(m.subject ?? '');
     const n = m.bodyChars != null ? ` (${String(m.bodyChars)} tekens)` : '';
     return s ? `${s}${n}` : `E-mail${n}`;

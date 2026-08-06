@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ModelSheetDialog } from '@/components/admin/ModelSheetDialog';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
@@ -59,8 +60,9 @@ function formatCreated(d?: string): string {
   }
 }
 
-export default function AdminModellenProfielenPage() {
+export function AdminModellenProfielenPageContent() {
   const { token, can } = useAuth();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<UserRow[]>([]);
   const [sheetUser, setSheetUser] = useState<UserRow | null>(null);
 
@@ -73,6 +75,13 @@ export default function AdminModellenProfielenPage() {
   useEffect(() => {
     load().catch(() => setRows([]));
   }, [load]);
+
+  useEffect(() => {
+    const id = searchParams.get('user')?.trim();
+    if (!id || !rows.length) return;
+    const hit = rows.find((u) => u.id === id);
+    if (hit) setSheetUser(hit);
+  }, [searchParams, rows]);
 
   const sorted = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -166,5 +175,13 @@ export default function AdminModellenProfielenPage() {
         />
       ) : null}
     </div>
+  );
+}
+
+export default function AdminModellenProfielenPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted">Laden…</p>}>
+      <AdminModellenProfielenPageContent />
+    </Suspense>
   );
 }

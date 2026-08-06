@@ -5,14 +5,11 @@ import { apiFetch, getApiBase } from '@/lib/api';
 import type { AuthUser, ModelPushSummary } from '@/context/auth-context';
 import { PushFilterPill } from '@/components/model-portal/push-count-badge';
 
-const pushContentBtn =
-  'inline-flex items-center gap-1.5 border border-burgundy/40 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-burgundy shadow-sm hover:bg-burgundy/[0.06] disabled:opacity-50 sm:text-[11px]';
-
 function pushActionCount(n: number) {
   if (n <= 0) return null;
   const label = n > 99 ? '99+' : String(n);
   return (
-    <span className="min-w-[1rem] text-right text-[10px] font-bold tabular-nums text-burgundy" aria-hidden>
+    <span className="min-w-[1rem] text-right text-[10px] font-bold tabular-nums" style={{ color: 'var(--n-gold)' }} aria-hidden>
       {label}
     </span>
   );
@@ -450,12 +447,12 @@ export function ModelPortalPushTab({
     <div className="space-y-5 text-sm">
       {pushMsg ? <p className="text-xs font-medium text-red-700">{pushMsg}</p> : null}
 
-      <div className="nieuw-portal-toolbar">
+      <div className="nieuw-portal-toolbar cm-kp-actions">
         <button
           type="button"
           disabled={busy || !inboxIds.length}
           onClick={allSelected ? clearSel : selectAll}
-          className={pushContentBtn}
+          className="nieuw-btn nieuw-btn-ghost"
         >
           <span>{allSelected ? 'Geen' : 'Alles aanwijzen'}</span>
         </button>
@@ -463,19 +460,19 @@ export function ModelPortalPushTab({
           type="button"
           disabled={busy || !selectedIds.length}
           onClick={() => void markReadMany(selectedIds)}
-          className={pushContentBtn}
+          className="nieuw-btn nieuw-btn-ghost"
         >
           <span>Selectie gelezen</span>
           {pushActionCount(selectedIds.length)}
         </button>
-        <button type="button" disabled={busy} onClick={() => void markAllRead()} className={pushContentBtn}>
+        <button type="button" disabled={busy} onClick={() => void markAllRead()} className="nieuw-btn nieuw-btn-ghost">
           <span>Alles gelezen</span>
         </button>
         <button
           type="button"
           disabled={busy || !selectedIds.length}
           onClick={() => void deleteMany(selectedIds)}
-          className={pushContentBtn}
+          className="nieuw-btn nieuw-btn-ghost"
         >
           <span>Verwijderen</span>
           {pushActionCount(selectedIds.length)}
@@ -489,9 +486,7 @@ export function ModelPortalPushTab({
               <li
                 key={row.id}
                 className={`push-inbox-row border px-3 py-2 shadow-sm ${
-                  row.readAt
-                    ? 'border-zinc-100 bg-zinc-50/50'
-                    : 'border-[rgba(138,106,59,0.4)] bg-[rgba(138,106,59,0.1)]'
+                  row.readAt ? 'push-inbox-row--read' : 'push-inbox-row--unread'
                 }`}
               >
                 <div className="flex flex-wrap items-start gap-2">
@@ -509,7 +504,7 @@ export function ModelPortalPushTab({
                     />
                   </label>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-ink">{row.title}</p>
+                    <p className="push-inbox-title text-xs font-semibold">{row.title}</p>
                     <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-zinc-800">{row.body}</p>
                     <p className="mt-1 text-[10px] text-muted">
                       {new Date(row.createdAt).toLocaleString('nl-BE')} — {row.source === 'agency' ? 'Bureau' : 'Historiek'}

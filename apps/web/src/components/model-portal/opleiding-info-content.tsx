@@ -111,22 +111,7 @@ export function OpleidingInfoContent() {
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
-  return (
-    <h3
-      style={{
-        margin: 0,
-        fontFamily: 'var(--n-serif)',
-        fontSize: 15,
-        fontWeight: 600,
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
-        color: 'var(--n-gold)',
-        lineHeight: 1.3,
-      }}
-    >
-      {children}
-    </h3>
-  );
+  return <h3 className="cm-kp-titel" style={{ margin: 0 }}>{children}</h3>;
 }
 
 function SectionDivider() {

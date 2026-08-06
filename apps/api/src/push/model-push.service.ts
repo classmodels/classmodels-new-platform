@@ -59,6 +59,9 @@ export class ModelPushService {
 
   async emitFromHistory(userId: string, kind: string, meta?: Record<string, unknown>) {
     try {
+      // Eigen contactbericht → geen push naar het model
+      if (kind === 'message_sent' || kind === 'message_mailto') return;
+
       const prefs = await this.prisma.modelPushSettings.findUnique({
         where: { userId },
         select: { notifyHistoryEvents: true },
