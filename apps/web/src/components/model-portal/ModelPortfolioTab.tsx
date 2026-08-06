@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { apiFetch, getApiBase } from '@/lib/api';
+import { apiFetch, getLargeUploadApiBase } from '@/lib/api';
 import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
 import { CmText } from '@/components/CmText';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
@@ -89,7 +89,7 @@ export function ModelPortfolioTab({
     setDeliveryBusy(true);
     setDownloadProgress({ percent: null, loaded: 0, total: null, indeterminate: true, phase: 'connecting' });
     try {
-      await downloadWithProgress(`${getApiBase()}/portal/model/media/portfolio-delivery/zip`, {
+      await downloadWithProgress(`${getLargeUploadApiBase()}/portal/model/media/portfolio-delivery/zip`, {
         token,
         fallbackName: 'portfolio-class-models.zip',
         onProgress: setDownloadProgress,

@@ -170,7 +170,7 @@ export function downloadWithProgress(
 
 export function downloadProgressSublabel(p: DownloadProgressUpdate): string {
   if (p.phase === 'connecting') {
-    return 'Verbinding met server — bij grote films kan dit enkele minuten duren vóór de eerste %.';
+    return 'Server bereidt bestand voor — bij een ZIP start de voortgang zodra de eerste bytes binnenkomen.';
   }
   if (p.phase === 'saving') {
     return 'Bestand wordt opgeslagen op je apparaat…';
@@ -179,5 +179,5 @@ export function downloadProgressSublabel(p: DownloadProgressUpdate): string {
     return `${formatMb(p.loaded)} van ${formatMb(p.total)}`;
   }
   if (p.loaded > 0) return `${formatMb(p.loaded)} gedownload`;
-  return 'Even geduld…';
+  return 'Wachten op eerste bytes…';
 }
