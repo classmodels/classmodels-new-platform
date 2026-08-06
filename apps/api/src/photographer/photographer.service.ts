@@ -68,11 +68,17 @@ export class PhotographerService {
     folderSlug: string,
     modelUserId?: string,
   ) {
-    const isImage = file.mimetype.startsWith('image/');
+    const name = file.originalname || '';
+    const mime = (file.mimetype || '').toLowerCase();
+    const isImage = mime.startsWith('image/') || /\.(jpe?g|png|gif|webp|heic|heif|tif{1,2})$/i.test(name);
     const isZip =
-      file.mimetype === 'application/zip' ||
-      file.mimetype === 'application/x-zip-compressed' ||
-      /\.zip$/i.test(file.originalname || '');
+      /\.zip$/i.test(name) ||
+      mime === 'application/zip' ||
+      mime === 'application/x-zip-compressed' ||
+      mime === 'application/x-zip' ||
+      mime === 'multipart/x-zip' ||
+      // macOS/Safari stuurt vaak octet-stream voor .zip
+      (mime === 'application/octet-stream' && /\.zip$/i.test(name));
     if (!isImage && !isZip) {
       throw new BadRequestException('Alleen foto’s of een ZIP-bestand zijn toegestaan.');
     }
@@ -84,7 +90,11 @@ export class PhotographerService {
       if (!modelUserId) throw new BadRequestException('Kies een model voor deze upload.');
       await this.assertModelEligible(modelUserId);
       // Nieuwe levering: oude download-status wissen zodat de knop weer verschijnt.
-      await this.prisma.portfolioDeliveryAck.deleteMany({ where: { modelUserId } });
+      try {
+        await this.prisma.portfolioDeliveryAck.deleteMany({ where: { modelUserId } });
+      } catch {
+        /* tabel kan kort ontbreken na deploy */
+      }
     }
     const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: folderSlug } });
     if (!folder) throw new NotFoundException('Mediamap ontbreekt.');
@@ -102,7 +112,10 @@ export class PhotographerService {
       uploadFile = {
         ...file,
         originalname: `${safe} class-models.zip`,
+        mimetype: 'application/zip',
       };
+    } else if (isZip) {
+      uploadFile = { ...file, mimetype: 'application/zip' };
     }
 
     return this.media.saveFile(uploadFile, photographerId, folder.id, {

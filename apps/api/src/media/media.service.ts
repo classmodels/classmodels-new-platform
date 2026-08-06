@@ -1030,8 +1030,12 @@ export class MediaService implements OnModuleInit {
     folderId?: string | null,
     opts?: SaveFileOptions,
   ) {
-    const inputBuf = await this.readUploadBuffer(file);
     const id = randomUUID();
+    const multerPath = (file as Express.Multer.File & { path?: string }).path;
+    const tmpDiskPath = multerPath && existsSync(multerPath) ? multerPath : undefined;
+    const isZipUpload =
+      /\.zip$/i.test(file.originalname || '') ||
+      (file.mimetype || '').includes('zip');
 
     let folder: { slug: string; settings: unknown } | null = null;
     if (folderId) {
@@ -1040,6 +1044,58 @@ export class MediaService implements OnModuleInit {
         select: { slug: true, settings: true },
       });
     }
+
+    // Grote ZIP’s: stream vanaf schijf → R2 (niet heel bestand in RAM).
+    if (isZipUpload) {
+      const storageKey = `${id}.zip`;
+      let sizeBytes = file.size || 0;
+      try {
+        if (tmpDiskPath) {
+          await r2PutLocalFile(storageKey, tmpDiskPath, 'application/zip');
+          sizeBytes = statSync(tmpDiskPath).size;
+        } else {
+          const inputBuf = await this.readUploadBuffer(file);
+          await r2PutBuffer(storageKey, inputBuf, 'application/zip');
+          sizeBytes = inputBuf.length;
+        }
+        const displayOriginal = this.buildDisplayOriginalName(
+          { ...file, originalname: file.originalname || 'portfolio.zip', mimetype: 'application/zip' },
+          folder ?? undefined,
+          opts,
+        );
+        const linked =
+          opts?.linkedModelUserId && /^[0-9a-f-]{36}$/i.test(opts.linkedModelUserId) ?
+            opts.linkedModelUserId
+          : undefined;
+        const created = await this.prisma.mediaAsset.create({
+          data: {
+            originalName: displayOriginal,
+            storageKey,
+            mimeType: 'application/zip',
+            sizeBytes,
+            uploadedById: userId,
+            folderId: folderId && folderId.length > 0 ? folderId : undefined,
+            linkedModelUserId: linked,
+          },
+        });
+        return this.uploadResponseDto(created);
+      } catch (e: unknown) {
+        if (e instanceof BadRequestException || e instanceof NotFoundException) throw e;
+        console.error('[media] saveFileToR2 zip mislukt:', e);
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new BadRequestException(`ZIP-upload naar R2 mislukt: ${msg}`);
+      } finally {
+        if (tmpDiskPath) {
+          try {
+            unlinkSync(tmpDiskPath);
+          } catch {
+            /* */
+          }
+        }
+      }
+    }
+
+    const inputBuf = await this.readUploadBuffer(file);
     const folderSettings = parseMediaFolderSettings(folder?.settings);
     const webpOnly = Boolean(
       folderSettings.storeUploadsAsWebpOnly &&
