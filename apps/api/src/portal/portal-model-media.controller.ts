@@ -22,11 +22,15 @@ import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { DownloadAckDto } from '../media/dto/media-admin.dto';
 import { MediaService } from '../media/media.service';
+import { PortfolioDeliveryService } from './portfolio-delivery.service';
 
 @Controller('portal/model/media')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PortalModelMediaController {
-  constructor(private media: MediaService) {}
+  constructor(
+    private media: MediaService,
+    private portfolioDelivery: PortfolioDeliveryService,
+  ) {}
 
   @Get()
   @Permissions('portal.model.media.read')
@@ -43,14 +47,20 @@ export class PortalModelMediaController {
   @Get('portfolio-delivery/count')
   @Permissions('portal.model.media.read')
   async portfolioDeliveryCount(@Req() req: { user: JwtPayload }) {
-    const n = await this.media.countPortfolioDeliveryForModel(req.user.sub);
-    return { count: n };
+    const s = await this.portfolioDelivery.statusForModel(req.user.sub);
+    return { count: s.fileCount };
+  }
+
+  @Get('portfolio-delivery/status')
+  @Permissions('portal.model.media.read')
+  portfolioDeliveryStatus(@Req() req: { user: JwtPayload }) {
+    return this.portfolioDelivery.statusForModel(req.user.sub);
   }
 
   @Get('portfolio-delivery/zip')
   @Permissions('portal.model.media.read')
   async portfolioDeliveryZip(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
-    await this.media.streamPortfolioDeliveryZipAndConsume(req.user.sub, res);
+    await this.portfolioDelivery.streamZip(req.user.sub, res, { consume: true });
   }
 
   @Delete(':id')

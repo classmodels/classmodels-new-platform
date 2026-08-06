@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase } from '@/lib/api';
 import { CmProgressOverlay } from '@/components/CmProgressOverlay';
@@ -12,6 +12,8 @@ type BookingRow = {
   endAt: string;
   status: string;
   modelUserId: string | null;
+  shootDate?: string;
+  fileCount?: number;
   displayName: string;
 };
 
@@ -25,6 +27,7 @@ export default function PhotographerPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [uploadProgress, setUploadProgress] = useState<{ percent: number; sublabel: string } | null>(null);
+  const [dayFilter, setDayFilter] = useState('');
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -44,11 +47,34 @@ export default function PhotographerPage() {
     void load();
   }, [load]);
 
+  const days = useMemo(() => {
+    const s = new Set<string>();
+    for (const b of bookings) {
+      const d = b.shootDate || b.startAt.slice(0, 10);
+      s.add(d);
+    }
+    return [...s].sort().reverse();
+  }, [bookings]);
+
+  const visible = useMemo(() => {
+    if (!dayFilter) return bookings;
+    return bookings.filter((b) => (b.shootDate || b.startAt.slice(0, 10)) === dayFilter);
+  }, [bookings, dayFilter]);
+
+  const selectedName = useMemo(() => {
+    const b = bookings.find((x) => x.modelUserId === modelUserId);
+    return b?.displayName ?? '';
+  }, [bookings, modelUserId]);
+
   const upload = async (file: File | null) => {
     if (!file || !token) return;
+    if (folderSlug === 'portfolio-fotograaf' && !modelUserId.trim()) {
+      setMsg('Kies eerst een model.');
+      return;
+    }
     setBusy(true);
     setMsg('');
-    setUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open.' });
+    setUploadProgress({ percent: 0, sublabel: 'Dit kan even duren — laat dit venster open (tot 4 GB).' });
     try {
       const fd = new FormData();
       fd.append('file', file);
@@ -69,13 +95,15 @@ export default function PhotographerPage() {
         onUploadBytesComplete: () => {
           setUploadProgress({
             percent: 100,
-            sublabel: 'Bestand ontvangen — de server verwerkt de foto nog. Dit kan even duren.',
+            sublabel: 'Bestand ontvangen — de server verwerkt nog. Dit kan even duren.',
           });
         },
       });
       const body = JSON.parse(text) as { error?: string; id?: string };
       if (body?.error) throw new Error(body.error);
-      setMsg(`Geüpload: ${file.name}`);
+      const label = selectedName ? `${selectedName} class-models` : file.name;
+      setMsg(`Geüpload: ${label}`);
+      await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Upload mislukt');
     } finally {
@@ -88,58 +116,84 @@ export default function PhotographerPage() {
     <div className="space-y-6">
       {uploadProgress ? (
         <CmProgressOverlay
-          label="Foto uploaden…"
+          label="Portfolio uploaden…"
           sublabel={uploadProgress.sublabel}
           percent={uploadProgress.percent}
         />
       ) : null}
       <p className="text-sm leading-relaxed text-muted">
-        Upload alleen portfoliofoto&apos;s. Kies de map <strong className="text-ink">Portfolio (→ model)</strong> en het
-        model-account (UUID) om bestanden aan dat model te koppelen voor download in het modellenportaal. Map{' '}
-        <strong className="text-ink">Divers</strong> is voor bestanden zonder model — enkel zichtbaar in de mediatheek
-        voor admins.
+        Kies een model uit de lijst (aanmaak portfolio) en upload per model een <strong className="text-ink">ZIP</strong>{' '}
+        met foto&apos;s in hoge kwaliteit (of losse foto&apos;s). Bestanden worden hernoemd naar{' '}
+        <strong className="text-ink">«naam class-models»</strong> en verschijnen als download in de modellenfiche.
       </p>
       <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-950">
-        Maximale bestandsgrootte: standaard 500 MB per bestand (omgeving <code className="text-[10px]">PHOTOGRAPHER_UPLOAD_MAX_BYTES</code>).
-        Zeer grote leveringen: splits over meerdere bestanden of verhoog de limiet en reverse-proxy timeouts.
+        Max. <strong>4 GB</strong> per bestand. Houd dit venster open tijdens de upload. Map{' '}
+        <strong>Divers</strong> is zonder model — alleen zichtbaar in de admin-mediatheek.
       </p>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-burgundy">Portfolio-afspraken (recent)</h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 className="text-xs font-bold uppercase tracking-wide text-burgundy">Modellen met portfolio-afspraak</h2>
+          <label className="text-[11px]">
+            <span className="font-medium text-ink">Filter dag</span>
+            <select
+              className="ml-2 rounded border border-line bg-white px-2 py-1 text-xs"
+              value={dayFilter}
+              onChange={(e) => setDayFilter(e.target.value)}
+            >
+              <option value="">Alle dagen</option>
+              {days.map((d) => (
+                <option key={d} value={d}>
+                  {new Date(d + 'T12:00:00').toLocaleDateString('nl-BE')}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         {loading ? <p className="mt-2 text-sm text-muted">Laden…</p> : null}
         {err ? <p className="mt-2 text-sm text-red-700">{err}</p> : null}
-        {!loading && !bookings.length ? (
-          <p className="mt-2 text-sm text-muted">Geen portfolio-afspraken in de komende/periode.</p>
+        {!loading && !visible.length ? (
+          <p className="mt-2 text-sm text-muted">Geen portfolio-afspraken in deze periode.</p>
         ) : (
-          <ul className="mt-2 max-h-56 divide-y divide-line overflow-y-auto text-xs">
-            {bookings.map((b) => (
-              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <span className="font-medium text-ink">{b.displayName}</span>
-                <span className="tabular-nums text-muted">
-                  {new Date(b.startAt).toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' })}
-                </span>
-                {b.modelUserId ? (
-                  <button
-                    type="button"
-                    className="rounded border border-line bg-panel px-2 py-0.5 text-[10px] text-ink hover:bg-white"
-                    onClick={() => {
-                      setFolderSlug('portfolio-fotograaf');
-                      setModelUserId(b.modelUserId!);
-                    }}
-                  >
-                    UUID invullen
-                  </button>
-                ) : (
-                  <span className="text-[10px] text-muted">Geen account gekoppeld</span>
-                )}
-              </li>
-            ))}
+          <ul className="mt-2 max-h-72 divide-y divide-line overflow-y-auto text-xs">
+            {visible.map((b) => {
+              const active = b.modelUserId && b.modelUserId === modelUserId;
+              return (
+                <li key={b.id} className={`flex flex-wrap items-center justify-between gap-2 py-2 ${active ? 'bg-burgundy/[0.04]' : ''}`}>
+                  <span className="font-medium text-ink">{b.displayName}</span>
+                  <span className="tabular-nums text-muted">
+                    {new Date(b.startAt).toLocaleString('nl-BE', { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                  <span className="text-[10px] text-muted">
+                    {typeof b.fileCount === 'number' ? `${b.fileCount} bestand(en)` : ''}
+                  </span>
+                  {b.modelUserId ? (
+                    <button
+                      type="button"
+                      className={`rounded border px-2 py-0.5 text-[10px] ${
+                        active
+                          ? 'border-burgundy bg-burgundy text-white'
+                          : 'border-line bg-panel text-ink hover:bg-white'
+                      }`}
+                      onClick={() => {
+                        setFolderSlug('portfolio-fotograaf');
+                        setModelUserId(b.modelUserId!);
+                      }}
+                    >
+                      {active ? 'Geselecteerd' : 'Selecteer'}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-muted">Geen account gekoppeld</span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-burgundy">Upload</h2>
+        <h2 className="text-xs font-bold uppercase tracking-wide text-burgundy">Upload per model</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block text-xs">
             <span className="font-medium text-ink">Map</span>
@@ -153,22 +207,19 @@ export default function PhotographerPage() {
             </select>
           </label>
           {folderSlug === 'portfolio-fotograaf' ? (
-            <label className="block text-xs">
-              <span className="font-medium text-ink">Model user-id (UUID)</span>
-              <input
-                className="mt-1 w-full rounded border border-line bg-white px-2 py-1.5 font-mono text-[11px]"
-                placeholder="00000000-0000-0000-0000-000000000000"
-                value={modelUserId}
-                onChange={(e) => setModelUserId(e.target.value)}
-              />
-            </label>
+            <div className="text-xs">
+              <span className="font-medium text-ink">Geselecteerd model</span>
+              <p className="mt-1 rounded border border-line bg-panel px-2 py-1.5 text-sm text-ink">
+                {selectedName || (modelUserId ? modelUserId : 'Nog geen model gekozen')}
+              </p>
+            </div>
           ) : null}
         </div>
         <label className="mt-4 inline-block cursor-pointer rounded bg-burgundy px-4 py-2 text-sm font-medium text-white hover:bg-burgundyDeep disabled:opacity-50">
-          {busy ? 'Bezig…' : 'Afbeelding kiezen…'}
+          {busy ? 'Bezig…' : 'ZIP of foto’s kiezen…'}
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,.zip,application/zip,application/x-zip-compressed"
             className="hidden"
             disabled={busy || (folderSlug === 'portfolio-fotograaf' && !modelUserId.trim())}
             onChange={(e) => void upload(e.target.files?.[0] ?? null)}

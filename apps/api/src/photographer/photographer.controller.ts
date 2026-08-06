@@ -32,8 +32,8 @@ function photographerUploadMaxBytes(): number {
     const n = parseInt(raw, 10);
     if (Number.isFinite(n) && n > 0) return Math.min(n, 4 * 1024 * 1024 * 1024);
   }
-  /** Standaard 500 MB per bestand; verhoog via env (tot 4 GB) voor grote RAW. Reverse proxy timeouts aanpassen. */
-  return 500 * 1024 * 1024;
+  /** Standaard 4 GB per bestand (ZIP of foto’s). Reverse proxy timeouts aanpassen. */
+  return 4 * 1024 * 1024 * 1024;
 }
 
 @Controller('photographer')

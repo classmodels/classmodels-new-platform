@@ -77,12 +77,13 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     id: 'media',
     label: 'Media & reviews',
     icon: 'image',
-    items: [
-      { href: '/admin/media', label: 'Media Library', permission: 'admin.media.read' },
-      { href: '/admin/partners', label: 'Partnerlogo’s', permission: 'admin.partners.read' },
-      { href: '/admin/reviews', label: 'Reviews', permission: 'admin.reviews.read' },
-      { href: '/admin/testshoot', label: 'Testshoot', permission: 'admin.testshoot.read' },
-    ],
+        items: [
+          { href: '/admin/media', label: 'Media Library', permission: 'admin.media.read' },
+          { href: '/admin/portfolio-levering', label: 'Portfolio-levering', permission: 'admin.media.read' },
+          { href: '/admin/partners', label: 'Partnerlogo’s', permission: 'admin.partners.read' },
+          { href: '/admin/reviews', label: 'Reviews', permission: 'admin.reviews.read' },
+          { href: '/admin/testshoot', label: 'Testshoot', permission: 'admin.testshoot.read' },
+        ],
   },
   {
     id: 'agenda',

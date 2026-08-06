@@ -58,6 +58,7 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
         icon: 'image',
         items: [
           { href: '/admin/media', label: t('admin.mediaLibrary'), permission: 'admin.media.read' },
+          { href: '/admin/portfolio-levering', label: 'Portfolio-levering', permission: 'admin.media.read' },
           { href: '/admin/reviews', label: t('admin.reviews'), permission: 'admin.reviews.read' },
           { href: '/admin/testshoot', label: t('admin.testshoot'), permission: 'admin.testshoot.read' },
         ],

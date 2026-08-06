@@ -23,26 +23,43 @@ export class PhotographerService {
     await this.media.ensureDefaultFolders();
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { slug: 'portfolio' } });
     if (!cal) return [];
-    const from = new Date(Date.now() - 14 * 86400000);
+    const from = new Date(Date.now() - 120 * 86400000);
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: 'portfolio-fotograaf' } });
     const rows = await this.prisma.agendaBooking.findMany({
-      where: { calendarId: cal.id, startAt: { gte: from } },
-      orderBy: { startAt: 'asc' },
-      take: 150,
+      where: {
+        calendarId: cal.id,
+        startAt: { gte: from },
+        status: { notIn: ['cancelled', 'cancelled_cm', 'geannuleerd'] },
+      },
+      orderBy: { startAt: 'desc' },
+      take: 300,
       include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
     });
-    return rows.map((b) => ({
-      id: b.id,
-      startAt: b.startAt.toISOString(),
-      endAt: b.endAt.toISOString(),
-      status: b.status,
-      modelUserId: b.userId,
-      displayName:
-        [b.user?.firstName, b.user?.lastName].filter(Boolean).join(' ').trim() ||
-        [b.firstname, b.lastname].filter(Boolean).join(' ').trim() ||
-        b.name?.trim() ||
-        b.email ||
-        '(geen naam)',
-    }));
+    return Promise.all(
+      rows.map(async (b) => {
+        let fileCount = 0;
+        if (folder && b.userId) {
+          fileCount = await this.prisma.mediaAsset.count({
+            where: { folderId: folder.id, linkedModelUserId: b.userId, hardDeleted: false },
+          });
+        }
+        return {
+          id: b.id,
+          startAt: b.startAt.toISOString(),
+          endAt: b.endAt.toISOString(),
+          status: b.status,
+          modelUserId: b.userId,
+          shootDate: b.startAt.toISOString().slice(0, 10),
+          fileCount,
+          displayName:
+            [b.user?.firstName, b.user?.lastName].filter(Boolean).join(' ').trim() ||
+            [b.firstname, b.lastname].filter(Boolean).join(' ').trim() ||
+            b.name?.trim() ||
+            b.email ||
+            '(geen naam)',
+        };
+      }),
+    );
   }
 
   async upload(
@@ -51,20 +68,44 @@ export class PhotographerService {
     folderSlug: string,
     modelUserId?: string,
   ) {
-    if (!file.mimetype.startsWith('image/')) {
-      throw new BadRequestException('Alleen afbeeldingen zijn toegestaan.');
+    const isImage = file.mimetype.startsWith('image/');
+    const isZip =
+      file.mimetype === 'application/zip' ||
+      file.mimetype === 'application/x-zip-compressed' ||
+      /\.zip$/i.test(file.originalname || '');
+    if (!isImage && !isZip) {
+      throw new BadRequestException('Alleen foto’s of een ZIP-bestand zijn toegestaan.');
     }
     await this.media.ensureDefaultFolders();
     if (folderSlug !== 'portfolio-fotograaf' && folderSlug !== 'portfolio-divers') {
       throw new BadRequestException('Ongeldige map.');
     }
     if (folderSlug === 'portfolio-fotograaf') {
-      if (!modelUserId) throw new BadRequestException('Kies een model (modelUserId) voor deze map.');
+      if (!modelUserId) throw new BadRequestException('Kies een model voor deze upload.');
       await this.assertModelEligible(modelUserId);
+      // Nieuwe levering: oude download-status wissen zodat de knop weer verschijnt.
+      await this.prisma.portfolioDeliveryAck.deleteMany({ where: { modelUserId } });
     }
     const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: folderSlug } });
     if (!folder) throw new NotFoundException('Mediamap ontbreekt.');
-    return this.media.saveFile(file, photographerId, folder.id, {
+
+    // Hernoem ZIP naar «Naam class-models.zip»
+    let uploadFile = file;
+    if (isZip && modelUserId) {
+      const u = await this.prisma.user.findUnique({
+        where: { id: modelUserId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+      const parts = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+      const base = parts || u?.email?.split('@')[0] || 'model';
+      const safe = base.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+      uploadFile = {
+        ...file,
+        originalname: `${safe} class-models.zip`,
+      };
+    }
+
+    return this.media.saveFile(uploadFile, photographerId, folder.id, {
       linkedModelUserId: folderSlug === 'portfolio-fotograaf' ? modelUserId : undefined,
     });
   }

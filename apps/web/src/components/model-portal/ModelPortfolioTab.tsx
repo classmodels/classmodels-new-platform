@@ -27,7 +27,11 @@ export function ModelPortfolioTab({
 }) {
   const { token, can } = useAuth();
   const [booking, setBooking] = useState<BookingRow | null | undefined>(undefined);
-  const [deliveryCount, setDeliveryCount] = useState<number | null>(null);
+  const [delivery, setDelivery] = useState<{
+    available: boolean;
+    fileCount: number;
+    downloadedAt: string | null;
+  } | null>(null);
   const [deliveryBusy, setDeliveryBusy] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<DownloadProgressUpdate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,22 +59,30 @@ export function ModelPortfolioTab({
     void load();
   }, [load]);
 
-  const loadDeliveryCount = useCallback(async () => {
+  const loadDelivery = useCallback(async () => {
     if (!token || !can('portal.model.media.read')) {
-      setDeliveryCount(null);
+      setDelivery(null);
       return;
     }
     try {
-      const r = await apiFetch<{ count: number }>('/portal/model/media/portfolio-delivery/count', { token });
-      setDeliveryCount(typeof r.count === 'number' ? r.count : 0);
+      const r = await apiFetch<{
+        available: boolean;
+        fileCount: number;
+        downloadedAt: string | null;
+      }>('/portal/model/media/portfolio-delivery/status', { token });
+      setDelivery({
+        available: !!r.available,
+        fileCount: typeof r.fileCount === 'number' ? r.fileCount : 0,
+        downloadedAt: r.downloadedAt ?? null,
+      });
     } catch {
-      setDeliveryCount(0);
+      setDelivery({ available: false, fileCount: 0, downloadedAt: null });
     }
   }, [token, can]);
 
   useEffect(() => {
-    void loadDeliveryCount();
-  }, [loadDeliveryCount, booking]);
+    void loadDelivery();
+  }, [loadDelivery, booking]);
 
   const downloadPortfolioZip = useCallback(async () => {
     if (!token) return;
@@ -79,17 +91,17 @@ export function ModelPortfolioTab({
     try {
       await downloadWithProgress(`${getApiBase()}/portal/model/media/portfolio-delivery/zip`, {
         token,
-        fallbackName: 'portfolio.zip',
+        fallbackName: 'portfolio-class-models.zip',
         onProgress: setDownloadProgress,
       });
-      await loadDeliveryCount();
+      await loadDelivery();
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Download mislukt');
     } finally {
       setDeliveryBusy(false);
       setDownloadProgress(null);
     }
-  }, [token, loadDeliveryCount]);
+  }, [token, loadDelivery]);
 
   const fmtNl = (ymd: string) => {
     const [y, m, d] = ymd.split('-').map((x) => parseInt(x, 10));
@@ -183,7 +195,12 @@ export function ModelPortfolioTab({
   if (!can('portal.model.agenda.read')) return <p className="text-sm text-muted">Geen toegang.</p>;
 
   const showDelivery =
-    can('portal.model.media.read') && deliveryCount !== null && deliveryCount > 0;
+    can('portal.model.media.read') && delivery !== null && delivery.available;
+  const showDownloaded =
+    can('portal.model.media.read') &&
+    delivery !== null &&
+    !delivery.available &&
+    !!delivery.downloadedAt;
 
   return (
     <div className="space-y-5">
@@ -204,8 +221,9 @@ export function ModelPortfolioTab({
         <div className="border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-[13px] leading-snug text-zinc-900">
           <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Portfolio van je shoot</p>
           <p className="mt-1.5">
-            Er staan <strong>{deliveryCount}</strong> foto&apos;s klaar om één keer te downloaden als ZIP in de hoogste
-            kwaliteit die op de server staat (primaire bestanden). Daarna verdwijnen ze uit je account en de mediatheek.
+            Je foto&apos;s staan klaar om één keer te downloaden als ZIP in hoge kwaliteit
+            {delivery.fileCount > 1 ? ` (${delivery.fileCount} bestanden)` : ''}. Daarna verdwijnen ze uit je account en
+            van de server.
           </p>
           <button
             type="button"
@@ -213,8 +231,20 @@ export function ModelPortfolioTab({
             onClick={() => void downloadPortfolioZip()}
             className="mt-2 rounded bg-burgundy px-3 py-2 text-xs font-semibold text-white hover:bg-burgundyDeep disabled:opacity-50"
           >
-            {deliveryBusy ? 'Bezig…' : 'Download ZIP'}
+            {deliveryBusy ? 'Bezig…' : 'Download portfolio'}
           </button>
+        </div>
+      ) : null}
+      {showDownloaded ? (
+        <div className="border border-line bg-panel px-4 py-3 text-[13px] leading-snug text-zinc-800">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Portfolio</p>
+          <p className="mt-1.5">
+            Uw foto&apos;s zijn gedownload
+            {delivery.downloadedAt
+              ? `, ${new Intl.DateTimeFormat('nl-BE', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(delivery.downloadedAt))}`
+              : ''}
+            .
+          </p>
         </div>
       ) : null}
       {err ? <div className="border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{err}</div> : null}

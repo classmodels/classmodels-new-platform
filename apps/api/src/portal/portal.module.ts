@@ -26,6 +26,8 @@ import { PortalModelReviewsController } from './portal-model-reviews.controller'
 import { ReviewsModule } from '../reviews/reviews.module';
 import { TryoutModeshowService } from './tryout-modeshow.service';
 import { ModelSetCardService } from './model-set-card.service';
+import { PortfolioDeliveryService } from './portfolio-delivery.service';
+import { AdminPortfolioDeliveryController } from './admin-portfolio-delivery.controller';
 
 @Module({
   imports: [AuthModule, MediaModule, AgendaModule, ModelPortalHistoryModule, PushModule, PaymentsModule, ReviewsModule, PrismaModule],
@@ -43,8 +45,9 @@ import { ModelSetCardService } from './model-set-card.service';
     AdminPortalDownloadsController,
     PortalModelSetCardController,
     PortalModelReviewsController,
+    AdminPortfolioDeliveryController,
   ],
-  providers: [BriefsService, TryoutModeshowService, ModelSetCardService, PortalDownloadsService],
-  exports: [BriefsService, ModelSetCardService],
+  providers: [BriefsService, TryoutModeshowService, ModelSetCardService, PortalDownloadsService, PortfolioDeliveryService],
+  exports: [BriefsService, ModelSetCardService, PortfolioDeliveryService],
 })
 export class PortalModule {}

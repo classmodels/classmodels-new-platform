@@ -109,6 +109,7 @@ model User {
   tryoutCouponRedemptions     TryoutCouponRedemption[]
   /// Portfolio-levering door fotograaf (map `portfolio-fotograaf`), gekoppeld aan dit model.
   portfolioDeliveryAssets MediaAsset[] @relation("PortfolioDeliveryForModel")
+  portfolioDeliveryAck    PortfolioDeliveryAck?
   setCardDraft            ModelSetCardDraft?
   /// Try-out modeshow: setkaarten gratis bestellen (geen Mollie).
   setCardFreeOrder        Boolean    @default(false)
@@ -273,6 +274,21 @@ model MediaAsset {
   portalDownloads PortalDownload[]
 
   @@index([linkedModelUserId, folderId])
+}
+
+/// Bewaart wanneer een model de portfolio-ZIP heeft gedownload (bestanden zelf zijn daarna weg).
+model PortfolioDeliveryAck {
+  id           String    @id @default(uuid())
+  modelUserId  String    @unique
+  modelUser    User      @relation(fields: [modelUserId], references: [id], onDelete: Cascade)
+  downloadedAt DateTime
+  fileCount    Int       @default(0)
+  /// Portfolio-dag (YYYY-MM-DD) van de shoot indien bekend.
+  shootDate    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([shootDate])
 }
 
 /// Configureerbare downloadknoppen in het modelportaal (gekoppeld aan één mediabestand in R2).
