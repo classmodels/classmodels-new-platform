@@ -28,16 +28,29 @@ export class PortfolioDeliveryService {
     return folder.id;
   }
 
+  /** Ack-tabel kan kort ontbreken als migrate op Combell nog niet liep. */
+  private async findAck(modelUserId: string) {
+    try {
+      return await this.prisma.portfolioDeliveryAck.findUnique({
+        where: { modelUserId },
+        select: { downloadedAt: true, fileCount: true, shootDate: true },
+      });
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      if (code === 'P2021' || /PortfolioDeliveryAck/i.test(String((e as Error)?.message ?? ''))) {
+        return null;
+      }
+      throw e;
+    }
+  }
+
   async statusForModel(modelUserId: string) {
     await this.media.purgeScheduledAssets();
     const folderId = await this.portfolioFolderId();
     const count = await this.prisma.mediaAsset.count({
       where: { folderId, linkedModelUserId: modelUserId, hardDeleted: false },
     });
-    const ack = await this.prisma.portfolioDeliveryAck.findUnique({
-      where: { modelUserId },
-      select: { downloadedAt: true, fileCount: true, shootDate: true },
-    });
+    const ack = await this.findAck(modelUserId);
     return {
       available: count > 0,
       fileCount: count,
@@ -87,10 +100,7 @@ export class PortfolioDeliveryService {
               where: { folderId, linkedModelUserId: modelUserId, hardDeleted: false },
             });
           }
-          ack = await this.prisma.portfolioDeliveryAck.findUnique({
-            where: { modelUserId },
-            select: { downloadedAt: true, fileCount: true },
-          });
+          ack = await this.findAck(modelUserId);
         }
         return {
           bookingId: b.id,
@@ -115,7 +125,12 @@ export class PortfolioDeliveryService {
   }
 
   async clearAck(modelUserId: string) {
-    await this.prisma.portfolioDeliveryAck.deleteMany({ where: { modelUserId } });
+    try {
+      await this.prisma.portfolioDeliveryAck.deleteMany({ where: { modelUserId } });
+    } catch (e) {
+      const code = (e as { code?: string })?.code;
+      if (code !== 'P2021' && !/PortfolioDeliveryAck/i.test(String((e as Error)?.message ?? ''))) throw e;
+    }
     return { ok: true };
   }
 

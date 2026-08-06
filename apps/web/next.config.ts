@@ -8,9 +8,11 @@ const tracingRoot = path.resolve(process.cwd(), '../..');
 
 const isProd = process.env.NODE_ENV === 'production';
 
-/** Combell: Nest op dezelfde machine als Next (dual-proxy). Zet bij build indien nodig. */
+/** Combell: Nest op dezelfde machine als Next (dual-proxy). Lokaal: live API als er geen Nest op :4000 draait. */
 const apiInternal =
-  process.env.CM_API_INTERNAL_URL?.replace(/\/$/, '') || 'http://127.0.0.1:4000';
+  process.env.CM_API_INTERNAL_URL?.replace(/\/$/, '') ||
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ||
+  'http://127.0.0.1:4000';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
