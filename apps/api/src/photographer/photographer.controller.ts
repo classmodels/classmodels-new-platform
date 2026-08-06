@@ -18,6 +18,7 @@ import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import type { JwtPayload } from '../auth/jwt.strategy';
 import { resolveMediaRoot } from '../config/resolve-media-root';
+import { buildZipUploadMulterOptions } from '../media/media-zip-multer-options';
 import { PhotographerService } from './photographer.service';
 
 function photographerTmpDir(): string {
@@ -45,6 +46,21 @@ export class PhotographerController {
   @Permissions('photographer.portfolio.upload')
   portfolioBookings() {
     return this.photographer.listPortfolioBookings();
+  }
+
+  /** ZIP → stream naar R2 (zelfde pad als admin media ZIP). */
+  @Post('upload-zip')
+  @Permissions('photographer.portfolio.upload')
+  @UseInterceptors(FileInterceptor('file', buildZipUploadMulterOptions()))
+  uploadZip(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: { user: JwtPayload },
+    @Query('folderSlug') folderSlug?: string,
+    @Query('modelUserId') modelUserId?: string,
+  ) {
+    if (!file) return { error: 'Geen ZIP-bestand' };
+    const slug = (folderSlug || 'portfolio-fotograaf').trim();
+    return this.photographer.uploadZip(file, req.user.sub, slug, modelUserId?.trim() || undefined);
   }
 
   @Post('upload')

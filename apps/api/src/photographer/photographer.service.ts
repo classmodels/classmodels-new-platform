@@ -122,4 +122,48 @@ export class PhotographerService {
       linkedModelUserId: folderSlug === 'portfolio-fotograaf' ? modelUserId : undefined,
     });
   }
+
+  /** ZIP via R2-stream multer (betrouwbaarder dan gewone upload voor grote bestanden). */
+  async uploadZip(
+    file: Express.Multer.File,
+    photographerId: string,
+    folderSlug: string,
+    modelUserId?: string,
+  ) {
+    if (!/\.zip$/i.test(file.originalname || '')) {
+      throw new BadRequestException('Alleen .zip-bestanden zijn toegestaan.');
+    }
+    await this.media.ensureDefaultFolders();
+    if (folderSlug !== 'portfolio-fotograaf' && folderSlug !== 'portfolio-divers') {
+      throw new BadRequestException('Ongeldige map.');
+    }
+    if (folderSlug === 'portfolio-fotograaf') {
+      if (!modelUserId) throw new BadRequestException('Kies een model voor deze upload.');
+      await this.assertModelEligible(modelUserId);
+      try {
+        await this.prisma.portfolioDeliveryAck.deleteMany({ where: { modelUserId } });
+      } catch {
+        /* */
+      }
+    }
+    const folder = await this.prisma.mediaFolder.findUnique({ where: { slug: folderSlug } });
+    if (!folder) throw new NotFoundException('Mediamap ontbreekt.');
+
+    let displayName = file.originalname || 'portfolio.zip';
+    if (modelUserId) {
+      const u = await this.prisma.user.findUnique({
+        where: { id: modelUserId },
+        select: { firstName: true, lastName: true, email: true },
+      });
+      const parts = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
+      const base = parts || u?.email?.split('@')[0] || 'model';
+      const safe = base.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+      displayName = `${safe} class-models.zip`;
+    }
+
+    return this.media.importZipUpload(file, photographerId, folder.id, {
+      linkedModelUserId: folderSlug === 'portfolio-fotograaf' ? modelUserId : undefined,
+      displayName,
+    });
+  }
 }

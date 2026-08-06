@@ -42,11 +42,21 @@ async function bootstrap() {
       forbidNonWhitelisted: false,
     }),
   );
-  const origin = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()) ?? [
+  const fromEnv = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+  const origin = [
+    ...fromEnv,
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-  ];
-  app.enableCors({ origin, credentials: true });
+    'https://www.class-models.be',
+    'https://class-models.be',
+  ].filter((v, i, a) => a.indexOf(v) === i);
+  app.enableCors({
+    origin,
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    maxAge: 86400,
+  });
   // Railway/Render zetten PORT; lokaal/Combell gebruiken vaak API_PORT.
   const port = parseInt(process.env.PORT ?? process.env.API_PORT ?? '4000', 10);
   const server = await app.listen(port, process.env.API_HOST ?? '0.0.0.0');

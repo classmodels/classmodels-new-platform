@@ -61,7 +61,8 @@ export function uploadWithProgress(
     xhr.onerror = () =>
       reject(
         new Error(
-          'Netwerkonderbreking tijdens upload. Controleer je verbinding, laat dit tabblad open en probeer opnieuw (niet verversen halverwege).',
+          'Netwerkonderbreking tijdens upload. Vaak: te groot voor de proxy, of CORS. ' +
+            'Laat dit tabblad open, probeer opnieuw of een kleinere ZIP; ververs niet halverwege.',
         ),
       );
     xhr.ontimeout = () =>

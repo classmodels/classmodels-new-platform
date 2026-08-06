@@ -52,34 +52,28 @@ export function parseApiErrorBody(text: string): string {
 }
 
 /**
- * ZIP-upload (chunked): bij voorkeur rechtstreeks naar api.* als gezet in build-env,
- * anders same-origin `/__cm_api` (geen CORS).
+ * Grote uploads (ZIP): altijd rechtstreeks naar de API-host.
+ * Niet via `/__cm_api` op www — die route botst vaak op body-/proxy-limieten → xhr “netwerkonderbreking”.
  */
-export function getZipUploadApiBase(): string {
-  const direct = process.env.NEXT_PUBLIC_LARGE_UPLOAD_API_URL?.replace(/\/$/, '');
-  if (direct && /^https?:\/\//i.test(direct) && !/localhost|127\.0\.0\.1/i.test(direct)) {
-    return direct;
-  }
-  return getLargeUploadApiBase();
-}
-
-/** Grote ZIP via same-origin `/__cm_api` (geen CORS, Combell-proxy ondersteunt lange uploads). */
 export function getLargeUploadApiBase(): string {
+  const preferred =
+    process.env.NEXT_PUBLIC_LARGE_UPLOAD_API_URL?.replace(/\/$/, '') ||
+    process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
+  if (preferred && /^https?:\/\//i.test(preferred) && !/localhost|127\.0\.0\.1/i.test(preferred)) {
+    return preferred;
+  }
+
   if (typeof window !== 'undefined' && shouldUseSameOriginApiProxy(window.location.hostname)) {
     return `${window.location.origin.replace(/\/$/, '')}${CM_API_PROXY_PREFIX}`;
-  }
-
-  const direct = process.env.NEXT_PUBLIC_LARGE_UPLOAD_API_URL?.replace(/\/$/, '');
-  if (direct) return direct;
-
-  const pub = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
-  if (pub && /^https?:\/\//i.test(pub) && !/localhost|127\.0\.0\.1/i.test(pub)) {
-    return pub;
   }
 
   const api = getApiBase();
   if (api.startsWith('http')) return api;
   return `${typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : ''}${api}`;
+}
+
+export function getZipUploadApiBase(): string {
+  return getLargeUploadApiBase();
 }
 
 export function getApiBase() {

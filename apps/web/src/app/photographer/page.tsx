@@ -66,20 +66,24 @@ export default function PhotographerPage() {
     return b?.displayName ?? '';
   }, [bookings, modelUserId]);
 
-  const upload = async (file: File | null) => {
+  const upload = async (file: File | null, kind: 'zip' | 'image') => {
     if (!file || !token) return;
     if (folderSlug === 'portfolio-fotograaf' && !modelUserId.trim()) {
       setMsg('Kies eerst een model.');
       return;
     }
-    const isZip = /\.zip$/i.test(file.name) || file.type.includes('zip');
+    if (kind === 'zip' && !/\.zip$/i.test(file.name)) {
+      setMsg('Kies een .zip-bestand.');
+      return;
+    }
     setBusy(true);
     setMsg('');
     setUploadProgress({
       percent: 0,
-      sublabel: isZip
-        ? 'ZIP uploaden — laat dit venster open (tot 4 GB).'
-        : 'Foto uploaden — laat dit venster open.',
+      sublabel:
+        kind === 'zip'
+          ? 'ZIP uploaden rechtstreeks naar de API — laat dit venster open (tot 4 GB).'
+          : 'Foto uploaden — laat dit venster open.',
     });
     try {
       const fd = new FormData();
@@ -89,8 +93,9 @@ export default function PhotographerPage() {
       if (folderSlug === 'portfolio-fotograaf' && modelUserId.trim()) {
         params.set('modelUserId', modelUserId.trim());
       }
+      const path = kind === 'zip' ? '/photographer/upload-zip' : '/photographer/upload';
       const text = await uploadWithProgress(
-        `${getLargeUploadApiBase()}/photographer/upload?${params.toString()}`,
+        `${getLargeUploadApiBase()}${path}?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
@@ -108,14 +113,19 @@ export default function PhotographerPage() {
           },
         },
       );
-      const body = JSON.parse(text) as { error?: string; id?: string; message?: string };
+      const body = JSON.parse(text) as { error?: string; id?: string; assetId?: string; message?: string; ok?: boolean };
       if (body?.error) throw new Error(body.error);
-      if (body?.message && !body.id) throw new Error(body.message);
+      if (body?.message && !body.id && !body.assetId && body.ok !== true) throw new Error(body.message);
       const label = selectedName ? `${selectedName} class-models` : file.name;
       setMsg(`Geüpload: ${label}`);
       await load();
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Upload mislukt');
+      const raw = e instanceof Error ? e.message : 'Upload mislukt';
+      setMsg(
+        /netwerk|network|failed to fetch|abortr/i.test(raw)
+          ? `${raw} Tip: probeer een kleinere ZIP of een stabieler netwerk; ZIP’s gaan rechtstreeks naar api.class-models.be.`
+          : raw,
+      );
     } finally {
       setBusy(false);
       setUploadProgress(null);
@@ -245,7 +255,7 @@ export default function PhotographerPage() {
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 e.target.value = '';
-                void upload(f);
+                void upload(f, 'zip');
               }}
             />
           </label>
@@ -263,7 +273,7 @@ export default function PhotographerPage() {
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
                 e.target.value = '';
-                void upload(f);
+                void upload(f, 'image');
               }}
             />
           </label>

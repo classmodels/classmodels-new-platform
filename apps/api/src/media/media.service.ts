@@ -1994,6 +1994,7 @@ export class MediaService implements OnModuleInit {
     file: R2StreamMulterFile,
     userId: string,
     folder: { id: string; slug: string },
+    opts?: { linkedModelUserId?: string | null; originalName?: string | null },
   ) {
     const destKey = file.r2StorageKey?.trim();
     if (!destKey) {
@@ -2005,8 +2006,12 @@ export class MediaService implements OnModuleInit {
         'Bestand staat niet in R2 na upload. Controleer MEDIA_BACKEND=r2 en R2-credentials.',
       );
     }
-    const label = basename(file.originalname || destKey);
+    const label = basename(opts?.originalName || file.originalname || destKey);
     const mime = this.mimeFromFilename(destKey) ?? file.mimetype ?? 'application/octet-stream';
+    const linked =
+      opts?.linkedModelUserId && /^[0-9a-f-]{36}$/i.test(opts.linkedModelUserId) ?
+        opts.linkedModelUserId
+      : undefined;
     const created = await this.prisma.mediaAsset.create({
       data: {
         originalName: label,
@@ -2015,16 +2020,18 @@ export class MediaService implements OnModuleInit {
         sizeBytes: sz,
         uploadedById: userId,
         folderId: folder.id,
+        linkedModelUserId: linked,
       },
     });
     this.invalidateDiskBasenameIndex();
     return {
       ok: true,
+      id: created.id,
       storedToR2: true,
       streamedToR2: true,
       folderSlug: folder.slug,
       mediaRoot: this.root(),
-      fileName: file.originalname,
+      fileName: label,
       storageKey: destKey,
       extractedFiles: 0,
       skippedZipEntries: 0,
@@ -2032,8 +2039,9 @@ export class MediaService implements OnModuleInit {
       registered: 1,
       registerSkipped: 0,
       assetId: created.id,
-      mimeType: mime,
-      hint: 'Bestand rechtstreeks naar Cloudflare R2 gestreamd (geen lokale schijf).',
+      linkedModelUserId: linked ?? null,
+      hint:
+        'ZIP staat in Cloudflare R2 (niet uitgepakt). Het model downloadt dit .zip-bestand.',
       errors: [] as string[],
     };
   }
@@ -2069,6 +2077,7 @@ export class MediaService implements OnModuleInit {
     file: Express.Multer.File,
     userId: string,
     folder: { id: string; slug: string },
+    linkedModelUserId?: string | null,
   ) {
     const zipPath = (file as Express.Multer.File & { path?: string }).path;
     if (!zipPath || !existsSync(zipPath)) {
@@ -2097,6 +2106,8 @@ export class MediaService implements OnModuleInit {
     }
 
     const zipLabel = basename(file.originalname || destKey);
+    const linked =
+      linkedModelUserId && /^[0-9a-f-]{36}$/i.test(linkedModelUserId) ? linkedModelUserId : undefined;
     const created = await this.prisma.mediaAsset.create({
       data: {
         originalName: zipLabel,
@@ -2105,12 +2116,14 @@ export class MediaService implements OnModuleInit {
         sizeBytes: st.size,
         uploadedById: userId,
         folderId: folder.id,
+        linkedModelUserId: linked,
       },
     });
     this.invalidateDiskBasenameIndex();
 
     return {
       ok: true,
+      id: created.id,
       storedToR2: true,
       folderSlug: folder.slug,
       mediaRoot: this.root(),
@@ -2122,6 +2135,7 @@ export class MediaService implements OnModuleInit {
       registered: 1,
       registerSkipped: 0,
       assetId: created.id,
+      linkedModelUserId: linked ?? null,
       hint:
         'ZIP staat in Cloudflare R2 (niet uitgepakt). Modellen downloaden het .zip-bestand; voor losse foto’s in de map: foto-upload of uitpakken op schijf (zonder R2).',
       errors: [] as string[],
@@ -2132,7 +2146,12 @@ export class MediaService implements OnModuleInit {
    * Upload een .zip (tot ~6 GB via schijf), uitpakken naar MEDIA_ROOT, registreren in map.
    * Grote bestanden: zet MEDIA_ZIP_UPLOAD_MAX_BYTES; reverse proxy moet lange uploads toestaan.
    */
-  async importZipUpload(file: Express.Multer.File, userId: string, folderId: string) {
+  async importZipUpload(
+    file: Express.Multer.File,
+    userId: string,
+    folderId: string,
+    opts?: { linkedModelUserId?: string | null; displayName?: string | null },
+  ) {
     if (!/\.zip$/i.test(file.originalname || '')) {
       throw new BadRequestException('Alleen .zip-bestanden.');
     }
@@ -2143,12 +2162,18 @@ export class MediaService implements OnModuleInit {
       throw new BadRequestException('ZIP kan niet naar de prullenbak.');
     }
 
+    const displayName = opts?.displayName?.trim() || file.originalname;
+    const fileForStore = displayName !== file.originalname ? { ...file, originalname: displayName } : file;
+
     if (mediaUsesR2()) {
-      const r2f = file as R2StreamMulterFile;
+      const r2f = fileForStore as R2StreamMulterFile;
       if (r2f.r2Uploaded && r2f.r2StorageKey) {
-        return this.registerStreamedR2Asset(r2f, userId, folder);
+        return this.registerStreamedR2Asset(r2f, userId, folder, {
+          linkedModelUserId: opts?.linkedModelUserId,
+          originalName: displayName,
+        });
       }
-      return this.importZipUploadStoreToR2(file, userId, folder);
+      return this.importZipUploadStoreToR2(fileForStore, userId, folder, opts?.linkedModelUserId);
     }
 
     const zipPath = (file as Express.Multer.File & { path?: string }).path;
