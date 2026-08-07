@@ -1234,7 +1234,7 @@ export function ModelsCatalogGrid({
                   <CatalogModelThumb
                     src={imgUrl(m.profileThumbKey)}
                     priority={idx < 12}
-                    className={isGallery ? 'h-full w-full rounded-none object-contain' : undefined}
+                    className={isGallery ? 'h-full w-full rounded-none object-cover' : undefined}
                   />
                 ) : (
                   <div

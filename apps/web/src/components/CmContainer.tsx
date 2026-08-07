@@ -91,7 +91,7 @@ export function CmContainer({ contentKey, className, fallback }: CmContainerProp
                     key={`${contentKey}-img-${i}-${j}`}
                     src={block.src}
                     alt={block.alt ?? ''}
-                    className={block.className ?? 'h-auto w-full border border-line object-contain'}
+                    className={block.className ?? 'h-auto w-full border border-line object-cover'}
                     loading="lazy"
                   />
                 );

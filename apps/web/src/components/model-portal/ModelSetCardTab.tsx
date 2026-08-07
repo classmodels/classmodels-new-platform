@@ -780,7 +780,7 @@ export function ModelSetCardTab({
                       <div key={i} className="overflow-hidden bg-white" style={{ width: 78, height: 118 }}>
                         {versoPreviewSrc(i) ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-contain" />
+                          <img src={versoPreviewSrc(i)!} alt="" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">
                             {i + 1}
@@ -795,7 +795,7 @@ export function ModelSetCardTab({
                   >
                     {versoPreviewSrc(3) ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-contain object-center" />
+                      <img src={versoPreviewSrc(3)!} alt="" className="h-full w-full object-cover object-center" />
                     ) : (
                       <div className="flex h-full items-center justify-center bg-zinc-100 text-[10px] text-zinc-300">
                         Grote foto
