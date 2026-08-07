@@ -23,7 +23,7 @@ export default function ContactPage() {
             </h1>
             <div className="nieuw-panel" style={{ marginTop: 28 }}>
               <p>
-                <strong>{c.company}</strong>
+                <strong className="nieuw-contact-brand">{c.company}</strong>
                 <br />
                 {c.street}
                 <br />

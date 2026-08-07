@@ -122,7 +122,7 @@ export function ModelSheetDialog({
                 <img
                   src={photoSrc}
                   alt=""
-                  className="mx-auto block w-full object-cover"
+                  className="mx-auto block w-full object-contain"
                   style={{ aspectRatio: '3 / 4', maxHeight: 'min(55vh, 380px)' }}
                 />
                 {photoKeys.length > 0 ? (

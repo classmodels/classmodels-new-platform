@@ -55,7 +55,7 @@ function AsideInfoCard({
 }) {
   return (
     <div className="portal-aside-card border border-zinc-300 bg-white">
-      <div className="border-b-2 border-burgundy bg-burgundy px-3 py-2.5">
+      <div className="border-b-2 border-burgundy bg-[var(--n-gold,#d4af6a)] px-3 py-2">
         <CmText
           contentKey={titleKey}
           as="h3"
@@ -63,7 +63,7 @@ function AsideInfoCard({
           fallback={titleFallback}
         />
       </div>
-      <div className="space-y-2 px-3 py-3.5 text-[13.5px] leading-relaxed text-ink/90">
+      <div className="space-y-2 px-3 py-3.5 text-[13.5px] leading-relaxed">
         <CmText contentKey={bodyKey} as="div" className="space-y-2" fallback={bodyFallback} />
       </div>
     </div>

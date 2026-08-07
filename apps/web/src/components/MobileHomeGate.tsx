@@ -13,6 +13,7 @@ import { useIsMobile } from '@/lib/use-is-mobile';
 /**
  * Gsm → MobileBeginHome (eigen staande introfilm, alleen bij openen van site/app).
  * Desktop → website-homepage + liggende introfilm (alleen eerste openen van `/`).
+ * Geen flits van de homepage vóór het filmpje: zwart tot de intro klaar is of overgeslagen.
  */
 export function MobileHomeGate({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
@@ -32,7 +33,7 @@ export function MobileHomeGate({ children }: { children: ReactNode }) {
         const res = await fetch(DESKTOP_INTRO_VIDEO_SRC, {
           method: 'HEAD',
           signal: ctrl.signal,
-          cache: 'no-store',
+          cache: 'force-cache',
         });
         window.clearTimeout(timer);
         if (!cancelled) setShowIntro(res.ok);
@@ -48,21 +49,25 @@ export function MobileHomeGate({ children }: { children: ReactNode }) {
   const onIntroDone = useCallback(() => setShowIntro(false), []);
 
   if (isMobile === null) {
-    return <div className="min-h-[100dvh] bg-[#0e0d0d]" aria-hidden />;
+    return <div className="min-h-[100dvh] bg-black" aria-hidden />;
   }
 
   if (isMobile) return <MobileBeginHome />;
 
-  return (
-    <>
-      {showIntro ? (
-        <SiteIntroOverlay
-          onDone={onIntroDone}
-          videoSrc={DESKTOP_INTRO_VIDEO_SRC}
-          storageKey={DESKTOP_INTRO_SEEN_KEY}
-        />
-      ) : null}
-      {children}
-    </>
-  );
+  // Desktop: wacht op intro-besluit — nooit homepage tonen vóór de film.
+  if (showIntro === null) {
+    return <div className="min-h-[100dvh] bg-black" aria-hidden />;
+  }
+
+  if (showIntro) {
+    return (
+      <SiteIntroOverlay
+        onDone={onIntroDone}
+        videoSrc={DESKTOP_INTRO_VIDEO_SRC}
+        storageKey={DESKTOP_INTRO_SEEN_KEY}
+      />
+    );
+  }
+
+  return <>{children}</>;
 }

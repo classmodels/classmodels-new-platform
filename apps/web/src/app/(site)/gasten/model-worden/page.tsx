@@ -73,10 +73,10 @@ export default function ModelWordenPage() {
             {CARD_MODEL_WORDEN.map((c, i) => (
               <div key={c.title} className="nieuw-panel nieuw-choice-card">
                 <span className="nieuw-label">{c.kicker}</span>
-                <h3 className="nieuw-h3" style={{ marginTop: 12 }}>
+                <h3 className="nieuw-h3 nieuw-choice-card-title">
                   {c.title}
                 </h3>
-                <ul className="nieuw-checklist" style={{ marginTop: 18, flex: 1 }}>
+                <ul className="nieuw-checklist nieuw-choice-card-list">
                   {c.bullets.map((b) => (
                     <li key={b}>
                       <span className="v">✓</span>
@@ -85,7 +85,7 @@ export default function ModelWordenPage() {
                   ))}
                 </ul>
                 <Link
-                  className="nieuw-btn"
+                  className="nieuw-btn nieuw-choice-card-cta"
                   href={
                     i === 0
                       ? '/gasten/gratis-fotoshoot#agenda'

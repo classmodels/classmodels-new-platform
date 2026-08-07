@@ -43,11 +43,12 @@ type SiteIntroOverlayProps = {
 
 /**
  * Introfilm fullscreen bij eerste openen.
- * Speelt volledig af (of Overslaan). Fail-safe alleen als afspelen nooit start.
+ * Zwart scherm tot de eerste frame speelt (geen flits van de pagina eronder).
  */
 export function SiteIntroOverlay({ onDone, videoSrc, storageKey }: SiteIntroOverlayProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [fading, setFading] = useState(false);
+  const [videoVisible, setVideoVisible] = useState(false);
   const doneRef = useRef(false);
 
   const finish = useCallback(() => {
@@ -67,12 +68,19 @@ export function SiteIntroOverlay({ onDone, videoSrc, storageKey }: SiteIntroOver
     }, 5000);
     const onPlaying = () => {
       started = true;
+      setVideoVisible(true);
       window.clearTimeout(failSafe);
     };
     const onErr = () => finish();
     v.muted = true;
     v.addEventListener('playing', onPlaying);
     v.addEventListener('error', onErr);
+    // Prefetch / sneller starten
+    try {
+      v.load();
+    } catch {
+      /**/
+    }
     const p = v.play();
     if (p) p.catch(() => finish());
     return () => {
@@ -80,18 +88,21 @@ export function SiteIntroOverlay({ onDone, videoSrc, storageKey }: SiteIntroOver
       v.removeEventListener('playing', onPlaying);
       v.removeEventListener('error', onErr);
     };
-  }, [finish]);
+  }, [finish, videoSrc]);
 
   return (
     <div
       className={`fixed inset-0 z-[999] flex items-center justify-center bg-black transition-opacity duration-500 ${
         fading ? 'pointer-events-none opacity-0' : 'opacity-100'
       }`}
+      style={{ background: '#000' }}
     >
       <video
         ref={videoRef}
         src={videoSrc}
-        className="h-full w-full object-contain"
+        className={`h-full w-full object-contain transition-opacity duration-200 ${
+          videoVisible ? 'opacity-100' : 'opacity-0'
+        }`}
         autoPlay
         muted
         playsInline

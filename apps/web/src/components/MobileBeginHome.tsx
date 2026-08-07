@@ -1586,7 +1586,7 @@ export function MobileBeginHome() {
         const res = await fetch(MOBILE_INTRO_VIDEO_SRC, {
           method: 'HEAD',
           signal: ctrl.signal,
-          cache: 'no-store',
+          cache: 'force-cache',
         });
         window.clearTimeout(timer);
         if (!cancelled) setShowIntro(res.ok);
@@ -1608,15 +1608,19 @@ export function MobileBeginHome() {
     return <div className="min-h-[100dvh] w-full bg-black" aria-hidden />;
   }
 
+  // Intro actief: alleen de film, geen startscherm eronder (voorkomt flits).
+  if (view === null && showIntro) {
+    return (
+      <SiteIntroOverlay
+        onDone={onIntroDone}
+        videoSrc={MOBILE_INTRO_VIDEO_SRC}
+        storageKey={MOBILE_INTRO_SEEN_KEY}
+      />
+    );
+  }
+
   return (
     <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
-      {view === null && showIntro ? (
-        <SiteIntroOverlay
-          onDone={onIntroDone}
-          videoSrc={MOBILE_INTRO_VIDEO_SRC}
-          storageKey={MOBILE_INTRO_SEEN_KEY}
-        />
-      ) : null}
       {view === 'guest' ? (
         <GuestView />
       ) : view === 'model' ? (

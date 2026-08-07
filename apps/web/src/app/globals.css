@@ -405,3 +405,15 @@ body {
 .cm-progress-bar {
   animation: cm-progress-slide 1.4s ease-in-out infinite;
 }
+
+/* Contentfoto's: altijd volledig zichtbaar, schalen met het scherm */
+main img:not([class*="logo"]),
+.nieuw-root img:not([class*="logo"]) {
+  max-width: 100%;
+}
+/* Vaste kaders (aspect-ratio / absolute fill): toon hele foto i.p.v. crop */
+main :is([class*="aspect-"], .overflow-hidden) > img.h-full.w-full,
+main :is([class*="aspect-"], .overflow-hidden) img.h-full.w-full {
+  object-fit: contain;
+  object-position: center;
+}

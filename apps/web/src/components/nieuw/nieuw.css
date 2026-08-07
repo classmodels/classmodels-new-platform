@@ -30,6 +30,23 @@
 .nieuw-root * { box-sizing: border-box; }
 .nieuw-wrap { width: min(1140px, 92vw); margin: 0 auto; }
 
+/* Foto's: altijd volledig zichtbaar, schalen met het scherm (geen crop) */
+.nieuw-root img:not([src*="logo"]):not(.nieuw-brand-logo):not(.nieuw-partner-logo) {
+  max-width: 100%;
+}
+.nieuw-root :is(
+  .nieuw-model-foto,
+  .nieuw-card,
+  .nieuw-hero-card,
+  .nieuw-home-hero-card,
+  .nieuw-portal-hero-media,
+  .nieuw-ts-thumb,
+  .cm-kp-media
+) img {
+  object-fit: contain !important;
+  object-position: center;
+}
+
 /* Geen blauwe browser-focus; goud zoals klantenportaal */
 .nieuw-root :is(input, textarea, select, button):focus,
 .nieuw-root :is(input, textarea, select, button):focus-visible {
@@ -198,9 +215,12 @@
 }
 .nieuw-hero-card > img {
   width: 100%;
-  height: 220px;
-  object-fit: cover;
+  height: auto;
+  max-height: min(320px, 48vw);
+  object-fit: contain;
+  object-position: center;
   display: block;
+  background: #0d0d11;
   filter: saturate(0.92) brightness(0.92);
 }
 .nieuw-hero-card-body { padding: 22px; }
@@ -641,11 +661,13 @@
 .nieuw-card img {
   width: 100%;
   aspect-ratio: 16/10;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
+  background: #0d0d11;
   filter: saturate(0.88) brightness(0.88);
-  transition: transform 0.6s, filter 0.4s;
+  transition: filter 0.4s;
 }
-.nieuw-card:hover img { transform: scale(1.04); filter: saturate(1) brightness(0.95); }
+.nieuw-card:hover img { filter: saturate(1) brightness(0.95); }
 .nieuw-card-body { padding: 28px 28px 30px; display: flex; flex-direction: column; flex: 1; gap: 2px; }
 .nieuw-card-body .nieuw-label {
   margin-bottom: 0;
@@ -939,17 +961,18 @@
 .nieuw-model-foto img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: transform 0.55s ease;
+  object-fit: contain;
+  object-position: center;
+  transition: none;
 }
 .nieuw-model-foto .nieuw-model-thumb {
   height: 100%;
   border-radius: 0 !important;
 }
 .nieuw-model-foto .nieuw-model-thumb img {
-  transition: transform 0.55s ease;
+  transition: none;
 }
-.nieuw-model:hover .nieuw-model-foto img { transform: scale(1.05); }
+.nieuw-model:hover .nieuw-model-foto img { transform: none; }
 .nieuw-model-placeholder {
   height: 100%;
   display: grid;
@@ -1235,8 +1258,11 @@
 .nieuw-home-hero-card img {
   display: block;
   width: 100%;
-  height: 260px;
-  object-fit: cover;
+  height: auto;
+  max-height: min(320px, 50vw);
+  object-fit: contain;
+  object-position: center;
+  background: #0d0d11;
 }
 .nieuw-home-hero-card-body {
   padding: 26px;
@@ -1306,8 +1332,8 @@
 .nieuw-portal-hero-media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  object-position: left center;
+  object-fit: contain;
+  object-position: center left;
   display: block;
   filter: saturate(0.92) brightness(0.95);
 }
@@ -1456,6 +1482,12 @@
   border: 1px solid var(--n-hair);
   padding: 28px;
   color: var(--n-ink);
+}
+.nieuw-root .nieuw-contact-brand {
+  color: var(--n-gold) !important;
+  font-size: 1.2em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 .nieuw-root .push-inbox-row {
   background: var(--n-bg-3) !important;
@@ -1755,7 +1787,8 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   filter: saturate(0.92);
 }
 /* Zachte overloop van foto naar kaartkleur */
@@ -2987,14 +3020,30 @@
   border-color: var(--n-hair) !important;
 }
 .nieuw-root .model-portal-home .portal-aside-card > div:first-child {
-  background: transparent !important;
-  border-bottom: 1px solid var(--n-gold-hair) !important;
-  padding: 12px 14px !important;
+  background: var(--n-gold) !important;
+  border-bottom: 2px solid var(--n-gold-deep) !important;
+  padding: 10px 14px !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card > div:first-child .portal-home-title,
+.nieuw-root .model-portal-home .portal-aside-card > div:first-child .portal-home-title *,
+.nieuw-root .model-portal-home .portal-aside-card h3.portal-home-title,
+.nieuw-root .model-portal-home .portal-aside-card h3.portal-home-title * {
+  color: #000000 !important;
+  opacity: 1 !important;
+  font-family: var(--n-serif) !important;
+  font-size: 12.5px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.06em !important;
+  -webkit-font-smoothing: antialiased;
+  text-shadow: none;
 }
 .nieuw-root .model-portal-home .portal-aside-card > div:last-child {
   padding: 16px 14px !important;
-  color: var(--n-ink) !important;
   font-size: 13.5px !important;
+}
+.nieuw-root .model-portal-home .portal-aside-card > div:last-child,
+.nieuw-root .model-portal-home .portal-aside-card > div:last-child :is(p, span, div, li) {
+  color: rgba(234, 233, 230, 0.58) !important;
 }
 .nieuw-root .model-portal-home .portal-quick-link {
   background: var(--n-bg-3) !important;
@@ -3231,10 +3280,10 @@
   }
 }
 
-/* Drie startopties: knoppen altijd op dezelfde hoogte */
+/* Drie startopties: gelijke kaarten, knoppen op één lijn met ruimte erboven */
 .nieuw-choice-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: stretch;
 }
@@ -3243,9 +3292,22 @@
   flex-direction: column;
   height: 100%;
   min-height: 100%;
+  gap: 22px;
 }
-.nieuw-choice-card .nieuw-btn {
+.nieuw-choice-card > .nieuw-choice-card-title {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.nieuw-choice-card > .nieuw-checklist,
+.nieuw-choice-card > .nieuw-choice-card-list {
+  flex: 1 1 auto;
+  margin-top: 4px !important;
+  margin-bottom: 0;
+}
+.nieuw-choice-card > .nieuw-btn,
+.nieuw-choice-card > .nieuw-choice-card-cta {
   margin-top: auto;
+  flex-shrink: 0;
   align-self: stretch;
   justify-content: center;
   white-space: nowrap;
@@ -3617,11 +3679,38 @@
   color: var(--n-mut) !important;
 }
 
-/* Sectiekoppen (goud) → donkere tekst i.p.v. wit */
+/* Sectiekoppen (goud-bg) → donkere tekst i.p.v. wit — niet op aside-kaarten */
 .nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep) :is(h3, span, p, label),
 .nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep).text-white,
 .nieuw-root .nieuw-themed :is(.bg-burgundy, .bg-burgundyDeep) .text-white {
   color: #14110a !important;
+}
+/* Aside-info kaarten: gouden kop + zwarte vette titel (op voorgrond) */
+.nieuw-root .nieuw-themed .model-portal-home .portal-aside-card > div:first-child,
+.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card > div:first-child {
+  background: var(--n-gold) !important;
+  color: #000000 !important;
+  border-bottom-color: var(--n-gold-deep) !important;
+}
+.nieuw-root .nieuw-themed .model-portal-home .portal-aside-card > div:first-child :is(h3, span, p, label),
+.nieuw-root .nieuw-themed .model-portal-home .portal-aside-card .portal-home-title,
+.nieuw-root .nieuw-themed .model-portal-home .portal-aside-card .portal-home-title *,
+.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card > div:first-child :is(h3, span, p, label),
+.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card .portal-home-title,
+.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card .portal-home-title * {
+  color: #000000 !important;
+  opacity: 1 !important;
+  font-family: var(--n-serif) !important;
+  font-size: 12.5px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.06em !important;
+  text-shadow: none;
+}
+.nieuw-root .nieuw-themed .model-portal-home .portal-aside-card > div:last-child,
+.nieuw-root .nieuw-themed .model-portal-home .portal-aside-card > div:last-child :is(p, span, div, li),
+.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card > div:last-child,
+.nieuw-root .nieuw-panel .model-portal-home .portal-aside-card > div:last-child :is(p, span, div, li) {
+  color: rgba(234, 233, 230, 0.58) !important;
 }
 
 /* Agenda: «Bezet»-sloten in goud/muted i.p.v. roze/rood */
@@ -4318,7 +4407,8 @@
 .nieuw-ts-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   display: block;
 }
 .nieuw-ts-more {
