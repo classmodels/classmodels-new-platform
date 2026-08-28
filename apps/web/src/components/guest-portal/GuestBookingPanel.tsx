@@ -21,6 +21,10 @@ import {
   agendaFieldDisplayLabel,
   agendaFieldPlaceholder,
   agendaMobileError,
+  applyBirthDateMaskInput,
+  birthDateFieldDisplay,
+  isBirthDateFieldKey,
+  isBirthDateInputEmpty,
   normalizeAgendaMobileNational,
   normalizeIsoBirthDateClient,
   resolveAgendaBookPath,
@@ -478,7 +482,7 @@ export function GuestBookingPanel({
           continue;
         }
         const v = (form[f.fieldKey] ?? '').trim();
-        if (!v) missing.push(label);
+        if (isBirthDateFieldKey(f.fieldKey) ? isBirthDateInputEmpty(v) : !v) missing.push(label);
       }
 
       const phoneKey =
@@ -496,18 +500,16 @@ export function GuestBookingPanel({
 
       let gebNormalized: string | null = null;
       const gebRaw = (form.geboortedatum ?? '').trim();
-      const gebField = displayFields.find((f) =>
-        ['geboortedatum', 'birthdate', 'birth_date'].includes(f.fieldKey.toLowerCase()),
-      );
+      const gebField = displayFields.find((f) => isBirthDateFieldKey(f.fieldKey));
       const gebRequired = gebField
         ? fieldEffectiveRequired(guestWebBooking, gebField)
         : Boolean(displayFields.some((f) => f.fieldKey === 'geboortedatum' && f.required));
-      if (!gebRaw && gebRequired) {
+      if (isBirthDateInputEmpty(gebRaw) && gebRequired) {
         if (!missing.includes('Geboortedatum')) missing.push('Geboortedatum');
-      } else if (gebRaw) {
+      } else if (!isBirthDateInputEmpty(gebRaw)) {
         gebNormalized = normalizeIsoBirthDateClient(gebRaw);
         if (!gebNormalized) {
-          missing.push('Geboortedatum (ongeldig)');
+          missing.push('Geboortedatum (ongeldige datum — bv. 15/03/1998 of 15031998)');
         } else {
           setField('geboortedatum', gebNormalized);
           if (isMinorFromIsoDateString(gebNormalized)) {
@@ -624,10 +626,8 @@ export function GuestBookingPanel({
       'w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400';
     const isPhone = ['telefoon', 'phone', 'gsm'].includes(f.fieldKey);
     const isNr = f.fieldKey === 'nr' || f.fieldKey === 'huisnummer';
-    const isBirth =
-      f.type === 'date' ||
-      ['geboortedatum', 'birthdate', 'birth_date'].includes(f.fieldKey.toLowerCase());
-    // type=date toont in browsers een “lege” datum die lijkt alsof die al ingevuld is.
+    const isBirth = f.type === 'date' || isBirthDateFieldKey(f.fieldKey);
+    // Geen type=date (lege native picker lijkt ingevuld) en geen type=number (iPhone blokkeert /).
     const inputType =
       isBirth
         ? 'text'
@@ -691,16 +691,28 @@ export function GuestBookingPanel({
           />
         ) : null}
         {!['textarea', 'select', 'checkbox', 'file'].includes(f.type) ? (
-          <input
-            type={inputType}
-            inputMode={isPhone || isNr ? 'numeric' : isBirth ? 'numeric' : undefined}
-            autoComplete={isPhone ? 'tel' : isNr ? 'address-line2' : isBirth ? 'bday' : undefined}
-            className={common}
-            placeholder={isBirth ? '' : ph}
-            aria-required={req}
-            value={form[f.fieldKey] ?? ''}
-            onChange={(ev) => setField(f.fieldKey, ev.target.value)}
-          />
+          <>
+            <input
+              type={inputType}
+              inputMode={isPhone || isNr || isBirth ? 'numeric' : undefined}
+              autoComplete={isPhone ? 'tel' : isNr ? 'address-line2' : isBirth ? 'bday' : undefined}
+              autoCorrect={isBirth ? 'off' : undefined}
+              spellCheck={isBirth ? false : undefined}
+              className={common}
+              placeholder={isBirth ? 'dd/mm/jjjj' : ph}
+              aria-required={req}
+              aria-describedby={isBirth ? `${f.fieldKey}-hint` : undefined}
+              value={isBirth ? birthDateFieldDisplay(form[f.fieldKey] ?? '') : (form[f.fieldKey] ?? '')}
+              onChange={(ev) =>
+                setField(f.fieldKey, isBirth ? applyBirthDateMaskInput(ev.target.value) : ev.target.value)
+              }
+            />
+            {isBirth ? (
+              <p id={`${f.fieldKey}-hint`} className="mt-1 text-[11px] leading-snug text-zinc-500">
+                Typ 8 cijfers — de schuine strepen staan al klaar (dd/mm/jjjj).
+              </p>
+            ) : null}
+          </>
         ) : null}
       </div>
     );
@@ -942,7 +954,7 @@ export function GuestBookingPanel({
 
   if (variant !== 'pro') {
     return (
-      <div className="space-y-4">
+      <div className="cm-agenda-on-dark space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line pb-3">
           <div className="min-w-0 flex-1">
             {!hideSlotTitle ? (
@@ -1155,7 +1167,7 @@ export function GuestBookingPanel({
   );
 
   return (
-    <div className={`flex flex-col gap-4 ${isMobile ? '' : 'min-h-[min(520px,62vh)]'}`}>
+    <div className={`cm-agenda-on-dark flex flex-col gap-4 ${isMobile ? '' : 'min-h-[min(520px,62vh)]'}`}>
       {uploadProgress ? (
         <CmProgressOverlay
           label="Afspraak versturen…"

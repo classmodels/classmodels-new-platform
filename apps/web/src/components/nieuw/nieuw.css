@@ -2908,6 +2908,84 @@
   color: #14110a !important;
 }
 
+/*
+ * Gsm gastenportaal: .nieuw-root en .nieuw-booking staan vaak op HETZELFDE element
+ * (MobileBeginHome). Selectors met een spatie (.nieuw-root .nieuw-booking) matchen
+ * dan niet, zodat Tailwind text-ink (#080516) en text-muted (#667085) donker op
+ * zwart blijven — dagkoppen, uren en «Vorige» onleesbaar.
+ */
+.nieuw-root.nieuw-booking,
+.nieuw-root.nieuw-themed {
+  --ink: var(--n-ink);
+  --muted: var(--n-mut);
+  --panel: var(--n-bg-3);
+  --line: var(--n-hair);
+  color: var(--n-ink);
+}
+
+.nieuw-root .cm-agenda-on-dark,
+.nieuw-root.nieuw-booking .cm-agenda-on-dark {
+  color: var(--n-ink);
+}
+
+.nieuw-root .cm-agenda-on-dark :is(
+  .text-ink,
+  .text-ink\/90,
+  .text-zinc-900,
+  .text-zinc-800,
+  .text-zinc-700
+),
+.nieuw-root.nieuw-booking :is(
+  .text-ink,
+  .text-ink\/90,
+  .text-zinc-900,
+  .text-zinc-800,
+  .text-zinc-700
+),
+.nieuw-root.nieuw-themed :is(
+  .text-ink,
+  .text-ink\/90,
+  .text-zinc-900,
+  .text-zinc-800,
+  .text-zinc-700
+) {
+  color: var(--n-ink) !important;
+}
+
+.nieuw-root .cm-agenda-on-dark :is(.text-muted, .text-zinc-500, .text-zinc-600),
+.nieuw-root.nieuw-booking :is(.text-muted, .text-zinc-500, .text-zinc-600),
+.nieuw-root.nieuw-themed :is(.text-muted, .text-zinc-500, .text-zinc-600) {
+  color: var(--n-mut) !important;
+}
+
+.nieuw-root .cm-agenda-on-dark :is(.text-burgundy, .text-red-700, .text-red-800),
+.nieuw-root.nieuw-booking :is(.text-burgundy, .text-red-700, .text-red-800) {
+  color: var(--n-gold) !important;
+}
+
+.nieuw-root .cm-agenda-on-dark button.tabular-nums,
+.nieuw-root.nieuw-booking button.tabular-nums {
+  color: var(--n-ink) !important;
+  border-color: var(--n-gold-hair) !important;
+}
+
+.nieuw-root .cm-agenda-on-dark button.tabular-nums span,
+.nieuw-root.nieuw-booking button.tabular-nums span {
+  color: inherit !important;
+}
+
+.nieuw-root .cm-agenda-on-dark button:not(.bg-zinc-900):not(.bg-burgundy):not(.bg-burgundyDeep):not(.text-burgundy) {
+  color: var(--n-ink) !important;
+}
+
+.nieuw-root .cm-agenda-on-dark button.bg-zinc-900,
+.nieuw-root .cm-agenda-on-dark button.bg-zinc-900 span,
+.nieuw-root.nieuw-booking button.bg-zinc-900,
+.nieuw-root.nieuw-booking .bg-zinc-900.text-white {
+  background: var(--n-gold) !important;
+  color: #14110a !important;
+}
+
 .nieuw-root .nieuw-themed .font-serif,
 .nieuw-root .nieuw-panel .font-serif,
 .nieuw-root .nieuw-booking .font-serif {

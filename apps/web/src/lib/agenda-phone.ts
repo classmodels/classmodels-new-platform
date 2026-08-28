@@ -21,23 +21,108 @@ export function agendaMobileError(raw: string | null | undefined, label = 'GSM')
   return null;
 }
 
-/** Normaliseer geboortedatum naar JJJJ-MM-DD. */
-export function normalizeIsoBirthDateClient(raw: string | null | undefined): string | null {
-  const s = (raw ?? '').trim();
-  if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const iso = s.slice(0, 10);
-    const t = Date.parse(`${iso}T12:00:00`);
-    return Number.isFinite(t) ? iso : null;
+const BIRTH_DATE_MASK = '__/__/____';
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function expandTwoDigitYear(yy: number): number {
+  return yy <= 29 ? 2000 + yy : 1900 + yy;
+}
+
+/** Echte kalenderdatum (geen 31/02), geboortejaar 1900 t.e.m. vandaag. */
+function ymdIfRealBirth(year: number, month: number, day: number): string | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  const now = new Date();
+  if (year < 1900 || year > now.getFullYear()) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const dt = new Date(year, month - 1, day);
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (dt > today) return null;
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+export function birthDateDigits(raw: string | null | undefined): string {
+  return (raw ?? '').replace(/\D/g, '').slice(0, 8);
+}
+
+export function isBirthDateFieldKey(fieldKey: string): boolean {
+  const k = fieldKey.toLowerCase();
+  return k === 'geboortedatum' || k === 'birthdate' || k === 'birth_date';
+}
+
+export function isBirthDateInputEmpty(raw: string | null | undefined): boolean {
+  return birthDateDigits(raw).length === 0;
+}
+
+/** Masker `__/__/____` — cijfers vullen dag, maand, jaar. */
+export function formatBirthDateMask(raw: string | null | undefined): string {
+  const digits = birthDateDigits(raw);
+  const chars = BIRTH_DATE_MASK.split('');
+  let i = 0;
+  for (let t = 0; t < chars.length && i < digits.length; t++) {
+    if (chars[t] === '_') chars[t] = digits[i++];
   }
-  const m = /^(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{4})$/.exec(s);
-  if (m) {
-    const dd = m[1].padStart(2, '0');
-    const mm = m[2].padStart(2, '0');
-    const yyyy = m[3];
-    const iso = `${yyyy}-${mm}-${dd}`;
-    const t = Date.parse(`${iso}T12:00:00`);
-    return Number.isFinite(t) ? iso : null;
+  return chars.join('');
+}
+
+export function dutchBirthDateFromIso(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Toon ISO of ruwe invoer als dd/mm/jjjj-masker. */
+export function birthDateFieldDisplay(raw: string | null | undefined): string {
+  const s = (raw ?? '').trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const iso = normalizeIsoBirthDateClient(s);
+    if (iso) return dutchBirthDateFromIso(iso);
+  }
+  return formatBirthDateMask(s);
+}
+
+/** Plakken van ISO of dd/mm/jjjj → masker; anders alleen cijfers in de slots. */
+export function applyBirthDateMaskInput(raw: string): string {
+  const t = (raw ?? '').trim();
+  if (
+    /^\d{4}-\d{2}-\d{2}/.test(t) ||
+    /^\d{1,2}\s*[./-]\s*\d{1,2}\s*[./-]\s*\d{4}$/.test(t)
+  ) {
+    const iso = normalizeIsoBirthDateClient(t);
+    if (iso) return dutchBirthDateFromIso(iso);
+  }
+  return formatBirthDateMask(raw);
+}
+
+/**
+ * Normaliseer geboortedatum naar JJJJ-MM-DD.
+ * Aanvaardt o.a. 8 cijfers, dd/mm/jjjj, d/m/yyyy, yyyy-mm-dd, - . / en masker-underscores.
+ * Houd gelijk met apps/api/src/agenda/model-booking-prefill.ts
+ */
+export function normalizeIsoBirthDateClient(raw: string | null | undefined): string | null {
+  const s = (raw ?? '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/.exec(s);
+  if (m) return ymdIfRealBirth(+m[1], +m[2], +m[3]);
+
+  m = /^(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{2}|\d{4})$/.exec(s);
+  if (m) return ymdIfRealBirth(m[3].length === 2 ? expandTwoDigitYear(+m[3]) : +m[3], +m[2], +m[1]);
+
+  const digits = s.replace(/\D/g, '');
+  if (digits.length === 8) {
+    const asDmy = ymdIfRealBirth(+digits.slice(4, 8), +digits.slice(2, 4), +digits.slice(0, 2));
+    if (asDmy) return asDmy;
+    return ymdIfRealBirth(+digits.slice(0, 4), +digits.slice(4, 6), +digits.slice(6, 8));
+  }
+  if (digits.length === 6) {
+    return ymdIfRealBirth(
+      expandTwoDigitYear(+digits.slice(4, 6)),
+      +digits.slice(2, 4),
+      +digits.slice(0, 2),
+    );
   }
   return null;
 }
@@ -77,7 +162,6 @@ export function agendaFieldPlaceholder(fieldKey: string, placeholder?: string): 
   const k = fieldKey.toLowerCase();
   if (k === 'telefoon' || k === 'phone' || k === 'gsm') return placeholder || '0498720371';
   if (k === 'nr' || k === 'huisnummer') return placeholder || 'Huisnr.';
-  // Geen voorbeeld-datum: ziet eruit alsof het veld al ingevuld is.
-  if (k === 'geboortedatum' || k === 'birthdate' || k === 'birth_date') return '';
+  if (k === 'geboortedatum' || k === 'birthdate' || k === 'birth_date') return 'dd/mm/jjjj';
   return placeholder ?? '';
 }

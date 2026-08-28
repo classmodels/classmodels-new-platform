@@ -142,7 +142,9 @@ export function validateBookingDetailForSave(
   if (!gebRaw) return 'Geboortedatum is verplicht.';
   const geb = normalizeIsoBirthDateClient(gebRaw) ?? gebRaw;
   const age = ageFromIsoBirthYmd(geb);
-  if (age == null) return 'Geboortedatum is ongeldig (gebruik JJJJ-MM-DD of DD/MM/JJJJ).';
+  if (age == null) {
+    return 'Geboortedatum is ongeldig (bv. 15/03/1998, 15031998 of 1998-03-15).';
+  }
   if (isCancelledAgendaStatus(input.status)) {
     if (!fjString(fj, 'annulatie_reden')) return 'Reden van annulatie is verplicht wanneer de status geannuleerd is.';
   }

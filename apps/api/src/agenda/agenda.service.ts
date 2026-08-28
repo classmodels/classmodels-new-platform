@@ -1186,13 +1186,19 @@ export class AgendaService implements OnModuleInit {
 
     if (webGuest) {
       const dobRaw = (fieldsJson.geboortedatum ?? '').trim();
-      const dob = dobRaw ? normalizeIsoBirthDate(dobRaw) ?? dobRaw : '';
-      if (dob && /^\d{4}-\d{2}-\d{2}$/.test(dob)) {
+      const dobDigits = dobRaw.replace(/\D/g, '');
+      if (dobDigits) {
+        const dob = normalizeIsoBirthDate(dobRaw);
+        if (!dob) {
+          throw new BadRequestException(
+            'Geboortedatum is ongeldig (bv. 15/03/1998, 15031998 of 1998-03-15).',
+          );
+        }
         fieldsJson.geboortedatum = dob;
-      }
-      if (dob && isMinorFromIsoDateString(dob)) {
-        const minorErr = validateGuestMinorParentFields(fieldsJson);
-        if (minorErr) throw new BadRequestException(minorErr);
+        if (isMinorFromIsoDateString(dob)) {
+          const minorErr = validateGuestMinorParentFields(fieldsJson);
+          if (minorErr) throw new BadRequestException(minorErr);
+        }
       }
     }
 

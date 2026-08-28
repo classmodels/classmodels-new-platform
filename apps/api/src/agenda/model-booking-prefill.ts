@@ -7,24 +7,49 @@ function digits(v: unknown): string {
   return str(v).replace(/\D/g, '');
 }
 
-/** Normaliseer geboortedatum naar JJJJ-MM-DD indien herkenbaar. */
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function expandTwoDigitYear(yy: number): number {
+  return yy <= 29 ? 2000 + yy : 1900 + yy;
+}
+
+function ymdIfRealBirth(year: number, month: number, day: number): string | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  const now = new Date();
+  if (year < 1900 || year > now.getFullYear()) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const dt = new Date(year, month - 1, day);
+  if (dt.getFullYear() !== year || dt.getMonth() !== month - 1 || dt.getDate() !== day) return null;
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (dt > today) return null;
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+/**
+ * Normaliseer geboortedatum naar JJJJ-MM-DD indien herkenbaar.
+ * Aanvaardt 8 cijfers, dd/mm/jjjj, d/m/yyyy, yyyy-mm-dd, - . / en masker-underscores.
+ * Houd gelijk met apps/web/src/lib/agenda-phone.ts
+ */
 export function normalizeIsoBirthDate(raw: string | null | undefined): string | null {
-  const s = (raw ?? '').trim();
+  const s = (raw ?? '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
   if (!s) return null;
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    const iso = s.slice(0, 10);
-    const t = Date.parse(`${iso}T12:00:00`);
-    return Number.isFinite(t) ? iso : null;
+
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:$|[T\s])/.exec(s);
+  if (m) return ymdIfRealBirth(+m[1], +m[2], +m[3]);
+
+  m = /^(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{2}|\d{4})$/.exec(s);
+  if (m) return ymdIfRealBirth(m[3].length === 2 ? expandTwoDigitYear(+m[3]) : +m[3], +m[2], +m[1]);
+
+  const only = s.replace(/\D/g, '');
+  if (only.length === 8) {
+    const asDmy = ymdIfRealBirth(+only.slice(4, 8), +only.slice(2, 4), +only.slice(0, 2));
+    if (asDmy) return asDmy;
+    return ymdIfRealBirth(+only.slice(0, 4), +only.slice(4, 6), +only.slice(6, 8));
   }
-  // DD/MM/YYYY of DD-MM-YYYY (met optionele spaties)
-  const m = /^(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{4})$/.exec(s);
-  if (m) {
-    const dd = m[1].padStart(2, '0');
-    const mm = m[2].padStart(2, '0');
-    const yyyy = m[3];
-    const iso = `${yyyy}-${mm}-${dd}`;
-    const t = Date.parse(`${iso}T12:00:00`);
-    return Number.isFinite(t) ? iso : null;
+  if (only.length === 6) {
+    return ymdIfRealBirth(expandTwoDigitYear(+only.slice(4, 6)), +only.slice(2, 4), +only.slice(0, 2));
   }
   return null;
 }

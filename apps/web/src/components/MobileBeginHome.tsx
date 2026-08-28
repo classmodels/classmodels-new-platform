@@ -565,16 +565,18 @@ function MobileBookView({ bookKey }: { bookKey: string }) {
         </p>
 
         <div
-          className="nieuw-root nieuw-booking nieuw-themed mt-5 overflow-hidden rounded-xl px-3 py-4 shadow-sm"
+          className="nieuw-root mt-5 overflow-hidden rounded-xl px-3 py-4 shadow-sm"
           style={{ background: CARD, border: `1px solid ${LINE}` }}
         >
-          <GuestBookingPanel
-            calendarSlug={meta.slug}
-            heading=""
-            hideSlotTitle
-            variant="default"
-            onClose={() => router.push('/?m=guest')}
-          />
+          <div className="nieuw-booking nieuw-themed">
+            <GuestBookingPanel
+              calendarSlug={meta.slug}
+              heading=""
+              hideSlotTitle
+              variant="default"
+              onClose={() => router.push('/?m=guest')}
+            />
+          </div>
         </div>
       </div>
     </>
