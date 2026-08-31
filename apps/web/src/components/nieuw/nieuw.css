@@ -1145,6 +1145,25 @@
   justify-content: flex-end;
   gap: 8px;
 }
+.nieuw-model-detail-admin {
+  margin-top: 18px;
+  padding: 12px;
+  border: 1px solid rgba(238, 233, 223, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+}
+.nieuw-model-inactive-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 3px 7px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #1a1208;
+  background: #c4a574;
+}
 
 /* Sections / booking frame */
 .nieuw-sectie {

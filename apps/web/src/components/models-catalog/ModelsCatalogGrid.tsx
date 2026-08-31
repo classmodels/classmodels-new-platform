@@ -256,6 +256,111 @@ function friendlyCatalogError(raw: string): string {
   return parseApiErrorBody(t);
 }
 
+function AdminFicheControls({
+  m,
+  token,
+  dark,
+  onUpdated,
+  onDeleted,
+}: {
+  m: CatalogModel;
+  token: string;
+  dark?: boolean;
+  onUpdated?: (patch: Pick<CatalogModel, 'id' | 'isInactive'>) => void;
+  onDeleted?: (id: string) => void;
+}) {
+  const { can } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [inactive, setInactive] = useState(m.isInactive);
+
+  useEffect(() => {
+    setInactive(m.isInactive);
+  }, [m.id, m.isInactive]);
+
+  if (!can('admin.users.write')) return null;
+
+  const label = [m.firstName, m.lastName].filter(Boolean).join(' ').trim() || m.displayName;
+
+  const toggleInactive = async () => {
+    const next = !inactive;
+    const ok = window.confirm(
+      next
+        ? `${label} op inactief zetten?\n\nHet model verdwijnt uit New face, Try-out en High class. Je vindt het terug via de knop Inactief.`
+        : `${label} weer actief zetten?`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/admin/catalog/models/${m.id}/flags`, token, {
+        method: 'POST',
+        body: JSON.stringify({ inactive: next }),
+      });
+      setInactive(next);
+      onUpdated?.({ id: m.id, isInactive: next });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Status wijzigen mislukt.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    const mail = m.email ? `\n${m.email}` : '';
+    const ok = window.confirm(
+      `Dit model definitief verwijderen?\n\n${label}${mail}\n\nAlle gegevens en geüploade foto’s worden gewist.`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await adminFetch(`/admin/users/${m.id}`, token, { method: 'DELETE' });
+      onDeleted?.(m.id);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Verwijderen mislukt.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className={
+        dark
+          ? 'nieuw-model-detail-admin'
+          : 'mt-4 rounded-lg border border-zinc-300 bg-zinc-50 p-3'
+      }
+    >
+      <p
+        className={
+          dark
+            ? 'mb-2 text-[10px] font-bold uppercase tracking-wide'
+            : 'text-[10px] font-bold uppercase tracking-wide text-zinc-600'
+        }
+        style={dark ? { color: 'var(--n-gold, #c4a574)' } : undefined}
+      >
+        Beheer (admin){inactive ? ' — inactief' : ''}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={dark ? 'nieuw-btn nieuw-btn-ghost' : 'rounded-lg border border-zinc-400 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100'}
+          disabled={busy}
+          onClick={() => void toggleInactive()}
+        >
+          {inactive ? 'Weer actief zetten' : 'Op inactief zetten'}
+        </button>
+        <button
+          type="button"
+          className={dark ? 'nieuw-btn nieuw-btn-ghost' : 'rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-100'}
+          disabled={busy}
+          onClick={() => void remove()}
+          style={dark ? { borderColor: '#8a3a3a', color: '#e8b4b4' } : undefined}
+        >
+          Model verwijderen
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ModelDetailDialog({
   m,
   initialPhotoSrc,
@@ -263,6 +368,8 @@ export function ModelDetailDialog({
   token,
   onClose,
   theme = 'light',
+  onUpdated,
+  onDeleted,
 }: {
   m: CatalogModel;
   initialPhotoSrc: string;
@@ -270,6 +377,8 @@ export function ModelDetailDialog({
   token: string | null;
   onClose: () => void;
   theme?: 'light' | 'dark';
+  onUpdated?: (patch: Pick<CatalogModel, 'id' | 'isInactive'>) => void;
+  onDeleted?: (id: string) => void;
 }) {
   const [detail, setDetail] = useState<CatalogModel | null>(m.sheet ? m : null);
   const [detailErr, setDetailErr] = useState<string | null>(null);
@@ -463,6 +572,19 @@ export function ModelDetailDialog({
 
               <div className="nieuw-model-detail-fields">{fields}</div>
 
+              {isAdmin && token ? (
+                <AdminFicheControls
+                  m={active}
+                  token={token}
+                  dark
+                  onUpdated={onUpdated}
+                  onDeleted={(id) => {
+                    onDeleted?.(id);
+                    onClose();
+                  }}
+                />
+              ) : null}
+
               <div className="nieuw-model-detail-actions">
                 <button
                   type="button"
@@ -608,6 +730,18 @@ export function ModelDetailDialog({
             ) : null}
 
             <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">{fields}</div>
+
+            {isAdmin && token ? (
+              <AdminFicheControls
+                m={active}
+                token={token}
+                onUpdated={onUpdated}
+                onDeleted={(id) => {
+                  onDeleted?.(id);
+                  onClose();
+                }}
+              />
+            ) : null}
 
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               {isAdmin && token ? (
@@ -1334,6 +1468,14 @@ export function ModelsCatalogGrid({
           isAdmin={isAdmin}
           token={token}
           onClose={() => setModal(null)}
+          onUpdated={(patch) => {
+            setRows((prev) => prev.map((x) => (x.id === patch.id ? { ...x, ...patch } : x)));
+            setModal((cur) => (cur && cur.id === patch.id ? { ...cur, ...patch } : cur));
+          }}
+          onDeleted={(id) => {
+            setRows((prev) => prev.filter((x) => x.id !== id));
+            setModal(null);
+          }}
         />
       ) : null}
     </div>

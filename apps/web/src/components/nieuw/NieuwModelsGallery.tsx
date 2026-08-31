@@ -24,6 +24,7 @@ function groupingLabel(slug: string): string {
   if (slug === 'newface') return 'New face';
   if (slug === 'tryout') return 'Try-out';
   if (slug === 'high-class') return 'High class';
+  if (slug === 'inactief') return 'Inactief';
   return slug
     .split('-')
     .filter(Boolean)
@@ -90,7 +91,7 @@ export function NieuwModelsGallery({
     let lo = Infinity;
     let hi = -Infinity;
     for (const m of models) {
-      if (m.isInactive && !isAdmin) continue;
+      if (m.isInactive) continue;
       if (m.age == null || !Number.isFinite(m.age)) continue;
       lo = Math.min(lo, m.age);
       hi = Math.max(hi, m.age);
@@ -102,7 +103,7 @@ export function NieuwModelsGallery({
       lo: Math.min(AGE_TRACK_HI, Math.max(AGE_TRACK_LO, lo)),
       hi: Math.min(AGE_TRACK_HI, Math.max(AGE_TRACK_LO, hi)),
     };
-  }, [models, isAdmin]);
+  }, [models]);
 
   useEffect(() => {
     setAgeMin(catalogAge.lo);
@@ -121,19 +122,22 @@ export function NieuwModelsGallery({
 
   const groupingTypes = useMemo(() => {
     const extra = new Set<string>(['newface', 'tryout', 'high-class']);
+    if (isAdmin) extra.add('inactief');
     for (const m of models) {
       for (const s of m.roleSlugs ?? []) {
         if (!HIDDEN_TYPE_SLUGS.has(s)) extra.add(s);
       }
       if (m.isHighClass) extra.add('high-class');
     }
-    const preferred = ['newface', 'tryout', 'high-class'];
+    const preferred = isAdmin
+      ? ['newface', 'tryout', 'high-class', 'inactief']
+      : ['newface', 'tryout', 'high-class'];
     const rest = [...extra].filter((s) => !preferred.includes(s)).sort((a, b) => a.localeCompare(b, 'nl'));
     return [...preferred.filter((s) => extra.has(s)), ...rest].map((slug) => ({
       slug,
       label: groupingLabel(slug),
     }));
-  }, [models]);
+  }, [models, isAdmin]);
 
   const toggleSet = (setter: typeof setAvSel, key: string) => {
     setter((prev) => {
@@ -149,13 +153,19 @@ export function NieuwModelsGallery({
     const needle = q.trim().toLowerCase();
 
     return models.filter((m) => {
-      if (m.isInactive && !isAdmin) return false;
-      if (flagSel.size) {
+      const wantsInactive = flagSel.has('inactief');
+      if (m.isInactive) {
+        if (!isAdmin || !wantsInactive) return false;
+      } else if (wantsInactive) {
+        return false;
+      }
+      const typeFlags = [...flagSel].filter((f) => f !== 'inactief');
+      if (typeFlags.length) {
         const slugs = new Set(m.roleSlugs ?? []);
         if (m.isNewface) slugs.add('newface');
         if (m.isTryout) slugs.add('tryout');
         if (m.isHighClass) slugs.add('high-class');
-        for (const f of flagSel) {
+        for (const f of typeFlags) {
           if (!slugs.has(f)) return false;
         }
       }
@@ -369,6 +379,7 @@ export function NieuwModelsGallery({
                         onClick={() => setModal(m)}
                       >
                         <div className="nieuw-model-foto">
+                          {m.isInactive ? <span className="nieuw-model-inactive-badge">Inactief</span> : null}
                           {src ? (
                             <CatalogModelThumb
                               key={`${src}-${idx < 8 ? 'p' : 'l'}`}
@@ -423,6 +434,14 @@ export function NieuwModelsGallery({
           token={token}
           theme="dark"
           onClose={() => setModal(null)}
+          onUpdated={(patch) => {
+            setModels((prev) => prev.map((x) => (x.id === patch.id ? { ...x, ...patch } : x)));
+            setModal((cur) => (cur && cur.id === patch.id ? { ...cur, ...patch } : cur));
+          }}
+          onDeleted={(id) => {
+            setModels((prev) => prev.filter((x) => x.id !== id));
+            setModal(null);
+          }}
         />
       ) : null}
     </div>

@@ -307,13 +307,13 @@ export function KlantenPortalClient() {
   const filteredModels = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return models.filter((m) => {
-      if (m.isInactive && !isAdmin) return false;
+      if (m.isInactive) return false;
       if (!needle) return true;
       const name =
         `${m.displayName} ${m.firstName ?? ''} ${m.lastName ?? ''} ${m.gemeente ?? ''}`.toLowerCase();
       return name.includes(needle);
     });
-  }, [models, q, isAdmin]);
+  }, [models, q]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
