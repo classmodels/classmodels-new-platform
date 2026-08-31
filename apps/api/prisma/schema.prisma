@@ -47,6 +47,8 @@ model Role {
   label       String
   description String?
   permissions Json     @default("[]")
+  /// hidden = alleen fiche/backoffice; public = frontend bezoekers; admin_frontend = frontend alleen admin
+  catalogVisibility String @default("admin_frontend")
   users       UserRole[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

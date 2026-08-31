@@ -12,6 +12,10 @@ export class CreateRoleDto {
   @IsOptional()
   @IsString()
   description?: string | null;
+
+  @IsOptional()
+  @IsString()
+  catalogVisibility?: string;
 }
 
 export class UpdateRoleDto {
@@ -27,4 +31,8 @@ export class UpdateRoleDto {
   @IsOptional()
   @IsArray()
   permissions?: unknown[];
+
+  @IsOptional()
+  @IsString()
+  catalogVisibility?: string;
 }

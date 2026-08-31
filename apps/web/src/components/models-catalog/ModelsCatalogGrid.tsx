@@ -16,6 +16,7 @@ import { CmProgressBar } from '@/components/CmProgressBar';
 import { CatalogModelThumb } from '@/components/models-catalog/CatalogModelThumb';
 import { useAuth } from '@/context/auth-context';
 import { adminDownloadFile, adminFetch } from '@/lib/admin-api';
+import { isGroupingRoleSlug } from '@/lib/catalog-visibility';
 import { startImpersonationSession, clearImpersonationSession } from '@/lib/impersonation';
 import { portalTitlebarPillClass } from '@/components/model-portal/portal-titlebar-pill';
 
@@ -266,20 +267,103 @@ function AdminFicheControls({
   m: CatalogModel;
   token: string;
   dark?: boolean;
-  onUpdated?: (patch: Pick<CatalogModel, 'id' | 'isInactive'>) => void;
+  onUpdated?: (
+    patch: Pick<CatalogModel, 'id' | 'isInactive'> &
+      Partial<Pick<CatalogModel, 'isNewface' | 'isTryout' | 'isHighClass' | 'roleSlugs'>>,
+  ) => void;
   onDeleted?: (id: string) => void;
 }) {
   const { can } = useAuth();
   const [busy, setBusy] = useState(false);
   const [inactive, setInactive] = useState(m.isInactive);
+  const [groupRoles, setGroupRoles] = useState<{ slug: string; label: string }[]>([]);
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(m.roleSlugs ?? []));
 
   useEffect(() => {
     setInactive(m.isInactive);
-  }, [m.id, m.isInactive]);
+    const s = new Set(m.roleSlugs ?? []);
+    if (m.isNewface) s.add('newface');
+    if (m.isTryout) s.add('tryout');
+    if (m.isHighClass) s.add('high-class');
+    if (m.isInactive) s.add('inactief');
+    setChecked(s);
+  }, [m.id, m.isInactive, m.isNewface, m.isTryout, m.isHighClass, m.roleSlugs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminFetch<{ slug: string; label: string }[]>('/admin/roles', token)
+      .then((rows) => {
+        if (cancelled) return;
+        const preferred = ['newface', 'tryout', 'high-class'];
+        const grouping = rows.filter((r) => isGroupingRoleSlug(r.slug) && r.slug !== 'inactief');
+        const rest = grouping
+          .filter((r) => !preferred.includes(r.slug))
+          .sort((a, b) => a.label.localeCompare(b.label, 'nl'));
+        const ordered = [
+          ...preferred.map((slug) => grouping.find((r) => r.slug === slug)).filter(Boolean),
+          ...rest,
+        ] as { slug: string; label: string }[];
+        setGroupRoles(ordered);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setGroupRoles([
+            { slug: 'newface', label: 'Newface' },
+            { slug: 'tryout', label: 'Try-out' },
+            { slug: 'high-class', label: 'High class' },
+            { slug: 'inactief', label: 'Inactief' },
+          ]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   if (!can('admin.users.write')) return null;
 
   const label = [m.firstName, m.lastName].filter(Boolean).join(' ').trim() || m.displayName;
+  const sh = m.sheet ?? {};
+  const gsm = sheetStr(sh, 'gsmModel');
+  const moeder = sheetStr(sh, 'gsmMoeder');
+  const vader = sheetStr(sh, 'gsmVader');
+
+  const applyPatch = (slugs: string[]) => {
+    const nextInactive = slugs.includes('inactief');
+    setInactive(nextInactive);
+    onUpdated?.({
+      id: m.id,
+      isInactive: nextInactive,
+      isNewface: slugs.includes('newface'),
+      isTryout: slugs.includes('tryout'),
+      isHighClass: slugs.includes('high-class'),
+      roleSlugs: slugs,
+    });
+  };
+
+  const toggleGroup = async (slug: string, enabled: boolean) => {
+    const prev = new Set(checked);
+    const next = new Set(checked);
+    if (enabled) next.add(slug);
+    else next.delete(slug);
+    setChecked(next);
+    setBusy(true);
+    try {
+      const res = await adminFetch<{
+        roleSlugs: string[];
+      }>(`/admin/users/${m.id}/roles/toggle`, token, {
+        method: 'POST',
+        body: JSON.stringify({ roleSlug: slug, enabled }),
+      });
+      setChecked(new Set(res.roleSlugs));
+      applyPatch(res.roleSlugs);
+    } catch (e) {
+      setChecked(prev);
+      window.alert(e instanceof Error ? e.message : 'Groep bijwerken mislukt.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const toggleInactive = async () => {
     const next = !inactive;
@@ -289,19 +373,7 @@ function AdminFicheControls({
         : `${label} weer actief zetten?`,
     );
     if (!ok) return;
-    setBusy(true);
-    try {
-      await adminFetch(`/admin/catalog/models/${m.id}/flags`, token, {
-        method: 'POST',
-        body: JSON.stringify({ inactive: next }),
-      });
-      setInactive(next);
-      onUpdated?.({ id: m.id, isInactive: next });
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Status wijzigen mislukt.');
-    } finally {
-      setBusy(false);
-    }
+    await toggleGroup('inactief', next);
   };
 
   const remove = async () => {
@@ -319,6 +391,8 @@ function AdminFicheControls({
       setBusy(false);
     }
   };
+
+  const fieldCls = dark ? 'nieuw-model-detail-admin-row' : 'text-xs text-zinc-800';
 
   return (
     <div
@@ -338,7 +412,66 @@ function AdminFicheControls({
       >
         Beheer (admin){inactive ? ' — inactief' : ''}
       </p>
-      <div className="flex flex-wrap gap-2">
+
+      <dl className={dark ? 'nieuw-model-detail-admin-dl' : 'mt-2 space-y-1 text-xs text-zinc-800'}>
+        <div className={fieldCls}>
+          <dt>E-mail</dt>
+          <dd>{m.email?.trim() || '—'}</dd>
+        </div>
+        <div className={fieldCls}>
+          <dt>Adres</dt>
+          <dd>{formatAdminAddress(sh)}</dd>
+        </div>
+        <div className={fieldCls}>
+          <dt>GSM model</dt>
+          <dd>{gsm || '—'}</dd>
+        </div>
+        <div className={fieldCls}>
+          <dt>GSM moeder</dt>
+          <dd>{moeder || '—'}</dd>
+        </div>
+        <div className={fieldCls}>
+          <dt>GSM vader</dt>
+          <dd>{vader || '—'}</dd>
+        </div>
+      </dl>
+
+      {groupRoles.length ? (
+        <div className={dark ? 'nieuw-model-detail-admin-groups' : 'mt-3'}>
+          <p
+            className={
+              dark
+                ? 'mb-2 text-[10px] font-bold uppercase tracking-wide'
+                : 'mt-2 text-[10px] font-bold uppercase tracking-wide text-zinc-600'
+            }
+            style={dark ? { color: 'var(--n-gold, #c4a574)' } : undefined}
+          >
+            Groepen
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            {groupRoles.map((r) => (
+              <label
+                key={r.slug}
+                className={
+                  dark
+                    ? 'nieuw-model-detail-admin-check'
+                    : 'flex items-center gap-1.5 text-xs text-zinc-800'
+                }
+              >
+                <input
+                  type="checkbox"
+                  checked={checked.has(r.slug)}
+                  disabled={busy}
+                  onChange={(e) => void toggleGroup(r.slug, e.target.checked)}
+                />
+                {r.label}
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           className={dark ? 'nieuw-btn nieuw-btn-ghost' : 'rounded-lg border border-zinc-400 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100'}
@@ -377,7 +510,10 @@ export function ModelDetailDialog({
   token: string | null;
   onClose: () => void;
   theme?: 'light' | 'dark';
-  onUpdated?: (patch: Pick<CatalogModel, 'id' | 'isInactive'>) => void;
+  onUpdated?: (
+    patch: Pick<CatalogModel, 'id' | 'isInactive'> &
+      Partial<Pick<CatalogModel, 'isNewface' | 'isTryout' | 'isHighClass' | 'roleSlugs'>>,
+  ) => void;
   onDeleted?: (id: string) => void;
 }) {
   const [detail, setDetail] = useState<CatalogModel | null>(m.sheet ? m : null);

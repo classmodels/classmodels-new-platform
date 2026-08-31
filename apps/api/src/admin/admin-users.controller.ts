@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { AdminUsersService } from './admin-users.service';
-import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto, BulkAddRolesDto } from './dto/admin-user.dto';
+import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto, BulkAddRolesDto, ToggleUserRoleDto } from './dto/admin-user.dto';
 
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -40,6 +40,15 @@ export class AdminUsersController {
   @Permissions('admin.users.write')
   create(@Body() dto: CreateAdminUserDto) {
     return this.svc.create(dto);
+  }
+
+  @Post(':id/roles/toggle')
+  @Permissions('admin.users.write')
+  toggleRole(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ToggleUserRoleDto,
+  ) {
+    return this.svc.toggleGroupingRole(id, dto.roleSlug, dto.enabled);
   }
 
   @Get(':id')

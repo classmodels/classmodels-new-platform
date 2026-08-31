@@ -38,6 +38,13 @@ function slugifyRole(raw: string): string {
     .slice(0, 48);
 }
 
+const VISIBILITY = new Set(['hidden', 'public', 'admin_frontend']);
+
+export function parseCatalogVisibility(raw?: string | null, fallback = 'admin_frontend'): string {
+  const v = String(raw || '').trim();
+  return VISIBILITY.has(v) ? v : fallback;
+}
+
 @Injectable()
 export class AdminRolesService {
   constructor(private prisma: PrismaService) {}
@@ -51,6 +58,7 @@ export class AdminRolesService {
         label: 'High class',
         description: 'Extra groepering naast Newface en Try-out. Modellen kunnen deze rol extra krijgen.',
         permissions: MODEL_PORTAL_PERMISSIONS,
+        catalogVisibility: 'public',
       },
     });
   }
@@ -83,6 +91,7 @@ export class AdminRolesService {
         label,
         description: dto.description?.trim() || `Modelgroepering: ${label}`,
         permissions,
+        catalogVisibility: parseCatalogVisibility(dto.catalogVisibility, 'admin_frontend'),
       },
     });
   }
@@ -96,6 +105,9 @@ export class AdminRolesService {
         ...(dto.label != null ? { label: dto.label } : {}),
         ...(dto.description !== undefined ? { description: dto.description } : {}),
         ...(dto.permissions != null ? { permissions: dto.permissions as object } : {}),
+        ...(dto.catalogVisibility != null
+          ? { catalogVisibility: parseCatalogVisibility(dto.catalogVisibility) }
+          : {}),
       },
     });
   }

@@ -248,6 +248,30 @@ export class CatalogService {
     };
   }
 
+  async listGroupings(viewer?: { sub: string; roles: string[] }) {
+    await this.prisma.role.upsert({
+      where: { slug: ROLE_HIGH_CLASS },
+      update: {},
+      create: {
+        slug: ROLE_HIGH_CLASS,
+        label: 'High class',
+        description: 'Modelgroepering: High class',
+        permissions: [],
+        catalogVisibility: 'public',
+      },
+    });
+    const isAdmin = !!viewer?.roles?.includes('admin');
+    const vis = isAdmin ? ['public', 'admin_frontend'] : ['public'];
+    return this.prisma.role.findMany({
+      where: {
+        catalogVisibility: { in: vis },
+        slug: { notIn: [...ACCOUNT_ROLE_SLUGS, ROLE_MODEL] },
+      },
+      select: { slug: true, label: true, catalogVisibility: true },
+      orderBy: { slug: 'asc' },
+    });
+  }
+
   async listModels(viewer?: { sub: string; roles: string[] }) {
     const key = this.listCacheKey(viewer);
     const now = Date.now();

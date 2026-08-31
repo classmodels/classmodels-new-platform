@@ -238,7 +238,7 @@ async function seedOpleidingOpenDays(p: PrismaClient) {
 }
 
 async function main() {
-  const roles: { slug: string; label: string; permissions: string[] }[] = [
+  const roles: { slug: string; label: string; permissions: string[]; catalogVisibility?: string }[] = [
     { slug: 'admin', label: 'Administrator', permissions: ['*'] },
     {
       slug: 'fotograaf',
@@ -264,6 +264,7 @@ async function main() {
     {
       slug: 'newface',
       label: 'Newface',
+      catalogVisibility: 'public',
       permissions: [
         'portal.model.briefs.read',
         'portal.model.briefs.respond',
@@ -280,6 +281,7 @@ async function main() {
     {
       slug: 'tryout',
       label: 'Try-out',
+      catalogVisibility: 'public',
       permissions: [
         'portal.model.briefs.read',
         'portal.model.briefs.respond',
@@ -296,6 +298,7 @@ async function main() {
     {
       slug: 'high-class',
       label: 'High class',
+      catalogVisibility: 'public',
       permissions: [
         'portal.model.briefs.read',
         'portal.model.briefs.respond',
@@ -312,6 +315,7 @@ async function main() {
     {
       slug: 'inactief',
       label: 'Inactief model',
+      catalogVisibility: 'admin_frontend',
       permissions: [
         'portal.model.briefs.read',
         'portal.model.media.read',
@@ -333,7 +337,11 @@ async function main() {
   for (const r of roles) {
     await prisma.role.upsert({
       where: { slug: r.slug },
-      update: { label: r.label, permissions: r.permissions },
+      update: {
+        label: r.label,
+        permissions: r.permissions,
+        ...(r.catalogVisibility ? { catalogVisibility: r.catalogVisibility } : {}),
+      },
       create: r,
     });
   }

@@ -57,6 +57,7 @@ export function NieuwModelsGallery({
   const [ageMin, setAgeMin] = useState(AGE_TRACK_LO);
   const [ageMax, setAgeMax] = useState(AGE_TRACK_HI);
   const [q, setQ] = useState('');
+  const [groupings, setGroupings] = useState<{ slug: string; label: string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +81,29 @@ export function NieuwModelsGallery({
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const headers: HeadersInit = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    fetch(`${getApiBase()}/catalog/groupings`, { headers, cache: 'no-store' })
+      .then(async (r) => (r.ok ? r.json() : []))
+      .then((data: unknown) => {
+        if (cancelled) return;
+        const rows = Array.isArray(data)
+          ? (data as { slug?: string; label?: string }[])
+              .filter((x) => typeof x?.slug === 'string' && x.slug)
+              .map((x) => ({ slug: x.slug as string, label: String(x.label || groupingLabel(x.slug as string)) }))
+          : [];
+        setGroupings(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setGroupings([]);
       });
     return () => {
       cancelled = true;
@@ -121,6 +145,20 @@ export function NieuwModelsGallery({
   }, [models]);
 
   const groupingTypes = useMemo(() => {
+    if (groupings.length) {
+      const bySlug = new Map(groupings.map((g) => [g.slug, g]));
+      const preferred = isAdmin
+        ? ['newface', 'tryout', 'high-class', 'inactief']
+        : ['newface', 'tryout', 'high-class'];
+      const rest = groupings
+        .filter((g) => !preferred.includes(g.slug))
+        .sort((a, b) => a.label.localeCompare(b.label, 'nl'));
+      const ordered = [
+        ...preferred.map((slug) => bySlug.get(slug)).filter(Boolean),
+        ...rest,
+      ] as { slug: string; label: string }[];
+      return ordered.map((g) => ({ slug: g.slug, label: g.label || groupingLabel(g.slug) }));
+    }
     const extra = new Set<string>(['newface', 'tryout', 'high-class']);
     if (isAdmin) extra.add('inactief');
     for (const m of models) {
@@ -137,7 +175,7 @@ export function NieuwModelsGallery({
       slug,
       label: groupingLabel(slug),
     }));
-  }, [models, isAdmin]);
+  }, [models, isAdmin, groupings]);
 
   const toggleSet = (setter: typeof setAvSel, key: string) => {
     setter((prev) => {

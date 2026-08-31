@@ -22,6 +22,13 @@ export class CatalogPublicController {
     }
   }
 
+  @Get('groupings')
+  @Header('Cache-Control', 'private, max-age=30, stale-while-revalidate=60')
+  groupings(@Headers('authorization') authorization?: string) {
+    const u = this.parseUser(authorization);
+    return this.catalog.listGroupings(u ? { sub: u.sub, roles: u.roles ?? [] } : undefined);
+  }
+
   /** Publiek modellenrooster (+ admin-velden als Bearer admin). */
   @Get('models')
   @Header('Cache-Control', 'private, max-age=60, stale-while-revalidate=120')

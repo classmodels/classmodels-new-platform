@@ -109,3 +109,12 @@ export class BulkAddRolesDto {
   @MinLength(1)
   roleSlug!: string;
 }
+
+export class ToggleUserRoleDto {
+  @IsString()
+  @MinLength(1)
+  roleSlug!: string;
+
+  @IsBoolean()
+  enabled!: boolean;
+}

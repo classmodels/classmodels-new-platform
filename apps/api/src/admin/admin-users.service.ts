@@ -250,4 +250,39 @@ export class AdminUsersService {
       selected: uniq.length,
     };
   }
+
+  /** Aan/uit van één modelgroepering, zonder andere rollen te wissen. */
+  async toggleGroupingRole(userId: string, roleSlug: string, enabled: boolean) {
+    const slug = String(roleSlug || '').trim();
+    const accountSlugs = new Set(['admin', 'client', 'guest', 'fotograaf']);
+    if (!slug || accountSlugs.has(slug) || slug === 'model') {
+      throw new ForbiddenException('Dit is geen modelgroepering.');
+    }
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new NotFoundException();
+    const role = await this.prisma.role.findUnique({ where: { slug } });
+    if (!role) throw new NotFoundException('Onbekende rol.');
+    if (enabled) {
+      await this.prisma.userRole.createMany({
+        data: [{ userId, roleId: role.id }],
+        skipDuplicates: true,
+      });
+    } else {
+      await this.prisma.userRole.deleteMany({ where: { userId, roleId: role.id } });
+    }
+    this.catalog.invalidateListCache();
+    const fresh = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { roles: { select: { role: { select: { slug: true } } } } },
+    });
+    const slugs = (fresh?.roles ?? []).map((r) => r.role.slug);
+    return {
+      id: userId,
+      roleSlugs: slugs,
+      isNewface: slugs.includes('newface'),
+      isTryout: slugs.includes('tryout'),
+      isHighClass: slugs.includes('high-class'),
+      isInactive: slugs.includes('inactief'),
+    };
+  }
 }

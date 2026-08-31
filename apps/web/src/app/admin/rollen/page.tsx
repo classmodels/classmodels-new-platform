@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { CATALOG_VISIBILITY_OPTS, isGroupingRoleSlug } from '@/lib/catalog-visibility';
 
 type RoleRow = {
   id: string;
@@ -10,6 +11,7 @@ type RoleRow = {
   label: string;
   description?: string | null;
   permissions: unknown;
+  catalogVisibility?: string;
   _count?: { users: number };
 };
 
@@ -28,7 +30,9 @@ export default function AdminRollenPage() {
   const [msg, setMsg] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [newSlug, setNewSlug] = useState('');
+  const [newVisibility, setNewVisibility] = useState('admin_frontend');
   const [creating, setCreating] = useState(false);
+  const [vis, setVis] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     if (!token || !can('admin.roles.read')) return;
@@ -55,6 +59,11 @@ export default function AdminRollenPage() {
     }
     setSelected(sel);
     setFullStar(fs);
+    const vmap: Record<string, string> = {};
+    for (const r of roleData) {
+      vmap[r.id] = r.catalogVisibility || 'admin_frontend';
+    }
+    setVis(vmap);
   }, [token, can]);
 
   useEffect(() => {
@@ -77,9 +86,11 @@ export default function AdminRollenPage() {
     if (!token || !can('admin.roles.write')) return;
     setMsg('');
     const permissions = fullStar[id] ? ['*'] : [...(selected[id] ?? [])];
+    const body: Record<string, unknown> = { permissions };
+    if (vis[id]) body.catalogVisibility = vis[id];
     await adminFetch(`/admin/roles/${id}`, token, {
       method: 'PATCH',
-      body: JSON.stringify({ permissions }),
+      body: JSON.stringify(body),
     });
     await load();
     setMsg('Rol opgeslagen.');
@@ -100,10 +111,12 @@ export default function AdminRollenPage() {
         body: JSON.stringify({
           label,
           slug: newSlug.trim() || undefined,
+          catalogVisibility: newVisibility,
         }),
       });
       setNewLabel('');
       setNewSlug('');
+      setNewVisibility('admin_frontend');
       await load();
       setMsg(`Groepering “${label}” aangemaakt. Zet modellen bij onder Gebruikers (aanvinken + bijzetten).`);
     } catch (e: unknown) {
@@ -142,6 +155,8 @@ export default function AdminRollenPage() {
           <h2 className="font-medium text-ink">Nieuwe modelgroepering</h2>
           <p className="mt-1 text-xs text-muted">
             Bijvoorbeeld High class. Modellen krijgen deze rol extra; Newface of Try-out verdwijnt niet.
+            Nieuwe groeperingen staan meteen als vinkje op de model-fiche (Beheer). Kies of die groepering
+            alleen daar zichtbaar is, ook op de frontend voor bezoekers, of alleen op de frontend voor de admin.
           </p>
           <div className="mt-3 flex flex-wrap items-end gap-2">
             <label className="flex min-w-[180px] flex-1 flex-col text-[11px] text-muted">
@@ -161,6 +176,20 @@ export default function AdminRollenPage() {
                 onChange={(e) => setNewSlug(e.target.value)}
                 placeholder="high-class"
               />
+            </label>
+            <label className="flex min-w-[220px] flex-1 flex-col text-[11px] text-muted">
+              Zichtbaarheid
+              <select
+                className="mt-0.5 rounded border border-line px-2 py-1.5 text-sm text-ink"
+                value={newVisibility}
+                onChange={(e) => setNewVisibility(e.target.value)}
+              >
+                {CATALOG_VISIBILITY_OPTS.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <button
               type="submit"
@@ -186,6 +215,35 @@ export default function AdminRollenPage() {
               ) : null}
             </div>
             {r.description ? <p className="mt-1 text-xs text-muted">{r.description}</p> : null}
+
+            {isGroupingRoleSlug(r.slug) && can('admin.roles.write') ? (
+              <label className="mt-3 flex max-w-md flex-col text-[11px] text-muted">
+                Zichtbaarheid op de site
+                <select
+                  className="mt-0.5 rounded border border-line px-2 py-1.5 text-sm text-ink"
+                  value={vis[r.id] || 'admin_frontend'}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setVis((p) => ({ ...p, [r.id]: v }));
+                    if (!token) return;
+                    void adminFetch(`/admin/roles/${r.id}`, token, {
+                      method: 'PATCH',
+                      body: JSON.stringify({ catalogVisibility: v }),
+                    })
+                      .then(() => setMsg('Zichtbaarheid opgeslagen.'))
+                      .catch((err: unknown) =>
+                        setMsg(err instanceof Error ? err.message : 'Zichtbaarheid opslaan mislukt.'),
+                      );
+                  }}
+                >
+                  {CATALOG_VISIBILITY_OPTS.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
 
             {can('admin.roles.write') ? (
               <label className="mt-3 flex items-center gap-2 text-xs text-ink">
