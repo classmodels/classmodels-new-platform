@@ -29,7 +29,21 @@ const userPublicSelect = {
   lastLoginAt: true,
   createdAt: true,
   updatedAt: true,
-  roles: { include: { role: true } },
+  roles: {
+    include: {
+      role: {
+        select: {
+          id: true,
+          slug: true,
+          label: true,
+          description: true,
+          permissions: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      },
+    },
+  },
   modelSheet: true,
 } satisfies Prisma.UserSelect;
 

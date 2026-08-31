@@ -3,6 +3,7 @@
  * Zorgt dat login/partners werken, ook als prisma migrate faalde:
  * - User.clientProfile (anders elke User-query → 500)
  * - PartnerLogo-tabel
+ * - Role.catalogVisibility (anders Role-include bij login → 500)
  */
 const fs = require('fs');
 const path = require('path');
@@ -47,6 +48,24 @@ CREATE TABLE \`PartnerLogo\` (
     PRIMARY KEY (\`id\`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
     console.error('[combell] PartnerLogo-tabel aangemaakt');
+  }
+
+  const roleCols = await prisma.$queryRawUnsafe(
+    `SELECT COLUMN_NAME AS name
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Role' AND COLUMN_NAME = 'catalogVisibility'`,
+  );
+  if (!roleCols.length) {
+    await prisma.$executeRawUnsafe(
+      "ALTER TABLE `Role` ADD COLUMN `catalogVisibility` VARCHAR(32) NOT NULL DEFAULT 'admin_frontend'",
+    );
+    await prisma.$executeRawUnsafe(
+      "UPDATE `Role` SET `catalogVisibility` = 'public' WHERE `slug` IN ('newface', 'tryout', 'high-class')",
+    );
+    await prisma.$executeRawUnsafe(
+      "UPDATE `Role` SET `catalogVisibility` = 'admin_frontend' WHERE `slug` = 'inactief'",
+    );
+    console.error('[combell] Role.catalogVisibility toegevoegd (login/fiche-fix)');
   }
 }
 

@@ -83,7 +83,7 @@ export class AdminPushService {
     if (!list) throw new NotFoundException();
     const user = await this.prisma.user.findUnique({
       where: { id: dto.userId },
-      include: { roles: { include: { role: true } } },
+      include: { roles: { include: { role: { select: { slug: true } } } } },
     });
     if (!user) throw new NotFoundException('Gebruiker niet gevonden.');
     const slugs = user.roles.map((r) => r.role.slug);

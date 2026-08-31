@@ -190,7 +190,7 @@ export class AuthService {
       include: {
         user: {
           include: {
-            roles: { include: { role: true } },
+            roles: { include: { role: { select: { id: true, slug: true, label: true, description: true, permissions: true, createdAt: true, updatedAt: true } } } },
           },
         },
       },
@@ -274,7 +274,7 @@ export class AuthService {
       companyName,
       clientProfile: params.role === 'client' ? profile : null,
     });
-    return this.buildAuthResponse(user);
+    return this.buildAuthResponse(user as UserWithRoles);
   }
 
   /** Admin: tijdelijk JWT voor een modellenaccount (zelfde rechten als dat model). */

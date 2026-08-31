@@ -249,27 +249,39 @@ export class CatalogService {
   }
 
   async listGroupings(viewer?: { sub: string; roles: string[] }) {
-    await this.prisma.role.upsert({
-      where: { slug: ROLE_HIGH_CLASS },
-      update: {},
-      create: {
-        slug: ROLE_HIGH_CLASS,
-        label: 'High class',
-        description: 'Modelgroepering: High class',
-        permissions: [],
-        catalogVisibility: 'public',
-      },
-    });
     const isAdmin = !!viewer?.roles?.includes('admin');
-    const vis = isAdmin ? ['public', 'admin_frontend'] : ['public'];
-    return this.prisma.role.findMany({
-      where: {
-        catalogVisibility: { in: vis },
-        slug: { notIn: [...ACCOUNT_ROLE_SLUGS, ROLE_MODEL] },
-      },
-      select: { slug: true, label: true, catalogVisibility: true },
-      orderBy: { slug: 'asc' },
-    });
+    const fallback = [
+      { slug: ROLE_NEWFACE, label: 'Newface', catalogVisibility: 'public' },
+      { slug: ROLE_TRYOUT, label: 'Try-out', catalogVisibility: 'public' },
+      { slug: ROLE_HIGH_CLASS, label: 'High class', catalogVisibility: 'public' },
+      ...(isAdmin
+        ? [{ slug: ROLE_INACTIEF, label: 'Inactief', catalogVisibility: 'admin_frontend' }]
+        : []),
+    ];
+    try {
+      await this.prisma.role.upsert({
+        where: { slug: ROLE_HIGH_CLASS },
+        update: {},
+        create: {
+          slug: ROLE_HIGH_CLASS,
+          label: 'High class',
+          description: 'Modelgroepering: High class',
+          permissions: [],
+          catalogVisibility: 'public',
+        },
+      });
+      const vis = isAdmin ? ['public', 'admin_frontend'] : ['public'];
+      return await this.prisma.role.findMany({
+        where: {
+          catalogVisibility: { in: vis },
+          slug: { notIn: [...ACCOUNT_ROLE_SLUGS, ROLE_MODEL] },
+        },
+        select: { slug: true, label: true, catalogVisibility: true },
+        orderBy: { slug: 'asc' },
+      });
+    } catch {
+      return fallback;
+    }
   }
 
   async listModels(viewer?: { sub: string; roles: string[] }) {
@@ -427,7 +439,7 @@ export class CatalogService {
     await this.assertAdmin(adminId, roles);
     const user = await this.prisma.user.findUnique({
       where: { id: modelUserId },
-      include: { roles: { include: { role: true } } },
+      include: { roles: { include: { role: { select: { slug: true } } } } },
     });
     if (!user) throw new NotFoundException();
     const ids = await this.roleIds();

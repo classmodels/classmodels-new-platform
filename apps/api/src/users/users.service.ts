@@ -16,6 +16,17 @@ import { ModelPortalHistoryService } from '../portal/model-portal-history.servic
 
 const MODEL_ROLE_SLUGS = new Set(['model', 'newface', 'tryout', 'inactief', 'high-class']);
 
+/** Geen catalogVisibility: die kolom kan ontbreken tot Combell-migrate/ensure klaar is. */
+const roleForAuthSelect = {
+  id: true,
+  slug: true,
+  label: true,
+  description: true,
+  permissions: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 function mediaRoot(): string {
   return resolveMediaRoot();
 }
@@ -44,7 +55,7 @@ export class UsersService {
     return this.prisma.user.findUnique({
       where: { email: email.toLowerCase().trim() },
       include: {
-        roles: { include: { role: true } },
+        roles: { include: { role: { select: roleForAuthSelect } } },
         profilePhoto: {
           select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
         },
@@ -65,7 +76,7 @@ export class UsersService {
     const candidates = await this.prisma.user.findMany({
       where: { phone: { not: null } },
       include: {
-        roles: { include: { role: true } },
+        roles: { include: { role: { select: roleForAuthSelect } } },
         profilePhoto: {
           select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
         },
@@ -86,7 +97,7 @@ export class UsersService {
     return this.prisma.user.findUnique({
       where: { id },
       include: {
-        roles: { include: { role: true } },
+        roles: { include: { role: { select: roleForAuthSelect } } },
         profilePhoto: {
           select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
         },
@@ -129,7 +140,7 @@ export class UsersService {
         roles: { create: [{ role: { connect: { id: role.id } } }] },
       },
       include: {
-        roles: { include: { role: true } },
+        roles: { include: { role: { select: roleForAuthSelect } } },
         profilePhoto: {
           select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
         },
