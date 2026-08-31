@@ -34,7 +34,17 @@ type SavedFilterPreset = { name: string; filters: RoleFilterKey[]; q: string };
 type TimelineEntry = { id: string; at: string; text: string };
 
 const ACCOUNT_ROLE_SLUGS = new Set(['admin', 'client', 'guest', 'fotograaf']);
-const BUILTIN_FILTER_SLUGS = new Set(['admin', 'client', 'modelAny', 'newface', 'tryout', 'inactief']);
+const BUILTIN_FILTER_SLUGS = new Set([
+  'admin',
+  'client',
+  'guest',
+  'fotograaf',
+  'none',
+  'modelAny',
+  'newface',
+  'tryout',
+  'inactief',
+]);
 
 function hasModelTimelineRole(roleSlugs: string[]): boolean {
   return roleSlugs.some((s) => !ACCOUNT_ROLE_SLUGS.has(s));
@@ -129,6 +139,9 @@ function userMatchesRoleFilters(u: UserRow, filters: Set<RoleFilterKey>): boolea
   for (const key of filters) {
     if (key === 'admin' && slugs.has('admin')) return true;
     if (key === 'client' && slugs.has('client')) return true;
+    if (key === 'guest' && slugs.has('guest')) return true;
+    if (key === 'fotograaf' && slugs.has('fotograaf')) return true;
+    if (key === 'none' && slugs.size === 0) return true;
     if (key === 'modelAny' && isActiveRosterModel(slugs)) return true;
     if (key === 'newface' && slugs.has('newface') && isActiveRosterModel(slugs)) return true;
     if (key === 'tryout' && slugs.has('tryout') && isActiveRosterModel(slugs)) return true;
@@ -359,6 +372,9 @@ function AdminGebruikersPageContent() {
   const roleCounts = useMemo(() => {
     let admin = 0;
     let client = 0;
+    let guest = 0;
+    let fotograaf = 0;
+    let geenRol = 0;
     let modelAny = 0;
     let newface = 0;
     let tryout = 0;
@@ -370,8 +386,11 @@ function AdminGebruikersPageContent() {
         verwijderd++;
         continue;
       }
+      if (s.size === 0) geenRol++;
       if (s.has('admin')) admin++;
       if (s.has('client')) client++;
+      if (s.has('guest')) guest++;
+      if (s.has('fotograaf')) fotograaf++;
       if (isInactiveModel(s)) {
         inactief++;
       } else if (isActiveRosterModel(s)) {
@@ -384,6 +403,9 @@ function AdminGebruikersPageContent() {
       total: rows.length,
       admin,
       client,
+      guest,
+      fotograaf,
+      geenRol,
       modelAny,
       newface,
       tryout,
@@ -610,7 +632,8 @@ function AdminGebruikersPageContent() {
   const groupingFilterSlugs = useMemo(
     () =>
       [...roleFilters].filter(
-        (s) => !['admin', 'client', 'modelAny', 'inactief', 'verwijderd'].includes(s),
+        (s) =>
+          !['admin', 'client', 'guest', 'fotograaf', 'none', 'modelAny', 'inactief', 'verwijderd'].includes(s),
       ),
     [roleFilters],
   );
@@ -785,6 +808,22 @@ function AdminGebruikersPageContent() {
           <label className="flex cursor-pointer items-center gap-1.5 rounded border border-line bg-panel px-2 py-1 text-muted hover:bg-white">
             <input
               type="checkbox"
+              checked={roleFilters.has('guest')}
+              onChange={() => toggleRoleFilter('guest')}
+            />
+            Gast <strong className="text-ink">{roleCounts.guest}</strong>
+          </label>
+          <label className="flex cursor-pointer items-center gap-1.5 rounded border border-line bg-panel px-2 py-1 text-muted hover:bg-white">
+            <input
+              type="checkbox"
+              checked={roleFilters.has('fotograaf')}
+              onChange={() => toggleRoleFilter('fotograaf')}
+            />
+            Fotograaf <strong className="text-ink">{roleCounts.fotograaf}</strong>
+          </label>
+          <label className="flex cursor-pointer items-center gap-1.5 rounded border border-line bg-panel px-2 py-1 text-muted hover:bg-white">
+            <input
+              type="checkbox"
               checked={roleFilters.has('modelAny')}
               onChange={() => toggleRoleFilter('modelAny')}
             />
@@ -835,6 +874,14 @@ function AdminGebruikersPageContent() {
               onChange={() => toggleRoleFilter('verwijderd')}
             />
             Verwijderd <strong className="text-ink">{roleCounts.verwijderd}</strong>
+          </label>
+          <label className="flex cursor-pointer items-center gap-1.5 rounded border border-line bg-panel px-2 py-1 text-muted hover:bg-white">
+            <input
+              type="checkbox"
+              checked={roleFilters.has('none')}
+              onChange={() => toggleRoleFilter('none')}
+            />
+            Zonder rol <strong className="text-ink">{roleCounts.geenRol}</strong>
           </label>
           {roleFilters.size > 0 ? (
             <button
