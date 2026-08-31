@@ -81,6 +81,7 @@ export class PortalModelMediaController {
     @UploadedFile() file: Express.Multer.File,
     @Req() req: { user: JwtPayload },
     @Query('folderSlug') folderSlug?: string,
+    @Query('asProfile') asProfile?: string,
   ) {
     if (!file) return { error: 'Geen bestand' };
     const slug = folderSlug?.trim() || 'models';
@@ -88,6 +89,7 @@ export class PortalModelMediaController {
     if (!allowed.includes(slug)) {
       return { error: `Alleen ${allowed.join(' of ')} is toegestaan voor model-uploads.` };
     }
-    return this.media.saveForPortalUser(file, req.user.sub, slug);
+    const asProfilePhoto = asProfile === '1' || asProfile === 'true';
+    return this.media.saveForPortalUser(file, req.user.sub, slug, { asProfilePhoto });
   }
 }

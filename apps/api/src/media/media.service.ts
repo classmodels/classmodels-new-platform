@@ -1437,20 +1437,25 @@ export class MediaService implements OnModuleInit {
     }));
   }
 
-  private static readonly MAX_PORTFOLIO_PHOTOS = 9;
+  private static readonly MAX_GALLERY_PHOTOS = 12;
 
   async assertGalleryLimit(userId: string): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePhotoAssetId: true },
+    });
     const count = await this.prisma.mediaAsset.count({
       where: {
         uploadedById: userId,
         hardDeleted: false,
         mimeType: { startsWith: 'image/' },
         folder: { slug: 'models' },
+        ...(user?.profilePhotoAssetId ? { id: { not: user.profilePhotoAssetId } } : {}),
       },
     });
-    if (count >= MediaService.MAX_PORTFOLIO_PHOTOS) {
+    if (count >= MediaService.MAX_GALLERY_PHOTOS) {
       throw new BadRequestException(
-        'Maximaal 1 hoofdfoto en 8 galerijfoto\'s. Verwijder eerst een foto.',
+        `Maximaal ${MediaService.MAX_GALLERY_PHOTOS} galerijfoto's. Verwijder eerst een foto.`,
       );
     }
   }
@@ -1484,8 +1489,9 @@ export class MediaService implements OnModuleInit {
     file: Express.Multer.File,
     userId: string,
     folderSlug: string = 'models',
+    opts?: { asProfilePhoto?: boolean },
   ) {
-    if (folderSlug === 'models') {
+    if (folderSlug === 'models' && !opts?.asProfilePhoto) {
       await this.assertGalleryLimit(userId);
     }
     const folder = await this.prisma.mediaFolder.findUnique({

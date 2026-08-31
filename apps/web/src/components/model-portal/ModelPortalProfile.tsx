@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
 import type { AuthUser } from '@/context/auth-context';
 import { apiFetch, publicMediaUrl } from '@/lib/api';
 
@@ -30,6 +30,8 @@ function mediaDetailKey(a: ProfileMediaRow): string {
 function mediaPortalDetailKey(a: ProfileMediaRow): string {
   return a.portalDetailKey ?? mediaDetailKey(a);
 }
+
+const MAX_GALLERY_PHOTOS = 12;
 
 const BESCHIKBAAR_OPTS = [
   'Modeshows',
@@ -365,6 +367,45 @@ export function ModelPortalProfile({
     [token, canUploadMedia],
   );
 
+  const pickHoofdfoto = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = '';
+    if (!file) return;
+    setMsg('');
+    try {
+      await uploadMedia(file, { setAsProfilePhoto: true });
+      setMsg('Hoofdfoto bijgewerkt.');
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Hoofdfoto uploaden mislukt.');
+    }
+  };
+
+  const pickGalerij = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(e.target.files ?? [])];
+    e.target.value = '';
+    if (!files.length) return;
+    setMsg('');
+    try {
+      for (const file of files) {
+        await uploadMedia(file, { folderSlug: 'models' });
+      }
+      setMsg(files.length > 1 ? `${files.length} galerijfoto’s toegevoegd.` : 'Galerijfoto toegevoegd.');
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Galerijfoto uploaden mislukt.');
+    }
+  };
+
+  const useAsHoofdfoto = async (assetId: string) => {
+    if (!canUploadMedia) return;
+    setMsg('');
+    try {
+      await setProfilePhotoFromAsset(assetId);
+      setMsg('Deze foto is nu de hoofdfoto.');
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Hoofdfoto instellen mislukt.');
+    }
+  };
+
   const save = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
@@ -569,6 +610,7 @@ export function ModelPortalProfile({
 
   return (
     <form onSubmit={save} className="nieuw-profile-edit space-y-6 font-serif text-sm">
+      {msg ? <p className="text-[11px] leading-tight text-burgundy">{msg}</p> : null}
       {canReadMedia ? (
         <ProfileSection title="Foto's" complete={images.length > 0}>
           <div className="grid gap-6 sm:grid-cols-2">
@@ -594,52 +636,81 @@ export function ModelPortalProfile({
                       type="file"
                       className="hidden"
                       accept="image/*"
-                      onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { setAsProfilePhoto: true })}
+                      disabled={mediaBusy}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => void pickHoofdfoto(e)}
                     />
                   </label>
                 ) : null}
               </div>
+              <p className="text-[10px] leading-snug text-muted">
+                Nieuwe upload vervangt de hoofdfoto. De oude hoofdfoto blijft in de galerij.
+              </p>
             </div>
 
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-burgundy">
-                  Galerijfoto&apos;s (max. 8)
+                  Galerijfoto&apos;s ({galleryOnly.length}/{MAX_GALLERY_PHOTOS})
                 </p>
-                {canUploadMedia && galleryOnly.length < 8 ? (
+                {canUploadMedia ? (
                   <label className="inline-block cursor-pointer border border-line bg-white px-3 py-2 text-[10px] font-bold uppercase leading-none text-ink hover:bg-panel">
-                    {mediaBusy ? '…' : '+ Foto'}
+                    {mediaBusy ? '…' : '+ Galerijfoto’s'}
                     <input
                       type="file"
                       className="hidden"
                       accept="image/*"
-                      onChange={(e) => uploadMedia(e.target.files?.[0] ?? null, { folderSlug: 'models' })}
+                      multiple
+                      disabled={mediaBusy}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => void pickGalerij(e)}
                     />
                   </label>
                 ) : null}
               </div>
+              <p className="text-[10px] leading-snug text-muted">
+                Klik op een foto om die als hoofdfoto te zetten.
+              </p>
               {galleryOnly.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {galleryOnly.map((a) => (
                     <div
                       key={a.id}
-                      className="group relative flex h-16 w-14 shrink-0 flex-col items-center justify-center border border-line bg-white p-0.5"
+                      className="group relative flex w-[4.5rem] shrink-0 flex-col items-stretch border border-line bg-white"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={publicMediaUrl(mediaThumbKey(a))}
-                        alt=""
-                        className="max-h-full max-w-full object-contain"
-                      />
+                      <button
+                        type="button"
+                        className="flex h-16 items-center justify-center p-0.5"
+                        title="Als hoofdfoto zetten"
+                        disabled={mediaBusy || !canUploadMedia}
+                        onClick={() => void useAsHoofdfoto(a.id)}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={publicMediaUrl(mediaThumbKey(a))}
+                          alt=""
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </button>
                       {canUploadMedia ? (
-                        <button
-                          type="button"
-                          className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-700 text-[10px] font-bold leading-none text-white"
-                          title="Verwijderen"
-                          onClick={() => void deleteGalleryAsset(a.id)}
-                        >
-                          ×
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="border-t border-line px-1 py-0.5 text-[8px] font-bold uppercase leading-none text-burgundy hover:bg-panel disabled:opacity-40"
+                            disabled={mediaBusy}
+                            onClick={() => void useAsHoofdfoto(a.id)}
+                          >
+                            Hoofdfoto
+                          </button>
+                          <button
+                            type="button"
+                            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-700 text-[10px] font-bold leading-none text-white"
+                            title="Verwijderen"
+                            onClick={() => void deleteGalleryAsset(a.id)}
+                          >
+                            ×
+                          </button>
+                        </>
                       ) : null}
                     </div>
                   ))}

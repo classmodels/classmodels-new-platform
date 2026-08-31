@@ -339,8 +339,10 @@ export default function NieuwModellenPage() {
       const fd = new FormData();
       fd.append('file', file);
       const folderSlug = opts?.setAsProfilePhoto ? 'models' : (opts?.folderSlug ?? 'models');
+      const q = new URLSearchParams({ folderSlug });
+      if (opts?.setAsProfilePhoto) q.set('asProfile', '1');
       const text = await uploadWithProgress(
-        `${getApiBase()}/portal/model/media/upload?folderSlug=${encodeURIComponent(folderSlug)}`,
+        `${getApiBase()}/portal/model/media/upload?${q.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
@@ -360,6 +362,8 @@ export default function NieuwModellenPage() {
         await refreshMe();
       }
       return row?.id ? { id: row.id } : null;
+    } catch (e) {
+      throw e instanceof Error ? e : new Error('Upload mislukt.');
     } finally {
       setMediaBusy(false);
     }
@@ -375,6 +379,7 @@ export default function NieuwModellenPage() {
         body: JSON.stringify({ profilePhotoAssetId: assetId }),
       });
       await refreshMe();
+      await loadMedia();
     } finally {
       setMediaBusy(false);
     }
