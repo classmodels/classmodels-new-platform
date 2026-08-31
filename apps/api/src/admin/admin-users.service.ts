@@ -284,6 +284,33 @@ export class AdminUsersService {
     };
   }
 
+  async bulkRemoveRoles(userIds: string[], fromSlugs?: string[]) {
+    const accountSlugs = new Set(['admin', 'client', 'guest', 'fotograaf']);
+    const from = [...new Set((fromSlugs ?? []).map((s) => String(s || '').trim()).filter(Boolean))].filter(
+      (s) => !accountSlugs.has(s) && s !== 'model' && s !== 'verwijderd',
+    );
+    if (!from.length) {
+      throw new ConflictException('Kies de groepering waaruit je ze wilt halen (bv. New face).');
+    }
+    const uniq = [...new Set(userIds)].filter(Boolean);
+    if (!uniq.length) throw new ConflictException('Selecteer minstens één gebruiker.');
+    const fromRoles = await this.prisma.role.findMany({ where: { slug: { in: from } } });
+    if (!fromRoles.length) throw new NotFoundException('Onbekende groepering.');
+    const res = await this.prisma.userRole.deleteMany({
+      where: {
+        userId: { in: uniq },
+        roleId: { in: fromRoles.map((r) => r.id) },
+      },
+    });
+    if (res.count) this.catalog.invalidateListCache();
+    return {
+      removed: res.count,
+      fromSlugs: from,
+      labels: fromRoles.map((r) => r.label),
+      selected: uniq.length,
+    };
+  }
+
   async bulkMoveRoles(userIds: string[], toSlug: string, fromSlugs?: string[]) {
     const to = String(toSlug || '').trim();
     const accountSlugs = new Set(['admin', 'client', 'guest', 'fotograaf']);
@@ -296,22 +323,8 @@ export class AdminUsersService {
     const from = [...new Set((fromSlugs ?? []).map((s) => String(s || '').trim()).filter(Boolean))].filter(
       (s) => s !== to && !accountSlugs.has(s) && s !== 'model' && s !== 'verwijderd',
     );
-    let removed = 0;
-    if (from.length) {
-      const fromRoles = await this.prisma.role.findMany({ where: { slug: { in: from } } });
-      if (fromRoles.length) {
-        const uniq = [...new Set(userIds)].filter(Boolean);
-        const res = await this.prisma.userRole.deleteMany({
-          where: {
-            userId: { in: uniq },
-            roleId: { in: fromRoles.map((r) => r.id) },
-          },
-        });
-        removed = res.count;
-        this.catalog.invalidateListCache();
-      }
-    }
-    return { ...added, toSlug: to, removed, fromSlugs: from };
+    const removed = from.length ? await this.bulkRemoveRoles(userIds, from) : { removed: 0, fromSlugs: from };
+    return { ...added, toSlug: to, removed: removed.removed, fromSlugs: from };
   }
 
   private async ensureVerwijderdRole() {

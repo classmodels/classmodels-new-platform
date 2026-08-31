@@ -653,6 +653,50 @@ function AdminGebruikersPageContent() {
     }
   };
 
+  const removeFromListSlugs = groupingFilterSlugs.length
+    ? groupingFilterSlugs
+    : bulkRoleSlug
+      ? [bulkRoleSlug]
+      : [];
+  const removeFromListLabels = removeFromListSlugs
+    .map((s) => roleOpts.find((r) => r.slug === s)?.label || s)
+    .join(', ');
+
+  const bulkRemoveSelected = async () => {
+    if (!token || !can('admin.users.write')) return;
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!removeFromListSlugs.length) {
+      setMsg('Vink eerst New face (of een andere groepering) aan, of kies die in het menu.');
+      return;
+    }
+    const ok = window.confirm(
+      `${ids.length} model(len) uit “${removeFromListLabels}” halen?\n\nZe blijven model (en in andere groepen). Ze worden nergens anders naartoe gezet.`,
+    );
+    if (!ok) return;
+    setMsg('');
+    try {
+      const res = await adminFetch<{
+        removed: number;
+        labels: string[];
+        selected: number;
+      }>('/admin/users/roles/bulk-remove', token, {
+        method: 'POST',
+        body: JSON.stringify({ userIds: ids, fromSlugs: removeFromListSlugs }),
+      });
+      setSelected(new Set());
+      await load();
+      const names = (res.labels?.length ? res.labels : [removeFromListLabels]).join(', ');
+      setMsg(
+        res.removed
+          ? `${ids.length} model(len) uit ${names} gehaald.`
+          : `Niemand in de selectie zat in ${names}.`,
+      );
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Uit lijst halen mislukt.');
+    }
+  };
+
   const restoreOne = async (id: string, email: string) => {
     if (!token || !can('admin.users.write')) return;
     try {
@@ -705,8 +749,10 @@ function AdminGebruikersPageContent() {
           <a className="text-burgundy underline" href="/admin/rollen">
             Rollen
           </a>
-          ; hier kun je modellen <strong className="text-ink">bijzetten</strong> of{' '}
-          <strong className="text-ink">verplaatsen</strong> (bijv. alle New faces aanvinken → Try-out).
+          ; hier kun je modellen <strong className="text-ink">bijzetten</strong>,{' '}
+          <strong className="text-ink">verplaatsen</strong> of{' '}
+          <strong className="text-ink">uit de lijst halen</strong> (bijv. New face aanvinken → allen selecteren →
+          uit New face).
           Verwijderen gaat eerst naar de map Verwijderd.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
@@ -924,6 +970,14 @@ function AdminGebruikersPageContent() {
             onClick={() => void bulkMoveSelected()}
           >
             Verplaatsen naar… ({selected.size})
+          </button>
+          <button
+            type="button"
+            className="rounded border border-line bg-white px-3 py-1.5 text-ink hover:bg-panel disabled:opacity-40"
+            disabled={!selected.size || !removeFromListSlugs.length}
+            onClick={() => void bulkRemoveSelected()}
+          >
+            Uit {removeFromListLabels || 'lijst'} halen ({selected.size})
           </button>
           {roleFilters.has('verwijderd') ? (
             <button

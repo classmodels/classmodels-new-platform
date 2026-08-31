@@ -18,7 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { AdminUsersService } from './admin-users.service';
-import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto, BulkAddRolesDto, BulkMoveRolesDto, ToggleUserRoleDto } from './dto/admin-user.dto';
+import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto, BulkAddRolesDto, BulkMoveRolesDto, BulkRemoveRolesDto, ToggleUserRoleDto } from './dto/admin-user.dto';
 
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -41,6 +41,12 @@ export class AdminUsersController {
   @Permissions('admin.users.write')
   bulkMoveRoles(@Body() dto: BulkMoveRolesDto) {
     return this.svc.bulkMoveRoles(dto.userIds, dto.toSlug, dto.fromSlugs);
+  }
+
+  @Post('roles/bulk-remove')
+  @Permissions('admin.users.write')
+  bulkRemoveRoles(@Body() dto: BulkRemoveRolesDto) {
+    return this.svc.bulkRemoveRoles(dto.userIds, dto.fromSlugs);
   }
 
   @Post('deleted/empty')

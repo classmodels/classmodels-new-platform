@@ -125,6 +125,16 @@ export class BulkMoveRolesDto {
   fromSlugs?: string[];
 }
 
+export class BulkRemoveRolesDto {
+  @IsArray()
+  @IsString({ each: true })
+  userIds!: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  fromSlugs!: string[];
+}
+
 export class ToggleUserRoleDto {
   @IsString()
   @MinLength(1)
