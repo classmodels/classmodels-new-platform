@@ -15,6 +15,12 @@ type RoleRow = {
   _count?: { users: number };
 };
 
+type CatalogGroup = {
+  id: string;
+  label: string;
+  items: { id: string; label: string }[];
+};
+
 type UserLite = {
   id: string;
   email: string;
