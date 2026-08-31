@@ -13,7 +13,7 @@ export class PhotographerService {
     const role = await this.prisma.userRole.findFirst({
       where: {
         userId: modelUserId,
-        role: { slug: { in: ['model', 'newface', 'tryout', 'inactief'] } },
+        role: { slug: { in: ['model', 'newface', 'tryout', 'inactief', 'high-class'] } },
       },
     });
     if (!role) throw new BadRequestException('Dit account is geen model in het systeem.');

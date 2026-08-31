@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PERMISSION_CATALOG } from '../auth/permission-catalog';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { AdminRolesService } from './admin-roles.service';
-import { UpdateRoleDto } from './dto/admin-role.dto';
+import { CreateRoleDto, UpdateRoleDto } from './dto/admin-role.dto';
 
 @Controller('admin/roles')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -21,6 +21,12 @@ export class AdminRolesController {
   @Permissions('admin.roles.read')
   list() {
     return this.svc.list();
+  }
+
+  @Post()
+  @Permissions('admin.roles.write')
+  create(@Body() dto: CreateRoleDto) {
+    return this.svc.create(dto);
   }
 
   @Patch(':id')

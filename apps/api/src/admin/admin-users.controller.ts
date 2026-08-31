@@ -17,7 +17,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { AdminUsersService } from './admin-users.service';
-import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto } from './dto/admin-user.dto';
+import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto, BulkAddRolesDto } from './dto/admin-user.dto';
 
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -30,16 +30,22 @@ export class AdminUsersController {
     return this.svc.list();
   }
 
-  @Get(':id')
-  @Permissions('admin.users.read')
-  get(@Param('id', ParseUUIDPipe) id: string) {
-    return this.svc.get(id);
+  @Post('roles/bulk-add')
+  @Permissions('admin.users.write')
+  bulkAddRoles(@Body() dto: BulkAddRolesDto) {
+    return this.svc.bulkAddRoles(dto.userIds, dto.roleSlug);
   }
 
   @Post()
   @Permissions('admin.users.write')
   create(@Body() dto: CreateAdminUserDto) {
     return this.svc.create(dto);
+  }
+
+  @Get(':id')
+  @Permissions('admin.users.read')
+  get(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.get(id);
   }
 
   @Patch(':id')

@@ -18,6 +18,19 @@ function availSlug(label: string) {
   return label.toLowerCase().trim().replace(/\s+/g, '-');
 }
 
+const HIDDEN_TYPE_SLUGS = new Set(['admin', 'client', 'guest', 'fotograaf', 'model', 'inactief']);
+
+function groupingLabel(slug: string): string {
+  if (slug === 'newface') return 'New face';
+  if (slug === 'tryout') return 'Try-out';
+  if (slug === 'high-class') return 'High class';
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
 const AGE_TRACK_LO = 3;
 const AGE_TRACK_HI = 80;
 
@@ -106,6 +119,22 @@ export function NieuwModelsGallery({
     return [...s].sort((a, b) => a.localeCompare(b, 'nl'));
   }, [models]);
 
+  const groupingTypes = useMemo(() => {
+    const extra = new Set<string>(['newface', 'tryout', 'high-class']);
+    for (const m of models) {
+      for (const s of m.roleSlugs ?? []) {
+        if (!HIDDEN_TYPE_SLUGS.has(s)) extra.add(s);
+      }
+      if (m.isHighClass) extra.add('high-class');
+    }
+    const preferred = ['newface', 'tryout', 'high-class'];
+    const rest = [...extra].filter((s) => !preferred.includes(s)).sort((a, b) => a.localeCompare(b, 'nl'));
+    return [...preferred.filter((s) => extra.has(s)), ...rest].map((slug) => ({
+      slug,
+      label: groupingLabel(slug),
+    }));
+  }, [models]);
+
   const toggleSet = (setter: typeof setAvSel, key: string) => {
     setter((prev) => {
       const n = new Set(prev);
@@ -121,8 +150,15 @@ export function NieuwModelsGallery({
 
     return models.filter((m) => {
       if (m.isInactive && !isAdmin) return false;
-      if (flagSel.has('newface') && !m.isNewface) return false;
-      if (flagSel.has('tryout') && !m.isTryout) return false;
+      if (flagSel.size) {
+        const slugs = new Set(m.roleSlugs ?? []);
+        if (m.isNewface) slugs.add('newface');
+        if (m.isTryout) slugs.add('tryout');
+        if (m.isHighClass) slugs.add('high-class');
+        for (const f of flagSel) {
+          if (!slugs.has(f)) return false;
+        }
+      }
       if (avSel.size) {
         const slugs = m.beschikbaarSlugs?.length
           ? m.beschikbaarSlugs
@@ -258,22 +294,16 @@ export function NieuwModelsGallery({
           <div className="nieuw-models-field">
             <span>Type</span>
             <div className="nieuw-models-checks">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={flagSel.has('newface')}
-                  onChange={() => toggleSet(setFlagSel, 'newface')}
-                />
-                New face
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={flagSel.has('tryout')}
-                  onChange={() => toggleSet(setFlagSel, 'tryout')}
-                />
-                Try-out
-              </label>
+              {groupingTypes.map((g) => (
+                <label key={g.slug}>
+                  <input
+                    type="checkbox"
+                    checked={flagSel.has(g.slug)}
+                    onChange={() => toggleSet(setFlagSel, g.slug)}
+                  />
+                  {g.label}
+                </label>
+              ))}
             </div>
           </div>
 

@@ -11,5 +11,6 @@ import { CatalogAdminController } from './catalog-admin.controller';
   imports: [PrismaModule, MediaModule, JwtModule.register(createJwtModuleOptions())],
   controllers: [CatalogPublicController, CatalogAdminController],
   providers: [CatalogService],
+  exports: [CatalogService],
 })
 export class CatalogModule {}

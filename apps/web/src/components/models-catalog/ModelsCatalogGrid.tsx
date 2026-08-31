@@ -33,6 +33,8 @@ export type CatalogModel = {
   profileThumbKey: string | null;
   isNewface: boolean;
   isTryout: boolean;
+  isHighClass?: boolean;
+  roleSlugs?: string[];
   isInactive: boolean;
   isFavorite: boolean;
   sheet?: Record<string, unknown>;

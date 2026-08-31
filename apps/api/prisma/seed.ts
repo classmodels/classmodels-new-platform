@@ -294,6 +294,22 @@ async function main() {
       ],
     },
     {
+      slug: 'high-class',
+      label: 'High class',
+      permissions: [
+        'portal.model.briefs.read',
+        'portal.model.briefs.respond',
+        'portal.model.media.read',
+        'portal.model.media.upload',
+        'portal.model.agenda.read',
+        'portal.model.agenda.book',
+        'portal.model.history.read',
+        'portal.model.push.read',
+        'portal.model.push.subscribe',
+        'payments.checkout',
+      ],
+    },
+    {
       slug: 'inactief',
       label: 'Inactief model',
       permissions: [

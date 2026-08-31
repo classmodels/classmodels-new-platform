@@ -1,5 +1,19 @@
 import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
 
+export class CreateRoleDto {
+  @IsString()
+  @MinLength(1)
+  label!: string;
+
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string | null;
+}
+
 export class UpdateRoleDto {
   @IsOptional()
   @IsString()

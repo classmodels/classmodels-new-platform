@@ -26,6 +26,9 @@ export default function AdminRollenPage() {
   const [selected, setSelected] = useState<Record<string, Set<string>>>({});
   const [fullStar, setFullStar] = useState<Record<string, boolean>>({});
   const [msg, setMsg] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [newSlug, setNewSlug] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.roles.read')) return;
@@ -82,6 +85,34 @@ export default function AdminRollenPage() {
     setMsg('Rol opgeslagen.');
   };
 
+  const createGrouping = async () => {
+    if (!token || !can('admin.roles.write')) return;
+    const label = newLabel.trim();
+    if (!label) {
+      setMsg('Geef een naam voor de groepering, bv. High class.');
+      return;
+    }
+    setMsg('');
+    setCreating(true);
+    try {
+      await adminFetch('/admin/roles', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          label,
+          slug: newSlug.trim() || undefined,
+        }),
+      });
+      setNewLabel('');
+      setNewSlug('');
+      await load();
+      setMsg(`Groepering “${label}” aangemaakt. Zet modellen bij onder Gebruikers (aanvinken + bijzetten).`);
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Aanmaken mislukt.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
   if (!can('admin.roles.read')) {
     return <p className="text-sm text-muted">Geen toegang tot rollen.</p>;
@@ -93,9 +124,54 @@ export default function AdminRollenPage() {
         <h1 className="text-xl font-semibold text-ink">Rollen & permissies</h1>
         <p className="mt-1 text-sm text-muted">
           Rechten zijn fijnkorrelig en worden bij elk API-verzoek opnieuw uit de database geladen.
+          Extra modelgroepen (naast Newface en Try-out) maak je hier; daarna zet je modellen in bulk bij
+          onder <a className="text-burgundy underline" href="/admin/gebruikers">Gebruikers</a> — ze blijven
+          ook in hun vorige groep.
         </p>
       </div>
       {msg ? <p className="text-xs text-muted">{msg}</p> : null}
+
+      {can('admin.roles.write') ? (
+        <form
+          className="rounded-md border border-line bg-white p-4 text-sm shadow-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void createGrouping();
+          }}
+        >
+          <h2 className="font-medium text-ink">Nieuwe modelgroepering</h2>
+          <p className="mt-1 text-xs text-muted">
+            Bijvoorbeeld High class. Modellen krijgen deze rol extra; Newface of Try-out verdwijnt niet.
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-2">
+            <label className="flex min-w-[180px] flex-1 flex-col text-[11px] text-muted">
+              Naam
+              <input
+                className="mt-0.5 rounded border border-line px-2 py-1.5 text-sm text-ink"
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="High class"
+              />
+            </label>
+            <label className="flex min-w-[160px] flex-1 flex-col text-[11px] text-muted">
+              Slug (optioneel)
+              <input
+                className="mt-0.5 rounded border border-line px-2 py-1.5 text-sm text-ink"
+                value={newSlug}
+                onChange={(e) => setNewSlug(e.target.value)}
+                placeholder="high-class"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={creating}
+              className="rounded bg-burgundy px-3 py-1.5 text-xs text-white hover:bg-burgundyDeep disabled:opacity-40"
+            >
+              Groepering aanmaken
+            </button>
+          </div>
+        </form>
+      ) : null}
 
       <ul className="space-y-6">
         {rows.map((r) => (

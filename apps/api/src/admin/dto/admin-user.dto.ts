@@ -99,3 +99,13 @@ export class DeleteManyUsersDto {
   @IsString({ each: true })
   ids!: string[];
 }
+
+export class BulkAddRolesDto {
+  @IsArray()
+  @IsString({ each: true })
+  userIds!: string[];
+
+  @IsString()
+  @MinLength(1)
+  roleSlug!: string;
+}

@@ -14,7 +14,7 @@ import { sanitizeModelSheetMerge } from './model-sheet.util';
 import { assertModelPersonalDataComplete, digitsOnlyPhone } from './model-profile-validation';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 
-const MODEL_ROLE_SLUGS = new Set(['model', 'newface', 'tryout', 'inactief']);
+const MODEL_ROLE_SLUGS = new Set(['model', 'newface', 'tryout', 'inactief', 'high-class']);
 
 function mediaRoot(): string {
   return resolveMediaRoot();

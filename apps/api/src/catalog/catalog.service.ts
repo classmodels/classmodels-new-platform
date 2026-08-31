@@ -6,6 +6,8 @@ const ROLE_MODEL = 'model';
 const ROLE_NEWFACE = 'newface';
 const ROLE_TRYOUT = 'tryout';
 const ROLE_INACTIEF = 'inactief';
+const ROLE_HIGH_CLASS = 'high-class';
+const ACCOUNT_ROLE_SLUGS = ['admin', 'client', 'guest', 'fotograaf'];
 
 function roleSlugs(u: { roles: { role: { slug: string } }[] }): string[] {
   return u.roles.map((r) => r.role.slug);
@@ -121,7 +123,7 @@ const CATALOG_USER_WHERE = {
     {
       roles: {
         some: {
-          role: { slug: { in: [ROLE_MODEL, ROLE_NEWFACE, ROLE_TRYOUT, ROLE_INACTIEF] } },
+          role: { slug: { notIn: ACCOUNT_ROLE_SLUGS } },
         },
       },
     },
@@ -206,6 +208,7 @@ export class CatalogService {
     const inactive = hasRole(slugs, ROLE_INACTIEF);
     const newface = hasRole(slugs, ROLE_NEWFACE);
     const tryout = hasRole(slugs, ROLE_TRYOUT);
+    const highClass = hasRole(slugs, ROLE_HIGH_CLASS);
     const fallbackAsset = opts.fallbackThumbs.get(u.id);
     const thumbKey =
       u.profilePhoto != null
@@ -237,6 +240,8 @@ export class CatalogService {
       profileThumbKey: thumbKey,
       isNewface: newface,
       isTryout: tryout,
+      isHighClass: highClass,
+      roleSlugs: slugs,
       isInactive: inactive,
       isFavorite: opts.isAdmin ? opts.favSet.has(u.id) : false,
       ...(opts.includeSheet ? { sheet: catalogSheetPayload(ms, u.phone, sheetMode) } : {}),
@@ -403,6 +408,8 @@ export class CatalogService {
     if (!user) throw new NotFoundException();
     const ids = await this.roleIds();
 
+    const core = new Set([ROLE_MODEL, ROLE_NEWFACE, ROLE_TRYOUT, ROLE_INACTIEF]);
+    const extras = roleSlugs(user).filter((slug) => !core.has(slug));
     const s = new Set(roleSlugs(user));
 
     if (body.inactive === true) {
@@ -433,23 +440,27 @@ export class CatalogService {
       s.add(ROLE_MODEL);
     }
 
-    const want = [...s].filter((slug) =>
-      [ROLE_MODEL, ROLE_NEWFACE, ROLE_TRYOUT, ROLE_INACTIEF].includes(slug),
-    );
+    for (const e of extras) s.add(e);
+
+    const want = [...s];
+    const roleRows = await this.prisma.role.findMany({
+      where: { slug: { in: want } },
+      select: { id: true, slug: true },
+    });
+    const idBySlug = new Map(roleRows.map((r) => [r.slug, r.id]));
+    idBySlug.set(ROLE_MODEL, ids.model);
+    idBySlug.set(ROLE_NEWFACE, ids.newface);
+    idBySlug.set(ROLE_TRYOUT, ids.tryout);
+    idBySlug.set(ROLE_INACTIEF, ids.inactief);
 
     await this.prisma.userRole.deleteMany({ where: { userId: modelUserId } });
     await this.prisma.userRole.createMany({
-      data: want.map((slug) => ({
-        userId: modelUserId,
-        roleId:
-          slug === ROLE_MODEL
-            ? ids.model
-            : slug === ROLE_NEWFACE
-              ? ids.newface
-              : slug === ROLE_TRYOUT
-                ? ids.tryout
-                : ids.inactief,
-      })),
+      data: want
+        .filter((slug) => idBySlug.has(slug))
+        .map((slug) => ({
+          userId: modelUserId,
+          roleId: idBySlug.get(slug)!,
+        })),
     });
 
     return this.prisma.user.findUnique({

@@ -16,6 +16,7 @@ apps/api/data
 apps/api/.deploy-media-bundle
 .tmp-sparse-media
 backups/
+exports/
 _tmp/
 apps/web/.vercel
 # Grote leveranciers-zips niet per ongeluk committen (map wél gebruiken voor import)

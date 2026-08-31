@@ -5,7 +5,7 @@ import { historyKindToPushMessage } from './history-push-copy';
 import { WebPushDeliveryService } from './webpush-delivery.service';
 import type { PatchModelPushSettingsDto, SubscribePushDto } from './dto/push.dto';
 
-const MODEL_ROLE_SLUGS = ['model', 'newface', 'tryout', 'inactief'] as const;
+const MODEL_ROLE_SLUGS = ['model', 'newface', 'tryout', 'inactief', 'high-class'] as const;
 
 function premiumNow(u: { isPremium: boolean; premiumUntil: Date | null }): boolean {
   return u.isPremium && (!u.premiumUntil || u.premiumUntil > new Date());

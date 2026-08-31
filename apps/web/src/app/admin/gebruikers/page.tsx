@@ -25,7 +25,7 @@ type UserRow = {
   roles: { role: { slug: string; label: string } }[];
 };
 
-type RoleFilterKey = 'admin' | 'client' | 'modelAny' | 'newface' | 'tryout' | 'inactief';
+type RoleFilterKey = 'admin' | 'client' | 'modelAny' | 'newface' | 'tryout' | 'inactief' | string;
 
 const FILTER_STORAGE = 'cm-admin-gebruikers-filter-presets';
 
@@ -33,10 +33,11 @@ type SavedFilterPreset = { name: string; filters: RoleFilterKey[]; q: string };
 
 type TimelineEntry = { id: string; at: string; text: string };
 
-const MODEL_TIMELINE_ROLES = new Set(['model', 'newface', 'tryout', 'inactief']);
+const ACCOUNT_ROLE_SLUGS = new Set(['admin', 'client', 'guest', 'fotograaf']);
+const BUILTIN_FILTER_SLUGS = new Set(['admin', 'client', 'modelAny', 'newface', 'tryout', 'inactief']);
 
 function hasModelTimelineRole(roleSlugs: string[]): boolean {
-  return roleSlugs.some((s) => MODEL_TIMELINE_ROLES.has(s));
+  return roleSlugs.some((s) => !ACCOUNT_ROLE_SLUGS.has(s));
 }
 
 function parseTimelineFromSheet(ms: unknown): TimelineEntry[] {
@@ -101,9 +102,9 @@ function userRoleSlugs(u: UserRow): Set<string> {
   return new Set(u.roles.map((r) => r.role.slug));
 }
 
-/** Alleen rol «inactief», zonder model/newface/tryout. */
+/** Alleen rol «inactief», zonder modelgroeperingen. */
 function isPureInactiveModel(slugs: Set<string>): boolean {
-  return slugs.has('inactief') && !slugs.has('model') && !slugs.has('newface') && !slugs.has('tryout');
+  return slugs.has('inactief') && ![...slugs].some((s) => s !== 'inactief' && !ACCOUNT_ROLE_SLUGS.has(s));
 }
 
 function userMatchesRoleFilters(u: UserRow, filters: Set<RoleFilterKey>): boolean {
@@ -115,10 +116,16 @@ function userMatchesRoleFilters(u: UserRow, filters: Set<RoleFilterKey>): boolea
   for (const key of filters) {
     if (key === 'admin' && slugs.has('admin')) return true;
     if (key === 'client' && slugs.has('client')) return true;
-    if (key === 'modelAny' && ['model', 'newface', 'tryout'].some((s) => slugs.has(s))) return true;
+    if (
+      key === 'modelAny' &&
+      [...slugs].some((s) => !ACCOUNT_ROLE_SLUGS.has(s) && s !== 'inactief')
+    ) {
+      return true;
+    }
     if (key === 'newface' && slugs.has('newface')) return true;
     if (key === 'tryout' && slugs.has('tryout')) return true;
     if (key === 'inactief' && slugs.has('inactief')) return true;
+    if (!BUILTIN_FILTER_SLUGS.has(key) && slugs.has(key)) return true;
   }
   return false;
 }
@@ -159,6 +166,7 @@ function AdminGebruikersPageContent() {
     roleSlugs: 'guest',
   });
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkRoleSlug, setBulkRoleSlug] = useState('high-class');
   const [roleFilters, setRoleFilters] = useState<Set<RoleFilterKey>>(() => new Set());
   const [userSearch, setUserSearch] = useState('');
   const [presetName, setPresetName] = useState('');
@@ -354,7 +362,7 @@ function AdminGebruikersPageContent() {
       if (isPureInactiveModel(s)) {
         inactief++;
       } else {
-        if (s.has('model') || s.has('newface') || s.has('tryout')) modelAny++;
+        if ([...s].some((x) => !ACCOUNT_ROLE_SLUGS.has(x) && x !== 'inactief')) modelAny++;
         if (s.has('newface')) newface++;
         if (s.has('tryout')) tryout++;
         if (s.has('inactief')) inactief++;
@@ -370,6 +378,41 @@ function AdminGebruikersPageContent() {
       inactief,
     };
   }, [rows]);
+
+  const extraRosterRoles = useMemo(
+    () =>
+      roleOpts.filter(
+        (r) =>
+          !ACCOUNT_ROLE_SLUGS.has(r.slug) &&
+          !['model', 'newface', 'tryout', 'inactief'].includes(r.slug),
+      ),
+    [roleOpts],
+  );
+
+  const extraCounts = useMemo(() => {
+    const c: Record<string, number> = {};
+    for (const r of extraRosterRoles) {
+      c[r.slug] = rows.filter((u) => u.roles.some((x) => x.role.slug === r.slug)).length;
+    }
+    return c;
+  }, [rows, extraRosterRoles]);
+
+  const bulkTargetRoles = useMemo(() => {
+    const preferred = ['newface', 'tryout', 'high-class'];
+    const fromOpts = roleOpts.filter(
+      (r) => !ACCOUNT_ROLE_SLUGS.has(r.slug) && r.slug !== 'inactief' && r.slug !== 'model',
+    );
+    const bySlug = new Map(fromOpts.map((r) => [r.slug, r]));
+    const ordered: RoleOpt[] = [];
+    for (const s of preferred) {
+      const hit = bySlug.get(s);
+      if (hit) ordered.push(hit);
+    }
+    for (const r of fromOpts) {
+      if (!preferred.includes(r.slug)) ordered.push(r);
+    }
+    return ordered;
+  }, [roleOpts]);
 
   const filteredRows = useMemo(() => {
     const base = rows.filter((u) => userMatchesRoleFilters(u, roleFilters) && userMatchesSearch(u, userSearch));
@@ -509,6 +552,41 @@ function AdminGebruikersPageContent() {
     }
   };
 
+  const bulkAddSelected = async () => {
+    if (!token || !can('admin.users.write')) return;
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!bulkRoleSlug) {
+      setMsg('Kies eerst een groepering om bij te zetten.');
+      return;
+    }
+    const label = bulkTargetRoles.find((r) => r.slug === bulkRoleSlug)?.label || bulkRoleSlug;
+    const ok = window.confirm(
+      `${ids.length} geselecteerde model(len) bijzetten bij “${label}”?\n\nZe blijven ook in hun huidige groepen (Newface, Try-out, …).`,
+    );
+    if (!ok) return;
+    setMsg('');
+    try {
+      const res = await adminFetch<{
+        added: number;
+        alreadyHad: number;
+        skipped?: number;
+        selected: number;
+        label: string;
+      }>('/admin/users/roles/bulk-add', token, {
+        method: 'POST',
+        body: JSON.stringify({ userIds: ids, roleSlug: bulkRoleSlug }),
+      });
+      await load();
+      const parts = [`${res.added} bijgezet bij ${res.label}.`];
+      if (res.alreadyHad) parts.push(`${res.alreadyHad} hadden deze rol al.`);
+      if (res.skipped) parts.push(`${res.skipped} overgeslagen (geen model).`);
+      setMsg(parts.join(' '));
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Bijzetten mislukt.');
+    }
+  };
+
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
   if (!can('admin.users.read')) {
     return <p className="text-sm text-muted">Geen toegang tot gebruikers.</p>;
@@ -521,7 +599,12 @@ function AdminGebruikersPageContent() {
         <p className="mt-1 text-sm text-muted">
           Filter met de vakjes (meerdere mogelijk = “én óf”). Zoek op naam, deel van e-mail (ook gebruikersnaam voor @),
           of gsm-nummers. Per rij: <strong className="text-ink">Premium</strong> zet je handmatig aan/uit; betaling via
-          Mollie vult ook premium en vervaldatum.
+          Mollie vult ook premium en vervaldatum. Extra groepen (zoals High class) maak je onder{' '}
+          <a className="text-burgundy underline" href="/admin/rollen">
+            Rollen
+          </a>
+          ; hier kun je modellen <strong className="text-ink">bijzetten</strong> zonder ze uit Newface of Try-out te
+          halen.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
           <span className="rounded border border-line bg-panel px-2 py-1 text-muted">
@@ -568,6 +651,19 @@ function AdminGebruikersPageContent() {
             />
             Try-out <strong className="text-ink">{roleCounts.tryout}</strong>
           </label>
+          {extraRosterRoles.map((r) => (
+            <label
+              key={r.slug}
+              className="flex cursor-pointer items-center gap-1.5 rounded border border-line bg-panel px-2 py-1 text-muted hover:bg-white"
+            >
+              <input
+                type="checkbox"
+                checked={roleFilters.has(r.slug)}
+                onChange={() => toggleRoleFilter(r.slug)}
+              />
+              {r.label} <strong className="text-ink">{extraCounts[r.slug] ?? 0}</strong>
+            </label>
+          ))}
           <label className="flex cursor-pointer items-center gap-1.5 rounded border border-line bg-panel px-2 py-1 text-muted hover:bg-white">
             <input
               type="checkbox"
@@ -688,6 +784,28 @@ function AdminGebruikersPageContent() {
 
       {can('admin.users.write') && filteredRows.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          <label className="flex items-center gap-1.5 text-muted">
+            Bijzetten bij
+            <select
+              className="rounded border border-line bg-white px-2 py-1.5 text-ink"
+              value={bulkRoleSlug}
+              onChange={(e) => setBulkRoleSlug(e.target.value)}
+            >
+              {bulkTargetRoles.map((r) => (
+                <option key={r.slug} value={r.slug}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className="rounded bg-burgundy px-3 py-1.5 text-white hover:bg-burgundyDeep disabled:opacity-40"
+            disabled={!selected.size || !bulkRoleSlug}
+            onClick={() => void bulkAddSelected()}
+          >
+            Geselecteerde bijzetten ({selected.size})
+          </button>
           <button
             type="button"
             className="rounded border border-line bg-white px-3 py-1.5 text-ink hover:bg-panel disabled:opacity-40"

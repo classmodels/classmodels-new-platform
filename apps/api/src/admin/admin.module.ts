@@ -21,6 +21,7 @@ import { AdminModelSetCardController } from './admin-model-set-card.controller';
 import { AdminTryoutModeshowService } from './admin-tryout-modeshow.service';
 import { AdminSiteSmtpController } from './admin-site-smtp.controller';
 import { PaymentsModule } from '../payments/payments.module';
+import { CatalogModule } from '../catalog/catalog.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PaymentsModule } from '../payments/payments.module';
     MediaModule,
     PaymentsModule,
     PushModule,
+    CatalogModule,
   ],
   controllers: [
     AdminUsersController,

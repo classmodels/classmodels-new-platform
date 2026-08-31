@@ -293,7 +293,7 @@ export class AuthService {
     if (!target || target.status !== 'active') {
       throw new BadRequestException('Model niet gevonden of niet actief.');
     }
-    const modelSlugs = new Set(['model', 'newface', 'tryout', 'inactief']);
+    const modelSlugs = new Set(['model', 'newface', 'tryout', 'inactief', 'high-class']);
     const hasModelRole = target.roles.some((r) => modelSlugs.has(r.role.slug));
     if (!hasModelRole) {
       throw new BadRequestException('Alleen modellenaccounts kunnen worden overgenomen.');

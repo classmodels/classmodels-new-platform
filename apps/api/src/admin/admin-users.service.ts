@@ -8,6 +8,7 @@ import type { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { MediaService } from '../media/media.service';
+import { CatalogService } from '../catalog/catalog.service';
 import { CreateAdminUserDto, UpdateAdminUserDto } from './dto/admin-user.dto';
 import { sanitizeModelSheetMerge } from '../users/model-sheet.util';
 
@@ -37,6 +38,7 @@ export class AdminUsersService {
   constructor(
     private prisma: PrismaService,
     private media: MediaService,
+    private catalog: CatalogService,
   ) {}
 
   list() {
@@ -130,6 +132,7 @@ export class AdminUsersService {
       await this.prisma.userRole.createMany({
         data: roles.map((r) => ({ userId: id, roleId: r.id })),
       });
+      this.catalog.invalidateListCache();
     }
 
     return this.get(id);
@@ -191,5 +194,60 @@ export class AdminUsersService {
       }
     }
     return { deleted, errors };
+  }
+
+  /** Voegt een rol toe zonder bestaande rollen te verwijderen. */
+  async bulkAddRoles(userIds: string[], roleSlug: string) {
+    const slug = String(roleSlug || '').trim();
+    if (!slug) throw new ConflictException('Kies een rol.');
+    const accountSlugs = new Set(['admin', 'client', 'guest', 'fotograaf']);
+    if (accountSlugs.has(slug)) {
+      throw new ForbiddenException('Dit is geen modelgroepering.');
+    }
+    const role = await this.prisma.role.findUnique({ where: { slug } });
+    if (!role) throw new NotFoundException('Onbekende rol.');
+    const uniq = [...new Set(userIds)].filter(Boolean);
+    if (!uniq.length) throw new ConflictException('Selecteer minstens één gebruiker.');
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: uniq } },
+      select: {
+        id: true,
+        defaultPortal: true,
+        roles: { select: { role: { select: { slug: true } } } },
+      },
+    });
+    const eligibleIds = users
+      .filter((u) => {
+        if (u.defaultPortal === 'model') return true;
+        return u.roles.some((r) => !accountSlugs.has(r.role.slug));
+      })
+      .map((u) => u.id);
+    const skipped = uniq.length - eligibleIds.length;
+    if (!eligibleIds.length) {
+      throw new ConflictException('Geen modellen in de selectie. Filter eerst op Model.');
+    }
+
+    const existing = await this.prisma.userRole.findMany({
+      where: { userId: { in: eligibleIds }, roleId: role.id },
+      select: { userId: true },
+    });
+    const already = new Set(existing.map((r) => r.userId));
+    const toAdd = eligibleIds.filter((id) => !already.has(id));
+    if (toAdd.length) {
+      await this.prisma.userRole.createMany({
+        data: toAdd.map((userId) => ({ userId, roleId: role.id })),
+        skipDuplicates: true,
+      });
+      this.catalog.invalidateListCache();
+    }
+    return {
+      roleSlug: slug,
+      label: role.label,
+      added: toAdd.length,
+      alreadyHad: already.size,
+      skipped,
+      selected: uniq.length,
+    };
   }
 }
