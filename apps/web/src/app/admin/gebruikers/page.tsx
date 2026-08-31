@@ -104,6 +104,43 @@ function displayGsm(u: UserRow): string {
   return '—';
 }
 
+function csvEscape(v: string): string {
+  if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  return v;
+}
+
+function downloadUsersCsv(list: UserRow[], filename: string) {
+  const headers = ['E-mail', 'Voornaam', 'Achternaam', 'GSM', 'Groeperingen'];
+  const lines = [
+    headers.join(','),
+    ...list.map((u) =>
+      [
+        u.email,
+        u.firstName ?? '',
+        u.lastName ?? '',
+        displayGsm(u) === '—' ? '' : displayGsm(u),
+        u.roles.map((r) => r.role.label || r.role.slug).join('; '),
+      ]
+        .map((c) => csvEscape(String(c)))
+        .join(','),
+    ),
+  ];
+  const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function onlyDigits(x: string): string {
   return x.replace(/\D/g, '');
 }
@@ -465,6 +502,23 @@ function AdminGebruikersPageContent() {
       return (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0);
     });
   }, [rows, roleFilters, userSearch]);
+
+  const exportEmails = (list: UserRow[], slug: string, label: string) => {
+    if (!list.length) {
+      setMsg(`Geen e-mailadressen voor ${label}.`);
+      return;
+    }
+    const file = `class-models-${slug}-${csvStamp()}.csv`;
+    downloadUsersCsv(list, file);
+    setMsg(`${list.length} e-mailadressen gedownload (${label}).`);
+  };
+
+  const emailsForGrouping = (slug: 'alle' | string) =>
+    rows.filter((u) => {
+      const s = userRoleSlugs(u);
+      if (slug === 'alle') return isActiveRosterModel(s);
+      return isActiveRosterModel(s) && s.has(slug);
+    });
 
   const sortedEditTimeline = useMemo(() => sortTimelineDesc(editTimeline), [editTimeline]);
 
@@ -890,6 +944,64 @@ function AdminGebruikersPageContent() {
               onClick={() => setRoleFilters(new Set())}
             >
               Filters wissen
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="text-muted">E-mails CSV:</span>
+          <button
+            type="button"
+            className="rounded border border-line bg-white px-2 py-1.5 text-ink hover:bg-panel"
+            onClick={() =>
+              exportEmails(emailsForGrouping('alle'), 'alle-modellen', 'Alle modellen')
+            }
+          >
+            Alle modellen ({roleCounts.modelAny})
+          </button>
+          <button
+            type="button"
+            className="rounded border border-line bg-white px-2 py-1.5 text-ink hover:bg-panel"
+            onClick={() => exportEmails(emailsForGrouping('newface'), 'newface', 'New face')}
+          >
+            New face ({roleCounts.newface})
+          </button>
+          <button
+            type="button"
+            className="rounded border border-line bg-white px-2 py-1.5 text-ink hover:bg-panel"
+            onClick={() => exportEmails(emailsForGrouping('tryout'), 'tryout', 'Try-out')}
+          >
+            Try-out ({roleCounts.tryout})
+          </button>
+          {extraRosterRoles.map((r) => (
+            <button
+              key={`csv-${r.slug}`}
+              type="button"
+              className="rounded border border-line bg-white px-2 py-1.5 text-ink hover:bg-panel"
+              onClick={() => exportEmails(emailsForGrouping(r.slug), r.slug, r.label)}
+            >
+              {r.label} ({extraCounts[r.slug] ?? 0})
+            </button>
+          ))}
+          <button
+            type="button"
+            className="rounded border border-line bg-white px-2 py-1.5 text-ink hover:bg-panel"
+            onClick={() => exportEmails(filteredRows, 'zichtbare-lijst', 'Zichtbare lijst')}
+          >
+            Zichtbare lijst ({filteredRows.length})
+          </button>
+          {selected.size > 0 ? (
+            <button
+              type="button"
+              className="rounded border border-burgundy bg-white px-2 py-1.5 text-burgundy hover:bg-panel"
+              onClick={() =>
+                exportEmails(
+                  rows.filter((u) => selected.has(u.id)),
+                  'selectie',
+                  'Selectie',
+                )
+              }
+            >
+              Selectie ({selected.size})
             </button>
           ) : null}
         </div>
