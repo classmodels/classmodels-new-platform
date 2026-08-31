@@ -371,9 +371,10 @@ export function NieuwModelsGallery({
                         <div className="nieuw-model-foto">
                           {src ? (
                             <CatalogModelThumb
+                              key={`${src}-${idx < 8 ? 'p' : 'l'}`}
                               src={src}
                               alt={m.displayName}
-                              priority={idx < 8}
+                              priority={idx < 12}
                               className="nieuw-model-thumb"
                             />
                           ) : (
