@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import {
   ModelDetailDialog,
   type CatalogModel,
+  isInAllModels,
 } from '@/components/models-catalog/ModelsCatalogGrid';
 import { CatalogModelThumb } from '@/components/models-catalog/CatalogModelThumb';
 import {
@@ -116,7 +117,7 @@ export function NieuwModelsGallery({
     let lo = Infinity;
     let hi = -Infinity;
     for (const m of models) {
-      if (m.isInactive) continue;
+      if (!isInAllModels(m)) continue;
       if (m.age == null || !Number.isFinite(m.age)) continue;
       lo = Math.min(lo, m.age);
       hi = Math.max(hi, m.age);
@@ -209,6 +210,7 @@ export function NieuwModelsGallery({
           return false;
         }
       }
+      if (!m.isInactive && !m.isDeleted && !isInAllModels(m)) return false;
       const typeFlags = [...flagSel].filter((f) => f !== 'inactief' && f !== 'verwijderd');
       if (typeFlags.length) {
         const slugs = new Set(m.roleSlugs ?? []);

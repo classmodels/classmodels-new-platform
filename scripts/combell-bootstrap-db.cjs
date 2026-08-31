@@ -88,6 +88,37 @@ function loadPrismaClient(root) {
   return mod.PrismaClient;
 }
 
+async function ensureGroupingModelsHaveModelRole(prisma) {
+  const model = await prisma.role.findUnique({ where: { slug: 'model' }, select: { id: true } });
+  if (!model) return;
+  const grouping = await prisma.role.findMany({
+    where: { slug: { in: ['newface', 'tryout', 'high-class'] } },
+    select: { id: true },
+  });
+  if (!grouping.length) return;
+  const users = await prisma.user.findMany({
+    where: {
+      roles: { some: { roleId: { in: grouping.map((g) => g.id) } } },
+      AND: [
+        { roles: { none: { role: { slug: 'inactief' } } } },
+        { roles: { none: { role: { slug: 'verwijderd' } } } },
+        { roles: { none: { role: { slug: { in: ['admin', 'client', 'guest', 'fotograaf'] } } } } },
+        { roles: { none: { roleId: model.id } } },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!users.length) {
+    console.error('[combell] groeperingen hebben al de model-rol');
+    return;
+  }
+  await prisma.userRole.createMany({
+    data: users.map((u) => ({ userId: u.id, roleId: model.id })),
+    skipDuplicates: true,
+  });
+  console.error('[combell] model-rol toegevoegd bij ' + users.length + ' newface/try-out/high-class');
+}
+
 async function runCombellBootstrapDb(root) {
   if (process.env.COMBELL_SKIP_DB_BOOTSTRAP === '1') {
     console.error('[combell] db bootstrap overgeslagen (COMBELL_SKIP_DB_BOOTSTRAP=1)');
@@ -116,6 +147,12 @@ async function runCombellBootstrapDb(root) {
       });
     }
     console.error('[combell] rollen OK (' + ROLES.length + ')');
+
+    try {
+      await ensureGroupingModelsHaveModelRole(prisma);
+    } catch (e) {
+      console.error('[combell] model-rol bij groeperingen mislukt:', e.message || e);
+    }
 
     try {
       const { restoreLeaNinaJanjic } = require('./restore-lea-nina-janjic.cjs');

@@ -274,6 +274,9 @@ export class AdminUsersService {
       });
       this.catalog.invalidateListCache();
     }
+    if (slug !== 'inactief' && slug !== 'verwijderd') {
+      await this.ensureModelRole(eligibleIds);
+    }
     return {
       roleSlug: slug,
       label: role.label,
@@ -325,6 +328,16 @@ export class AdminUsersService {
     );
     const removed = from.length ? await this.bulkRemoveRoles(userIds, from) : { removed: 0, fromSlugs: from };
     return { ...added, toSlug: to, removed: removed.removed, fromSlugs: from };
+  }
+
+  private async ensureModelRole(userIds: string[]) {
+    const model = await this.prisma.role.findUnique({ where: { slug: 'model' }, select: { id: true } });
+    if (!model || !userIds.length) return;
+    await this.prisma.userRole.createMany({
+      data: userIds.map((userId) => ({ userId, roleId: model.id })),
+      skipDuplicates: true,
+    });
+    this.catalog.invalidateListCache();
   }
 
   private async ensureVerwijderdRole() {
@@ -394,6 +407,9 @@ export class AdminUsersService {
         data: [{ userId, roleId: role.id }],
         skipDuplicates: true,
       });
+      if (slug !== 'inactief' && slug !== 'verwijderd') {
+        await this.ensureModelRole([userId]);
+      }
     } else {
       await this.prisma.userRole.deleteMany({ where: { userId, roleId: role.id } });
     }

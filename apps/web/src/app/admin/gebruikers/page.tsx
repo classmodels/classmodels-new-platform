@@ -102,9 +102,19 @@ function userRoleSlugs(u: UserRow): Set<string> {
   return new Set(u.roles.map((r) => r.role.slug));
 }
 
-/** Alleen rol «inactief», zonder modelgroeperingen. */
-function isPureInactiveModel(slugs: Set<string>): boolean {
-  return slugs.has('inactief') && ![...slugs].some((s) => s !== 'inactief' && !ACCOUNT_ROLE_SLUGS.has(s));
+/** Alleen rol «inactief». */
+function isInactiveModel(slugs: Set<string>): boolean {
+  return slugs.has('inactief');
+}
+
+function isStaffAccount(slugs: Set<string>): boolean {
+  return [...ACCOUNT_ROLE_SLUGS].some((s) => slugs.has(s));
+}
+
+/** Actief in Alle modellen: model / newface / try-out / high class, geen inactief/admin/klant. */
+function isActiveRosterModel(slugs: Set<string>): boolean {
+  if (slugs.has('verwijderd') || isInactiveModel(slugs) || isStaffAccount(slugs)) return false;
+  return slugs.has('model') || slugs.has('newface') || slugs.has('tryout') || slugs.has('high-class');
 }
 
 function userMatchesRoleFilters(u: UserRow, filters: Set<RoleFilterKey>): boolean {
@@ -112,23 +122,18 @@ function userMatchesRoleFilters(u: UserRow, filters: Set<RoleFilterKey>): boolea
   if (slugs.has('verwijderd')) {
     return filters.has('verwijderd');
   }
-  if (isPureInactiveModel(slugs)) {
+  if (isInactiveModel(slugs)) {
     return filters.has('inactief');
   }
   if (filters.size === 0) return true;
   for (const key of filters) {
     if (key === 'admin' && slugs.has('admin')) return true;
     if (key === 'client' && slugs.has('client')) return true;
-    if (
-      key === 'modelAny' &&
-      [...slugs].some((s) => !ACCOUNT_ROLE_SLUGS.has(s) && s !== 'inactief')
-    ) {
-      return true;
-    }
-    if (key === 'newface' && slugs.has('newface')) return true;
-    if (key === 'tryout' && slugs.has('tryout')) return true;
-    if (key === 'inactief' && slugs.has('inactief')) return true;
-    if (!BUILTIN_FILTER_SLUGS.has(key) && slugs.has(key)) return true;
+    if (key === 'modelAny' && isActiveRosterModel(slugs)) return true;
+    if (key === 'newface' && slugs.has('newface') && isActiveRosterModel(slugs)) return true;
+    if (key === 'tryout' && slugs.has('tryout') && isActiveRosterModel(slugs)) return true;
+    if (key === 'inactief' && isInactiveModel(slugs)) return true;
+    if (!BUILTIN_FILTER_SLUGS.has(key) && slugs.has(key) && isActiveRosterModel(slugs)) return true;
   }
   return false;
 }
@@ -367,13 +372,12 @@ function AdminGebruikersPageContent() {
       }
       if (s.has('admin')) admin++;
       if (s.has('client')) client++;
-      if (isPureInactiveModel(s)) {
+      if (isInactiveModel(s)) {
         inactief++;
-      } else {
-        if ([...s].some((x) => !ACCOUNT_ROLE_SLUGS.has(x) && x !== 'inactief')) modelAny++;
+      } else if (isActiveRosterModel(s)) {
+        modelAny++;
         if (s.has('newface')) newface++;
         if (s.has('tryout')) tryout++;
-        if (s.has('inactief')) inactief++;
       }
     }
     return {
@@ -401,7 +405,10 @@ function AdminGebruikersPageContent() {
   const extraCounts = useMemo(() => {
     const c: Record<string, number> = {};
     for (const r of extraRosterRoles) {
-      c[r.slug] = rows.filter((u) => u.roles.some((x) => x.role.slug === r.slug)).length;
+      c[r.slug] = rows.filter((u) => {
+        const s = userRoleSlugs(u);
+        return s.has(r.slug) && isActiveRosterModel(s);
+      }).length;
     }
     return c;
   }, [rows, extraRosterRoles]);

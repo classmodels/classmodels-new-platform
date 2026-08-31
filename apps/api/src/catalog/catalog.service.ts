@@ -9,6 +9,14 @@ const ROLE_INACTIEF = 'inactief';
 const ROLE_DELETED = 'verwijderd';
 const ROLE_HIGH_CLASS = 'high-class';
 const ACCOUNT_ROLE_SLUGS = ['admin', 'client', 'guest', 'fotograaf'];
+const ROSTER_ROLE_SLUGS = [
+  ROLE_MODEL,
+  ROLE_NEWFACE,
+  ROLE_TRYOUT,
+  ROLE_HIGH_CLASS,
+  ROLE_INACTIEF,
+  ROLE_DELETED,
+];
 
 function roleSlugs(u: { roles: { role: { slug: string } }[] }): string[] {
   return u.roles.map((r) => r.role.slug);
@@ -16,6 +24,10 @@ function roleSlugs(u: { roles: { role: { slug: string } }[] }): string[] {
 
 function hasRole(slugs: string[], slug: string): boolean {
   return slugs.includes(slug);
+}
+
+function isStaffSlugs(slugs: string[]): boolean {
+  return slugs.some((s) => ACCOUNT_ROLE_SLUGS.includes(s));
 }
 
 function ageFromGeboorte(raw: unknown): number | null {
@@ -120,15 +132,9 @@ type CatalogUserRow = {
 
 const CATALOG_USER_WHERE = {
   status: 'active' as const,
-  OR: [
-    {
-      roles: {
-        some: {
-          role: { slug: { notIn: ACCOUNT_ROLE_SLUGS } },
-        },
-      },
-    },
-    { defaultPortal: 'model' as const },
+  AND: [
+    { roles: { none: { role: { slug: { in: ACCOUNT_ROLE_SLUGS } } } } },
+    { roles: { some: { role: { slug: { in: ROSTER_ROLE_SLUGS } } } } },
   ],
 };
 
@@ -356,8 +362,9 @@ export class CatalogService {
         includeSheet: false,
       }),
     );
-    if (!isAdmin) return mapped.filter((m) => !m.isDeleted);
-    return mapped;
+    const roster = mapped.filter((m) => !isStaffSlugs(m.roleSlugs ?? []));
+    if (!isAdmin) return roster.filter((m) => !m.isDeleted && !m.isInactive);
+    return roster;
   }
 
   /** Volledige fiche (sheet) voor modaal — apart van het snelle rooster. */
@@ -389,7 +396,10 @@ export class CatalogService {
       },
     });
     if (!u) throw new NotFoundException();
-    if (!isAdmin && roleSlugs(u).includes(ROLE_DELETED)) throw new NotFoundException();
+    if (isStaffSlugs(roleSlugs(u))) throw new NotFoundException();
+    if (!isAdmin && (roleSlugs(u).includes(ROLE_DELETED) || roleSlugs(u).includes(ROLE_INACTIEF))) {
+      throw new NotFoundException();
+    }
 
     const fallbackThumbs = u.profilePhoto
       ? new Map<string, ThumbAsset>()

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
-import type { CatalogModel } from '@/components/models-catalog/ModelsCatalogGrid';
+import { isInAllModels, type CatalogModel } from '@/components/models-catalog/ModelsCatalogGrid';
 import { PartnersStrip } from '@/components/PartnersStrip';
 import { useIsMobile } from '@/lib/use-is-mobile';
 import { ModellenBoekenPanel } from '@/components/klanten-portal/ModellenBoekenPanel';
@@ -307,7 +307,7 @@ export function KlantenPortalClient() {
   const filteredModels = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return models.filter((m) => {
-      if (m.isInactive) return false;
+      if (!isInAllModels(m)) return false;
       if (!needle) return true;
       const name =
         `${m.displayName} ${m.firstName ?? ''} ${m.lastName ?? ''} ${m.gemeente ?? ''}`.toLowerCase();

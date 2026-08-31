@@ -44,6 +44,16 @@ export type CatalogModel = {
 
 type TabId = 'alle' | 'favoriet' | 'newface' | 'tryout' | 'inactief';
 
+const STAFF_ROLE_SLUGS = new Set(['admin', 'client', 'guest', 'fotograaf']);
+
+/** In “Alle modellen”: iedereen behalve inactief, verwijderd en admin/klant. */
+export function isInAllModels(m: CatalogModel): boolean {
+  if (m.isInactive || m.isDeleted) return false;
+  const slugs = m.roleSlugs ?? [];
+  if (slugs.some((s) => STAFF_ROLE_SLUGS.has(s))) return false;
+  return true;
+}
+
 function rosterFullName(m: CatalogModel): string {
   const fn = (m.firstName ?? '').trim();
   const ln = (m.lastName ?? '').trim();
@@ -1151,11 +1161,13 @@ export function ModelsCatalogGrid({
       inactief: 0,
     };
     for (const m of rows) {
-      if (!m.isInactive) c.alle++;
-      if (m.isFavorite && !m.isInactive) c.favoriet++;
-      if (m.isNewface && !m.isInactive) c.newface++;
-      if (m.isTryout && !m.isInactive) c.tryout++;
-      if (m.isInactive) c.inactief++;
+      if (isInAllModels(m)) {
+        c.alle++;
+        if (m.isFavorite) c.favoriet++;
+        if (m.isNewface) c.newface++;
+        if (m.isTryout) c.tryout++;
+      }
+      if (m.isInactive && !m.isDeleted) c.inactief++;
     }
     return c;
   }, [rows]);
@@ -1288,20 +1300,19 @@ export function ModelsCatalogGrid({
 
   const visibleForTab = (m: CatalogModel): boolean => {
     if (m.isDeleted) return false;
-    if (!isAdmin && m.isInactive) return false;
     switch (tab) {
       case 'alle':
-        return !m.isInactive;
+        return isInAllModels(m);
       case 'favoriet':
-        return m.isFavorite && !m.isInactive;
+        return isInAllModels(m) && m.isFavorite;
       case 'newface':
-        return m.isNewface && !m.isInactive;
+        return isInAllModels(m) && m.isNewface;
       case 'tryout':
-        return m.isTryout && !m.isInactive;
+        return isInAllModels(m) && m.isTryout;
       case 'inactief':
-        return m.isInactive;
+        return !!m.isInactive;
       default:
-        return !m.isInactive;
+        return isInAllModels(m);
     }
   };
 
