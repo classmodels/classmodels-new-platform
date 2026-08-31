@@ -68,6 +68,11 @@ const ROLES = [
     ],
   },
   {
+    slug: 'verwijderd',
+    label: 'Verwijderd',
+    permissions: [],
+  },
+  {
     slug: 'client',
     label: 'Klant',
     permissions: ['portal.client.briefs.read', 'portal.client.briefs.write'],
@@ -111,6 +116,13 @@ async function runCombellBootstrapDb(root) {
       });
     }
     console.error('[combell] rollen OK (' + ROLES.length + ')');
+
+    try {
+      const { restoreLeaNinaJanjic } = require('./restore-lea-nina-janjic.cjs');
+      await restoreLeaNinaJanjic(prisma);
+    } catch (restoreErr) {
+      console.error('[combell] herstel Lea-Nina Janjic mislukt:', restoreErr.message || restoreErr);
+    }
 
     const adminEmail = (
       process.env.COMBELL_BOOTSTRAP_ADMIN_EMAIL || 'admin@class-models.local'

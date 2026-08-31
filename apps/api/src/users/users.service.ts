@@ -14,7 +14,7 @@ import { sanitizeModelSheetMerge } from './model-sheet.util';
 import { assertModelPersonalDataComplete, digitsOnlyPhone } from './model-profile-validation';
 import { ModelPortalHistoryService } from '../portal/model-portal-history.service';
 
-const MODEL_ROLE_SLUGS = new Set(['model', 'newface', 'tryout', 'inactief', 'high-class']);
+const MODEL_ROLE_SLUGS = new Set(['model', 'newface', 'tryout', 'inactief', 'high-class', 'verwijderd']);
 
 /** Geen catalogVisibility: die kolom kan ontbreken tot Combell-migrate/ensure klaar is. */
 const roleForAuthSelect = {

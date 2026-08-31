@@ -109,6 +109,9 @@ function isPureInactiveModel(slugs: Set<string>): boolean {
 
 function userMatchesRoleFilters(u: UserRow, filters: Set<RoleFilterKey>): boolean {
   const slugs = userRoleSlugs(u);
+  if (slugs.has('verwijderd')) {
+    return filters.has('verwijderd');
+  }
   if (isPureInactiveModel(slugs)) {
     return filters.has('inactief');
   }
@@ -355,8 +358,13 @@ function AdminGebruikersPageContent() {
     let newface = 0;
     let tryout = 0;
     let inactief = 0;
+    let verwijderd = 0;
     for (const u of rows) {
       const s = new Set(u.roles.map((r) => r.role.slug));
+      if (s.has('verwijderd')) {
+        verwijderd++;
+        continue;
+      }
       if (s.has('admin')) admin++;
       if (s.has('client')) client++;
       if (isPureInactiveModel(s)) {
@@ -376,6 +384,7 @@ function AdminGebruikersPageContent() {
       newface,
       tryout,
       inactief,
+      verwijderd,
     };
   }, [rows]);
 
@@ -384,7 +393,7 @@ function AdminGebruikersPageContent() {
       roleOpts.filter(
         (r) =>
           !ACCOUNT_ROLE_SLUGS.has(r.slug) &&
-          !['model', 'newface', 'tryout', 'inactief'].includes(r.slug),
+          !['model', 'newface', 'tryout', 'inactief', 'verwijderd'].includes(r.slug),
       ),
     [roleOpts],
   );
@@ -400,7 +409,11 @@ function AdminGebruikersPageContent() {
   const bulkTargetRoles = useMemo(() => {
     const preferred = ['newface', 'tryout', 'high-class'];
     const fromOpts = roleOpts.filter(
-      (r) => !ACCOUNT_ROLE_SLUGS.has(r.slug) && r.slug !== 'inactief' && r.slug !== 'model',
+      (r) =>
+        !ACCOUNT_ROLE_SLUGS.has(r.slug) &&
+        r.slug !== 'inactief' &&
+        r.slug !== 'verwijderd' &&
+        r.slug !== 'model',
     );
     const bySlug = new Map(fromOpts.map((r) => [r.slug, r]));
     const ordered: RoleOpt[] = [];
@@ -500,7 +513,7 @@ function AdminGebruikersPageContent() {
   const deleteOne = async (id: string, email: string) => {
     if (!token || !can('admin.users.write')) return;
     const ok = window.confirm(
-      `Gebruiker definitief verwijderen?\n\n${email}\n\nAlle bijbehorende gegevens en geüploade foto’s worden gewist. Dit kan niet ongedaan.`,
+      `Gebruiker naar Verwijderd verplaatsen?\n\n${email}\n\nJe kunt die later terugzetten. Definitief wissen doe je in de map Verwijderd.`,
     );
     if (!ok) return;
     setMsg('');
@@ -516,7 +529,7 @@ function AdminGebruikersPageContent() {
         router.replace('/admin/gebruikers');
       }
       await load();
-      setMsg('Gebruiker verwijderd.');
+      setMsg('Geplaatst in Verwijderd.');
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Verwijderen mislukt.');
     }
@@ -527,7 +540,7 @@ function AdminGebruikersPageContent() {
     const ids = [...selected];
     if (!ids.length) return;
     const ok = window.confirm(
-      `${ids.length} gebruiker(s) definitief verwijderen?\n\nAlle bijbehorende gegevens en geüploade foto’s worden gewist. Dit kan niet ongedaan.`,
+      `${ids.length} gebruiker(s) naar Verwijderd verplaatsen?\n\nJe kunt ze later terugzetten.`,
     );
     if (!ok) return;
     setMsg('');
@@ -587,6 +600,95 @@ function AdminGebruikersPageContent() {
     }
   };
 
+  const groupingFilterSlugs = useMemo(
+    () =>
+      [...roleFilters].filter(
+        (s) => !['admin', 'client', 'modelAny', 'inactief', 'verwijderd'].includes(s),
+      ),
+    [roleFilters],
+  );
+
+  const bulkMoveSelected = async () => {
+    if (!token || !can('admin.users.write')) return;
+    const ids = [...selected];
+    if (!ids.length) return;
+    if (!bulkRoleSlug) {
+      setMsg('Kies eerst een groepering om naartoe te verplaatsen.');
+      return;
+    }
+    const toLabel = bulkTargetRoles.find((r) => r.slug === bulkRoleSlug)?.label || bulkRoleSlug;
+    const fromLabels = groupingFilterSlugs
+      .map((s) => roleOpts.find((r) => r.slug === s)?.label || s)
+      .join(', ');
+    const ok = window.confirm(
+      groupingFilterSlugs.length
+        ? `${ids.length} model(len) uit “${fromLabels}” halen en naar “${toLabel}” verplaatsen?`
+        : `${ids.length} model(len) verplaatsen naar “${toLabel}”? Vink eerst New face (of een andere groep) aan als je ze daaruit wilt halen.`,
+    );
+    if (!ok) return;
+    setMsg('');
+    try {
+      const res = await adminFetch<{
+        added: number;
+        alreadyHad: number;
+        skipped?: number;
+        removed: number;
+        label: string;
+      }>('/admin/users/roles/bulk-move', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          userIds: ids,
+          toSlug: bulkRoleSlug,
+          fromSlugs: groupingFilterSlugs,
+        }),
+      });
+      await load();
+      const parts = [`Verplaatst naar ${res.label}: ${res.added} bijgezet.`];
+      if (res.alreadyHad) parts.push(`${res.alreadyHad} hadden die groep al.`);
+      if (res.removed) parts.push(`${res.removed} oude groep-koppeling(en) weggehaald.`);
+      if (res.skipped) parts.push(`${res.skipped} overgeslagen.`);
+      setMsg(parts.join(' '));
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Verplaatsen mislukt.');
+    }
+  };
+
+  const restoreOne = async (id: string, email: string) => {
+    if (!token || !can('admin.users.write')) return;
+    try {
+      await adminFetch(`/admin/users/${id}/restore`, token, { method: 'POST' });
+      await load();
+      setMsg(`${email} teruggezet.`);
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Terugzetten mislukt.');
+    }
+  };
+
+  const emptyTrash = async () => {
+    if (!token || !can('admin.users.write')) return;
+    const n = roleCounts.verwijderd;
+    if (!n) {
+      setMsg('De map Verwijderd is al leeg.');
+      return;
+    }
+    const ok = window.confirm(
+      `Map Verwijderd leegmaken?\n\n${n} account(s) worden definitief gewist, inclusief foto’s. Dit kan niet ongedaan.`,
+    );
+    if (!ok) return;
+    try {
+      const res = await adminFetch<{ deleted: string[]; errors?: { message: string }[] }>(
+        '/admin/users/deleted/empty',
+        token,
+        { method: 'POST' },
+      );
+      setSelected(new Set());
+      await load();
+      setMsg(`${res.deleted?.length ?? 0} definitief gewist.`);
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Leegmaken mislukt.');
+    }
+  };
+
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
   if (!can('admin.users.read')) {
     return <p className="text-sm text-muted">Geen toegang tot gebruikers.</p>;
@@ -603,8 +705,9 @@ function AdminGebruikersPageContent() {
           <a className="text-burgundy underline" href="/admin/rollen">
             Rollen
           </a>
-          ; hier kun je modellen <strong className="text-ink">bijzetten</strong> zonder ze uit Newface of Try-out te
-          halen.
+          ; hier kun je modellen <strong className="text-ink">bijzetten</strong> of{' '}
+          <strong className="text-ink">verplaatsen</strong> (bijv. alle New faces aanvinken → Try-out).
+          Verwijderen gaat eerst naar de map Verwijderd.
         </p>
         <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
           <span className="rounded border border-line bg-panel px-2 py-1 text-muted">
@@ -671,6 +774,14 @@ function AdminGebruikersPageContent() {
               onChange={() => toggleRoleFilter('inactief')}
             />
             Inactief <strong className="text-ink">{roleCounts.inactief}</strong>
+          </label>
+          <label className="flex cursor-pointer items-center gap-1.5 rounded border border-line bg-panel px-2 py-1 text-muted hover:bg-white">
+            <input
+              type="checkbox"
+              checked={roleFilters.has('verwijderd')}
+              onChange={() => toggleRoleFilter('verwijderd')}
+            />
+            Verwijderd <strong className="text-ink">{roleCounts.verwijderd}</strong>
           </label>
           {roleFilters.size > 0 ? (
             <button
@@ -808,12 +919,31 @@ function AdminGebruikersPageContent() {
           </button>
           <button
             type="button"
-            className="rounded border border-line bg-white px-3 py-1.5 text-ink hover:bg-panel disabled:opacity-40"
-            disabled={!selected.size}
-            onClick={() => void deleteSelected()}
+            className="rounded border border-burgundy bg-white px-3 py-1.5 text-burgundy hover:bg-panel disabled:opacity-40"
+            disabled={!selected.size || !bulkRoleSlug}
+            onClick={() => void bulkMoveSelected()}
           >
-            Geselecteerde verwijderen ({selected.size})
+            Verplaatsen naar… ({selected.size})
           </button>
+          {roleFilters.has('verwijderd') ? (
+            <button
+              type="button"
+              className="rounded border border-red-300 bg-red-50 px-3 py-1.5 text-red-800 hover:bg-red-100 disabled:opacity-40"
+              disabled={!roleCounts.verwijderd}
+              onClick={() => void emptyTrash()}
+            >
+              Map Verwijderd leegmaken ({roleCounts.verwijderd})
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="rounded border border-line bg-white px-3 py-1.5 text-ink hover:bg-panel disabled:opacity-40"
+              disabled={!selected.size}
+              onClick={() => void deleteSelected()}
+            >
+              Geselecteerde naar verwijderd ({selected.size})
+            </button>
+          )}
         </div>
       ) : null}
 
@@ -908,13 +1038,23 @@ function AdminGebruikersPageContent() {
                         >
                           Premium {u.isPremium ? 'uit' : 'aan'}
                         </button>
-                        <button
-                          type="button"
-                          className="w-fit text-left text-red-700 hover:underline"
-                          onClick={() => void deleteOne(u.id, u.email)}
-                        >
-                          Verwijderen
-                        </button>
+                        {u.roles.some((r) => r.role.slug === 'verwijderd') ? (
+                          <button
+                            type="button"
+                            className="w-fit text-left text-burgundy hover:underline"
+                            onClick={() => void restoreOne(u.id, u.email)}
+                          >
+                            Terugzetten
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="w-fit text-left text-red-700 hover:underline"
+                            onClick={() => void deleteOne(u.id, u.email)}
+                          >
+                            Naar verwijderd
+                          </button>
+                        )}
                       </>
                     ) : null}
                   </div>

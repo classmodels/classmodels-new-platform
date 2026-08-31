@@ -327,6 +327,12 @@ async function main() {
       ],
     },
     {
+      slug: 'verwijderd',
+      label: 'Verwijderd',
+      catalogVisibility: 'admin_frontend',
+      permissions: [],
+    },
+    {
       slug: 'client',
       label: 'Klant',
       permissions: ['portal.client.briefs.read', 'portal.client.briefs.write'],

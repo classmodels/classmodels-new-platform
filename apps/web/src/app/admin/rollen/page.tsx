@@ -15,10 +15,12 @@ type RoleRow = {
   _count?: { users: number };
 };
 
-type CatalogGroup = {
+type UserLite = {
   id: string;
-  label: string;
-  items: { id: string; label: string }[];
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  roles: { role: { slug: string } }[];
 };
 
 export default function AdminRollenPage() {
@@ -33,6 +35,7 @@ export default function AdminRollenPage() {
   const [newVisibility, setNewVisibility] = useState('admin_frontend');
   const [creating, setCreating] = useState(false);
   const [vis, setVis] = useState<Record<string, string>>({});
+  const [trashUsers, setTrashUsers] = useState<UserLite[]>([]);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.roles.read')) return;
@@ -64,6 +67,14 @@ export default function AdminRollenPage() {
       vmap[r.id] = r.catalogVisibility || 'admin_frontend';
     }
     setVis(vmap);
+    if (can('admin.users.read')) {
+      try {
+        const users = await adminFetch<UserLite[]>('/admin/users', token);
+        setTrashUsers(users.filter((u) => u.roles.some((x) => x.role.slug === 'verwijderd')));
+      } catch {
+        setTrashUsers([]);
+      }
+    }
   }, [token, can]);
 
   useEffect(() => {
@@ -215,6 +226,74 @@ export default function AdminRollenPage() {
               ) : null}
             </div>
             {r.description ? <p className="mt-1 text-xs text-muted">{r.description}</p> : null}
+
+            {r.slug === 'verwijderd' && can('admin.users.write') ? (
+              <div className="mt-3 rounded border border-line bg-panel/30 p-3">
+                <p className="text-xs text-muted">
+                  Modellen die je verwijdert komen hier. Terugzetten herstelt het account; de map leegmaken wist
+                  definitief.
+                </p>
+                {trashUsers.length ? (
+                  <ul className="mt-2 space-y-1.5">
+                    {trashUsers.map((u) => {
+                      const name = [u.firstName, u.lastName].filter(Boolean).join(' ').trim() || u.email;
+                      return (
+                        <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="text-ink">
+                            {name} <span className="text-muted">({u.email})</span>
+                          </span>
+                          <button
+                            type="button"
+                            className="rounded border border-line bg-white px-2 py-0.5 text-ink hover:bg-white"
+                            onClick={() => {
+                              void adminFetch(`/admin/users/${u.id}/restore`, token!, { method: 'POST' })
+                                .then(() => {
+                                  setMsg(`${name} teruggezet.`);
+                                  return load();
+                                })
+                                .catch((err: unknown) =>
+                                  setMsg(err instanceof Error ? err.message : 'Terugzetten mislukt.'),
+                                );
+                            }}
+                          >
+                            Terugzetten
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs text-muted">Niemand in deze map.</p>
+                )}
+                {trashUsers.length ? (
+                  <button
+                    type="button"
+                    className="mt-3 rounded border border-red-300 bg-red-50 px-3 py-1.5 text-xs text-red-800 hover:bg-red-100"
+                    onClick={() => {
+                      if (
+                        !window.confirm(
+                          `Map Verwijderd leegmaken?\n\n${trashUsers.length} account(s) definitief wissen, inclusief foto’s.`,
+                        )
+                      ) {
+                        return;
+                      }
+                      void adminFetch<{ deleted: string[] }>('/admin/users/deleted/empty', token!, {
+                        method: 'POST',
+                      })
+                        .then((res) => {
+                          setMsg(`${res.deleted?.length ?? 0} definitief gewist.`);
+                          return load();
+                        })
+                        .catch((err: unknown) =>
+                          setMsg(err instanceof Error ? err.message : 'Leegmaken mislukt.'),
+                        );
+                    }}
+                  >
+                    Map leegmaken ({trashUsers.length})
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             {isGroupingRoleSlug(r.slug) && can('admin.roles.write') ? (
               <label className="mt-3 flex max-w-md flex-col text-[11px] text-muted">

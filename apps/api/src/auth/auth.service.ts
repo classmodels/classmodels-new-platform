@@ -99,6 +99,9 @@ export class AuthService {
     if (user.status !== 'active') {
       throw new UnauthorizedException('Account niet actief');
     }
+    if (user.roles.some((r) => r.role.slug === 'verwijderd')) {
+      throw new UnauthorizedException('Account niet actief');
+    }
     let ok = await bcrypt.compare(password, user.passwordHash);
     const legacyPw = process.env.LEGACY_IMPORT_PASSWORD?.trim();
     if (!ok && legacyPw && password === legacyPw) {

@@ -6,6 +6,7 @@ const ROLE_MODEL = 'model';
 const ROLE_NEWFACE = 'newface';
 const ROLE_TRYOUT = 'tryout';
 const ROLE_INACTIEF = 'inactief';
+const ROLE_DELETED = 'verwijderd';
 const ROLE_HIGH_CLASS = 'high-class';
 const ACCOUNT_ROLE_SLUGS = ['admin', 'client', 'guest', 'fotograaf'];
 
@@ -206,6 +207,7 @@ export class CatalogService {
         : null) ?? null;
     const slugs = roleSlugs(u);
     const inactive = hasRole(slugs, ROLE_INACTIEF);
+    const deleted = hasRole(slugs, ROLE_DELETED);
     const newface = hasRole(slugs, ROLE_NEWFACE);
     const tryout = hasRole(slugs, ROLE_TRYOUT);
     const highClass = hasRole(slugs, ROLE_HIGH_CLASS);
@@ -243,6 +245,7 @@ export class CatalogService {
       isHighClass: highClass,
       roleSlugs: slugs,
       isInactive: inactive,
+      isDeleted: deleted,
       isFavorite: opts.isAdmin ? opts.favSet.has(u.id) : false,
       ...(opts.includeSheet ? { sheet: catalogSheetPayload(ms, u.phone, sheetMode) } : {}),
     };
@@ -255,7 +258,10 @@ export class CatalogService {
       { slug: ROLE_TRYOUT, label: 'Try-out', catalogVisibility: 'public' },
       { slug: ROLE_HIGH_CLASS, label: 'High class', catalogVisibility: 'public' },
       ...(isAdmin
-        ? [{ slug: ROLE_INACTIEF, label: 'Inactief', catalogVisibility: 'admin_frontend' }]
+        ? [
+            { slug: ROLE_INACTIEF, label: 'Inactief', catalogVisibility: 'admin_frontend' },
+            { slug: ROLE_DELETED, label: 'Verwijderd', catalogVisibility: 'admin_frontend' },
+          ]
         : []),
     ];
     try {
@@ -268,6 +274,17 @@ export class CatalogService {
           description: 'Modelgroepering: High class',
           permissions: [],
           catalogVisibility: 'public',
+        },
+      });
+      await this.prisma.role.upsert({
+        where: { slug: ROLE_DELETED },
+        update: { label: 'Verwijderd' },
+        create: {
+          slug: ROLE_DELETED,
+          label: 'Verwijderd',
+          description: 'Prullenbak: terugzetten of de map leegmaken.',
+          permissions: [],
+          catalogVisibility: 'admin_frontend',
         },
       });
       const vis = isAdmin ? ['public', 'admin_frontend'] : ['public'];
@@ -330,7 +347,7 @@ export class CatalogService {
     const fallbackThumbs = await this.fallbackThumbsByUserId(needsFallback);
     const authenticated = !!viewer?.sub;
 
-    return rows.map((u) =>
+    const mapped = rows.map((u) =>
       this.mapCatalogUser(u, {
         isAdmin,
         authenticated,
@@ -339,6 +356,8 @@ export class CatalogService {
         includeSheet: false,
       }),
     );
+    if (!isAdmin) return mapped.filter((m) => !m.isDeleted);
+    return mapped;
   }
 
   /** Volledige fiche (sheet) voor modaal — apart van het snelle rooster. */
@@ -370,6 +389,7 @@ export class CatalogService {
       },
     });
     if (!u) throw new NotFoundException();
+    if (!isAdmin && roleSlugs(u).includes(ROLE_DELETED)) throw new NotFoundException();
 
     const fallbackThumbs = u.profilePhoto
       ? new Map<string, ThumbAsset>()

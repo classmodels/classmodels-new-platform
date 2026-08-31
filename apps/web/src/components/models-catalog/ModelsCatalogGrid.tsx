@@ -37,6 +37,7 @@ export type CatalogModel = {
   isHighClass?: boolean;
   roleSlugs?: string[];
   isInactive: boolean;
+  isDeleted?: boolean;
   isFavorite: boolean;
   sheet?: Record<string, unknown>;
 };
@@ -269,25 +270,28 @@ function AdminFicheControls({
   dark?: boolean;
   onUpdated?: (
     patch: Pick<CatalogModel, 'id' | 'isInactive'> &
-      Partial<Pick<CatalogModel, 'isNewface' | 'isTryout' | 'isHighClass' | 'roleSlugs'>>,
+      Partial<Pick<CatalogModel, 'isNewface' | 'isTryout' | 'isHighClass' | 'isDeleted' | 'roleSlugs'>>,
   ) => void;
   onDeleted?: (id: string) => void;
 }) {
   const { can } = useAuth();
   const [busy, setBusy] = useState(false);
   const [inactive, setInactive] = useState(m.isInactive);
+  const [trashed, setTrashed] = useState(!!m.isDeleted);
   const [groupRoles, setGroupRoles] = useState<{ slug: string; label: string }[]>([]);
   const [checked, setChecked] = useState<Set<string>>(() => new Set(m.roleSlugs ?? []));
 
   useEffect(() => {
     setInactive(m.isInactive);
+    setTrashed(!!m.isDeleted);
     const s = new Set(m.roleSlugs ?? []);
     if (m.isNewface) s.add('newface');
     if (m.isTryout) s.add('tryout');
     if (m.isHighClass) s.add('high-class');
     if (m.isInactive) s.add('inactief');
+    if (m.isDeleted) s.add('verwijderd');
     setChecked(s);
-  }, [m.id, m.isInactive, m.isNewface, m.isTryout, m.isHighClass, m.roleSlugs]);
+  }, [m.id, m.isInactive, m.isDeleted, m.isNewface, m.isTryout, m.isHighClass, m.roleSlugs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -295,7 +299,9 @@ function AdminFicheControls({
       .then((rows) => {
         if (cancelled) return;
         const preferred = ['newface', 'tryout', 'high-class'];
-        const grouping = rows.filter((r) => isGroupingRoleSlug(r.slug) && r.slug !== 'inactief');
+        const grouping = rows.filter(
+          (r) => isGroupingRoleSlug(r.slug) && r.slug !== 'inactief' && r.slug !== 'verwijderd',
+        );
         const rest = grouping
           .filter((r) => !preferred.includes(r.slug))
           .sort((a, b) => a.label.localeCompare(b.label, 'nl'));
@@ -331,9 +337,11 @@ function AdminFicheControls({
   const applyPatch = (slugs: string[]) => {
     const nextInactive = slugs.includes('inactief');
     setInactive(nextInactive);
+    setTrashed(slugs.includes('verwijderd'));
     onUpdated?.({
       id: m.id,
       isInactive: nextInactive,
+      isDeleted: slugs.includes('verwijderd'),
       isNewface: slugs.includes('newface'),
       isTryout: slugs.includes('tryout'),
       isHighClass: slugs.includes('high-class'),
@@ -378,16 +386,49 @@ function AdminFicheControls({
 
   const remove = async () => {
     const mail = m.email ? `\n${m.email}` : '';
+    if (trashed) {
+      const ok = window.confirm(
+        `Dit model definitief wissen?\n\n${label}${mail}\n\nGegevens en foto’s verdwijnen. Dit kan niet ongedaan.`,
+      );
+      if (!ok) return;
+      setBusy(true);
+      try {
+        await adminFetch(`/admin/users/${m.id}?permanent=1`, token, { method: 'DELETE' });
+        onDeleted?.(m.id);
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : 'Verwijderen mislukt.');
+        setBusy(false);
+      }
+      return;
+    }
     const ok = window.confirm(
-      `Dit model definitief verwijderen?\n\n${label}${mail}\n\nAlle gegevens en geüploade foto’s worden gewist.`,
+      `Dit model naar Verwijderd verplaatsen?\n\n${label}${mail}\n\nJe kunt het later terugzetten onder Type → Verwijderd of Admin → Rollen.`,
     );
     if (!ok) return;
     setBusy(true);
     try {
       await adminFetch(`/admin/users/${m.id}`, token, { method: 'DELETE' });
+      setTrashed(true);
+      onUpdated?.({ id: m.id, isInactive: inactive, isDeleted: true, roleSlugs: [...checked, 'verwijderd'] });
       onDeleted?.(m.id);
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Verwijderen mislukt.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const restore = async () => {
+    setBusy(true);
+    try {
+      await adminFetch(`/admin/users/${m.id}/restore`, token, { method: 'POST' });
+      setTrashed(false);
+      const slugs = [...checked].filter((s) => s !== 'verwijderd');
+      setChecked(new Set(slugs));
+      applyPatch(slugs);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Terugzetten mislukt.');
+    } finally {
       setBusy(false);
     }
   };
@@ -410,7 +451,7 @@ function AdminFicheControls({
         }
         style={dark ? { color: 'var(--n-gold, #c4a574)' } : undefined}
       >
-        Beheer (admin){inactive ? ' — inactief' : ''}
+        Beheer (admin){trashed ? ' — verwijderd' : inactive ? ' — inactief' : ''}
       </p>
 
       <dl className={dark ? 'nieuw-model-detail-admin-dl' : 'mt-2 space-y-1 text-xs text-zinc-800'}>
@@ -472,14 +513,25 @@ function AdminFicheControls({
       ) : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={dark ? 'nieuw-btn nieuw-btn-ghost' : 'rounded-lg border border-zinc-400 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100'}
-          disabled={busy}
-          onClick={() => void toggleInactive()}
-        >
-          {inactive ? 'Weer actief zetten' : 'Op inactief zetten'}
-        </button>
+        {trashed ? (
+          <button
+            type="button"
+            className={dark ? 'nieuw-btn' : 'rounded-lg border border-zinc-400 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100'}
+            disabled={busy}
+            onClick={() => void restore()}
+          >
+            Terugzetten
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={dark ? 'nieuw-btn nieuw-btn-ghost' : 'rounded-lg border border-zinc-400 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-100'}
+            disabled={busy}
+            onClick={() => void toggleInactive()}
+          >
+            {inactive ? 'Weer actief zetten' : 'Op inactief zetten'}
+          </button>
+        )}
         <button
           type="button"
           className={dark ? 'nieuw-btn nieuw-btn-ghost' : 'rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-100'}
@@ -487,7 +539,7 @@ function AdminFicheControls({
           onClick={() => void remove()}
           style={dark ? { borderColor: '#8a3a3a', color: '#e8b4b4' } : undefined}
         >
-          Model verwijderen
+          {trashed ? 'Definitief wissen' : 'Naar verwijderd'}
         </button>
       </div>
     </div>
@@ -512,7 +564,7 @@ export function ModelDetailDialog({
   theme?: 'light' | 'dark';
   onUpdated?: (
     patch: Pick<CatalogModel, 'id' | 'isInactive'> &
-      Partial<Pick<CatalogModel, 'isNewface' | 'isTryout' | 'isHighClass' | 'roleSlugs'>>,
+      Partial<Pick<CatalogModel, 'isNewface' | 'isTryout' | 'isHighClass' | 'isDeleted' | 'roleSlugs'>>,
   ) => void;
   onDeleted?: (id: string) => void;
 }) {
@@ -1235,6 +1287,7 @@ export function ModelsCatalogGrid({
   }, [rows]);
 
   const visibleForTab = (m: CatalogModel): boolean => {
+    if (m.isDeleted) return false;
     if (!isAdmin && m.isInactive) return false;
     switch (tab) {
       case 'alle':
@@ -1310,7 +1363,7 @@ export function ModelsCatalogGrid({
     const mail = m.email ? `\n${m.email}` : '';
     if (
       !window.confirm(
-        `Dit model definitief uit het systeem verwijderen?\n\n${label}${mail}\n\nAlle gegevens en geüploade foto’s worden gewist.`,
+        `Dit model naar Verwijderd verplaatsen?\n\n${label}${mail}\n\nJe kunt het later terugzetten.`,
       )
     ) {
       return;

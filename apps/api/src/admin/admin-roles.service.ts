@@ -25,6 +25,7 @@ const SYSTEM_SLUGS = new Set([
   'client',
   'guest',
   'high-class',
+  'verwijderd',
 ]);
 
 function slugifyRole(raw: string): string {
@@ -63,8 +64,23 @@ export class AdminRolesService {
     });
   }
 
+  async ensureVerwijderd() {
+    await this.prisma.role.upsert({
+      where: { slug: 'verwijderd' },
+      update: { label: 'Verwijderd' },
+      create: {
+        slug: 'verwijderd',
+        label: 'Verwijderd',
+        description: 'Prullenbak: terugzetten of de map leegmaken (definitief wissen).',
+        permissions: [],
+        catalogVisibility: 'admin_frontend',
+      },
+    });
+  }
+
   async list() {
     await this.ensureHighClass();
+    await this.ensureVerwijderd();
     return this.prisma.role.findMany({
       orderBy: { slug: 'asc' },
       include: { _count: { select: { users: true } } },

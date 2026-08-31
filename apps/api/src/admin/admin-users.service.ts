@@ -152,16 +152,34 @@ export class AdminUsersService {
     return this.get(id);
   }
 
-  /** Verwijdert gebruiker + eigen media (schijf + DB). Gebruikt niet in transaction zodat removeAsset bestanden veilig opruimt. */
-  async deleteUser(actorUserId: string, targetUserId: string) {
+  /** Zet in prullenbak (rol verwijderd). `permanent` wist echt, inclusief foto’s. */
+  async deleteUser(actorUserId: string, targetUserId: string, permanent = false) {
     if (actorUserId === targetUserId) {
       throw new ForbiddenException('Je eigen account kun je hier niet verwijderen.');
     }
     const target = await this.prisma.user.findUnique({
       where: { id: targetUserId },
-      select: { id: true, profilePhotoAssetId: true },
+      select: {
+        id: true,
+        profilePhotoAssetId: true,
+        roles: { select: { role: { select: { slug: true } } } },
+      },
     });
     if (!target) throw new NotFoundException();
+    const slugs = target.roles.map((r) => r.role.slug);
+    if (!permanent && !slugs.includes('verwijderd')) {
+      const trash = await this.ensureVerwijderdRole();
+      await this.prisma.userRole.createMany({
+        data: [{ userId: targetUserId, roleId: trash.id }],
+        skipDuplicates: true,
+      });
+      await this.prisma.user.update({
+        where: { id: targetUserId },
+        data: { status: 'suspended' },
+      });
+      this.catalog.invalidateListCache();
+      return { ok: true, id: targetUserId, trashed: true };
+    }
 
     await this.prisma.contentString.updateMany({
       where: { updatedById: targetUserId },
@@ -189,7 +207,8 @@ export class AdminUsersService {
     }
 
     await this.prisma.user.delete({ where: { id: targetUserId } });
-    return { ok: true, id: targetUserId };
+    this.catalog.invalidateListCache();
+    return { ok: true, id: targetUserId, trashed: false };
   }
 
   async deleteUsers(actorUserId: string, ids: string[]) {
@@ -265,6 +284,87 @@ export class AdminUsersService {
     };
   }
 
+  async bulkMoveRoles(userIds: string[], toSlug: string, fromSlugs?: string[]) {
+    const to = String(toSlug || '').trim();
+    const accountSlugs = new Set(['admin', 'client', 'guest', 'fotograaf']);
+    if (!to || accountSlugs.has(to) || to === 'model') {
+      throw new ForbiddenException('Dit is geen modelgroepering.');
+    }
+    const dest = await this.prisma.role.findUnique({ where: { slug: to } });
+    if (!dest) throw new NotFoundException('Onbekende doelgroep.');
+    const added = await this.bulkAddRoles(userIds, to);
+    const from = [...new Set((fromSlugs ?? []).map((s) => String(s || '').trim()).filter(Boolean))].filter(
+      (s) => s !== to && !accountSlugs.has(s) && s !== 'model' && s !== 'verwijderd',
+    );
+    let removed = 0;
+    if (from.length) {
+      const fromRoles = await this.prisma.role.findMany({ where: { slug: { in: from } } });
+      if (fromRoles.length) {
+        const uniq = [...new Set(userIds)].filter(Boolean);
+        const res = await this.prisma.userRole.deleteMany({
+          where: {
+            userId: { in: uniq },
+            roleId: { in: fromRoles.map((r) => r.id) },
+          },
+        });
+        removed = res.count;
+        this.catalog.invalidateListCache();
+      }
+    }
+    return { ...added, toSlug: to, removed, fromSlugs: from };
+  }
+
+  private async ensureVerwijderdRole() {
+    const existing = await this.prisma.role.findUnique({ where: { slug: 'verwijderd' } });
+    if (existing) return existing;
+    return this.prisma.role.create({
+      data: {
+        slug: 'verwijderd',
+        label: 'Verwijderd',
+        description: 'Prullenbak: terugzetten of de map leegmaken (definitief wissen).',
+        permissions: [],
+        catalogVisibility: 'admin_frontend',
+      },
+    });
+  }
+
+  async restoreUser(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) throw new NotFoundException();
+    const role = await this.prisma.role.findUnique({ where: { slug: 'verwijderd' } });
+    if (role) {
+      await this.prisma.userRole.deleteMany({ where: { userId, roleId: role.id } });
+    }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { status: 'active' },
+    });
+    this.catalog.invalidateListCache();
+    return this.get(userId);
+  }
+
+  async emptyTrash(actorUserId: string) {
+    const role = await this.ensureVerwijderdRole();
+    const rows = await this.prisma.userRole.findMany({
+      where: { roleId: role.id },
+      select: { userId: true },
+    });
+    const deleted: string[] = [];
+    const errors: { id: string; message: string }[] = [];
+    for (const row of rows) {
+      try {
+        await this.deleteUser(actorUserId, row.userId, true);
+        deleted.push(row.userId);
+      } catch (e) {
+        errors.push({
+          id: row.userId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    return { deleted, errors };
+  }
+
   /** Aan/uit van één modelgroepering, zonder andere rollen te wissen. */
   async toggleGroupingRole(userId: string, roleSlug: string, enabled: boolean) {
     const slug = String(roleSlug || '').trim();
@@ -284,6 +384,12 @@ export class AdminUsersService {
     } else {
       await this.prisma.userRole.deleteMany({ where: { userId, roleId: role.id } });
     }
+    if (slug === 'verwijderd') {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { status: enabled ? 'suspended' : 'active' },
+      });
+    }
     this.catalog.invalidateListCache();
     const fresh = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -297,6 +403,7 @@ export class AdminUsersService {
       isTryout: slugs.includes('tryout'),
       isHighClass: slugs.includes('high-class'),
       isInactive: slugs.includes('inactief'),
+      isDeleted: slugs.includes('verwijderd'),
     };
   }
 }

@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -17,7 +18,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { AdminUsersService } from './admin-users.service';
-import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto, BulkAddRolesDto, ToggleUserRoleDto } from './dto/admin-user.dto';
+import { CreateAdminUserDto, DeleteManyUsersDto, UpdateAdminUserDto, BulkAddRolesDto, BulkMoveRolesDto, ToggleUserRoleDto } from './dto/admin-user.dto';
 
 @Controller('admin/users')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -36,10 +37,28 @@ export class AdminUsersController {
     return this.svc.bulkAddRoles(dto.userIds, dto.roleSlug);
   }
 
+  @Post('roles/bulk-move')
+  @Permissions('admin.users.write')
+  bulkMoveRoles(@Body() dto: BulkMoveRolesDto) {
+    return this.svc.bulkMoveRoles(dto.userIds, dto.toSlug, dto.fromSlugs);
+  }
+
+  @Post('deleted/empty')
+  @Permissions('admin.users.write')
+  emptyDeleted(@Req() req: { user: JwtPayload }) {
+    return this.svc.emptyTrash(req.user.sub);
+  }
+
   @Post()
   @Permissions('admin.users.write')
   create(@Body() dto: CreateAdminUserDto) {
     return this.svc.create(dto);
+  }
+
+  @Post(':id/restore')
+  @Permissions('admin.users.write')
+  restore(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.restoreUser(id);
   }
 
   @Post(':id/roles/toggle')
@@ -66,8 +85,12 @@ export class AdminUsersController {
   @Delete(':id')
   @Permissions('admin.users.write')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Req() req: { user: JwtPayload }, @Param('id', ParseUUIDPipe) id: string) {
-    await this.svc.deleteUser(req.user.sub, id);
+  async remove(
+    @Req() req: { user: JwtPayload },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('permanent') permanent?: string,
+  ) {
+    await this.svc.deleteUser(req.user.sub, id, permanent === '1' || permanent === 'true');
   }
 
   @Post('delete-many')

@@ -18,13 +18,14 @@ function availSlug(label: string) {
   return label.toLowerCase().trim().replace(/\s+/g, '-');
 }
 
-const HIDDEN_TYPE_SLUGS = new Set(['admin', 'client', 'guest', 'fotograaf', 'model', 'inactief']);
+const HIDDEN_TYPE_SLUGS = new Set(['admin', 'client', 'guest', 'fotograaf', 'model', 'inactief', 'verwijderd']);
 
 function groupingLabel(slug: string): string {
   if (slug === 'newface') return 'New face';
   if (slug === 'tryout') return 'Try-out';
   if (slug === 'high-class') return 'High class';
   if (slug === 'inactief') return 'Inactief';
+  if (slug === 'verwijderd') return 'Verwijderd';
   return slug
     .split('-')
     .filter(Boolean)
@@ -148,7 +149,7 @@ export function NieuwModelsGallery({
     if (groupings.length) {
       const bySlug = new Map(groupings.map((g) => [g.slug, g]));
       const preferred = isAdmin
-        ? ['newface', 'tryout', 'high-class', 'inactief']
+        ? ['newface', 'tryout', 'high-class', 'inactief', 'verwijderd']
         : ['newface', 'tryout', 'high-class'];
       const rest = groupings
         .filter((g) => !preferred.includes(g.slug))
@@ -160,7 +161,10 @@ export function NieuwModelsGallery({
       return ordered.map((g) => ({ slug: g.slug, label: g.label || groupingLabel(g.slug) }));
     }
     const extra = new Set<string>(['newface', 'tryout', 'high-class']);
-    if (isAdmin) extra.add('inactief');
+    if (isAdmin) {
+      extra.add('inactief');
+      extra.add('verwijderd');
+    }
     for (const m of models) {
       for (const s of m.roleSlugs ?? []) {
         if (!HIDDEN_TYPE_SLUGS.has(s)) extra.add(s);
@@ -168,7 +172,7 @@ export function NieuwModelsGallery({
       if (m.isHighClass) extra.add('high-class');
     }
     const preferred = isAdmin
-      ? ['newface', 'tryout', 'high-class', 'inactief']
+      ? ['newface', 'tryout', 'high-class', 'inactief', 'verwijderd']
       : ['newface', 'tryout', 'high-class'];
     const rest = [...extra].filter((s) => !preferred.includes(s)).sort((a, b) => a.localeCompare(b, 'nl'));
     return [...preferred.filter((s) => extra.has(s)), ...rest].map((slug) => ({
@@ -191,13 +195,21 @@ export function NieuwModelsGallery({
     const needle = q.trim().toLowerCase();
 
     return models.filter((m) => {
-      const wantsInactive = flagSel.has('inactief');
-      if (m.isInactive) {
-        if (!isAdmin || !wantsInactive) return false;
-      } else if (wantsInactive) {
+      const wantsDeleted = flagSel.has('verwijderd');
+      if (m.isDeleted) {
+        if (!isAdmin || !wantsDeleted) return false;
+      } else if (wantsDeleted) {
         return false;
       }
-      const typeFlags = [...flagSel].filter((f) => f !== 'inactief');
+      const wantsInactive = flagSel.has('inactief');
+      if (!m.isDeleted) {
+        if (m.isInactive) {
+          if (!isAdmin || !wantsInactive) return false;
+        } else if (wantsInactive) {
+          return false;
+        }
+      }
+      const typeFlags = [...flagSel].filter((f) => f !== 'inactief' && f !== 'verwijderd');
       if (typeFlags.length) {
         const slugs = new Set(m.roleSlugs ?? []);
         if (m.isNewface) slugs.add('newface');
