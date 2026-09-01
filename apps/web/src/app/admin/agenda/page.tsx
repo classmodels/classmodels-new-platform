@@ -13,7 +13,62 @@ type OverviewCal = {
   publicBooking: boolean;
   openSlotsFuture: number;
   bookingsCount: number;
+  cancelledBookingsCount?: number;
 };
+
+type BookingEmailRow = {
+  email: string;
+  firstname: string;
+  lastname: string;
+  phone: string;
+  bookings: number;
+  lastStartAt: string;
+  status: string;
+};
+
+function csvEscape(v: string): string {
+  if (/[",\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  return v;
+}
+
+function formatLastStart(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('nl-BE', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Europe/Brussels',
+  }).format(d);
+}
+
+function downloadBookingEmailsCsv(list: BookingEmailRow[], filename: string) {
+  const headers = ['E-mail', 'Voornaam', 'Achternaam', 'GSM', 'Afspraken', 'Laatste afspraak'];
+  const lines = [
+    headers.join(','),
+    ...list.map((r) =>
+      [r.email, r.firstname, r.lastname, r.phone, String(r.bookings), formatLastStart(r.lastStartAt)]
+        .map((c) => csvEscape(String(c)))
+        .join(','),
+    ),
+  ];
+  const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function csvStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function AdminAgendaOverviewPage() {
   const { token } = useAuth();
@@ -25,6 +80,7 @@ export default function AdminAgendaOverviewPage() {
   const [newTitle, setNewTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [ensureBusy, setEnsureBusy] = useState(false);
+  const [csvBusyId, setCsvBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -99,6 +155,36 @@ export default function AdminAgendaOverviewPage() {
     router.push(`/admin/agenda/calendar/${id}`);
   };
 
+  const exportEmails = async (c: OverviewCal, kind: 'active' | 'cancelled') => {
+    if (!token) return;
+    setCsvBusyId(`${c.id}-${kind}`);
+    setErr(null);
+    setMsg(null);
+    try {
+      const data = await adminFetch<{
+        calendar: { slug: string; title: string };
+        active: BookingEmailRow[];
+        cancelled: BookingEmailRow[];
+      }>(`/admin/agenda/calendars/${c.id}/booking-emails`, token);
+      const rows = kind === 'cancelled' ? data.cancelled : data.active;
+      const label = kind === 'cancelled' ? 'geannuleerd' : 'afspraken';
+      if (rows.length === 0) {
+        setMsg(
+          kind === 'cancelled'
+            ? `Geen geannuleerde e-mails voor «${c.title}».`
+            : `Geen afspraak-e-mails voor «${c.title}».`,
+        );
+        return;
+      }
+      downloadBookingEmailsCsv(rows, `${c.slug}-${label}-${csvStamp()}.csv`);
+      setMsg(`${rows.length} unieke e-mail${rows.length === 1 ? '' : 's'} «${c.title}» (${label}) gedownload.`);
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'Export mislukt');
+    } finally {
+      setCsvBusyId(null);
+    }
+  };
+
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
 
   return (
@@ -171,6 +257,11 @@ export default function AdminAgendaOverviewPage() {
         </form>
       </section>
 
+      <p className="text-xs text-muted">
+        Per agenda: <strong>CSV afspraken</strong> = unieke mails van bezoekers met een (niet-geannuleerde) boeking;
+        <strong> CSV geannuleerd</strong> = mails van geannuleerde boekingen. Werkt o.a. voor Gratis Fotoshoot, Intake-Gesprek en Casting.
+      </p>
+
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {calendars.map((c) => (
           <div key={c.id} className="flex flex-col rounded-md border border-line bg-white p-4 shadow-sm">
@@ -197,6 +288,10 @@ export default function AdminAgendaOverviewPage() {
                 <dt className="text-muted">Boekingen</dt>
                 <dd className="font-medium text-ink">{c.bookingsCount}</dd>
               </div>
+              <div>
+                <dt className="text-muted">Geannuleerd</dt>
+                <dd className="font-medium text-ink">{c.cancelledBookingsCount ?? 0}</dd>
+              </div>
             </dl>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -205,6 +300,22 @@ export default function AdminAgendaOverviewPage() {
                 className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-medium text-ink hover:bg-zinc-100"
               >
                 Instellingen
+              </button>
+              <button
+                type="button"
+                disabled={csvBusyId === `${c.id}-active`}
+                onClick={() => void exportEmails(c, 'active')}
+                className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-zinc-50 disabled:opacity-50"
+              >
+                {csvBusyId === `${c.id}-active` ? 'Bezig…' : 'CSV afspraken'}
+              </button>
+              <button
+                type="button"
+                disabled={csvBusyId === `${c.id}-cancelled`}
+                onClick={() => void exportEmails(c, 'cancelled')}
+                className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-medium text-ink hover:bg-zinc-50 disabled:opacity-50"
+              >
+                {csvBusyId === `${c.id}-cancelled` ? 'Bezig…' : 'CSV geannuleerd'}
               </button>
               <button
                 type="button"

@@ -1822,21 +1822,97 @@ export class AgendaService implements OnModuleInit {
               slotDate: { gte: todayStart },
             },
           });
-          const bookingsCount = await this.prisma.agendaBooking.count({
-            where: { calendarId: c.id, ...activeBookingFilter },
-          });
-          return { ...c, openSlotsFuture, bookingsCount };
+          const [bookingsCount, cancelledBookingsCount] = await Promise.all([
+            this.prisma.agendaBooking.count({
+              where: { calendarId: c.id, ...activeBookingFilter },
+            }),
+            this.prisma.agendaBooking.count({
+              where: { calendarId: c.id, status: { in: [...CANCELLED_STATUSES] } },
+            }),
+          ]);
+          return { ...c, openSlotsFuture, bookingsCount, cancelledBookingsCount };
         } catch (e) {
           this.log.warn(`adminOverview ${c.slug}: ${e instanceof Error ? e.message : String(e)}`);
           const bookingsCount = await this.prisma.agendaBooking.count({
             where: { calendarId: c.id, ...activeBookingFilter },
           }).catch(() => 0);
-          return { ...c, openSlotsFuture: 0, bookingsCount };
+          return { ...c, openSlotsFuture: 0, bookingsCount, cancelledBookingsCount: 0 };
         }
       }),
     );
 
     return { calendars: enriched };
+  }
+
+  /** Unieke bezoekersmails per agenda: actieve afspraken vs geannuleerd. */
+  async adminCalendarBookingEmails(calendarId: string) {
+    const cal = await this.prisma.agendaCalendar.findUnique({
+      where: { id: calendarId },
+      select: { id: true, slug: true, title: true },
+    });
+    if (!cal) throw new NotFoundException('Agenda niet gevonden');
+
+    const bookings = await this.prisma.agendaBooking.findMany({
+      where: { calendarId },
+      select: {
+        email: true,
+        firstname: true,
+        lastname: true,
+        name: true,
+        phone: true,
+        status: true,
+        startAt: true,
+        user: { select: { email: true, firstName: true, lastName: true, phone: true } },
+      },
+      orderBy: { startAt: 'desc' },
+    });
+
+    type EmailRow = {
+      email: string;
+      firstname: string;
+      lastname: string;
+      phone: string;
+      bookings: number;
+      lastStartAt: string;
+      status: string;
+    };
+
+    const collect = (cancelled: boolean): EmailRow[] => {
+      const map = new Map<string, EmailRow>();
+      for (const b of bookings) {
+        if (isCancelledStatus(b.status) !== cancelled) continue;
+        const email = (b.email || b.user?.email || '').trim().toLowerCase();
+        if (!email.includes('@')) continue;
+        const firstname = (b.firstname || b.user?.firstName || '').trim();
+        const lastname = (b.lastname || b.user?.lastName || '').trim();
+        const fromName = (b.name || '').trim();
+        const phone = (b.phone || b.user?.phone || '').trim();
+        const prev = map.get(email);
+        if (!prev) {
+          map.set(email, {
+            email,
+            firstname: firstname || fromName,
+            lastname,
+            phone,
+            bookings: 1,
+            lastStartAt: b.startAt.toISOString(),
+            status: b.status,
+          });
+          continue;
+        }
+        prev.bookings += 1;
+        if (!prev.firstname && (firstname || fromName)) prev.firstname = firstname || fromName;
+        if (!prev.lastname && lastname) prev.lastname = lastname;
+        if (!prev.phone && phone) prev.phone = phone;
+      }
+      return [...map.values()];
+    };
+
+    return {
+      calendar: cal,
+      active: collect(false),
+      cancelled: collect(true),
+    };
   }
 
   async adminEnsureDefaultCalendars() {

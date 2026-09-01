@@ -78,6 +78,12 @@ export class AdminAgendaController {
     return this.agenda.adminCreateCalendar(dto);
   }
 
+  @Get('calendars/:id/booking-emails')
+  @Permissions('admin.agenda.read')
+  bookingEmails(@Param('id', ParseUUIDPipe) id: string) {
+    return this.agenda.adminCalendarBookingEmails(id);
+  }
+
   @Patch('calendars/:id')
   @Permissions('admin.agenda.write')
   patchCalendar(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAgendaCalendarDto) {
