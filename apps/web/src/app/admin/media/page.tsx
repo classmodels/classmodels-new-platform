@@ -100,7 +100,7 @@ export default function AdminMediaPage() {
   const imgInputRef = useRef<HTMLInputElement>(null);
   const vidInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
-  const [zipFile, setZipFile] = useState<File | null>(null);
+  const [zipFiles, setZipFiles] = useState<File[]>([]);
   const [zipUploading, setZipUploading] = useState(false);
   const [zipMsg, setZipMsg] = useState('');
   const [fileUploading, setFileUploading] = useState(false);
@@ -109,6 +109,8 @@ export default function AdminMediaPage() {
     percent: number;
     etaSeconds: number | null;
     processing?: boolean;
+    queueIndex?: number;
+    queueTotal?: number;
   } | null>(null);
   const [selectAllBusy, setSelectAllBusy] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -362,69 +364,115 @@ export default function AdminMediaPage() {
   };
 
   const uploadZip = async () => {
-    if (!token || !selectedFolderId || isTrashFolder || !zipFile) return;
-    if (!/\.zip$/i.test(zipFile.name)) {
-      alert('Kies een .zip-bestand.');
-      return;
-    }
+    if (!token || !selectedFolderId || isTrashFolder || !zipFiles.length) return;
     const maxGb = 6;
-    if (zipFile.size > maxGb * 1024 * 1024 * 1024) {
-      alert(`ZIP is groter dan ${maxGb} GB. Verhoog MEDIA_ZIP_UPLOAD_MAX_BYTES op de server of splits de zip.`);
+    const maxBytes = maxGb * 1024 * 1024 * 1024;
+    const invalid = zipFiles.filter((f) => !/\.zip$/i.test(f.name));
+    if (invalid.length) {
+      alert(`Geen ZIP: ${invalid.map((f) => f.name).join(', ')}`);
       return;
     }
+    const tooBig = zipFiles.filter((f) => f.size > maxBytes);
+    if (tooBig.length) {
+      alert(
+        `Te groot (max. ${maxGb} GB per ZIP): ${tooBig.map((f) => `${f.name} (${formatBytes(f.size)})`).join(', ')}`,
+      );
+      return;
+    }
+    const totalBytes = zipFiles.reduce((s, f) => s + f.size, 0);
     const ok = window.confirm(
-      `ZIP “${zipFile.name}” (${formatBytes(zipFile.size)}) uploaden naar map “${activeFolder?.label}”? Dit kan lang duren.`,
+      zipFiles.length === 1
+        ? `ZIP “${zipFiles[0].name}” (${formatBytes(zipFiles[0].size)}) uploaden naar map “${activeFolder?.label}”? Dit kan lang duren.`
+        : `${zipFiles.length} ZIP’s (${formatBytes(totalBytes)} totaal) uploaden naar map “${activeFolder?.label}”?\n\n` +
+            zipFiles.map((f, i) => `${i + 1}. ${f.name} (${formatBytes(f.size)})`).join('\n') +
+            `\n\nZe worden één voor één geüpload — laat dit tabblad open.`,
     );
     if (!ok) return;
+
     setZipUploading(true);
     setPinnedFolderId(selectedFolderId);
-    setZipMsg(`Upload start naar ${zipUploadApiLabel()}…`);
-    setUploadProgress({ label: zipFile.name, percent: 0, etaSeconds: null, processing: false });
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(
-        'cm_media_zip_upload',
-        JSON.stringify({ name: zipFile.name, startedAt: Date.now() }),
-      );
-    }
-    try {
-      const progressCb = {
-        onProgress: (p: { percent: number; etaSeconds: number | null }) =>
-          setUploadProgress({
-            label: zipFile.name,
-            percent: p.percent,
-            etaSeconds: p.etaSeconds,
-            processing: false,
-          }),
-        onUploadBytesComplete: () =>
-          setUploadProgress({
-            label: zipFile.name,
-            percent: 100,
-            etaSeconds: null,
-            processing: true,
-          }),
-      };
+    const doneNames: string[] = [];
+    const failLines: string[] = [];
+    const queue = [...zipFiles];
+    const total = queue.length;
 
-      const text = await uploadZipReliable({
-        file: zipFile,
-        folderId: selectedFolderId,
-        token,
-        ...progressCb,
-      });
-      const r = JSON.parse(text) as {
-        zipName?: string;
-        sizeBytes?: number;
-        folderSlug?: string;
-      };
-      setZipMsg(
-        `Klaar: ZIP opgeslagen in map “${r.folderSlug ?? activeFolder?.slug}” — ${r.zipName ?? zipFile.name}${r.sizeBytes ? ` (${formatBytes(r.sizeBytes)})` : ''}`,
-      );
-      setZipFile(null);
-      if (zipInputRef.current) zipInputRef.current.value = '';
+    try {
+      for (let i = 0; i < queue.length; i++) {
+        const file = queue[i]!;
+        setZipMsg(
+          `ZIP ${i + 1}/${total}: upload start naar ${zipUploadApiLabel()}… (${file.name})`,
+        );
+        setUploadProgress({
+          label: file.name,
+          percent: 0,
+          etaSeconds: null,
+          processing: false,
+          queueIndex: i + 1,
+          queueTotal: total,
+        });
+        if (typeof sessionStorage !== 'undefined') {
+          sessionStorage.setItem(
+            'cm_media_zip_upload',
+            JSON.stringify({ name: file.name, index: i + 1, total, startedAt: Date.now() }),
+          );
+        }
+        try {
+          const text = await uploadZipReliable({
+            file,
+            folderId: selectedFolderId,
+            token,
+            onProgress: (p) =>
+              setUploadProgress({
+                label: file.name,
+                percent: p.percent,
+                etaSeconds: p.etaSeconds,
+                processing: false,
+                queueIndex: i + 1,
+                queueTotal: total,
+              }),
+            onUploadBytesComplete: () =>
+              setUploadProgress({
+                label: file.name,
+                percent: 100,
+                etaSeconds: null,
+                processing: true,
+                queueIndex: i + 1,
+                queueTotal: total,
+              }),
+          });
+          const r = JSON.parse(text) as {
+            zipName?: string;
+            sizeBytes?: number;
+            folderSlug?: string;
+          };
+          doneNames.push(
+            `${r.zipName ?? file.name}${r.sizeBytes ? ` (${formatBytes(r.sizeBytes)})` : ''}`,
+          );
+        } catch (e) {
+          failLines.push(`${file.name}: ${formatZipUploadError(e)}`);
+        }
+      }
+
+      const parts: string[] = [];
+      if (doneNames.length) {
+        parts.push(
+          `Klaar: ${doneNames.length}/${total} ZIP(s) in map “${activeFolder?.slug ?? selectedFolderId}” — ${doneNames.join('; ')}`,
+        );
+      }
+      if (failLines.length) {
+        parts.push(`Mislukt (${failLines.length}): ${failLines.join(' | ')}`);
+      }
+      setZipMsg(parts.join('\n') || 'Geen ZIP geüpload.');
+      if (!failLines.length) {
+        setZipFiles([]);
+        if (zipInputRef.current) zipInputRef.current.value = '';
+      } else {
+        // Houd mislukte bestanden geselecteerd voor retry
+        const failedNames = new Set(failLines.map((l) => l.split(':')[0]?.trim()));
+        setZipFiles((prev) => prev.filter((f) => failedNames.has(f.name)));
+      }
       sessionStorage.removeItem('cm_media_zip_upload');
       await load({ page: 1 });
-    } catch (e) {
-      setZipMsg(formatZipUploadError(e));
-      sessionStorage.removeItem('cm_media_zip_upload');
     } finally {
       setZipUploading(false);
       setPinnedFolderId(null);
@@ -1283,40 +1331,67 @@ export default function AdminMediaPage() {
                 <input
                   ref={zipInputRef}
                   type="file"
+                  multiple
                   accept=".zip,application/zip,application/x-zip-compressed"
                   className="hidden"
-                  onChange={(e) => setZipFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const list = e.target.files ? Array.from(e.target.files) : [];
+                    setZipFiles(list.filter((f) => /\.zip$/i.test(f.name)));
+                  }}
                 />
                 <button
                   type="button"
                   disabled={!selectedFolderId || isTrashFolder || zipUploading}
                   onClick={() => zipInputRef.current?.click()}
                   className="rounded border border-line bg-white px-2 py-1 text-[11px] text-ink hover:bg-panel disabled:opacity-50"
+                  title="Selecteer één of meer .zip-bestanden tegelijk"
                 >
-                  ZIP kiezen
+                  ZIP(s) kiezen
                 </button>
                 <button
                   type="button"
-                  disabled={!zipFile || !selectedFolderId || isTrashFolder || zipUploading}
+                  disabled={!zipFiles.length || !selectedFolderId || isTrashFolder || zipUploading}
                   onClick={() => void uploadZip()}
                   className="rounded border border-burgundy bg-burgundy/10 px-2 py-1 text-[11px] font-medium text-burgundy hover:bg-panel disabled:opacity-50"
                 >
-                  {zipUploading ? 'Bezig…' : 'ZIP uploaden'}
+                  {zipUploading
+                    ? 'Bezig…'
+                    : zipFiles.length > 1
+                      ? `${zipFiles.length} ZIP’s uploaden`
+                      : 'ZIP uploaden'}
                 </button>
               </form>
             </div>
-            {zipFile ? (
-              <p className="mt-1 truncate text-[10px] text-amber-900" title={zipFile.name}>
-                ZIP: {zipFile.name} ({formatBytes(zipFile.size)}) — max. 6 GB
-              </p>
+            {zipFiles.length ? (
+              <div className="mt-1 space-y-0.5 text-[10px] text-amber-900">
+                <p className="font-medium">
+                  {zipFiles.length} ZIP geselecteerd — max. 6 GB per bestand —{' '}
+                  {formatBytes(zipFiles.reduce((s, f) => s + f.size, 0))} totaal
+                </p>
+                <ul className="max-h-24 overflow-auto pl-3">
+                  {zipFiles.map((f) => (
+                    <li key={`${f.name}-${f.size}-${f.lastModified}`} className="truncate" title={f.name}>
+                      {f.name} ({formatBytes(f.size)})
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : null}
             {uploadProgress ? (
               <div className="mt-2 max-w-lg space-y-1">
                 <CmProgressBar
                   label={
                     uploadProgress.processing
-                      ? `Server verwerkt ZIP: ${uploadProgress.label} — even geduld, niet verversen`
-                      : `${zipUploading ? 'ZIP' : 'Bestand'} uploaden: ${uploadProgress.label} (${uploadProgress.percent}%)`
+                      ? `Server verwerkt ZIP${
+                          uploadProgress.queueTotal && uploadProgress.queueTotal > 1
+                            ? ` ${uploadProgress.queueIndex}/${uploadProgress.queueTotal}`
+                            : ''
+                        }: ${uploadProgress.label} — even geduld, niet verversen`
+                      : `${zipUploading ? 'ZIP' : 'Bestand'} uploaden${
+                          uploadProgress.queueTotal && uploadProgress.queueTotal > 1
+                            ? ` ${uploadProgress.queueIndex}/${uploadProgress.queueTotal}`
+                            : ''
+                        }: ${uploadProgress.label} (${uploadProgress.percent}%)`
                   }
                   sublabel={
                     uploadProgress.processing
@@ -1330,7 +1405,10 @@ export default function AdminMediaPage() {
                 />
                 <p className="text-[10px] text-amber-900">
                   Ververs de pagina niet en laat dit tabblad open.
-                  {zipFile ? ` ${zipUploadModeLabel(zipFile)}` : ''}
+                  {zipFiles[0] ? ` ${zipUploadModeLabel(zipFiles[0])}` : ''}
+                  {uploadProgress.queueTotal && uploadProgress.queueTotal > 1
+                    ? ` Volgende ZIP’s starten automatisch na deze.`
+                    : ''}
                 </p>
               </div>
             ) : null}
