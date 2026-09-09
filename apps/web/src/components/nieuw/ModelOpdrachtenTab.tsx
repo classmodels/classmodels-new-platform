@@ -180,6 +180,7 @@ export function ModelOpdrachtenTab({
     setLoading(true);
     apiFetch<OpenBrief[]>('/portal/model/briefs', { token })
       .then((rows) => {
+        setBriefErr(null);
         setBriefs(rows);
         setExpandedId((prev) => {
           if (prev && rows.some((r) => r.id === prev)) return prev;
@@ -187,7 +188,14 @@ export function ModelOpdrachtenTab({
           return firstMatch?.id ?? rows[0]?.id ?? null;
         });
       })
-      .catch(() => setBriefs([]))
+      .catch((e: unknown) => {
+        setBriefs([]);
+        setBriefErr(
+          e instanceof Error && e.message
+            ? e.message
+            : 'Opdrachten konden niet geladen worden. Probeer later opnieuw.',
+        );
+      })
       .finally(() => setLoading(false));
   }, [token]);
 

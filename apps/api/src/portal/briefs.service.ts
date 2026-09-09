@@ -374,21 +374,33 @@ export class BriefsService {
       where: { id: modelUserId },
       select: { modelSheet: true },
     });
-    const rows = await this.prisma.clientBrief.findMany({
-      where: { status: 'open' },
-      include: {
-        client: {
-          select: {
-            id: true,
-            email: true,
-            companyName: true,
-            firstName: true,
-            lastName: true,
-          },
+    const clientSelect = {
+      id: true,
+      email: true,
+      companyName: true,
+      firstName: true,
+      lastName: true,
+    } as const;
+    let rows;
+    try {
+      rows = await this.prisma.clientBrief.findMany({
+        where: { status: 'open' },
+        include: {
+          client: { select: clientSelect },
+          responses: { select: { modelUserId: true, status: true, profileMatched: true } },
         },
-        responses: { select: { modelUserId: true, status: true, profileMatched: true } },
-      },
-    });
+      });
+    } catch (e) {
+      // Ontbrekende kolom profileMatched (migrate/ensure nog niet gelukt) → toch tonen.
+      console.error('listOpenForModelUser profileMatched fallback', e);
+      rows = await this.prisma.clientBrief.findMany({
+        where: { status: 'open' },
+        include: {
+          client: { select: clientSelect },
+          responses: { select: { modelUserId: true, status: true } },
+        },
+      });
+    }
     const sorted = [...rows].sort((a, b) => {
       const ta = a.eventDate?.getTime() ?? Number.POSITIVE_INFINITY;
       const tb = b.eventDate?.getTime() ?? Number.POSITIVE_INFINITY;
@@ -408,21 +420,32 @@ export class BriefsService {
   }
 
   async getOpenForModel(briefId: string) {
-    const b = await this.prisma.clientBrief.findFirst({
-      where: { id: briefId, status: 'open' },
-      include: {
-        client: {
-          select: {
-            id: true,
-            email: true,
-            companyName: true,
-            firstName: true,
-            lastName: true,
-          },
+    const clientSelect = {
+      id: true,
+      email: true,
+      companyName: true,
+      firstName: true,
+      lastName: true,
+    } as const;
+    let b;
+    try {
+      b = await this.prisma.clientBrief.findFirst({
+        where: { id: briefId, status: 'open' },
+        include: {
+          client: { select: clientSelect },
+          responses: { select: { modelUserId: true, status: true, profileMatched: true, message: true, id: true } },
         },
-        responses: true,
-      },
-    });
+      });
+    } catch (e) {
+      console.error('getOpenForModel profileMatched fallback', e);
+      b = await this.prisma.clientBrief.findFirst({
+        where: { id: briefId, status: 'open' },
+        include: {
+          client: { select: clientSelect },
+          responses: { select: { modelUserId: true, status: true, message: true, id: true } },
+        },
+      });
+    }
     if (!b) throw new NotFoundException();
     return sanitizeBriefForModelPortal(b);
   }
