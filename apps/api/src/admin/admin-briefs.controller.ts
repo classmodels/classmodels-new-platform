@@ -7,15 +7,22 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { IsIn } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import type { JwtPayload } from '../auth/jwt.strategy';
 import { BriefsService } from '../portal/briefs.service';
 import { AdminCreateBriefDto, AdminUpdateBriefDto } from './dto/admin-brief.dto';
-import { BriefEmailContractPdfDto, BriefPushSelectedDto } from './dto/admin-brief-actions.dto';
+import {
+  BriefCustomModelMailDto,
+  BriefEmailContractPdfDto,
+  BriefPushSelectedDto,
+  BriefSelfTestMailDto,
+} from './dto/admin-brief-actions.dto';
 
 class AdminPatchResponseDto {
   @IsIn(['accepted', 'declined'])
@@ -71,6 +78,25 @@ export class AdminBriefsController {
   @Permissions('admin.briefs.write')
   emailContractPdf(@Param('id', ParseUUIDPipe) id: string, @Body() dto: BriefEmailContractPdfDto) {
     return this.briefs.adminEmailContractPdfToUsers(id, dto.userIds);
+  }
+
+  @Post(':id/email-model')
+  @Permissions('admin.briefs.write')
+  emailModel(@Param('id', ParseUUIDPipe) id: string, @Body() dto: BriefCustomModelMailDto) {
+    return this.briefs.adminSendCustomModelMail(id, dto.modelUserId, dto.subject, dto.body);
+  }
+
+  @Post(':id/email-self-test')
+  @Permissions('admin.briefs.write')
+  emailSelfTest(
+    @Req() req: { user: JwtPayload },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: BriefSelfTestMailDto,
+  ) {
+    return this.briefs.adminSendSelfTestMail(id, req.user.sub, dto.kind, {
+      subject: dto.subject,
+      body: dto.body,
+    });
   }
 
   @Post(':id/responses/:responseId/contract')

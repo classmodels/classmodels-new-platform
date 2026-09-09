@@ -59,6 +59,7 @@ type BriefDetail = BriefList & {
     id: string;
     message: string;
     status: string;
+    profileMatched?: boolean;
     model: {
       id: string;
       email: string;
@@ -286,6 +287,14 @@ export default function AdminBriefsPage() {
   const [pushCustomTitle, setPushCustomTitle] = useState('');
   const [pushCustomBody, setPushCustomBody] = useState('');
   const [sheetModel, setSheetModel] = useState<ModelSheetDialogUser | null>(null);
+  const [mailModal, setMailModal] = useState<{
+    modelUserId: string;
+    modelName: string;
+    email: string;
+  } | null>(null);
+  const [mailSubject, setMailSubject] = useState('');
+  const [mailBody, setMailBody] = useState('');
+  const [mailBusy, setMailBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.briefs.read')) return;
@@ -453,9 +462,55 @@ export default function AdminBriefsPage() {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
-    setMsg('Reactie bijgewerkt; model ontvangt een push.');
+    setMsg(
+      status === 'accepted'
+        ? 'Model gemarkeerd als gekozen — e-mail + push verzonden.'
+        : 'Model gemarkeerd als niet gekozen — e-mail + push verzonden.',
+    );
     if (detail) await open(detail.id);
     await load();
+  };
+
+  const sendCustomModelMail = async () => {
+    if (!token || !detail || !mailModal) return;
+    setMailBusy(true);
+    setMsg('');
+    try {
+      await adminFetch(`/admin/briefs/${detail.id}/email-model`, token, {
+        method: 'POST',
+        body: JSON.stringify({
+          modelUserId: mailModal.modelUserId,
+          subject: mailSubject,
+          body: mailBody,
+        }),
+      });
+      setMsg(`E-mail verzonden naar ${mailModal.email}.`);
+      setMailModal(null);
+      setMailSubject('');
+      setMailBody('');
+    } catch (er) {
+      setMsg(er instanceof Error ? er.message : 'E-mail mislukt');
+    } finally {
+      setMailBusy(false);
+    }
+  };
+
+  const sendSelfTestMail = async (kind: 'submitted' | 'accepted' | 'declined' | 'custom') => {
+    if (!token || !detail || !can('admin.briefs.write')) return;
+    setMsg('');
+    try {
+      const res = await adminFetch<{ to: string }>(`/admin/briefs/${detail.id}/email-self-test`, token, {
+        method: 'POST',
+        body: JSON.stringify({
+          kind,
+          subject: kind === 'custom' ? mailSubject || undefined : undefined,
+          body: kind === 'custom' ? mailBody || undefined : undefined,
+        }),
+      });
+      setMsg(`Testmail (${kind}) verzonden naar ${res.to}.`);
+    } catch (er) {
+      setMsg(er instanceof Error ? er.message : 'Testmail mislukt');
+    }
   };
 
   const removeResponse = async (responseId: string, modelName: string) => {
@@ -1203,6 +1258,41 @@ export default function AdminBriefsPage() {
           ) : null}
 
           <p className="mt-4 text-[11px] font-bold uppercase text-ink">Ingeschreven modellen</p>
+          {can('admin.briefs.write') && detail ? (
+            <div className="mt-2 space-y-2 rounded border border-line bg-zinc-50/80 p-2">
+              <p className="text-[10px] font-semibold text-burgundy">Testmails naar uw admin-adres</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
+                  onClick={() => void sendSelfTestMail('submitted')}
+                >
+                  Test: inschrijving
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
+                  onClick={() => void sendSelfTestMail('accepted')}
+                >
+                  Test: gekozen
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
+                  onClick={() => void sendSelfTestMail('declined')}
+                >
+                  Test: niet gekozen
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
+                  onClick={() => void sendSelfTestMail('custom')}
+                >
+                  Test: algemene mail
+                </button>
+              </div>
+            </div>
+          ) : null}
           {can('admin.briefs.write') && detail.responses.length > 0 ? (
             <div className="mt-2 space-y-2 rounded border border-line bg-zinc-50/80 p-2">
               <p className="text-[10px] font-semibold text-burgundy">Push naar geselecteerde ingeschrevenen</p>
@@ -1235,6 +1325,11 @@ export default function AdminBriefsPage() {
                 <p className="text-muted">
                   {(x.model.firstName || '') + ' ' + (x.model.lastName || '')} ({x.model.email}) —{' '}
                   <span className="font-semibold text-ink">{responseStatusLabel(x.status)}</span>
+                  {x.profileMatched === false ? (
+                    <span className="ml-2 rounded border border-amber-600/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                      Geen match
+                    </span>
+                  ) : null}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">{x.message}</p>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -1264,6 +1359,25 @@ export default function AdminBriefsPage() {
                         onClick={() => downloadContract(x.id)}
                       >
                         Contract genereren (HTML)
+                      </button>
+                    ) : null}
+                    {can('admin.briefs.write') ? (
+                      <button
+                        type="button"
+                        className="rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-semibold text-burgundy hover:bg-burgundy/5"
+                        onClick={() => {
+                          setMailModal({
+                            modelUserId: x.model.id,
+                            modelName:
+                              [x.model.firstName, x.model.lastName].filter(Boolean).join(' ') ||
+                              x.model.email,
+                            email: x.model.email,
+                          });
+                          setMailSubject(`Bericht — ${detail.title}`);
+                          setMailBody('');
+                        }}
+                      >
+                        Mail schrijven
                       </button>
                     ) : null}
                   </div>
@@ -1296,6 +1410,52 @@ export default function AdminBriefsPage() {
               </li>
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {mailModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded border border-line bg-white p-4 shadow-xl">
+            <p className="text-xs font-bold uppercase tracking-wide text-burgundy">Mail naar model</p>
+            <p className="mt-1 text-sm text-ink">
+              {mailModal.modelName} · {mailModal.email}
+            </p>
+            <label className="mt-3 block text-[11px] font-semibold text-muted">
+              Onderwerp
+              <input
+                className="mt-1 w-full border border-line px-2 py-1.5 text-sm"
+                value={mailSubject}
+                onChange={(e) => setMailSubject(e.target.value)}
+              />
+            </label>
+            <label className="mt-3 block text-[11px] font-semibold text-muted">
+              Bericht
+              <textarea
+                className="mt-1 w-full border border-line px-2 py-1.5 text-sm"
+                rows={8}
+                value={mailBody}
+                onChange={(e) => setMailBody(e.target.value)}
+                placeholder="Schrijf hier uw bericht aan het model…"
+              />
+            </label>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded bg-burgundy px-3 py-1.5 text-[11px] font-semibold text-white disabled:opacity-50"
+                disabled={mailBusy || !mailSubject.trim() || !mailBody.trim()}
+                onClick={() => void sendCustomModelMail()}
+              >
+                {mailBusy ? 'Verzenden…' : 'Versturen'}
+              </button>
+              <button
+                type="button"
+                className="rounded border border-line px-3 py-1.5 text-[11px]"
+                onClick={() => setMailModal(null)}
+              >
+                Annuleren
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 

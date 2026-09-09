@@ -30,11 +30,15 @@ export class ModelPushService {
     return `${p}?tab=push`;
   }
 
-  private portalModelUrl(tab: string): string {
+  private portalModelUrl(tab: string, briefId?: string): string {
     const basePath = this.config.get<string>('APP_PUBLIC_BASE_PATH')?.trim() || '';
-    const p = basePath ? `${basePath.replace(/\/$/, '')}/portal/model` : '/portal/model';
-    const q = tab === 'home' || !tab ? '' : `?tab=${encodeURIComponent(tab)}`;
-    return `${this.appBaseUrl()}${p}${q}`;
+    // Live site gebruikt /modellen; /portal/model blijft als fallback-pad.
+    const p = basePath ? `${basePath.replace(/\/$/, '')}/modellen` : '/modellen';
+    const params = new URLSearchParams();
+    if (tab && tab !== 'home') params.set('tab', tab);
+    if (briefId) params.set('brief', briefId);
+    const q = params.toString();
+    return `${this.appBaseUrl()}${p}${q ? `?${q}` : ''}`;
   }
 
   private async getOrCreatePushSettings(userId: string) {
@@ -253,7 +257,7 @@ export class ModelPushService {
     throw new BadRequestException(`Onbekend audience: ${kind}`);
   }
 
-  /** Push + inbox: opdracht waar het profiel voor in aanmerking komt (alleen die groep). */
+  /** Push + inbox: opdracht waar het profiel voor in aanmerking komt (premium). */
   async notifyBriefCastingEligible(userId: string, briefTitle: string, briefId: string) {
     try {
       const prefs = await this.prisma.modelPushSettings.findUnique({
@@ -262,9 +266,9 @@ export class ModelPushService {
       });
       if (prefs && prefs.notifyAgencyBroadcasts === false) return;
 
-      const title = 'Opdracht — profiel in aanmerking';
-      const body = `${briefTitle}: je profiel past bij de criteria. Bekijk tab Opdrachten in je portaal.`;
-      const openUrl = this.portalModelUrl('opdrachten');
+      const title = 'Nieuwe opdracht — u komt in aanmerking';
+      const body = `${briefTitle}: er staat een nieuwe opdracht op de site waar u voor in aanmerking komt. Tik om te openen.`;
+      const openUrl = this.portalModelUrl('opdrachten', briefId);
       await this.prisma.modelPushInbox.create({
         data: {
           userId,
@@ -283,6 +287,39 @@ export class ModelPushService {
       });
     } catch (e) {
       console.error('ModelPushService.notifyBriefCastingEligible', e);
+    }
+  }
+
+  /** Push + inbox: nieuwe opdracht zonder match — toch kans wagen (premium). */
+  async notifyBriefCastingMismatch(userId: string, briefTitle: string, briefId: string) {
+    try {
+      const prefs = await this.prisma.modelPushSettings.findUnique({
+        where: { userId },
+        select: { notifyAgencyBroadcasts: true },
+      });
+      if (prefs && prefs.notifyAgencyBroadcasts === false) return;
+
+      const title = 'Nieuwe opdracht — geen match';
+      const body = `${briefTitle}: er is een nieuwe opdracht waar u niet voor in aanmerking komt. Wenst u toch in te schrijven, dan mag u uw kans wagen.`;
+      const openUrl = this.portalModelUrl('opdrachten', briefId);
+      await this.prisma.modelPushInbox.create({
+        data: {
+          userId,
+          title,
+          body,
+          source: 'agency',
+          meta: { kind: 'brief_casting_mismatch', briefId, briefTitle } as object,
+        },
+      });
+      const unread = await this.prisma.modelPushInbox.count({ where: { userId, readAt: null } });
+      await this.webPush.sendToUser(userId, {
+        title,
+        body,
+        url: openUrl,
+        badgeUnread: unread,
+      });
+    } catch (e) {
+      console.error('ModelPushService.notifyBriefCastingMismatch', e);
     }
   }
 

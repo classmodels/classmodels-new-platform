@@ -58,13 +58,13 @@ export function historyKindToPushMessage(
       };
     case 'brief_selection_accepted':
       return {
-        title: 'Je bent gekozen',
-        body: 'Gefeliciteerd — je bent geselecteerd voor een opdracht. Neem contact op met Class-Models voor de vervolgstappen.',
+        title: 'U bent gekozen',
+        body: 'Gefeliciteerd — u bent gekozen voor een opdracht. We nemen telefonisch contact met u op.',
       };
     case 'brief_selection_declined':
       return {
-        title: 'Opdracht — niet gekozen',
-        body: 'Je bent niet geselecteerd voor deze opdracht. Er volgen nog andere kansen via Class-Models.',
+        title: 'Niet gekozen',
+        body: 'U bent niet gekozen voor deze opdracht. Er volgen nog andere kansen via Class-Models.',
       };
     case 'portfolio_photo_uploaded':
       return {

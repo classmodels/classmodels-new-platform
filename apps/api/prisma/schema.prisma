@@ -179,6 +179,8 @@ model ModelBriefResponse {
   model       User                @relation(fields: [modelUserId], references: [id], onDelete: Cascade)
   message     String              @db.Text
   status      BriefResponseStatus @default(submitted)
+  /// false = ingeschreven ondanks geen match met de gevraagde criteria
+  profileMatched Boolean          @default(true)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
 

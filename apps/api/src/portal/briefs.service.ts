@@ -7,6 +7,8 @@ import { AgendaNotificationService } from '../agenda/agenda-notifications.servic
 import { computeBriefEligibility, type BriefForEligibility } from './brief-eligibility';
 import { sanitizeBriefForModelPortal } from './brief-frontend-visibility';
 import { buildContractPdfFromLines } from './brief-contract-pdf';
+import { sendHtmlMail } from '../mail/send-html-mail';
+import { premiumEffective } from '../auth/permissions.util';
 
 const MODEL_ROLE_SLUGS = ['model', 'newface', 'tryout', 'inactief'] as const;
 
@@ -151,12 +153,43 @@ export class BriefsService {
         status: 'active',
         roles: { some: { role: { slug: { in: [...MODEL_ROLE_SLUGS] } } } },
       },
-      select: { id: true, modelSheet: true },
+      select: {
+        id: true,
+        modelSheet: true,
+        isPremium: true,
+        premiumUntil: true,
+      },
     });
     for (const m of models) {
+      // Push alleen naar actieve premium-modellen.
+      if (!premiumEffective(m)) continue;
       const { eligible } = computeBriefEligibility(shape, m.modelSheet);
-      if (eligible) void this.modelPush.notifyBriefCastingEligible(m.id, brief.title, brief.id);
+      if (eligible) {
+        void this.modelPush.notifyBriefCastingEligible(m.id, brief.title, brief.id);
+      } else {
+        void this.modelPush.notifyBriefCastingMismatch(m.id, brief.title, brief.id);
+      }
     }
+  }
+
+  private briefMailShell(title: string, paragraphs: string[]) {
+    const body = paragraphs.map((p) => `<p style="margin:0 0 12px;line-height:1.5">${escapeHtml(p)}</p>`).join('');
+    return `<div style="font-family:Georgia,serif;max-width:560px;margin:0 auto;color:#1a1a1a">
+      <p style="letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:#8a6a3b">Class-Models</p>
+      <h1 style="font-size:22px;margin:8px 0 16px">${escapeHtml(title)}</h1>
+      ${body}
+      <p style="margin-top:24px;font-size:12px;color:#666">Met vriendelijke groeten,<br/>Class-Models</p>
+    </div>`;
+  }
+
+  private async sendBriefModelMail(
+    to: string,
+    subject: string,
+    title: string,
+    paragraphs: string[],
+  ) {
+    if (!to.trim()) return false;
+    return sendHtmlMail(this.prisma, to.trim(), subject, this.briefMailShell(title, paragraphs));
   }
 
   async adminCreate(
@@ -353,7 +386,7 @@ export class BriefsService {
             lastName: true,
           },
         },
-        responses: { select: { modelUserId: true, status: true } },
+        responses: { select: { modelUserId: true, status: true, profileMatched: true } },
       },
     });
     const sorted = [...rows].sort((a, b) => {
@@ -398,35 +431,75 @@ export class BriefsService {
     briefId: string,
     modelUserId: string,
     message: string,
-    opts?: { bypassEligibility?: boolean },
+    opts?: { bypassEligibility?: boolean; acceptMismatch?: boolean },
   ) {
     const brief = await this.prisma.clientBrief.findFirst({
       where: { id: briefId, status: 'open' },
     });
     if (!brief) throw new NotFoundException();
-    if (!opts?.bypassEligibility) {
-      const model = await this.prisma.user.findUnique({
-        where: { id: modelUserId },
-        select: { modelSheet: true },
-      });
-      const { eligible } = computeBriefEligibility(
-        briefEligibilityShape(brief),
-        model?.modelSheet ?? null,
+
+    const model = await this.prisma.user.findUnique({
+      where: { id: modelUserId },
+      select: { email: true, firstName: true, lastName: true, modelSheet: true },
+    });
+    const { eligible } = computeBriefEligibility(
+      briefEligibilityShape(brief),
+      model?.modelSheet ?? null,
+    );
+    const profileMatched = opts?.bypassEligibility ? true : eligible;
+
+    if (!opts?.bypassEligibility && !eligible && !opts?.acceptMismatch) {
+      throw new ForbiddenException(
+        'Uw profiel komt niet overeen met wat gevraagd wordt. U mag uw kans wagen: bevestig dat u toch wilt inschrijven.',
       );
-      if (!eligible) {
-        throw new ForbiddenException('Uw profiel komt niet in aanmerking voor deze opdracht.');
-      }
     }
+
+    const note = message.trim();
+    const storedMessage = profileMatched
+      ? note
+      : note
+        ? `[Geen match] ${note}`
+        : '[Geen match] Inschrijving ondanks afwijkend profiel.';
+
     const row = await this.prisma.modelBriefResponse.upsert({
       where: { briefId_modelUserId: { briefId, modelUserId } },
-      create: { briefId, modelUserId, message: message.trim(), status: 'submitted' },
-      update: { message: message.trim(), status: 'submitted' },
+      create: {
+        briefId,
+        modelUserId,
+        message: storedMessage,
+        status: 'submitted',
+        profileMatched,
+      },
+      update: {
+        message: storedMessage,
+        status: 'submitted',
+        profileMatched,
+      },
     });
     void this.modelHistory.log(modelUserId, 'brief_interest_submitted', {
       briefId,
       briefTitle: brief.title,
       messageChars: message.length,
+      profileMatched,
     });
+
+    const name = [model?.firstName, model?.lastName].filter(Boolean).join(' ') || 'model';
+    if (model?.email) {
+      void this.sendBriefModelMail(
+        model.email,
+        `Inschrijving bevestigd — ${brief.title}`,
+        'U bent ingeschreven',
+        [
+          `Beste ${name},`,
+          `Uw inschrijving voor de opdracht «${brief.title}» is goed ontvangen.`,
+          profileMatched
+            ? 'Uw profiel komt overeen met de gevraagde criteria.'
+            : 'Let op: uw profiel komt niet overeen met wat gevraagd wordt. U mag uw kans wagen — we beoordelen elke inschrijving.',
+          'We laten u weten als u gekozen bent. U kunt de status ook volgen in uw portaal onder Opdrachten.',
+        ],
+      );
+    }
+
     return row;
   }
 
@@ -483,7 +556,10 @@ export class BriefsService {
   async adminSetResponseStatus(responseId: string, status: 'accepted' | 'declined') {
     const r = await this.prisma.modelBriefResponse.findUnique({
       where: { id: responseId },
-      include: { brief: { select: { title: true } } },
+      include: {
+        brief: { select: { id: true, title: true } },
+        model: { select: { id: true, email: true, firstName: true, lastName: true } },
+      },
     });
     if (!r) throw new NotFoundException();
     const row = await this.prisma.modelBriefResponse.update({
@@ -496,7 +572,125 @@ export class BriefsService {
       briefTitle: r.brief.title,
       responseId: r.id,
     });
+
+    const name = [r.model.firstName, r.model.lastName].filter(Boolean).join(' ') || 'model';
+    if (r.model.email) {
+      if (status === 'accepted') {
+        void this.sendBriefModelMail(
+          r.model.email,
+          `U bent gekozen — ${r.brief.title}`,
+          'U bent gekozen',
+          [
+            `Beste ${name},`,
+            `Goed nieuws: u bent gekozen voor de opdracht «${r.brief.title}».`,
+            'We nemen telefonisch contact met u op voor de verdere afspraken.',
+            'Bekijk ook uw portaal onder Opdrachten voor de status.',
+          ],
+        );
+      } else {
+        void this.sendBriefModelMail(
+          r.model.email,
+          `Niet gekozen — ${r.brief.title}`,
+          'Niet gekozen voor deze opdracht',
+          [
+            `Beste ${name},`,
+            `Voor de opdracht «${r.brief.title}» bent u deze keer niet gekozen.`,
+            'Er volgen nog andere kansen via Class-Models. Bedankt voor uw inschrijving.',
+          ],
+        );
+      }
+    }
+
     return row;
+  }
+
+  /** Vrije e-mail vanuit een opdracht naar één model. */
+  async adminSendCustomModelMail(
+    briefId: string,
+    modelUserId: string,
+    subject: string,
+    bodyText: string,
+  ) {
+    const brief = await this.prisma.clientBrief.findUnique({ where: { id: briefId } });
+    if (!brief) throw new NotFoundException('Opdracht niet gevonden');
+    const model = await this.prisma.user.findUnique({
+      where: { id: modelUserId },
+      select: { email: true, firstName: true, lastName: true },
+    });
+    if (!model?.email) throw new NotFoundException('Model of e-mail niet gevonden');
+    const sub = subject.trim() || `Bericht over «${brief.title}»`;
+    const paragraphs = bodyText
+      .split(/\n+/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (!paragraphs.length) throw new BadRequestException('Vul een bericht in.');
+    const ok = await this.sendBriefModelMail(model.email, sub, sub, paragraphs);
+    if (!ok) throw new BadRequestException('E-mail versturen mislukt (SMTP).');
+    return { ok: true, to: model.email };
+  }
+
+  /** Admin-test: stuur voorbeeldmails naar het eigen admin-adres. */
+  async adminSendSelfTestMail(
+    briefId: string,
+    adminUserId: string,
+    kind: 'submitted' | 'accepted' | 'declined' | 'custom',
+    custom?: { subject?: string; body?: string },
+  ) {
+    const brief = await this.prisma.clientBrief.findUnique({ where: { id: briefId } });
+    if (!brief) throw new NotFoundException('Opdracht niet gevonden');
+    const admin = await this.prisma.user.findUnique({
+      where: { id: adminUserId },
+      select: { email: true, firstName: true },
+    });
+    if (!admin?.email) throw new BadRequestException('Admin heeft geen e-mailadres.');
+    const name = admin.firstName || 'admin';
+    if (kind === 'submitted') {
+      const ok = await this.sendBriefModelMail(
+        admin.email,
+        `[TEST] Inschrijving bevestigd — ${brief.title}`,
+        'U bent ingeschreven (test)',
+        [
+          `Beste ${name},`,
+          `Dit is een testmail: inschrijving voor «${brief.title}» bevestigd.`,
+        ],
+      );
+      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
+      return { ok: true, to: admin.email, kind };
+    }
+    if (kind === 'accepted') {
+      const ok = await this.sendBriefModelMail(
+        admin.email,
+        `[TEST] U bent gekozen — ${brief.title}`,
+        'U bent gekozen (test)',
+        [
+          `Beste ${name},`,
+          `Dit is een testmail: gekozen voor «${brief.title}». We nemen telefonisch contact op.`,
+        ],
+      );
+      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
+      return { ok: true, to: admin.email, kind };
+    }
+    if (kind === 'declined') {
+      const ok = await this.sendBriefModelMail(
+        admin.email,
+        `[TEST] Niet gekozen — ${brief.title}`,
+        'Niet gekozen (test)',
+        [
+          `Beste ${name},`,
+          `Dit is een testmail: niet gekozen voor «${brief.title}».`,
+        ],
+      );
+      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
+      return { ok: true, to: admin.email, kind };
+    }
+    const sub = custom?.subject?.trim() || `[TEST] Algemene mail — ${brief.title}`;
+    const paragraphs = (custom?.body || 'Dit is een test van de algemene opdracht-mail.')
+      .split(/\n+/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const ok = await this.sendBriefModelMail(admin.email, sub, sub, paragraphs);
+    if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
+    return { ok: true, to: admin.email, kind };
   }
 
   adminGet(id: string) {

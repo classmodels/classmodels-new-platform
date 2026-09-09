@@ -8,7 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -21,6 +21,11 @@ class RespondDto {
   @IsString()
   @MaxLength(4000)
   message?: string;
+
+  /** Bij geen match: bevestig dat model toch wil inschrijven. */
+  @IsOptional()
+  @IsBoolean()
+  acceptMismatch?: boolean;
 }
 
 function bypassBriefEligibility(user: JwtPayload): boolean {
@@ -59,6 +64,7 @@ export class PortalModelBriefsController {
   ) {
     return this.briefs.respondToBrief(briefId, req.user.sub, dto.message ?? '', {
       bypassEligibility: bypassBriefEligibility(req.user),
+      acceptMismatch: dto.acceptMismatch === true,
     });
   }
 

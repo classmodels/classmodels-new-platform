@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { PremiumUpsellBanner } from '@/components/model-portal/PremiumUpsellBanner';
 
@@ -37,7 +38,7 @@ export type OpenBrief = {
     firstName?: string | null;
     lastName?: string | null;
   };
-  responses: { modelUserId: string; status: string }[];
+  responses: { modelUserId: string; status: string; profileMatched?: boolean }[];
 };
 
 type BriefFilter = 'all' | 'eligible' | 'available' | 'subscribed';
@@ -82,18 +83,21 @@ function gezochtLines(b: OpenBrief): string[] {
   return lines;
 }
 
-function responseMeta(mine: { status: string } | undefined): {
+function responseMeta(mine: { status: string; profileMatched?: boolean } | undefined): {
   label: string;
   tone: 'open' | 'submitted' | 'accepted' | 'declined' | 'withdrawn' | 'other';
 } {
   if (!mine) return { label: 'Open', tone: 'open' };
   switch (mine.status) {
     case 'declined':
-      return { label: 'Niet in aanmerking', tone: 'declined' };
+      return { label: 'Niet gekozen', tone: 'declined' };
     case 'accepted':
-      return { label: 'Geselecteerd', tone: 'accepted' };
+      return { label: 'Gekozen', tone: 'accepted' };
     case 'submitted':
-      return { label: 'Ingeschreven', tone: 'submitted' };
+      return {
+        label: mine.profileMatched === false ? 'Ingeschreven (geen match)' : 'Ingeschreven',
+        tone: 'submitted',
+      };
     case 'withdrawn':
       return { label: 'Uitgeschreven', tone: 'withdrawn' };
     default:
@@ -152,6 +156,7 @@ export function ModelOpdrachtenTab({
   forceEligible?: boolean;
   premiumHref?: string;
 }) {
+  const searchParams = useSearchParams();
   const [briefs, setBriefs] = useState<OpenBrief[]>([]);
   const [loading, setLoading] = useState(true);
   const [briefNote, setBriefNote] = useState<Record<string, string>>({});
@@ -160,6 +165,11 @@ export function ModelOpdrachtenTab({
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [briefFilter, setBriefFilter] = useState<BriefFilter>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const deep = searchParams.get('brief')?.trim();
+    if (deep) setExpandedId(deep);
+  }, [searchParams]);
 
   const loadBriefs = useCallback(() => {
     if (!token) {
@@ -210,7 +220,7 @@ export function ModelOpdrachtenTab({
     return briefs.filter((b) => b.responses.some((r) => r.modelUserId === modelUserId));
   }, [briefs, briefFilter, modelUserId, forceEligible]);
 
-  const submitInterest = async (briefId: string) => {
+  const submitInterest = async (briefId: string, acceptMismatch = false) => {
     if (!token) return;
     setBriefErr(null);
     setOkMsg(null);
@@ -220,10 +230,14 @@ export function ModelOpdrachtenTab({
       await apiFetch(`/portal/model/briefs/${briefId}/responses`, {
         method: 'POST',
         token,
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, acceptMismatch }),
       });
       setBriefNote((n) => ({ ...n, [briefId]: '' }));
-      setOkMsg('Inschrijving verzonden.');
+      setOkMsg(
+        acceptMismatch
+          ? 'Inschrijving verzonden (geen match). U mag uw kans wagen — we laten u weten of u gekozen bent.'
+          : 'Inschrijving verzonden. U ontvangt een bevestigingsmail.',
+      );
       loadBriefs();
     } catch (e) {
       setBriefErr(e instanceof Error ? e.message : 'Versturen mislukt');
@@ -366,7 +380,6 @@ export function ModelOpdrachtenTab({
             const canApply =
               canRespond &&
               b.status === 'open' &&
-              inAanmerking &&
               (!mine || mine.status === 'withdrawn');
             const blocked = mine?.status === 'declined';
             const det = detailRecord(b.details);
@@ -410,7 +423,7 @@ export function ModelOpdrachtenTab({
                     >
                       {inAanmerking
                         ? 'U komt in aanmerking voor deze opdracht.'
-                        : 'U komt niet in aanmerking voor deze opdracht.'}
+                        : 'Uw profiel komt niet overeen met wat gevraagd wordt. U mag uw kans wagen en toch inschrijven.'}
                       {b.eligibility?.reason ? (
                         <span className="nieuw-opdracht-elig-reason">{b.eligibility.reason}</span>
                       ) : null}
@@ -501,13 +514,18 @@ export function ModelOpdrachtenTab({
                     <div className="nieuw-opdracht-actions">
                       {blocked ? (
                         <p className="nieuw-opdracht-status-msg">
-                          U bent niet gekozen voor deze opdracht.
+                          Status: <strong>Niet gekozen</strong> voor deze opdracht.
                         </p>
                       ) : mine?.status === 'submitted' ? (
                         <div className="nieuw-opdracht-action-row">
                           <p className="nieuw-opdracht-status-msg">
-                            Status: <strong className="is-ingeschreven">Ingeschreven</strong>. U kunt zich nog
-                            uitschrijven zolang de selectie open is.
+                            Status:{' '}
+                            <strong className="is-ingeschreven">
+                              {mine.profileMatched === false
+                                ? 'Ingeschreven (geen match)'
+                                : 'Ingeschreven'}
+                            </strong>
+                            . U kunt zich nog uitschrijven zolang de selectie open is.
                           </p>
                           <button
                             type="button"
@@ -520,8 +538,7 @@ export function ModelOpdrachtenTab({
                         </div>
                       ) : mine?.status === 'accepted' ? (
                         <p className="nieuw-opdracht-status-msg is-success">
-                          Status: <strong>Geselecteerd</strong>. Neem contact op met Class-Models voor de
-                          verdere afspraken.
+                          Status: <strong>Gekozen</strong>. We nemen telefonisch contact met u op.
                         </p>
                       ) : canApply ? (
                         <div className="nieuw-opdracht-apply">
@@ -529,6 +546,12 @@ export function ModelOpdrachtenTab({
                             <p className="nieuw-opdracht-status-msg" style={{ marginBottom: 12 }}>
                               Status: <strong className="is-uitgeschreven">Uitgeschreven</strong>. U kunt zich
                               opnieuw inschrijven.
+                            </p>
+                          ) : null}
+                          {!inAanmerking ? (
+                            <p className="nieuw-opdracht-status-msg is-warn" style={{ marginBottom: 12 }}>
+                              U mag uw kans wagen, maar uw profiel komt niet overeen met wat ze vragen. Bij
+                              inschrijving markeren we dit als <strong>geen match</strong>.
                             </p>
                           ) : null}
                           <label className="nieuw-opdracht-apply-label" htmlFor={`extra-${b.id}`}>
@@ -548,19 +571,25 @@ export function ModelOpdrachtenTab({
                             <p className="nieuw-lead" style={{ margin: 0, fontSize: 12 }}>
                               {mine?.status === 'withdrawn'
                                 ? 'U was uitgeschreven. Schrijf u opnieuw in als u weer wilt meedoen.'
-                                : 'U kunt direct inschrijven. Extra info is niet verplicht.'}
+                                : inAanmerking
+                                  ? 'U kunt direct inschrijven. Extra info is niet verplicht.'
+                                  : 'Bevestig dat u toch wilt inschrijven ondanks geen match.'}
                             </p>
                             <button
                               type="button"
                               className="nieuw-btn"
                               disabled={busyId === b.id}
-                              onClick={() => void submitInterest(b.id)}
+                              onClick={() =>
+                                void submitInterest(b.id, !inAanmerking && !forceEligible)
+                              }
                             >
                               {busyId === b.id
                                 ? 'Bezig…'
                                 : mine?.status === 'withdrawn'
                                   ? 'Opnieuw inschrijven'
-                                  : 'Inschrijven'}
+                                  : inAanmerking
+                                    ? 'Inschrijven'
+                                    : 'Toch inschrijven (kans wagen)'}
                             </button>
                           </div>
                         </div>
@@ -579,16 +608,6 @@ export function ModelOpdrachtenTab({
                             {responseMeta(mine).label}
                           </strong>
                         </p>
-                      ) : b.status === 'open' && !inAanmerking ? (
-                        <div className="nieuw-opdracht-action-row">
-                          <p className="nieuw-opdracht-status-msg is-warn">
-                            Inschrijven is niet beschikbaar: uw profiel komt niet in aanmerking volgens de
-                            criteria.
-                          </p>
-                          <Link className="nieuw-btn nieuw-btn-ghost" href="/modellen?tab=profiel">
-                            Profiel controleren
-                          </Link>
-                        </div>
                       ) : (
                         <p className="nieuw-opdracht-status-msg">
                           Deze opdracht is niet meer open voor nieuwe inschrijvingen.
