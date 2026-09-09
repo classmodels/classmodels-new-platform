@@ -1,6 +1,7 @@
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsArray, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 
 export class BriefPushSelectedDto {
+  @IsArray()
   @IsUUID('4', { each: true })
   userIds!: string[];
 
@@ -16,6 +17,7 @@ export class BriefPushSelectedDto {
 }
 
 export class BriefEmailContractPdfDto {
+  @IsArray()
   @IsUUID('4', { each: true })
   userIds!: string[];
 }
