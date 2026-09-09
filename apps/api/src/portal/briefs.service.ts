@@ -652,24 +652,23 @@ export class BriefsService {
     return { ok: true, to: model.email };
   }
 
-  /** Admin-test: stuur voorbeeldmails naar het eigen admin-adres. */
+  /** Admin-test: stuur voorbeeldmails naar info@class-models.be (vast testadres). */
   async adminSendSelfTestMail(
     briefId: string,
-    adminUserId: string,
+    _adminUserId: string,
     kind: 'submitted' | 'accepted' | 'declined' | 'custom',
     custom?: { subject?: string; body?: string },
   ) {
     const brief = await this.prisma.clientBrief.findUnique({ where: { id: briefId } });
     if (!brief) throw new NotFoundException('Opdracht niet gevonden');
-    const admin = await this.prisma.user.findUnique({
-      where: { id: adminUserId },
-      select: { email: true, firstName: true },
-    });
-    if (!admin?.email) throw new BadRequestException('Admin heeft geen e-mailadres.');
-    const name = admin.firstName || 'admin';
+    const to =
+      (process.env.BRIEF_SELF_TEST_EMAIL || process.env.ADMIN_NOTIFY_EMAIL || 'info@class-models.be')
+        .trim()
+        .toLowerCase() || 'info@class-models.be';
+    const name = 'Class-Models';
     if (kind === 'submitted') {
       const ok = await this.sendBriefModelMail(
-        admin.email,
+        to,
         `[TEST] Inschrijving bevestigd — ${brief.title}`,
         'U bent ingeschreven (test)',
         [
@@ -677,12 +676,12 @@ export class BriefsService {
           `Dit is een testmail: inschrijving voor «${brief.title}» bevestigd.`,
         ],
       );
-      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
-      return { ok: true, to: admin.email, kind };
+      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP). Controleer SMTP in Admin → E-mail.');
+      return { ok: true, to, kind };
     }
     if (kind === 'accepted') {
       const ok = await this.sendBriefModelMail(
-        admin.email,
+        to,
         `[TEST] U bent gekozen — ${brief.title}`,
         'U bent gekozen (test)',
         [
@@ -690,12 +689,12 @@ export class BriefsService {
           `Dit is een testmail: gekozen voor «${brief.title}». We nemen telefonisch contact op.`,
         ],
       );
-      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
-      return { ok: true, to: admin.email, kind };
+      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP). Controleer SMTP in Admin → E-mail.');
+      return { ok: true, to, kind };
     }
     if (kind === 'declined') {
       const ok = await this.sendBriefModelMail(
-        admin.email,
+        to,
         `[TEST] Niet gekozen — ${brief.title}`,
         'Niet gekozen (test)',
         [
@@ -703,17 +702,17 @@ export class BriefsService {
           `Dit is een testmail: niet gekozen voor «${brief.title}».`,
         ],
       );
-      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
-      return { ok: true, to: admin.email, kind };
+      if (!ok) throw new BadRequestException('Testmail mislukt (SMTP). Controleer SMTP in Admin → E-mail.');
+      return { ok: true, to, kind };
     }
     const sub = custom?.subject?.trim() || `[TEST] Algemene mail — ${brief.title}`;
     const paragraphs = (custom?.body || 'Dit is een test van de algemene opdracht-mail.')
       .split(/\n+/)
       .map((l) => l.trim())
       .filter(Boolean);
-    const ok = await this.sendBriefModelMail(admin.email, sub, sub, paragraphs);
-    if (!ok) throw new BadRequestException('Testmail mislukt (SMTP).');
-    return { ok: true, to: admin.email, kind };
+    const ok = await this.sendBriefModelMail(to, sub, sub, paragraphs);
+    if (!ok) throw new BadRequestException('Testmail mislukt (SMTP). Controleer SMTP in Admin → E-mail.');
+    return { ok: true, to, kind };
   }
 
   adminGet(id: string) {

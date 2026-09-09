@@ -288,13 +288,14 @@ export default function AdminBriefsPage() {
   const [pushCustomBody, setPushCustomBody] = useState('');
   const [sheetModel, setSheetModel] = useState<ModelSheetDialogUser | null>(null);
   const [mailModal, setMailModal] = useState<{
-    modelUserId: string;
-    modelName: string;
-    email: string;
+    /** Eén of meer ontvangers (bulk). */
+    recipients: { modelUserId: string; modelName: string; email: string }[];
   } | null>(null);
   const [mailSubject, setMailSubject] = useState('');
   const [mailBody, setMailBody] = useState('');
   const [mailBusy, setMailBusy] = useState(false);
+  const [selfTestBusy, setSelfTestBusy] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.briefs.read')) return;
@@ -456,35 +457,33 @@ export default function AdminBriefsPage() {
     }
   };
 
-  const patchResponse = async (responseId: string, status: 'accepted' | 'declined') => {
-    if (!token || !can('admin.briefs.write')) return;
-    await adminFetch(`/admin/briefs/model-responses/${responseId}`, token, {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    });
-    setMsg(
-      status === 'accepted'
-        ? 'Model gemarkeerd als gekozen — e-mail + push verzonden.'
-        : 'Model gemarkeerd als niet gekozen — e-mail + push verzonden.',
-    );
-    if (detail) await open(detail.id);
-    await load();
-  };
-
   const sendCustomModelMail = async () => {
-    if (!token || !detail || !mailModal) return;
+    if (!token || !detail || !mailModal?.recipients.length) return;
     setMailBusy(true);
     setMsg('');
     try {
-      await adminFetch(`/admin/briefs/${detail.id}/email-model`, token, {
-        method: 'POST',
-        body: JSON.stringify({
-          modelUserId: mailModal.modelUserId,
-          subject: mailSubject,
-          body: mailBody,
-        }),
-      });
-      setMsg(`E-mail verzonden naar ${mailModal.email}.`);
+      let sent = 0;
+      const errors: string[] = [];
+      for (const r of mailModal.recipients) {
+        try {
+          await adminFetch(`/admin/briefs/${detail.id}/email-model`, token, {
+            method: 'POST',
+            body: JSON.stringify({
+              modelUserId: r.modelUserId,
+              subject: mailSubject,
+              body: mailBody,
+            }),
+          });
+          sent += 1;
+        } catch (er) {
+          errors.push(`${r.email}: ${er instanceof Error ? er.message : 'mislukt'}`);
+        }
+      }
+      setMsg(
+        errors.length
+          ? `E-mail: ${sent} verzonden. Fouten: ${errors.join('; ')}`
+          : `E-mail verzonden naar ${sent} model(len).`,
+      );
       setMailModal(null);
       setMailSubject('');
       setMailBody('');
@@ -496,7 +495,19 @@ export default function AdminBriefsPage() {
   };
 
   const sendSelfTestMail = async (kind: 'submitted' | 'accepted' | 'declined' | 'custom') => {
-    if (!token || !detail || !can('admin.briefs.write')) return;
+    if (!token) {
+      setMsg('Niet ingelogd — testmail niet verzonden.');
+      return;
+    }
+    if (!detail) {
+      setMsg('Open eerst een opdracht om een testmail te sturen.');
+      return;
+    }
+    if (!can('admin.briefs.write')) {
+      setMsg('Geen schrijfrechten voor opdrachten.');
+      return;
+    }
+    setSelfTestBusy(kind);
     setMsg('');
     try {
       const res = await adminFetch<{ to: string }>(`/admin/briefs/${detail.id}/email-self-test`, token, {
@@ -510,7 +521,64 @@ export default function AdminBriefsPage() {
       setMsg(`Testmail (${kind}) verzonden naar ${res.to}.`);
     } catch (er) {
       setMsg(er instanceof Error ? er.message : 'Testmail mislukt');
+    } finally {
+      setSelfTestBusy(null);
     }
+  };
+
+  const bulkSetStatus = async (status: 'accepted' | 'declined') => {
+    if (!token || !detail || !can('admin.briefs.write')) return;
+    const targets = detail.responses.filter(
+      (r) => selResp.includes(r.model.id) && r.status === 'submitted',
+    );
+    if (!targets.length) {
+      setMsg(
+        status === 'accepted'
+          ? 'Selecteer eerst ingeschreven modellen (status Ingeschreven) om als gekozen te markeren.'
+          : 'Selecteer eerst ingeschreven modellen (status Ingeschreven) om als niet gekozen te markeren.',
+      );
+      return;
+    }
+    setBulkBusy(true);
+    setMsg('');
+    try {
+      for (const r of targets) {
+        await adminFetch(`/admin/briefs/model-responses/${r.id}`, token, {
+          method: 'PATCH',
+          body: JSON.stringify({ status }),
+        });
+      }
+      setMsg(
+        status === 'accepted'
+          ? `${targets.length} model(len) gemarkeerd als gekozen — e-mail + push verzonden.`
+          : `${targets.length} model(len) gemarkeerd als niet gekozen — e-mail + push verzonden.`,
+      );
+      setSelResp([]);
+      await open(detail.id);
+      await load();
+    } catch (er) {
+      setMsg(er instanceof Error ? er.message : 'Bulk-actie mislukt');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const openBulkMailModal = () => {
+    if (!detail) return;
+    const recipients = detail.responses
+      .filter((r) => selResp.includes(r.model.id))
+      .map((r) => ({
+        modelUserId: r.model.id,
+        modelName: [r.model.firstName, r.model.lastName].filter(Boolean).join(' ') || r.model.email,
+        email: r.model.email,
+      }));
+    if (!recipients.length) {
+      setMsg('Vink eerst één of meer modellen aan om mail te sturen.');
+      return;
+    }
+    setMailModal({ recipients });
+    setMailSubject(`Bericht — ${detail.title}`);
+    setMailBody('');
   };
 
   const removeResponse = async (responseId: string, modelName: string) => {
@@ -1258,53 +1326,98 @@ export default function AdminBriefsPage() {
           ) : null}
 
           <p className="mt-4 text-[11px] font-bold uppercase text-ink">Ingeschreven modellen</p>
+          {msg ? (
+            <p className="mt-2 rounded border border-line bg-amber-50 px-2 py-1.5 text-[11px] text-ink">{msg}</p>
+          ) : null}
           {can('admin.briefs.write') && detail ? (
             <div className="mt-2 space-y-2 rounded border border-line bg-zinc-50/80 p-2">
-              <p className="text-[10px] font-semibold text-burgundy">Testmails naar uw admin-adres</p>
+              <p className="text-[10px] font-semibold text-burgundy">
+                Testmails → altijd naar info@class-models.be
+              </p>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
-                  onClick={() => void sendSelfTestMail('submitted')}
-                >
-                  Test: inschrijving
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
-                  onClick={() => void sendSelfTestMail('accepted')}
-                >
-                  Test: gekozen
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
-                  onClick={() => void sendSelfTestMail('declined')}
-                >
-                  Test: niet gekozen
-                </button>
-                <button
-                  type="button"
-                  className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50"
-                  onClick={() => void sendSelfTestMail('custom')}
-                >
-                  Test: algemene mail
-                </button>
+                {(
+                  [
+                    ['submitted', 'Test: inschrijving'],
+                    ['accepted', 'Test: gekozen'],
+                    ['declined', 'Test: niet gekozen'],
+                    ['custom', 'Test: algemene mail'],
+                  ] as const
+                ).map(([kind, label]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    disabled={Boolean(selfTestBusy)}
+                    className="rounded border border-line bg-white px-2 py-1 text-[11px] hover:bg-zinc-50 disabled:opacity-50"
+                    onClick={() => void sendSelfTestMail(kind)}
+                  >
+                    {selfTestBusy === kind ? 'Bezig…' : label}
+                  </button>
+                ))}
               </div>
             </div>
           ) : null}
           {can('admin.briefs.write') && detail.responses.length > 0 ? (
-            <div className="mt-2 space-y-2 rounded border border-line bg-zinc-50/80 p-2">
-              <p className="text-[10px] font-semibold text-burgundy">Push naar geselecteerde ingeschrevenen</p>
+            <div className="mt-2 space-y-2 rounded border border-burgundy/30 bg-burgundy/5 p-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-semibold text-burgundy">
+                  Bulk-acties ({selResp.length} geselecteerd)
+                </p>
+                <label className="flex items-center gap-1.5 text-[11px] text-muted">
+                  <input
+                    type="checkbox"
+                    checked={
+                      detail.responses.length > 0 &&
+                      detail.responses.every((r) => selResp.includes(r.model.id))
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelResp(detail.responses.map((r) => r.model.id));
+                      } else {
+                        setSelResp([]);
+                      }
+                    }}
+                  />
+                  Alles selecteren
+                </label>
+              </div>
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="rounded bg-burgundy px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-burgundyDeep"
+                  disabled={bulkBusy}
+                  className="rounded bg-emerald-700 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-emerald-800 disabled:opacity-50"
+                  onClick={() => void bulkSetStatus('accepted')}
+                >
+                  Gekozen
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  className="rounded bg-red-700 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+                  onClick={() => void bulkSetStatus('declined')}
+                >
+                  Niet gekozen
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  className="rounded border border-burgundy bg-white px-3 py-1.5 text-[11px] font-semibold text-burgundy hover:bg-burgundy/5 disabled:opacity-50"
+                  onClick={() => openBulkMailModal()}
+                >
+                  Mail schrijven
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  className="rounded bg-burgundy px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-burgundyDeep disabled:opacity-50"
                   onClick={() => pushSelectedUsers(selResp)}
                 >
-                  Push (ingeschreven selectie)
+                  Push naar selectie
                 </button>
               </div>
+              <p className="text-[10px] text-muted">
+                Vink modellen aan en gebruik de knoppen hierboven. Gekozen / Niet gekozen geldt voor status
+                «Ingeschreven».
+              </p>
             </div>
           ) : null}
           <ul className="mt-2 space-y-2">
@@ -1317,94 +1430,56 @@ export default function AdminBriefsPage() {
                       className="mt-1"
                       checked={selResp.includes(x.model.id)}
                       onChange={() =>
-                        setSelResp((s) => (s.includes(x.model.id) ? s.filter((y) => y !== x.model.id) : [...s, x.model.id]))
+                        setSelResp((s) =>
+                          s.includes(x.model.id) ? s.filter((y) => y !== x.model.id) : [...s, x.model.id],
+                        )
                       }
                     />
                   ) : null}
                   <div className="min-w-0 flex-1">
-                <p className="text-muted">
-                  {(x.model.firstName || '') + ' ' + (x.model.lastName || '')} ({x.model.email}) —{' '}
-                  <span className="font-semibold text-ink">{responseStatusLabel(x.status)}</span>
-                  {x.profileMatched === false ? (
-                    <span className="ml-2 rounded border border-amber-600/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
-                      Geen match
-                    </span>
-                  ) : null}
-                </p>
-                <p className="mt-1 whitespace-pre-wrap">{x.message}</p>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap gap-2">
-                    {can('admin.briefs.write') && x.status === 'submitted' ? (
-                      <>
+                    <p className="text-muted">
+                      {(x.model.firstName || '') + ' ' + (x.model.lastName || '')} ({x.model.email}) —{' '}
+                      <span className="font-semibold text-ink">{responseStatusLabel(x.status)}</span>
+                      {x.profileMatched === false ? (
+                        <span className="ml-2 rounded border border-amber-600/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                          Geen match
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap">{x.message}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {can('admin.briefs.write') && x.status === 'accepted' ? (
                         <button
                           type="button"
-                          className="rounded bg-emerald-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-800"
-                          onClick={() => patchResponse(x.id, 'accepted')}
+                          className="border border-ink bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:bg-zinc-100"
+                          onClick={() => downloadContract(x.id)}
                         >
-                          Gekozen
+                          Contract genereren (HTML)
                         </button>
-                        <button
-                          type="button"
-                          className="rounded bg-red-700 px-2 py-1 text-[11px] font-semibold text-white hover:bg-red-800"
-                          onClick={() => patchResponse(x.id, 'declined')}
-                        >
-                          Niet gekozen
-                        </button>
-                      </>
-                    ) : null}
-                    {can('admin.briefs.write') && x.status === 'accepted' ? (
-                      <button
-                        type="button"
-                        className="border border-ink bg-white px-2 py-1 text-[11px] font-semibold text-ink hover:bg-zinc-100"
-                        onClick={() => downloadContract(x.id)}
-                      >
-                        Contract genereren (HTML)
-                      </button>
-                    ) : null}
-                    {can('admin.briefs.write') ? (
+                      ) : null}
                       <button
                         type="button"
                         className="rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-semibold text-burgundy hover:bg-burgundy/5"
-                        onClick={() => {
-                          setMailModal({
-                            modelUserId: x.model.id,
-                            modelName:
+                        onClick={() => setSheetModel(x.model)}
+                      >
+                        Modellenfiche
+                      </button>
+                      {can('admin.briefs.write') ? (
+                        <button
+                          type="button"
+                          className="rounded border border-line bg-white px-2 py-1 text-[11px] text-muted hover:bg-zinc-50 hover:text-ink"
+                          onClick={() =>
+                            void removeResponse(
+                              x.id,
                               [x.model.firstName, x.model.lastName].filter(Boolean).join(' ') ||
-                              x.model.email,
-                            email: x.model.email,
-                          });
-                          setMailSubject(`Bericht — ${detail.title}`);
-                          setMailBody('');
-                        }}
-                      >
-                        Mail schrijven
-                      </button>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap gap-2 sm:ml-auto">
-                    <button
-                      type="button"
-                      className="rounded border border-burgundy bg-white px-2 py-1 text-[11px] font-semibold text-burgundy hover:bg-burgundy/5"
-                      onClick={() => setSheetModel(x.model)}
-                    >
-                      Modellenfiche
-                    </button>
-                    {can('admin.briefs.write') ? (
-                      <button
-                        type="button"
-                        className="rounded border border-line bg-white px-2 py-1 text-[11px] text-muted hover:bg-zinc-50 hover:text-ink"
-                        onClick={() =>
-                          void removeResponse(
-                            x.id,
-                            [x.model.firstName, x.model.lastName].filter(Boolean).join(' ') || x.model.email,
-                          )
-                        }
-                      >
-                        Verwijderen
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
+                                x.model.email,
+                            )
+                          }
+                        >
+                          Verwijderen
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </li>
@@ -1416,9 +1491,16 @@ export default function AdminBriefsPage() {
       {mailModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-lg rounded border border-line bg-white p-4 shadow-xl">
-            <p className="text-xs font-bold uppercase tracking-wide text-burgundy">Mail naar model</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-burgundy">
+              Mail naar {mailModal.recipients.length === 1 ? 'model' : 'geselecteerde modellen'}
+            </p>
             <p className="mt-1 text-sm text-ink">
-              {mailModal.modelName} · {mailModal.email}
+              {mailModal.recipients.length === 1
+                ? `${mailModal.recipients[0].modelName} · ${mailModal.recipients[0].email}`
+                : `${mailModal.recipients.length} ontvangers: ${mailModal.recipients
+                    .map((r) => r.email)
+                    .slice(0, 5)
+                    .join(', ')}${mailModal.recipients.length > 5 ? '…' : ''}`}
             </p>
             <label className="mt-3 block text-[11px] font-semibold text-muted">
               Onderwerp
@@ -1435,7 +1517,7 @@ export default function AdminBriefsPage() {
                 rows={8}
                 value={mailBody}
                 onChange={(e) => setMailBody(e.target.value)}
-                placeholder="Schrijf hier uw bericht aan het model…"
+                placeholder="Schrijf hier uw bericht…"
               />
             </label>
             <div className="mt-4 flex flex-wrap gap-2">
