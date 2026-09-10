@@ -139,6 +139,34 @@ function waitGet(port, pth, ok) {
   });
 }
 
+/** Één snelle health-check (voor recovery als nestLive foutief op false bleef). */
+function waitGetOnce(port, pth, ok, timeoutMs = 2500) {
+  return new Promise((resolve, reject) => {
+    const r = http.get(`http://127.0.0.1:${port}${pth}`, (res) => {
+      res.resume();
+      if (ok(res.statusCode || 0)) resolve();
+      else reject(new Error(`HTTP ${res.statusCode}`));
+    });
+    r.setTimeout(timeoutMs, () => {
+      r.destroy(new Error('timeout'));
+    });
+    r.on('error', reject);
+  });
+}
+
+function scheduleNestLiveProbe(reason) {
+  waitGetOnce(nestPort, '/health', (c) => c === 200 || c === 204, 3000)
+    .then(() => {
+      if (!nestLive) {
+        nestLive = true;
+        console.error(`[combell-dual] Nest /health ok (${reason}) — nestLive=true`);
+      }
+    })
+    .catch(() => {
+      /* nog niet klaar */
+    });
+}
+
 function spawnNext() {
   const child = spawn(process.execPath, [webStart], {
     cwd: webDir,
@@ -220,6 +248,9 @@ function spawnNestOnce() {
       setTimeout(() => spawnNestOnce(), NEST_RESTART_DELAY_MS);
     }
   });
+  // Ook na late start / herstart opnieuw nestLive zetten (anders blijft login op 503).
+  setTimeout(() => scheduleNestLiveProbe(`spawn#${nestSpawnCount}`), 1500);
+  setTimeout(() => scheduleNestLiveProbe(`spawn#${nestSpawnCount}-retry`), 8000);
   return true;
 }
 
@@ -449,21 +480,39 @@ const server = http.createServer((req, res) => {
 
   const isHealthProbe = isHealthProbeRequest(req);
   const toNest = shouldRouteToNest(req);
-  /** `/health` altijd doorsturen: zo zie je echte API-response of 502; geen blokkade op `nestLive`. */
+  /**
+   * `/health` altijd doorsturen.
+   * Als nestLive=false maar Nest intussen wél draait (boot-timeout / late migrate),
+   * eerst kort herproberen i.p.v. permanent 503 op login.
+   */
   if (toNest && !nestLive && !isHealthProbe) {
-    const atMax = nestSpawnCount >= NEST_MAX_SPAWNS;
-    res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
-    res.end(
-      JSON.stringify({
-        error: 'api_not_ready',
-        message: atMax
-          ? 'De API crasht herhaaldelijk. Controleer DB_URL en de runtime-logs in Combell, herstart daarna de app.'
-          : 'De API start nog op of kon niet opstarten. Controleer DB_URL en serverlogs.',
-        bootStatus: '/__cm_api/boot-status',
-        nestSpawnCount,
-        nestMaxSpawns: NEST_MAX_SPAWNS,
-      }),
-    );
+    req.pause();
+    waitGetOnce(nestPort, '/health', (c) => c === 200 || c === 204, 2000)
+      .then(() => {
+        nestLive = true;
+        console.error('[combell-dual] Nest recovered via request probe — nestLive=true');
+        req.resume();
+        forward(req, res, nestPort);
+      })
+      .catch(() => {
+        const atMax = nestSpawnCount >= NEST_MAX_SPAWNS;
+        if (!res.headersSent) {
+          res.writeHead(503, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(
+            JSON.stringify({
+              error: 'api_not_ready',
+              message: atMax
+                ? 'De API crasht herhaaldelijk. Controleer DB_URL en de runtime-logs in Combell, herstart daarna de app.'
+                : 'De API start nog op of kon niet opstarten. Controleer DB_URL en serverlogs.',
+              bootStatus: '/__cm_api/boot-status',
+              nestSpawnCount,
+              nestMaxSpawns: NEST_MAX_SPAWNS,
+            }),
+          );
+        }
+        req.resume();
+        req.destroy();
+      });
     return;
   }
   forward(req, res, toNest ? nestPort : webPort);
