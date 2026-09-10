@@ -505,6 +505,7 @@ export class CatalogService {
     roles: string[],
     modelIds: string[],
     to: string,
+    message?: string,
   ): Promise<{ ok: true; filename: string }> {
     const email = String(to || '').trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -516,7 +517,20 @@ export class CatalogService {
       n === 1 ? 'class-models-fiche.pdf' : `class-models-fiches-${n}.pdf`;
     const subject =
       n === 1 ? 'Class-Models — modellenfiche' : `Class-Models — ${n} modellenfiches`;
-    const html = `<p>In bijlage vindt u de Class-Models fiches (PDF).</p><p>Met vriendelijke groeten,<br/>Class-Models</p>`;
+
+    const raw = String(message ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const trimmed = raw.trim();
+    const escapeHtml = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    const bodyBlock = trimmed
+      ? `<div style="white-space:pre-wrap;font-family:Georgia,serif;font-size:15px;line-height:1.55;color:#222">${escapeHtml(raw.trimEnd())}</div>`
+      : `<p style="font-family:Georgia,serif;font-size:15px;line-height:1.55;color:#222">In bijlage vindt u de Class-Models fiches (PDF).</p>`;
+    const html = `${bodyBlock}<p style="margin-top:20px;font-family:Georgia,serif;font-size:15px;line-height:1.55;color:#222">Met vriendelijke groeten,<br/>Class-Models</p>`;
+
     const ok = await this.agendaMail.sendHtmlMailWithAttachments(email, subject, html, [
       { filename, content: pdf },
     ]);

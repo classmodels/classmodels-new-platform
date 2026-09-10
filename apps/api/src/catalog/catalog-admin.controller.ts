@@ -64,13 +64,14 @@ export class CatalogAdminController {
   @Permissions('admin.users.write')
   emailModelSheets(
     @Req() req: { user: JwtPayload },
-    @Body() body: { modelIds?: string[]; to?: string },
+    @Body() body: { modelIds?: string[]; to?: string; message?: string },
   ) {
     return this.catalog.emailClientSheetsPdf(
       req.user.sub,
       req.user.roles ?? [],
       body?.modelIds ?? [],
       body?.to ?? '',
+      body?.message,
     );
   }
 }
