@@ -99,56 +99,21 @@ function genderNl(g: CatalogModel['gender']): string {
   return '—';
 }
 
-function buildMailBody(m: CatalogModel, isAdmin: boolean): string {
-  const sh = m.sheet ?? {};
-  const lines = [
-    `Model: ${ficheDisplayName(m, isAdmin)}`,
-    m.age != null ? `Leeftijd: ${m.age} jaar` : '',
-    `Geslacht: ${genderNl(m.gender)}`,
-    '',
-    `Gemeente: ${sheetStr(sh, 'gemeente') || '—'}`,
-    `Nationaliteit: ${sheetStr(sh, 'nationaliteit') || '—'}`,
-    `Geboortedatum: ${sheetStr(sh, 'geboortedatum') || '—'}`,
-    `Lengte: ${sheetStr(sh, 'lengte') || '—'}`,
-    `Maat: ${sheetStr(sh, 'maat') || '—'}`,
-    `Confectiemaat: ${sheetStr(sh, 'confectiemaat') || '—'}`,
-    `Schoenmaat: ${sheetStr(sh, 'schoenmaat') || '—'}`,
-    `BH-maat: ${sheetStr(sh, 'bhMaat') || '—'}`,
-    `Borstomtrek: ${sheetStr(sh, 'borstomtrek') || '—'}`,
-    `Taille: ${sheetStr(sh, 'taille') || '—'}`,
-    `Heupomtrek: ${sheetStr(sh, 'heupomtrek') || '—'}`,
-    `Jeansmaat: ${sheetStr(sh, 'jeansmaat') || '—'}`,
-    `Haarkleur: ${sheetStr(sh, 'haarkleur') || '—'}`,
-    `Kleur ogen: ${sheetStr(sh, 'kleurOgen') || '—'}`,
-    '',
-    `Ervaring: ${sheetStr(sh, 'ervaringen') || '—'}`,
-    `Over mij: ${sheetStr(sh, 'overMij') || '—'}`,
-    '',
-    `Beschikbaar voor: ${m.beschikbaar.length ? m.beschikbaar.join(', ') : '—'}`,
-  ];
-  if (isAdmin) {
-    lines.splice(
-      6,
-      0,
-      '',
-      `Straat: ${sheetStr(sh, 'straat') || '—'}`,
-      `Postcode: ${sheetStr(sh, 'postcode') || '—'}`,
-      `Land: ${sheetStr(sh, 'land') || '—'}`,
-    );
-    if (m.email) lines.push('', `E-mail: ${m.email}`);
-    const gsm = sheetStr(sh, 'gsmModel');
-    if (gsm) lines.push(`GSM: ${gsm}`);
-    const ln = (m.lastName ?? '').trim();
-    if (ln) lines.push(`Familienaam: ${ln}`);
-  }
-  return lines.filter(Boolean).join('\n');
-}
-
 function printModelSheet(m: CatalogModel, _photoSrc: string, _isAdmin: boolean) {
   // Klantveilige A4: foto links, maten rechts — geen e-mail/tel/adres.
   void import('@/lib/print-model-sheets').then(({ printModelSheetsForClients }) => {
     printModelSheetsForClients([m]);
   });
+}
+
+function mailModelSheetPdf(m: CatalogModel, token: string | null, isAdmin: boolean) {
+  if (isAdmin && token) {
+    void import('@/lib/print-model-sheets')
+      .then(({ emailModelSheetsPdf }) => emailModelSheetsPdf(token, [m.id]))
+      .catch((err) => window.alert(err instanceof Error ? err.message : 'Mailen mislukt.'));
+    return;
+  }
+  window.alert('Alleen admins kunnen de fiche als PDF mailen via SMTP.');
 }
 
 function FieldBox({
@@ -749,11 +714,9 @@ export function ModelDetailDialog({
                 <button
                   type="button"
                   className="nieuw-btn nieuw-btn-ghost"
-                  onClick={() => {
-                    window.location.href = `mailto:?subject=${encodeURIComponent(`Model: ${title}`)}&body=${encodeURIComponent(buildMailBody(active, isAdmin))}`;
-                  }}
+                  onClick={() => mailModelSheetPdf(active, token, isAdmin)}
                 >
-                  Doorsturen per mail
+                  Doorsturen per mail (PDF)
                 </button>
                 <button type="button" className="nieuw-btn nieuw-btn-ghost" onClick={onClose}>
                   Sluiten
@@ -922,11 +885,9 @@ export function ModelDetailDialog({
               <button
                 type="button"
                 className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
-                onClick={() => {
-                  window.location.href = `mailto:?subject=${encodeURIComponent(`Model: ${title}`)}&body=${encodeURIComponent(buildMailBody(active, isAdmin))}`;
-                }}
+                onClick={() => mailModelSheetPdf(active, token, isAdmin)}
               >
-                Doorsturen per mail
+                Doorsturen per mail (PDF)
               </button>
               <button
                 type="button"

@@ -15,7 +15,10 @@ import {
   clearImpersonationSession,
   startImpersonationSession,
 } from '@/lib/impersonation';
-import { printModelSheetsForClients } from '@/lib/print-model-sheets';
+import {
+  emailModelSheetsPdf,
+  printModelSheetsForClients,
+} from '@/lib/print-model-sheets';
 
 function availSlug(label: string) {
   return label.toLowerCase().trim().replace(/\s+/g, '-');
@@ -531,9 +534,41 @@ export function NieuwModelsGallery({
                     type="button"
                     className="nieuw-btn nieuw-btn-ghost"
                     style={{ fontSize: 10, padding: '8px 12px' }}
+                    onClick={() => {
+                      if (!token) return;
+                      void emailModelSheetsPdf(
+                        token,
+                        filtered.filter((m) => favSel.has(m.id)).map((m) => m.id),
+                      ).catch((err) =>
+                        window.alert(err instanceof Error ? err.message : 'Mailen mislukt.'),
+                      );
+                    }}
+                  >
+                    Mail selectie (PDF)
+                  </button>
+                  <button
+                    type="button"
+                    className="nieuw-btn nieuw-btn-ghost"
+                    style={{ fontSize: 10, padding: '8px 12px' }}
                     onClick={() => printModelSheetsForClients(filtered)}
                   >
                     Print alle favorieten
+                  </button>
+                  <button
+                    type="button"
+                    className="nieuw-btn nieuw-btn-ghost"
+                    style={{ fontSize: 10, padding: '8px 12px' }}
+                    onClick={() => {
+                      if (!token) return;
+                      void emailModelSheetsPdf(
+                        token,
+                        filtered.map((m) => m.id),
+                      ).catch((err) =>
+                        window.alert(err instanceof Error ? err.message : 'Mailen mislukt.'),
+                      );
+                    }}
+                  >
+                    Mail alle favorieten (PDF)
                   </button>
                 </div>
               ) : null}
@@ -631,14 +666,31 @@ export function NieuwModelsGallery({
                             {m.isFavorite ? 'Uit favorieten' : 'Toevoegen aan favorieten'}
                           </button>
                           {favoritesOnly ? (
-                            <button
-                              type="button"
-                              className="nieuw-btn nieuw-btn-ghost"
-                              style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
-                              onClick={() => printModelSheetsForClients([m])}
-                            >
-                              Print A4
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                className="nieuw-btn nieuw-btn-ghost"
+                                style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
+                                onClick={() => printModelSheetsForClients([m])}
+                              >
+                                Print A4
+                              </button>
+                              <button
+                                type="button"
+                                className="nieuw-btn nieuw-btn-ghost"
+                                style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
+                                onClick={() => {
+                                  if (!token) return;
+                                  void emailModelSheetsPdf(token, [m.id]).catch((err) =>
+                                    window.alert(
+                                      err instanceof Error ? err.message : 'Mailen mislukt.',
+                                    ),
+                                  );
+                                }}
+                              >
+                                Mail PDF
+                              </button>
+                            </>
                           ) : null}
                         </>
                       ) : null}

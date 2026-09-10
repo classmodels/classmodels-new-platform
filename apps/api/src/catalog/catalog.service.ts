@@ -1,6 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MediaService } from '../media/media.service';
+import { AgendaNotificationService } from '../agenda/agenda-notifications.service';
+import { buildClientModelSheetsPdf, type ClientSheetPdfModel } from './model-client-sheet-pdf';
 
 const ROLE_MODEL = 'model';
 const ROLE_NEWFACE = 'newface';
@@ -147,6 +149,7 @@ export class CatalogService {
   constructor(
     private prisma: PrismaService,
     private media: MediaService,
+    private agendaMail: AgendaNotificationService,
   ) {}
 
   private listCacheKey(viewer?: { sub: string; roles: string[] }): string {
@@ -421,6 +424,104 @@ export class CatalogService {
       select: { id: true },
     });
     if (!ok) throw new ForbiddenException();
+  }
+
+  private streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', (c: Buffer) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
+  }
+
+  private async loadAssetBufferSafe(storageKey: string): Promise<Buffer | null> {
+    try {
+      const stream = await this.media.openAssetReadStream(storageKey);
+      const buf = await this.streamToBuffer(stream);
+      return buf.length ? buf : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Klantveilige A4-PDF (foto + maten + bedrijfskader). Geen e-mail/tel/adres/ervaring/over mij. */
+  async buildClientSheetsPdf(adminId: string, roles: string[], modelIds: string[]): Promise<Buffer> {
+    await this.assertAdmin(adminId, roles);
+    const ids = [...new Set((modelIds ?? []).map((x) => String(x || '').trim()).filter(Boolean))];
+    if (!ids.length) throw new BadRequestException('Geen modellen geselecteerd.');
+    if (ids.length > 40) throw new BadRequestException('Maximaal 40 fiches per PDF.');
+
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: ids }, ...CATALOG_USER_WHERE },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        modelSheet: true,
+        profilePhoto: {
+          select: { storageKey: true, webpKey: true, thumbKey: true, mimeType: true },
+        },
+      },
+    });
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as typeof rows;
+    if (!ordered.length) throw new NotFoundException('Geen geldige modellen gevonden.');
+
+    const sheets: ClientSheetPdfModel[] = [];
+    for (const u of ordered) {
+      const ms =
+        u.modelSheet && typeof u.modelSheet === 'object' && !Array.isArray(u.modelSheet)
+          ? (u.modelSheet as Record<string, unknown>)
+          : null;
+      let photoBytes: Buffer | null = null;
+      if (u.profilePhoto) {
+        const key =
+          this.media.resolveGalleryWebKey(u.profilePhoto) ??
+          this.media.resolveCatalogThumbKey(u.profilePhoto) ??
+          u.profilePhoto.storageKey;
+        if (key) photoBytes = await this.loadAssetBufferSafe(key);
+        if (!photoBytes && u.profilePhoto.storageKey) {
+          photoBytes = await this.loadAssetBufferSafe(u.profilePhoto.storageKey);
+        }
+      }
+      sheets.push({
+        displayName: publicDisplayName(u.firstName, u.lastName, false),
+        age: ageFromGeboorte(ms?.geboortedatum),
+        gender: normGender(ms?.geslacht),
+        beschikbaar: beschikbaarList(ms),
+        sheet: catalogSheetPayload(ms, u.phone, 'member') ?? null,
+        photoBytes,
+      });
+    }
+
+    const bytes = await buildClientModelSheetsPdf(sheets);
+    return Buffer.from(bytes);
+  }
+
+  async emailClientSheetsPdf(
+    adminId: string,
+    roles: string[],
+    modelIds: string[],
+    to: string,
+  ): Promise<{ ok: true; filename: string }> {
+    const email = String(to || '').trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new BadRequestException('Ongeldig e-mailadres.');
+    }
+    const pdf = await this.buildClientSheetsPdf(adminId, roles, modelIds);
+    const n = Math.min(40, new Set(modelIds).size);
+    const filename =
+      n === 1 ? 'class-models-fiche.pdf' : `class-models-fiches-${n}.pdf`;
+    const subject =
+      n === 1 ? 'Class-Models — modellenfiche' : `Class-Models — ${n} modellenfiches`;
+    const html = `<p>In bijlage vindt u de Class-Models fiches (PDF).</p><p>Met vriendelijke groeten,<br/>Class-Models</p>`;
+    const ok = await this.agendaMail.sendHtmlMailWithAttachments(email, subject, html, [
+      { filename, content: pdf },
+    ]);
+    if (!ok) throw new BadRequestException('E-mail versturen mislukt. Controleer SMTP-instellingen.');
+    return { ok: true, filename };
   }
 
   async toggleFavorite(adminId: string, roles: string[], modelUserId: string) {
