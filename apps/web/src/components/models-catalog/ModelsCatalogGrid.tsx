@@ -99,8 +99,13 @@ function genderNl(g: CatalogModel['gender']): string {
   return '—';
 }
 
-function printModelSheet(m: CatalogModel, _photoSrc: string, _isAdmin: boolean) {
-  // Klantveilige A4: foto links, maten rechts — geen e-mail/tel/adres.
+function printModelSheet(m: CatalogModel, _photoSrc: string, isAdmin: boolean, token?: string | null) {
+  if (isAdmin && token) {
+    void import('@/lib/print-model-sheets')
+      .then(({ printModelSheetsPdf }) => printModelSheetsPdf(token, [m.id]))
+      .catch((err) => window.alert(err instanceof Error ? err.message : 'Printen mislukt.'));
+    return;
+  }
   void import('@/lib/print-model-sheets').then(({ printModelSheetsForClients }) => {
     printModelSheetsForClients([m]);
   });
@@ -706,7 +711,7 @@ export function ModelDetailDialog({
                 <button
                   type="button"
                   className="nieuw-btn"
-                  onClick={() => printModelSheet(active, photoSrc, isAdmin)}
+                  onClick={() => printModelSheet(active, photoSrc, isAdmin, token)}
                   disabled={detailLoading}
                 >
                   Afdrukken
@@ -877,7 +882,7 @@ export function ModelDetailDialog({
               <button
                 type="button"
                 className="rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
-                onClick={() => printModelSheet(active, photoSrc, isAdmin)}
+                onClick={() => printModelSheet(active, photoSrc, isAdmin, token)}
                 disabled={detailLoading}
               >
                 Afdrukken

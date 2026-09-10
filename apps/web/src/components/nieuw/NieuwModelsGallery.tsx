@@ -17,7 +17,7 @@ import {
 } from '@/lib/impersonation';
 import {
   emailModelSheetsPdf,
-  printModelSheetsForClients,
+  printModelSheetsPdf,
 } from '@/lib/print-model-sheets';
 
 function availSlug(label: string) {
@@ -524,11 +524,15 @@ export function NieuwModelsGallery({
                     type="button"
                     className="nieuw-btn nieuw-btn-ghost"
                     style={{ fontSize: 10, padding: '8px 12px' }}
-                    onClick={() =>
-                      printModelSheetsForClients(filtered.filter((m) => favSel.has(m.id)))
-                    }
+                    onClick={() => {
+                      if (!token) return;
+                      const ids = filtered.filter((m) => favSel.has(m.id)).map((m) => m.id);
+                      void printModelSheetsPdf(token, ids).catch((err) =>
+                        window.alert(err instanceof Error ? err.message : 'Printen mislukt.'),
+                      );
+                    }}
                   >
-                    Print selectie (A4)
+                    Print selectie
                   </button>
                   <button
                     type="button"
@@ -544,31 +548,7 @@ export function NieuwModelsGallery({
                       );
                     }}
                   >
-                    Mail selectie (PDF)
-                  </button>
-                  <button
-                    type="button"
-                    className="nieuw-btn nieuw-btn-ghost"
-                    style={{ fontSize: 10, padding: '8px 12px' }}
-                    onClick={() => printModelSheetsForClients(filtered)}
-                  >
-                    Print alle favorieten
-                  </button>
-                  <button
-                    type="button"
-                    className="nieuw-btn nieuw-btn-ghost"
-                    style={{ fontSize: 10, padding: '8px 12px' }}
-                    onClick={() => {
-                      if (!token) return;
-                      void emailModelSheetsPdf(
-                        token,
-                        filtered.map((m) => m.id),
-                      ).catch((err) =>
-                        window.alert(err instanceof Error ? err.message : 'Mailen mislukt.'),
-                      );
-                    }}
-                  >
-                    Mail alle favorieten (PDF)
+                    Mail selectie
                   </button>
                 </div>
               ) : null}
@@ -665,33 +645,6 @@ export function NieuwModelsGallery({
                           >
                             {m.isFavorite ? 'Uit favorieten' : 'Toevoegen aan favorieten'}
                           </button>
-                          {favoritesOnly ? (
-                            <>
-                              <button
-                                type="button"
-                                className="nieuw-btn nieuw-btn-ghost"
-                                style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
-                                onClick={() => printModelSheetsForClients([m])}
-                              >
-                                Print A4
-                              </button>
-                              <button
-                                type="button"
-                                className="nieuw-btn nieuw-btn-ghost"
-                                style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
-                                onClick={() => {
-                                  if (!token) return;
-                                  void emailModelSheetsPdf(token, [m.id]).catch((err) =>
-                                    window.alert(
-                                      err instanceof Error ? err.message : 'Mailen mislukt.',
-                                    ),
-                                  );
-                                }}
-                              >
-                                Mail PDF
-                              </button>
-                            </>
-                          ) : null}
                         </>
                       ) : null}
                     </div>
