@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch, getApiBase, publicMediaUrl } from '@/lib/api';
+import { adminFetch } from '@/lib/admin-api';
 import { useAuth } from '@/context/auth-context';
 import {
   ModelDetailDialog,
@@ -14,6 +15,7 @@ import {
   clearImpersonationSession,
   startImpersonationSession,
 } from '@/lib/impersonation';
+import { printModelSheetsForClients } from '@/lib/print-model-sheets';
 
 function availSlug(label: string) {
   return label.toLowerCase().trim().replace(/\s+/g, '-');
@@ -56,6 +58,8 @@ export function NieuwModelsGallery({
   const [avSel, setAvSel] = useState<Set<string>>(() => new Set());
   const [genderSel, setGenderSel] = useState<Set<string>>(() => new Set());
   const [flagSel, setFlagSel] = useState<Set<string>>(() => new Set());
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favSel, setFavSel] = useState<Set<string>>(() => new Set());
   const [ageMin, setAgeMin] = useState(AGE_TRACK_LO);
   const [ageMax, setAgeMax] = useState(AGE_TRACK_HI);
   const [q, setQ] = useState('');
@@ -191,11 +195,17 @@ export function NieuwModelsGallery({
     });
   };
 
+  const favoriteCount = useMemo(
+    () => models.filter((m) => m.isFavorite && !m.isDeleted).length,
+    [models],
+  );
+
   const filtered = useMemo(() => {
     const ageActive = ageMin > catalogAge.lo || ageMax < catalogAge.hi;
     const needle = q.trim().toLowerCase();
 
     return models.filter((m) => {
+      if (favoritesOnly && !m.isFavorite) return false;
       const wantsDeleted = flagSel.has('verwijderd');
       if (m.isDeleted) {
         if (!isAdmin || !wantsDeleted) return false;
@@ -240,7 +250,19 @@ export function NieuwModelsGallery({
       }
       return true;
     });
-  }, [models, avSel, genderSel, flagSel, ageMin, ageMax, catalogAge.lo, catalogAge.hi, q, isAdmin]);
+  }, [
+    models,
+    avSel,
+    genderSel,
+    flagSel,
+    favoritesOnly,
+    ageMin,
+    ageMax,
+    catalogAge.lo,
+    catalogAge.hi,
+    q,
+    isAdmin,
+  ]);
 
   const onAgeMin = (raw: number) => {
     const v = Math.min(Math.max(AGE_TRACK_LO, raw), ageMax);
@@ -253,6 +275,10 @@ export function NieuwModelsGallery({
   const ageSpan = AGE_TRACK_HI - AGE_TRACK_LO;
   const ageLeftPct = ((ageMin - AGE_TRACK_LO) / ageSpan) * 100;
   const ageRightPct = ((ageMax - AGE_TRACK_LO) / ageSpan) * 100;
+  const ageSliderStyle = {
+    '--age-left': `${ageLeftPct}%`,
+    '--age-right': `${ageRightPct}%`,
+  } as CSSProperties;
 
   const openAsModel = async (m: CatalogModel) => {
     if (!token || !user?.email || !canImpersonate) return;
@@ -272,6 +298,39 @@ export function NieuwModelsGallery({
     }
   };
 
+  const toggleFavorite = async (m: CatalogModel) => {
+    if (!token || !canImpersonate) return;
+    try {
+      const res = await adminFetch<{ favorited: boolean }>(
+        `/admin/catalog/models/${m.id}/favorite`,
+        token,
+        { method: 'POST' },
+      );
+      const isFavorite = Boolean(res.favorited);
+      setModels((prev) => prev.map((x) => (x.id === m.id ? { ...x, isFavorite } : x)));
+      setModal((cur) => (cur && cur.id === m.id ? { ...cur, isFavorite } : cur));
+      if (!isFavorite) {
+        setFavSel((prev) => {
+          if (!prev.has(m.id)) return prev;
+          const n = new Set(prev);
+          n.delete(m.id);
+          return n;
+        });
+      }
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Favoriet bijwerken mislukt.');
+    }
+  };
+
+  const toggleFavSel = (id: string) => {
+    setFavSel((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  };
+
   const modalPhoto = modal?.profileThumbKey ? publicMediaUrl(modal.profileThumbKey) : '';
 
   return (
@@ -289,6 +348,30 @@ export function NieuwModelsGallery({
 
       <div className="nieuw-models-layout">
         <aside className="nieuw-models-filters" aria-label="Zoekfilters">
+          {canImpersonate ? (
+            <div className="nieuw-models-field">
+              <button
+                type="button"
+                className="nieuw-btn nieuw-btn-ghost"
+                style={{
+                  width: '100%',
+                  borderColor: favoritesOnly ? 'var(--n-gold, #c4a574)' : undefined,
+                  color: favoritesOnly ? 'var(--n-gold, #c4a574)' : undefined,
+                }}
+                aria-pressed={favoritesOnly}
+                onClick={() => {
+                  setFavoritesOnly((on) => {
+                    const next = !on;
+                    if (next) setFlagSel(new Set());
+                    return next;
+                  });
+                }}
+              >
+                Favorieten ({favoriteCount})
+              </button>
+            </div>
+          ) : null}
+
           <label className="nieuw-models-field">
             <span>Naam of gemeente</span>
             <input
@@ -322,13 +405,7 @@ export function NieuwModelsGallery({
                 <span>{ageMin} j.</span>
                 <span>{ageMax} j.</span>
               </div>
-              <div
-                className="nieuw-models-age-slider"
-                style={{
-                  ['--age-left' as string]: `${ageLeftPct}%`,
-                  ['--age-right' as string]: `${ageRightPct}%`,
-                }}
-              >
+              <div className="nieuw-models-age-slider" style={ageSliderStyle}>
                 <div className="nieuw-models-age-track" aria-hidden />
                 <div className="nieuw-models-age-fill" aria-hidden />
                 <input
@@ -361,7 +438,10 @@ export function NieuwModelsGallery({
                   <input
                     type="checkbox"
                     checked={flagSel.has(g.slug)}
-                    onChange={() => toggleSet(setFlagSel, g.slug)}
+                    onChange={() => {
+                      setFavoritesOnly(false);
+                      toggleSet(setFlagSel, g.slug);
+                    }}
                   />
                   {g.label}
                 </label>
@@ -398,6 +478,8 @@ export function NieuwModelsGallery({
               setAvSel(new Set());
               setGenderSel(new Set());
               setFlagSel(new Set());
+              setFavoritesOnly(false);
+              setFavSel(new Set());
               setAgeMin(catalogAge.lo);
               setAgeMax(catalogAge.hi);
               setQ('');
@@ -417,6 +499,44 @@ export function NieuwModelsGallery({
 
           {!loading && !error ? (
             <>
+              {canImpersonate && favoritesOnly ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                    marginBottom: 16,
+                    alignItems: 'center',
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="nieuw-btn nieuw-btn-ghost"
+                    style={{ fontSize: 10, padding: '8px 12px' }}
+                    onClick={() => setFavSel(new Set(filtered.map((m) => m.id)))}
+                  >
+                    Alles selecteren
+                  </button>
+                  <button
+                    type="button"
+                    className="nieuw-btn nieuw-btn-ghost"
+                    style={{ fontSize: 10, padding: '8px 12px' }}
+                    onClick={() =>
+                      printModelSheetsForClients(filtered.filter((m) => favSel.has(m.id)))
+                    }
+                  >
+                    Print selectie (A4)
+                  </button>
+                  <button
+                    type="button"
+                    className="nieuw-btn nieuw-btn-ghost"
+                    style={{ fontSize: 10, padding: '8px 12px' }}
+                    onClick={() => printModelSheetsForClients(filtered)}
+                  >
+                    Print alle favorieten
+                  </button>
+                </div>
+              ) : null}
               <div className="nieuw-models">
                 {filtered.map((m, idx) => {
                   const src = m.profileThumbKey ? publicMediaUrl(m.profileThumbKey) : null;
@@ -431,7 +551,18 @@ export function NieuwModelsGallery({
                         onClick={() => setModal(m)}
                       >
                         <div className="nieuw-model-foto">
-                          {m.isInactive ? <span className="nieuw-model-inactive-badge">Inactief</span> : null}
+                          {m.isInactive ? (
+                            <span className="nieuw-model-inactive-badge">Inactief</span>
+                          ) : null}
+                          {canImpersonate && m.isFavorite ? (
+                            <span
+                              className="nieuw-model-inactive-badge"
+                              style={{ left: 'auto', right: 8, background: '#8b3a3a', color: '#fff' }}
+                              aria-label="Favoriet"
+                            >
+                              ♥
+                            </span>
+                          ) : null}
                           {src ? (
                             <CatalogModelThumb
                               key={`${src}-${idx < 8 ? 'p' : 'l'}`}
@@ -454,15 +585,62 @@ export function NieuwModelsGallery({
                           </p>
                         </div>
                       </button>
-                      {canImpersonate ? (
-                        <button
-                          type="button"
-                          className="nieuw-btn nieuw-btn-ghost"
-                          style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
-                          onClick={() => void openAsModel(m)}
+                      {canImpersonate && favoritesOnly ? (
+                        <label
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            marginTop: 6,
+                            fontSize: 10,
+                            color: '#eee9df',
+                            cursor: 'pointer',
+                          }}
                         >
-                          Als model
-                        </button>
+                          <input
+                            type="checkbox"
+                            checked={favSel.has(m.id)}
+                            onChange={() => toggleFavSel(m.id)}
+                          />
+                          Selecteren
+                        </label>
+                      ) : null}
+                      {canImpersonate ? (
+                        <>
+                          <button
+                            type="button"
+                            className="nieuw-btn nieuw-btn-ghost"
+                            style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
+                            onClick={() => void openAsModel(m)}
+                          >
+                            Als model
+                          </button>
+                          <button
+                            type="button"
+                            className="nieuw-btn nieuw-btn-ghost"
+                            style={{
+                              width: '100%',
+                              marginTop: 6,
+                              fontSize: 9,
+                              padding: '8px 10px',
+                              borderColor: m.isFavorite ? '#8b3a3a' : undefined,
+                              color: m.isFavorite ? '#e8b4b4' : undefined,
+                            }}
+                            onClick={() => void toggleFavorite(m)}
+                          >
+                            {m.isFavorite ? 'Uit favorieten' : 'Toevoegen aan favorieten'}
+                          </button>
+                          {favoritesOnly ? (
+                            <button
+                              type="button"
+                              className="nieuw-btn nieuw-btn-ghost"
+                              style={{ width: '100%', marginTop: 6, fontSize: 9, padding: '8px 10px' }}
+                              onClick={() => printModelSheetsForClients([m])}
+                            >
+                              Print A4
+                            </button>
+                          ) : null}
+                        </>
                       ) : null}
                     </div>
                   );

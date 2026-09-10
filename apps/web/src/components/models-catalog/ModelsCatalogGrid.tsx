@@ -144,57 +144,11 @@ function buildMailBody(m: CatalogModel, isAdmin: boolean): string {
   return lines.filter(Boolean).join('\n');
 }
 
-function printModelSheet(m: CatalogModel, photoSrc: string, isAdmin: boolean) {
-  const sh = m.sheet ?? {};
-  const val = (k: string) => escapeHtml(sheetStr(sh, k) || '—');
-  const naam = escapeHtml(ficheDisplayName(m, isAdmin));
-  const besch = escapeHtml(m.beschikbaar.length ? m.beschikbaar.join(', ') : '—');
-  const photo =
-    photoSrc && m.profileThumbKey
-      ? `<div style="text-align:center;margin-bottom:16px"><img src="${escapeHtml(photoSrc)}" alt="" style="max-width:280px;width:100%;height:auto;border-radius:12px" /></div>`
-      : '';
-  const box = (label: string, v: string) =>
-    `<div style="border:1px solid #d4d4d8;border-radius:8px;padding:10px;background:#fff">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#52525b">${escapeHtml(label)}</div>
-      <div style="margin-top:6px;font-size:13px;font-family:Georgia,'Times New Roman',serif;color:#18181b">${v}</div>
-    </div>`;
-
-  const w = window.open('', '_blank');
-  if (!w) return;
-  const inner = `
-    <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:22px;margin:0 0 16px">${naam}</h1>
-    ${photo}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:Georgia,'Times New Roman',serif">
-      ${box('Naam', naam)}
-      ${box('Gemeente', val('gemeente'))}
-      ${box('Geslacht', escapeHtml(genderNl(m.gender)))}
-      ${box('Nationaliteit', val('nationaliteit'))}
-      ${box('Lengte', val('lengte'))}
-      ${box('Maat', val('maat'))}
-      ${box('Confectiemaat', val('confectiemaat'))}
-      ${box('Schoenmaat', val('schoenmaat'))}
-      ${box('BH-maat', val('bhMaat'))}
-      ${box('Borstomtrek', val('borstomtrek'))}
-      ${box('Taille', val('taille'))}
-      ${box('Heupomtrek', val('heupomtrek'))}
-      ${box('Jeansmaat', val('jeansmaat'))}
-      ${box('Haarkleur', val('haarkleur'))}
-      ${box('Kleur ogen', val('kleurOgen'))}
-      ${box('Ervaring', val('ervaringen'))}
-      ${box('Over mij', val('overMij'))}
-      ${box('Geboortedatum', val('geboortedatum'))}
-      ${isAdmin ? `${box('Straat', val('straat'))}${box('Postcode', val('postcode'))}` : ''}
-    </div>
-    ${isAdmin ? `<div style="margin-top:8px">${box('Land', val('land'))}</div>` : ''}
-    <div style="margin-top:8px">${box('Beschikbaar voor', besch)}</div>
-  `;
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${naam}</title></head><body style="margin:24px;background:#fafafa">${inner}</body></html>`);
-  w.document.close();
-  w.focus();
-  setTimeout(() => {
-    w.print();
-    w.close();
-  }, 200);
+function printModelSheet(m: CatalogModel, _photoSrc: string, _isAdmin: boolean) {
+  // Klantveilige A4: foto links, maten rechts — geen e-mail/tel/adres.
+  void import('@/lib/print-model-sheets').then(({ printModelSheetsForClients }) => {
+    printModelSheetsForClients([m]);
+  });
 }
 
 function FieldBox({
