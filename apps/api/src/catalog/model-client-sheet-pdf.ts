@@ -40,12 +40,12 @@ function genderNl(g: '' | 'man' | 'vrouw'): string {
   return '—';
 }
 
-async function prepareJpegCover(bytes: Buffer, targetW: number, targetH: number): Promise<Buffer> {
-  const w = Math.max(200, Math.round(targetW));
-  const h = Math.max(200, Math.round(targetH));
+async function prepareJpegContain(bytes: Buffer, maxW: number, maxH: number): Promise<Buffer> {
+  const w = Math.max(200, Math.round(maxW));
+  const h = Math.max(200, Math.round(maxH));
   return sharp(bytes)
     .rotate()
-    .resize(w, h, { fit: 'cover', position: 'top' })
+    .resize(w, h, { fit: 'inside', withoutEnlargement: false })
     .jpeg({ quality: 88, mozjpeg: true })
     .toBuffer();
 }
@@ -175,40 +175,41 @@ export async function buildClientModelSheetsPdf(models: ClientSheetPdfModel[]): 
       ['Kleur ogen', sheetStr(m.sheet, 'kleurOgen')],
       ['Beschikbaar voor', m.beschikbaar.length ? m.beschikbaar.join(', ') : '—'],
     ];
-    // Foto vult de linker kolom bovenaan tot net boven het bedrijfskader.
+    // Max hoogte tot boven het bedrijfskader; breedte = linkerkolom.
     const photoMaxH = mainH;
 
     let img: PDFImage | null = null;
     if (m.photoBytes?.length) {
       try {
-        // Cover-crop zodat de foto de volledige linker kolom vult (bovenaan uitgelijnd).
-        const jpeg = await prepareJpegCover(m.photoBytes, photoW * 2.5, photoMaxH * 2.5);
+        // Volledige foto, juiste verhouding — niets afkappen.
+        const jpeg = await prepareJpegContain(m.photoBytes, photoW * 3, photoMaxH * 3);
         img = await pdfDoc.embedJpg(jpeg);
       } catch {
         img = null;
       }
     }
 
-    // Foto links bovenaan tot boven het bedrijfskader.
+    // Foto links bovenaan: kolombreedte, hoogte in verhouding (contain).
     if (img) {
-      page.drawImage(img, {
-        x: MARGIN,
-        y: contentTop - photoMaxH,
-        width: photoW,
-        height: photoMaxH,
-      });
+      const sc = Math.min(photoW / img.width, photoMaxH / img.height);
+      const dw = img.width * sc;
+      const dh = img.height * sc;
+      const ix = MARGIN + (photoW - dw) / 2;
+      const iy = contentTop - dh;
+      page.drawImage(img, { x: ix, y: iy, width: dw, height: dh });
     } else {
+      const ph = Math.min(photoMaxH, photoW * 1.35);
       page.drawRectangle({
         x: MARGIN,
-        y: contentTop - photoMaxH,
+        y: contentTop - ph,
         width: photoW,
-        height: photoMaxH,
+        height: ph,
         color: rgb(0.94, 0.94, 0.94),
         borderColor: LINE,
         borderWidth: 0.5,
       });
       const initial = (m.displayName || '?').slice(0, 1).toUpperCase();
-      drawCentered(page, fontBold, initial, MARGIN, photoW, contentTop - photoMaxH / 2 - 10, 28, MUTED);
+      drawCentered(page, fontBold, initial, MARGIN, photoW, contentTop - ph / 2 - 10, 28, MUTED);
     }
 
     let y = contentTop - titleSize;
