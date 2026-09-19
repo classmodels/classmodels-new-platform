@@ -15,6 +15,11 @@ import { UsersService, pickPublicMediaKey } from '../users/users.service';
 import { mergePermissionsFromRoles, premiumEffective } from './permissions.util';
 import { normalizeEmail } from './login-identifier.util';
 import { resetPasswordPageUrl } from './public-web-url';
+import {
+  modelRegisterInvoiceAmount,
+  modelRegisterInvoiceDescription,
+  pushMijnBtwSignupRequest,
+} from '../billing/mijnbtw.client';
 
 /** Reset-token uit URL (query of pad); verwijdert spaties/line breaks uit e-mail wraps. */
 function normalizeResetToken(raw: string): string {
@@ -277,6 +282,43 @@ export class AuthService {
       companyName,
       clientProfile: params.role === 'client' ? profile : null,
     });
+
+    // MijnBtw: pending signup → goedkeuren = klant aanmaken (+ optionele inschrijvingsfactuur)
+    if (params.role === 'model') {
+      const amount = modelRegisterInvoiceAmount();
+      void pushMijnBtwSignupRequest({
+        type: 'PERSON',
+        role: 'model',
+        externalUserId: user.id,
+        externalRef: `class-models:register:${user.id}`,
+        firstName,
+        lastName,
+        email,
+        phone,
+        notes: 'Aanvraag bij model-inschrijving Class-Models',
+        invoiceAmountIncl: amount > 0 ? amount : null,
+        invoiceDescription: amount > 0 ? modelRegisterInvoiceDescription() : null,
+      });
+    } else if (params.role === 'client') {
+      void pushMijnBtwSignupRequest({
+        type: 'COMPANY',
+        role: 'client',
+        externalUserId: user.id,
+        externalRef: `class-models:register:${user.id}`,
+        name: companyName,
+        firstName,
+        lastName,
+        email,
+        phone,
+        street: profile?.street || null,
+        houseNumber: profile?.houseNumber || null,
+        postalCode: profile?.postalCode || null,
+        city: profile?.city || null,
+        vatNumber: profile?.vatNumber || null,
+        notes: 'Aanvraag bij klant-inschrijving Class-Models',
+      });
+    }
+
     return this.buildAuthResponse(user as UserWithRoles);
   }
 

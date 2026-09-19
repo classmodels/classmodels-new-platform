@@ -13,6 +13,7 @@ import { TRYOUT_MODESHOW_EDITION } from '../portal/tryout-modeshow-edition';
 import { resolveTryoutCoupon } from '../portal/tryout-coupon.util';
 import { sendHtmlMail } from '../mail/send-html-mail';
 import { isPremiumPromoActive, PREMIUM_YEARLY_EUROS, premiumPromoDeadlineMs } from './premium-promo.util';
+import { pushMijnBtwInvoiceForUser } from '../billing/mijnbtw.client';
 
 export type MollieMode = 'test' | 'live';
 
@@ -798,6 +799,14 @@ export class PaymentsService {
             },
           });
           void this.modelHistory.log(u.id, 'set_card_paid', { paymentId: payment.id });
+          const amount = Number(payment.amount?.value ?? 0);
+          void pushMijnBtwInvoiceForUser({
+            user: u,
+            description: 'Setkaart Class-Models',
+            amountInclEur: amount,
+            externalRef: `class-models:setcard:${payment.id}`,
+            notes: `Mollie ${payment.id}`,
+          });
         }
       }
       return;
@@ -835,6 +844,14 @@ export class PaymentsService {
           void this.modelHistory.log(tryoutUser.id, 'tryout_modeshow_paid', {
             paymentId: payment.id,
             editionSlug: tryout.editionSlug,
+          });
+          const amount = Number(payment.amount?.value ?? 0);
+          void pushMijnBtwInvoiceForUser({
+            user: tryoutUser,
+            description: 'Try-out modeshow Class-Models',
+            amountInclEur: amount,
+            externalRef: `class-models:tryout:${payment.id}`,
+            notes: `Mollie ${payment.id}`,
           });
           if (tryout.couponId) {
             const existingRedemption = await this.prisma.tryoutCouponRedemption.findUnique({
@@ -911,6 +928,14 @@ export class PaymentsService {
           paymentId: payment.id,
           lifetime: true,
         });
+        const amount = Number(payment.amount?.value ?? 0);
+        void pushMijnBtwInvoiceForUser({
+          user,
+          description: 'Premium Class-Models',
+          amountInclEur: amount,
+          externalRef: `class-models:premium:${payment.id}`,
+          notes: `Mollie ${payment.id}`,
+        });
       } else {
         const days = this.premiumDays();
         const until = new Date();
@@ -929,6 +954,14 @@ export class PaymentsService {
         void this.modelHistory.log(user.id, 'premium_paid', {
           paymentId: payment.id,
           premiumUntil: until.toISOString(),
+        });
+        const amountYearly = Number(payment.amount?.value ?? 0);
+        void pushMijnBtwInvoiceForUser({
+          user,
+          description: 'Premium Class-Models (jaar)',
+          amountInclEur: amountYearly,
+          externalRef: `class-models:premium:${payment.id}`,
+          notes: `Mollie ${payment.id}`,
         });
       }
       return;
