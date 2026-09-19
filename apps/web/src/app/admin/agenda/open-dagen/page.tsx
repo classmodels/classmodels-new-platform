@@ -72,8 +72,18 @@ export default function AdminAgendaOpenDagenPage() {
     const existing = byYmd.get(ymd);
     try {
       if (existing) {
-        await adminFetch(`/admin/agenda/open-days/${existing.id}`, token, { method: 'DELETE' });
-        setMsg('Dag verwijderd als open dag.');
+        const ok = window.confirm(
+          `Open dag ${ymd} uitzetten?\n\n` +
+            'Bestaande afspraken blijven staan in de planning.\n' +
+            'Alleen nieuwe online boekingen voor die dag worden gestopt.',
+        );
+        if (!ok) return;
+        const res = await adminFetch<{ message?: string }>(
+          `/admin/agenda/open-days/${existing.id}`,
+          token,
+          { method: 'DELETE' },
+        );
+        setMsg(res?.message ?? 'Dag uitgezet als open dag (afspraken behouden).');
       } else {
         await adminFetch('/admin/agenda/open-days', token, {
           method: 'POST',
@@ -103,6 +113,10 @@ export default function AdminAgendaOpenDagenPage() {
         <p className="mt-1 text-xs text-muted">
           Markeer hier de dagen waarop online geboekt mag worden (oranje). Dit geldt wanneer de agenda op{' '}
           <strong>alleen open dagen</strong> staat — de standaard; zie anders de melding hieronder.
+          <br />
+          <span className="text-amber-900">
+            Tip: een dag uitzetten stopt alleen nieuwe boekingen — bestaande afspraken verdwijnen niet.
+          </span>
         </p>
         {selectedCal?.restrictToOpenDays === false ? (
           <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">

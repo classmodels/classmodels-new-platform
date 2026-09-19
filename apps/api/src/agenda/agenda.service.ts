@@ -2840,18 +2840,45 @@ export class AgendaService implements OnModuleInit {
   async adminRemoveOpenDay(id: string) {
     const row = await this.prisma.agendaOpenDay.findUnique({ where: { id } });
     if (!row) throw new NotFoundException();
-    await this.prisma.$transaction(async (tx) => {
+    const { gte: dayGte, lte: dayLte } = slotDateDayRange(row.openDate);
+
+    const result = await this.prisma.$transaction(async (tx) => {
       const slots = await tx.agendaSlot.findMany({
-        where: { calendarId: row.calendarId, slotDate: row.openDate },
+        where: { calendarId: row.calendarId, slotDate: { gte: dayGte, lte: dayLte } },
         select: { id: true },
       });
+
+      let preservedBookings = 0;
+      let deletedEmptySlots = 0;
+      let keptSlots = 0;
+
       for (const s of slots) {
-        await tx.agendaBooking.deleteMany({ where: { slotId: s.id } });
+        const activeCount = await tx.agendaBooking.count({
+          where: { slotId: s.id, ...activeBookingFilter },
+        });
+        if (activeCount > 0) {
+          preservedBookings += activeCount;
+          keptSlots += 1;
+          // Slots met afspraken behouden — anders verdwijnen boekingen uit de planning.
+          continue;
+        }
+        // Geen actieve boekingen: lege slots mogen weg (geen nieuwe online slots zonder open dag).
         await tx.agendaSlot.delete({ where: { id: s.id } });
+        deletedEmptySlots += 1;
       }
+
       await tx.agendaOpenDay.delete({ where: { id } });
+      return { preservedBookings, deletedEmptySlots, keptSlots };
     });
-    return { ok: true };
+
+    return {
+      ok: true,
+      ...result,
+      message:
+        result.preservedBookings > 0
+          ? `Open dag uitgezet. ${result.preservedBookings} bestaande afspraak(en) behouden.`
+          : 'Open dag uitgezet. Geen bestaande afspraken op die dag.',
+    };
   }
 
   async adminListBookingNotifications(bookingId: string) {
