@@ -22,9 +22,11 @@ import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agen
 import {
   compareBookingsBySlot,
   formatSlotTimeRange,
+  formatSlotDateTimeNl,
   slotDateKey,
   timeStringToMinutes,
 } from '@/lib/agenda-brussels';
+import { printAttendanceList, bookingAgeLabel } from '@/lib/agenda-print-attendance';
 
 type Cal = { id: string; slug: string; title: string; color: string; durationMinutes: number; planningTextOnColor?: string | null };
 
@@ -186,7 +188,7 @@ export default function AdminAgendaPlanningPage() {
     () => new Set(['pending', 'confirmed', 'acknowledged', 'attended', 'cancelled', 'cancelled_cm']),
   );
   const [mailCols, setMailCols] = useState<Set<string>>(
-    () => new Set(['afspraak', 'naam', 'voornaam', 'email', 'phone', 'leeftijd']),
+    () => new Set(['voornaam', 'naam', 'phone', 'leeftijd']),
   );
   const [mailTo, setMailTo] = useState('');
   const [pickerYmd, setPickerYmd] = useState(() => ymd(new Date()));
@@ -404,16 +406,14 @@ export default function AdminAgendaPlanningPage() {
 
   const mailBodyLines = useMemo(() => {
     return displayRows.map((b) => {
-      const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
       const parts: string[] = [];
       if (mailCols.has('afspraak')) parts.push(b.calendar.title);
-      if (mailCols.has('naam')) parts.push(nm);
       if (mailCols.has('voornaam')) parts.push(b.firstname ?? '');
+      if (mailCols.has('naam')) parts.push(b.lastname || b.name || '');
       if (mailCols.has('email')) parts.push(b.email ?? '');
       if (mailCols.has('phone')) parts.push(b.phone ?? '');
       if (mailCols.has('leeftijd')) {
-        const fj = b.fieldsJson as Record<string, string> | undefined;
-        parts.push((fj?.geboortedatum as string) || (fj?.leeftijd as string) || '');
+        parts.push(bookingAgeLabel(b.fieldsJson));
       }
       return parts.filter(Boolean).join(' · ');
     });
@@ -426,7 +426,22 @@ export default function AdminAgendaPlanningPage() {
     window.location.href = href;
   };
 
-  const print = () => window.print();
+  const print = () => {
+    printAttendanceList(
+      displayRows.map((b) => ({
+        firstname: b.firstname,
+        lastname: b.lastname,
+        name: b.name,
+        phone: b.phone,
+        fieldsJson: b.fieldsJson,
+        groupLabel: `${b.calendar.title} · ${formatSlotDateTimeNl(b.slot.slotDate.slice(0, 10), b.slot.startTime)}`,
+      })),
+      {
+        title: 'Aanwezigheidslijst',
+        subtitle: `${queryRange.from} t/m ${queryRange.to} · ${displayRows.length} persoon${displayRows.length === 1 ? '' : 'en'}`,
+      },
+    );
+  };
 
   const openDetail = async (id: string) => {
     if (!token) return;
@@ -660,6 +675,46 @@ export default function AdminAgendaPlanningPage() {
           Standaard staan alle agenda&apos;s aan; vink uit om te verbergen in het rooster.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setSelected(new Set(calendars.map((c) => c.id)))}
+            className="rounded-lg border border-line bg-panel px-3 py-2 text-xs font-medium text-ink hover:bg-zinc-100"
+          >
+            Alle
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setSelected(new Set(calendars.filter((c) => c.slug === 'opleiding').map((c) => c.id)))
+            }
+            className="rounded-lg border border-line bg-panel px-3 py-2 text-xs font-medium text-ink hover:bg-zinc-100"
+          >
+            Alleen opleiding
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setSelected(new Set(calendars.filter((c) => c.slug === 'portfolio').map((c) => c.id)))
+            }
+            className="rounded-lg border border-line bg-panel px-3 py-2 text-xs font-medium text-ink hover:bg-zinc-100"
+          >
+            Alleen portfolio
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setSelected(
+                new Set(
+                  calendars.filter((c) => c.slug === 'opleiding' || c.slug === 'portfolio').map((c) => c.id),
+                ),
+              )
+            }
+            className="rounded-lg border border-line bg-panel px-3 py-2 text-xs font-medium text-ink hover:bg-zinc-100"
+          >
+            Opleiding + portfolio
+          </button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
           {calendars.map((c) => {
             const on = selected.has(c.id);
             return (
@@ -877,7 +932,7 @@ export default function AdminAgendaPlanningPage() {
                     Mail geselecteerde lijst
                   </button>
                   <button type="button" className="rounded border border-line px-3 py-1.5 text-xs" onClick={print}>
-                    Afdrukken
+                    Afdrukken (voornaam, naam, gsm, leeftijd)
                   </button>
                 </div>
               </div>

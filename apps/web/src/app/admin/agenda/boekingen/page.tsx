@@ -10,6 +10,7 @@ import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave,
 import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
+import { printAttendanceList } from '@/lib/agenda-print-attendance';
 
 type Cal = {
   id: string;
@@ -238,6 +239,32 @@ export default function AdminAgendaBoekingenPage() {
   const toggleAllVisible = () => {
     if (selectedIds.size === visibleBookings.length) setSelectedIds(new Set());
     else setSelectedIds(new Set(visibleBookings.map((b) => b.id)));
+  };
+
+  const selectCalendarsBySlug = (slugs: string[]) => {
+    const ids = calendars.filter((c) => slugs.includes(c.slug)).map((c) => c.id);
+    if (!ids.length) return;
+    setSelectedCalIds(new Set(ids));
+  };
+
+  const printSelected = () => {
+    const selected = visibleBookings.filter((b) => selectedIds.has(b.id));
+    const rows = (selected.length ? selected : visibleBookings).map((b) => ({
+      firstname: b.firstname,
+      lastname: b.lastname,
+      name: b.name,
+      phone: b.phone,
+      fieldsJson: b.fieldsJson,
+      groupLabel: `${b.calendar.title} · ${
+        b.slot?.slotDate
+          ? formatSlotDateTimeNl(b.slot.slotDate.slice(0, 10), b.slot.startTime)
+          : smallMomentLabel(b.startAt)
+      }`,
+    }));
+    printAttendanceList(rows, {
+      title: selected.length ? 'Aanwezigheidslijst (selectie)' : 'Aanwezigheidslijst',
+      subtitle: `${range.from} t/m ${range.to} · ${rows.length} persoon${rows.length === 1 ? '' : 'en'}`,
+    });
   };
 
   const bulkDelete = async () => {
@@ -504,6 +531,36 @@ export default function AdminAgendaBoekingenPage() {
         <div className="mt-4 border-t border-line pt-3">
           <p className="text-xs font-medium text-ink">Agenda&apos;s</p>
           <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedCalIds(new Set(calendars.map((c) => c.id)))}
+              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
+            >
+              Alle
+            </button>
+            <button
+              type="button"
+              onClick={() => selectCalendarsBySlug(['opleiding'])}
+              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
+            >
+              Alleen opleiding
+            </button>
+            <button
+              type="button"
+              onClick={() => selectCalendarsBySlug(['portfolio'])}
+              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
+            >
+              Alleen portfolio
+            </button>
+            <button
+              type="button"
+              onClick={() => selectCalendarsBySlug(['opleiding', 'portfolio'])}
+              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
+            >
+              Opleiding + portfolio
+            </button>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
             {calendars.map((c) => (
               <button
                 key={c.id}
@@ -568,6 +625,19 @@ export default function AdminAgendaBoekingenPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-ink">Ingeschreven personen / boekingen</h2>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={!visibleBookings.length}
+              className="rounded border border-line bg-[#000b2b] px-2 py-1 text-[11px] font-medium text-white disabled:opacity-40"
+              onClick={printSelected}
+              title={
+                selectedIds.size
+                  ? `Druk ${selectedIds.size} geselecteerde afspraak(en) af`
+                  : 'Geen selectie: alle zichtbare afspraken afdrukken'
+              }
+            >
+              Afdrukken{selectedIds.size ? ` (${selectedIds.size})` : ' zichtbare'}
+            </button>
             <button
               type="button"
               disabled={!selectedIds.size}
