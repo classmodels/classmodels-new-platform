@@ -43,7 +43,6 @@ export function attendanceDisplayName(row: AttendancePrintRow): {
     (() => {
       const full = (row.name ?? '').trim();
       if (!full) return '—';
-      // Als er geen aparte lastname is: laatste woord als naam.
       const parts = full.split(/\s+/).filter(Boolean);
       if (parts.length <= 1) return full;
       return parts.slice(1).join(' ');
@@ -51,20 +50,10 @@ export function attendanceDisplayName(row: AttendancePrintRow): {
   return { voornaam, naam };
 }
 
-/**
- * Opent een printvenster met alleen voornaam, naam, gsm, leeftijd.
- * Geschikt voor aanwezigheidslijsten (opleiding / portfolio).
- */
-export function printAttendanceList(
+function buildAttendanceHtml(
   rows: AttendancePrintRow[],
   opts?: { title?: string; subtitle?: string },
-): void {
-  if (typeof window === 'undefined') return;
-  if (!rows.length) {
-    window.alert('Selecteer minstens één afspraak om af te drukken.');
-    return;
-  }
-
+): string {
   const title = opts?.title?.trim() || 'Aanwezigheidslijst';
   const subtitle = opts?.subtitle?.trim() || '';
 
@@ -86,23 +75,20 @@ export function printAttendanceList(
     })
     .join('\n');
 
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="nl">
 <head>
   <meta charset="utf-8" />
   <title>${esc(title)}</title>
   <style>
     @page { margin: 12mm; }
-    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #111; font-size: 12pt; }
+    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; color: #111; font-size: 12pt; margin: 0; padding: 8px; }
     h1 { font-size: 16pt; margin: 0 0 4px; }
     .sub { color: #444; font-size: 10pt; margin-bottom: 14px; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
     th { background: #f3f3f3; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.02em; }
     tr.group td { border: none; padding-top: 14px; padding-bottom: 4px; font-weight: 700; font-size: 10pt; color: #333; background: transparent; }
-    @media print {
-      button { display: none !important; }
-    }
   </style>
 </head>
 <body>
@@ -121,20 +107,59 @@ export function printAttendanceList(
       ${bodyRows}
     </tbody>
   </table>
-  <script>
-    window.addEventListener('load', function () {
-      setTimeout(function () { window.print(); }, 50);
-    });
-  </script>
 </body>
 </html>`;
+}
 
-  const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
-  if (!w) {
-    window.alert('Pop-up geblokkeerd. Sta pop-ups toe om te kunnen afdrukken.');
+/**
+ * Drukt aanwezigheidslijst af zonder pop-up (iframe in dezelfde pagina).
+ * Werkt op Safari / Apple zonder “pop-ups toestaan”.
+ */
+export function printAttendanceList(
+  rows: AttendancePrintRow[],
+  opts?: { title?: string; subtitle?: string },
+): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  if (!rows.length) {
+    window.alert('Selecteer minstens één afspraak om af te drukken.');
     return;
   }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
+
+  const html = buildAttendanceHtml(rows, opts);
+  const iframeId = 'cm-attendance-print-frame';
+  let iframe = document.getElementById(iframeId) as HTMLIFrameElement | null;
+  if (iframe) iframe.remove();
+
+  iframe = document.createElement('iframe');
+  iframe.id = iframeId;
+  iframe.setAttribute('aria-hidden', 'true');
+  iframe.style.cssText =
+    'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none;';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
+  if (!doc) {
+    window.alert('Afdrukken lukte niet. Probeer opnieuw of gebruik een andere browser.');
+    iframe.remove();
+    return;
+  }
+
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const runPrint = () => {
+    try {
+      iframe?.contentWindow?.focus();
+      iframe?.contentWindow?.print();
+    } catch {
+      window.alert('Afdrukken lukte niet. Probeer opnieuw.');
+    } finally {
+      // Even laten staan zodat Safari het print-dialoog kan openen.
+      window.setTimeout(() => iframe?.remove(), 60_000);
+    }
+  };
+
+  // Safari heeft even nodig na document.write.
+  window.setTimeout(runPrint, 100);
 }
