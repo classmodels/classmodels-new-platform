@@ -97,7 +97,8 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.auth.forgotPassword(dto.identifier);
+    const identifier = (dto.identifier || dto.email || '').trim();
+    return this.auth.forgotPassword(identifier);
   }
 
   @Post('reset-password')

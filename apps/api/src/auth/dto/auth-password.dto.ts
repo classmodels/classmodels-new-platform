@@ -32,9 +32,16 @@ export class ChangePasswordDto {
 
 export class ForgotPasswordDto {
   /** E-mail of telefoonnummer */
+  @IsOptional()
   @IsString()
   @MinLength(3)
-  identifier!: string;
+  identifier?: string;
+
+  /** Alias (oude formulieren stuurden `email`) */
+  @IsOptional()
+  @IsString()
+  @MinLength(3)
+  email?: string;
 }
 
 export class ResetPasswordDto {

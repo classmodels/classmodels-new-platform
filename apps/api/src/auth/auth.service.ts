@@ -148,7 +148,9 @@ export class AuthService {
     const genericMessage =
       'Als er een account bij dit e-mailadres of telefoonnummer hoort, ontvang je een e-mail met instructies.';
     const generic = { ok: true, message: genericMessage, emailSent: false as boolean };
-    const user = await this.users.findByLoginIdentifierWithRoles(identifier);
+    const trimmed = identifier?.trim() ?? '';
+    if (!trimmed) return generic;
+    const user = await this.users.findByLoginIdentifierWithRoles(trimmed);
     if (!user?.email) return generic;
 
     const rawToken = randomBytes(32).toString('hex');

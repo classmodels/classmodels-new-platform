@@ -16,21 +16,21 @@ export default function NieuwWachtwoordVergetenPage() {
     setError(null);
     setBusy(true);
     try {
-      await apiFetch('/auth/forgot-password', {
+      const res = await apiFetch<{ message?: string; emailSent?: boolean }>('/auth/forgot-password', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ identifier: email.trim() }),
       });
       setDone(true);
-    } catch (err) {
-      // Toon altijd een neutrale bevestiging als de endpoint bestaat; anders foutmelding.
-      const msg = err instanceof Error ? err.message : 'Verzoek mislukt.';
-      if (/404|not found/i.test(msg)) {
-        setError(
-          'Wachtwoord reset is momenteel niet beschikbaar. Probeer later opnieuw of neem contact op met Class-Models.',
-        );
-      } else {
-        setDone(true);
+      if (res.emailSent === false) {
+        // Neutrale tekst blijft (geen account-enumeratie); mail ging niet uit.
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Verzoek mislukt.';
+      setError(
+        /404|not found/i.test(msg)
+          ? 'Wachtwoord reset is momenteel niet beschikbaar. Probeer later opnieuw of neem contact op met Class-Models.'
+          : msg,
+      );
     } finally {
       setBusy(false);
     }
