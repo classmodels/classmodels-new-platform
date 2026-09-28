@@ -3039,6 +3039,14 @@
   color: var(--n-ink) !important;
 }
 
+/* Pager «Vorige/Volgende dagen»: geen wit-op-wit bij hover (Tailwind hover:bg-zinc-50). */
+.nieuw-root .cm-agenda-on-dark button.cm-agenda-day-pager:hover:not(:disabled),
+.nieuw-root.nieuw-booking button.cm-agenda-day-pager:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--n-ink) 14%, transparent) !important;
+  color: var(--n-ink) !important;
+  border-color: var(--n-gold-hair) !important;
+}
+
 .nieuw-root .cm-agenda-on-dark button.bg-zinc-900,
 .nieuw-root .cm-agenda-on-dark button.bg-zinc-900 span,
 .nieuw-root.nieuw-booking button.bg-zinc-900,

@@ -294,7 +294,7 @@ export function GuestBookingPanel({
         type="button"
         aria-label="Vorige dagen"
         disabled={dayPage <= 0}
-        className="rounded border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
+        className="cm-agenda-day-pager rounded border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-black/5 hover:text-zinc-900 disabled:opacity-35"
         onClick={() => setDayPage((p) => Math.max(0, p - 1))}
       >
         ‹ Vorige dagen
@@ -308,7 +308,7 @@ export function GuestBookingPanel({
         type="button"
         aria-label="Volgende dagen"
         disabled={dayPage >= totalPages - 1}
-        className="rounded border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-zinc-50 disabled:opacity-35"
+        className="cm-agenda-day-pager rounded border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 hover:bg-black/5 hover:text-zinc-900 disabled:opacity-35"
         onClick={() => setDayPage((p) => Math.min(totalPages - 1, p + 1))}
       >
         Volgende dagen ›
