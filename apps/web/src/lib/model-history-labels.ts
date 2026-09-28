@@ -30,6 +30,8 @@ export function historyTitle(action: string, meta?: unknown): string {
       return 'Portfoliofoto geüpload';
     case 'portfolio_shoot_zip_downloaded':
       return 'Portfolio-shoot gedownload (ZIP)';
+    case 'portfolio_delivery_reactivated':
+      return 'Portfolio-download opnieuw geactiveerd';
     case 'profile_updated':
       return 'Profiel / modellenfiche aangepast';
     case 'brief_interest_submitted':

@@ -221,9 +221,9 @@ export function ModelPortfolioTab({
         <div className="border border-burgundy/40 bg-burgundy/5 px-4 py-3 text-[13px] leading-snug text-zinc-900">
           <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Portfolio van je shoot</p>
           <p className="mt-1.5">
-            Je foto&apos;s staan klaar om één keer te downloaden als ZIP in hoge kwaliteit
-            {delivery.fileCount > 1 ? ` (${delivery.fileCount} bestanden)` : ''}. Daarna verdwijnen ze uit je account en
-            van de server.
+            Je foto&apos;s staan klaar om te downloaden als ZIP in hoge kwaliteit
+            {delivery.fileCount > 1 ? ` (${delivery.fileCount} bestanden)` : ''}. Na download verdwijnt deze knop; bij
+            vragen contacteer Class-Models.
           </p>
           <button
             type="button"

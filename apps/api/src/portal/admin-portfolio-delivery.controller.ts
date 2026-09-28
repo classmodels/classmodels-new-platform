@@ -62,7 +62,7 @@ export class AdminPortfolioDeliveryController {
   @Post(':modelUserId/reactivate')
   @Permissions('admin.media.write')
   reactivate(@Param('modelUserId', ParseUUIDPipe) modelUserId: string) {
-    return this.delivery.clearAck(modelUserId);
+    return this.delivery.reactivateForDownload(modelUserId);
   }
 
   @Delete(':modelUserId')

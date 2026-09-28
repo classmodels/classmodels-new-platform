@@ -1827,15 +1827,10 @@ export class MediaService implements OnModuleInit {
     });
 
     if (filesInZip > 0) {
-      for (const id of ids) {
-        try {
-          await this.removeAsset(id, true);
-        } catch {
-          /* */
-        }
-      }
+      // Bestanden blijven staan — admin kan opnieuw activeren of expliciet wissen.
       void this.modelHistory.log(modelUserId, 'portfolio_shoot_zip_downloaded', {
         fileCount: filesInZip,
+        keptOnServer: true,
       });
     }
   }

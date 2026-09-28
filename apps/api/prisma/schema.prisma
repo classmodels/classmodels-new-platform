@@ -280,7 +280,8 @@ model MediaAsset {
   @@index([linkedModelUserId, folderId])
 }
 
-/// Bewaart wanneer een model de portfolio-ZIP heeft gedownload (bestanden zelf zijn daarna weg).
+/// Bewaart wanneer een model de portfolio-ZIP heeft gedownload.
+/// Bestanden blijven op de server tot admin ze expliciet verwijdert; admin kan download opnieuw activeren.
 model PortfolioDeliveryAck {
   id           String    @id @default(uuid())
   modelUserId  String    @unique

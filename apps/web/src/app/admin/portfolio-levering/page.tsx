@@ -17,6 +17,7 @@ type DeliveryRow = {
   status: string;
   fileCount: number;
   available: boolean;
+  filesOnServer?: boolean;
   downloadedAt: string | null;
   downloadedFileCount: number;
 };
@@ -93,8 +94,8 @@ export default function AdminPortfolioLeveringPage() {
   const rowsForCategory = useMemo(() => {
     const rows = data.rows;
     if (category === 'klaar') return rows.filter((r) => r.available);
-    if (category === 'gedownload') return rows.filter((r) => !!r.downloadedAt && !r.available);
-    if (category === 'geen-upload') return rows.filter((r) => !r.available && !r.downloadedAt);
+    if (category === 'gedownload') return rows.filter((r) => !!r.downloadedAt);
+    if (category === 'geen-upload') return rows.filter((r) => r.fileCount <= 0 && !r.downloadedAt);
     return rows;
   }, [data.rows, category]);
 
@@ -103,8 +104,8 @@ export default function AdminPortfolioLeveringPage() {
     return {
       all: all.length,
       klaar: all.filter((r) => r.available).length,
-      gedownload: all.filter((r) => !!r.downloadedAt && !r.available).length,
-      geen: all.filter((r) => !r.available && !r.downloadedAt).length,
+      gedownload: all.filter((r) => !!r.downloadedAt).length,
+      geen: all.filter((r) => r.fileCount <= 0 && !r.downloadedAt).length,
     };
   }, [data.rows]);
 
@@ -151,17 +152,17 @@ export default function AdminPortfolioLeveringPage() {
     if (!token || !canWrite) return;
     if (
       !window.confirm(
-        'Downloadstatus wissen? Als er geen bestanden meer op de server staan, moet de fotograaf opnieuw uploaden voordat de knop terugkomt.',
+        'Download opnieuw beschikbaar maken voor dit model? De ZIP blijft op de server; het model ziet opnieuw de knop «Download portfolio».',
       )
     )
       return;
     setBusyId(modelUserId);
     try {
       await apiFetch(`/admin/portfolio-delivery/${modelUserId}/reactivate`, { method: 'POST', token, body: '{}' });
-      setMsg('Downloadstatus gewist.');
+      setMsg('Portfolio teruggezet — model kan opnieuw downloaden.');
       await load();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Activeren mislukt');
+      setErr(e instanceof Error ? e.message : 'Terugzetten mislukt');
     } finally {
       setBusyId(null);
     }
@@ -171,14 +172,14 @@ export default function AdminPortfolioLeveringPage() {
     if (!token || !canWrite) return;
     if (
       !window.confirm(
-        'ZIP/foto’s definitief van de server verwijderen? Dit maakt geheugen vrij en kan niet ongedaan gemaakt worden.',
+        'ZIP/foto’s DEFINITIEF van de server verwijderen? Daarna kun je ze niet meer terugzetten — alleen opnieuw uploaden. Dit kan niet ongedaan gemaakt worden.',
       )
     )
       return;
     setBusyId(modelUserId);
     try {
       await apiFetch(`/admin/portfolio-delivery/${modelUserId}`, { method: 'DELETE', token });
-      setMsg('Bestanden verwijderd van server.');
+      setMsg('Bestanden definitief verwijderd van de server.');
       await load();
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Verwijderen mislukt');
@@ -237,8 +238,8 @@ export default function AdminPortfolioLeveringPage() {
       <div>
         <h1 className="text-lg font-bold text-ink">Portfolio-levering</h1>
         <p className="mt-1 text-sm text-muted">
-          Inschrijvingen voor aanmaak portfolio, ZIP-uploads van de fotograaf, downloads door modellen, en bulk-mail per
-          portfoliodag.
+          Inschrijvingen, fotograaf-uploads, downloads door modellen. Na download blijven bestanden op de server tot jij
+          ze wist — je kunt download opnieuw activeren zonder opnieuw te uploaden.
         </p>
       </div>
 
@@ -278,13 +279,13 @@ export default function AdminPortfolioLeveringPage() {
           <button type="button" className={btnCat} onClick={() => setCategory('klaar')}>
             <span className="block text-burgundy">Klaar voor download</span>
             <span className="mt-1 block text-xs font-normal text-muted">
-              ZIP/foto’s staan klaar — model ziet de downloadknop.
+              ZIP staat klaar — model ziet de downloadknop.
             </span>
           </button>
           <button type="button" className={btnCat} onClick={() => setCategory('gedownload')}>
             <span className="block text-burgundy">Gedownload</span>
             <span className="mt-1 block text-xs font-normal text-muted">
-              Model heeft gedownload; bestanden zijn van de server.
+              Model heeft gedownload. Bestanden blijven staan tot jij ze wist — of zet download opnieuw aan.
             </span>
           </button>
           <button type="button" className={btnCat} onClick={() => setCategory('geen-upload')}>
@@ -456,7 +457,7 @@ export default function AdminPortfolioLeveringPage() {
                       </td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-1.5">
-                          {id && r.available ? (
+                          {id && r.fileCount > 0 ? (
                             <button
                               type="button"
                               className={btnOutline}
@@ -466,24 +467,27 @@ export default function AdminPortfolioLeveringPage() {
                               Admin-download
                             </button>
                           ) : null}
-                          {id && canWrite && r.downloadedAt ? (
+                          {id && canWrite && r.downloadedAt && r.fileCount > 0 ? (
                             <button
                               type="button"
-                              className={btnOutline}
+                              className={btnPrimary}
                               disabled={busyId === id}
                               onClick={() => void reactivate(id)}
                             >
-                              Status wissen
+                              Terugzetten
                             </button>
                           ) : null}
-                          {id && canWrite && r.available ? (
+                          {id && canWrite && r.downloadedAt && r.fileCount <= 0 ? (
+                            <span className="text-[11px] text-muted">Geen ZIP meer — opnieuw uploaden</span>
+                          ) : null}
+                          {id && canWrite && r.fileCount > 0 ? (
                             <button
                               type="button"
                               className={btnDanger}
                               disabled={busyId === id}
                               onClick={() => void hardDelete(id)}
                             >
-                              ZIP wissen
+                              Definitief wissen
                             </button>
                           ) : null}
                           {!id ? <span className="text-muted">Geen account</span> : null}

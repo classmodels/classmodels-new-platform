@@ -72,10 +72,12 @@ export class PortfolioDeliveryService {
       where: { folderId, linkedModelUserId: modelUserId, hardDeleted: false },
     });
     const ack = await this.findAck(modelUserId);
+    const downloadedAt = ack?.downloadedAt?.toISOString() ?? null;
+    // Beschikbaar voor het model zolang er bestanden zijn én admin de downloadstatus niet “geconsumeerd” heeft.
     return {
-      available: count > 0,
+      available: count > 0 && !downloadedAt,
       fileCount: count,
-      downloadedAt: ack?.downloadedAt?.toISOString() ?? null,
+      downloadedAt,
       downloadedFileCount: ack?.fileCount ?? 0,
       shootDate: ack?.shootDate ?? null,
     };
@@ -123,6 +125,7 @@ export class PortfolioDeliveryService {
           }
           ack = await this.findAck(modelUserId);
         }
+        const downloadedAt = ack?.downloadedAt?.toISOString() ?? null;
         return {
           bookingId: b.id,
           modelUserId,
@@ -133,8 +136,11 @@ export class PortfolioDeliveryService {
           startAt: b.startAt.toISOString(),
           status: b.status,
           fileCount,
-          available: fileCount > 0,
-          downloadedAt: ack?.downloadedAt?.toISOString() ?? null,
+          /** Bestanden staan nog op de server (ook na model-download). */
+          filesOnServer: fileCount > 0,
+          /** Model mag opnieuw downloaden (bestanden + geen actieve download-ack). */
+          available: fileCount > 0 && !downloadedAt,
+          downloadedAt,
           downloadedFileCount: ack?.fileCount ?? 0,
         };
       }),
@@ -153,6 +159,22 @@ export class PortfolioDeliveryService {
       if (code !== 'P2021' && !/PortfolioDeliveryAck/i.test(String((e as Error)?.message ?? ''))) throw e;
     }
     return { ok: true };
+  }
+
+  /** Zet download opnieuw beschikbaar voor het model (bestanden blijven staan). */
+  async reactivateForDownload(modelUserId: string) {
+    const folderId = await this.portfolioFolderId();
+    const fileCount = await this.prisma.mediaAsset.count({
+      where: { folderId, linkedModelUserId: modelUserId, hardDeleted: false },
+    });
+    if (fileCount <= 0) {
+      throw new BadRequestException(
+        'Geen bestanden meer op de server. Upload opnieuw of kies een model waarvan de ZIP nog staat.',
+      );
+    }
+    await this.clearAck(modelUserId);
+    void this.history.log(modelUserId, 'portfolio_delivery_reactivated', { fileCount });
+    return { ok: true, fileCount };
   }
 
   async hardDeleteFiles(modelUserId: string) {
@@ -174,7 +196,7 @@ export class PortfolioDeliveryService {
 
   private async markConsumed(
     modelUserId: string,
-    ids: string[],
+    _ids: string[],
     fileCount: number,
     shootDate?: string | null,
   ) {
@@ -198,16 +220,12 @@ export class PortfolioDeliveryService {
       const code = (e as { code?: string })?.code;
       if (code !== 'P2021' && !/PortfolioDeliveryAck/i.test(String((e as Error)?.message ?? ''))) throw e;
     }
-    for (const id of ids) {
-      try {
-        await this.media.removeAsset(id, true);
-      } catch {
-        /* */
-      }
-    }
+    // Bestanden blijven op de server tot admin ze expliciet verwijdert.
+    // Zo kan admin “terugzetten voor download” zonder opnieuw te uploaden.
     void this.history.log(modelUserId, 'portfolio_shoot_zip_downloaded', {
       fileCount,
       shootDate: shootDate ?? null,
+      keptOnServer: true,
     });
   }
 
