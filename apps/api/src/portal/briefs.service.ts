@@ -178,7 +178,7 @@ export class BriefsService {
       <p style="letter-spacing:.18em;text-transform:uppercase;font-size:12px;color:#8a6a3b">Class-Models</p>
       <h1 style="font-size:22px;margin:8px 0 16px">${escapeHtml(title)}</h1>
       ${body}
-      <p style="margin-top:24px;font-size:12px;color:#666">Met vriendelijke groeten,<br/>Class-Models</p>
+      <p style="margin-top:24px;font-size:12px;color:#666">Met vriendelijke groeten,<br/>Het team van CLASS-MODELS</p>
     </div>`;
   }
 
@@ -190,6 +190,60 @@ export class BriefsService {
   ) {
     if (!to.trim()) return false;
     return sendHtmlMail(this.prisma, to.trim(), subject, this.briefMailShell(title, paragraphs));
+  }
+
+  private formatBriefEventDate(eventDate: Date | string | null | undefined): string {
+    if (!eventDate) return '';
+    const d = eventDate instanceof Date ? eventDate : new Date(eventDate);
+    if (Number.isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('nl-BE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }).format(d);
+  }
+
+  private briefSelectionGreeting(firstName: string | null | undefined, fallbackName: string) {
+    const first = (firstName || '').trim();
+    return first ? `Beste ${first},` : `Beste ${fallbackName},`;
+  }
+
+  private declinedSelectionParagraphs(opts: {
+    firstName: string | null | undefined;
+    fullName: string;
+    title: string;
+    eventDate?: Date | string | null;
+  }) {
+    const dateLabel = this.formatBriefEventDate(opts.eventDate);
+    const opdrachtRegel = dateLabel
+      ? `Je had je via ons modellenbureau ingeschreven voor de opdracht «${opts.title}» op ${dateLabel}. Bedankt voor je interesse en de tijd die je hebt genomen om je aan te melden.`
+      : `Je had je via ons modellenbureau ingeschreven voor de opdracht «${opts.title}». Bedankt voor je interesse en de tijd die je hebt genomen om je aan te melden.`;
+    return [
+      this.briefSelectionGreeting(opts.firstName, opts.fullName),
+      opdrachtRegel,
+      'De selectie voor deze opdracht is inmiddels afgerond. Helaas ben je deze keer niet gekozen. We begrijpen dat dit teleurstellend kan zijn. Bij iedere opdracht maakt de opdrachtgever een keuze op basis van wat voor die specifieke opdracht wordt gezocht.',
+      'We waarderen je aanmelding en hopen dat je ook bij toekomstige opdrachten interesse blijft tonen. We wensen je veel succes bij een volgende selectie!',
+    ];
+  }
+
+  private acceptedSelectionParagraphs(opts: {
+    firstName: string | null | undefined;
+    fullName: string;
+    title: string;
+    eventDate?: Date | string | null;
+  }) {
+    const dateLabel = this.formatBriefEventDate(opts.eventDate);
+    const opdrachtRegel = dateLabel
+      ? `Je had je via ons modellenbureau ingeschreven voor de opdracht «${opts.title}» op ${dateLabel}. Bedankt voor je interesse en de tijd die je hebt genomen om je aan te melden.`
+      : `Je had je via ons modellenbureau ingeschreven voor de opdracht «${opts.title}». Bedankt voor je interesse en de tijd die je hebt genomen om je aan te melden.`;
+    return [
+      this.briefSelectionGreeting(opts.firstName, opts.fullName),
+      opdrachtRegel,
+      'Goed nieuws: je bent gekozen voor deze opdracht!',
+      'We nemen binnenkort contact met je op om de opdracht te bespreken, de praktische afspraken door te nemen en de overeenkomst in orde te zetten.',
+      'Je kunt de status ook volgen in je portaal onder Opdrachten.',
+    ];
   }
 
   async adminCreate(
@@ -576,11 +630,16 @@ export class BriefsService {
     return { ok: true, id: responseId };
   }
 
-  async adminSetResponseStatus(responseId: string, status: 'accepted' | 'declined') {
+  async adminSetResponseStatus(
+    responseId: string,
+    status: 'accepted' | 'declined',
+    opts?: { notify?: boolean },
+  ) {
+    const notify = opts?.notify !== false;
     const r = await this.prisma.modelBriefResponse.findUnique({
       where: { id: responseId },
       include: {
-        brief: { select: { id: true, title: true } },
+        brief: { select: { id: true, title: true, eventDate: true } },
         model: { select: { id: true, email: true, firstName: true, lastName: true } },
       },
     });
@@ -594,32 +653,34 @@ export class BriefsService {
       briefId: r.briefId,
       briefTitle: r.brief.title,
       responseId: r.id,
+      notifiedByEmail: notify,
     });
 
-    const name = [r.model.firstName, r.model.lastName].filter(Boolean).join(' ') || 'model';
-    if (r.model.email) {
+    if (notify && r.model.email) {
+      const fullName = [r.model.firstName, r.model.lastName].filter(Boolean).join(' ') || 'model';
       if (status === 'accepted') {
         void this.sendBriefModelMail(
           r.model.email,
-          `U bent gekozen — ${r.brief.title}`,
-          'U bent gekozen',
-          [
-            `Beste ${name},`,
-            `Goed nieuws: u bent gekozen voor de opdracht «${r.brief.title}».`,
-            'We nemen telefonisch contact met u op voor de verdere afspraken.',
-            'Bekijk ook uw portaal onder Opdrachten voor de status.',
-          ],
+          `Je bent gekozen — ${r.brief.title}`,
+          'Je bent gekozen',
+          this.acceptedSelectionParagraphs({
+            firstName: r.model.firstName,
+            fullName,
+            title: r.brief.title,
+            eventDate: r.brief.eventDate,
+          }),
         );
       } else {
         void this.sendBriefModelMail(
           r.model.email,
           `Niet gekozen — ${r.brief.title}`,
           'Niet gekozen voor deze opdracht',
-          [
-            `Beste ${name},`,
-            `Voor de opdracht «${r.brief.title}» bent u deze keer niet gekozen.`,
-            'Er volgen nog andere kansen via Class-Models. Bedankt voor uw inschrijving.',
-          ],
+          this.declinedSelectionParagraphs({
+            firstName: r.model.firstName,
+            fullName,
+            title: r.brief.title,
+            eventDate: r.brief.eventDate,
+          }),
         );
       }
     }
@@ -682,12 +743,14 @@ export class BriefsService {
     if (kind === 'accepted') {
       const ok = await this.sendBriefModelMail(
         to,
-        `[TEST] U bent gekozen — ${brief.title}`,
-        'U bent gekozen (test)',
-        [
-          `Beste ${name},`,
-          `Dit is een testmail: gekozen voor «${brief.title}». We nemen telefonisch contact op.`,
-        ],
+        `[TEST] Je bent gekozen — ${brief.title}`,
+        'Je bent gekozen (test)',
+        this.acceptedSelectionParagraphs({
+          firstName: 'Ange',
+          fullName: name,
+          title: brief.title,
+          eventDate: brief.eventDate,
+        }),
       );
       if (!ok) throw new BadRequestException('Testmail mislukt (SMTP). Controleer SMTP in Admin → E-mail.');
       return { ok: true, to, kind };
@@ -697,10 +760,12 @@ export class BriefsService {
         to,
         `[TEST] Niet gekozen — ${brief.title}`,
         'Niet gekozen (test)',
-        [
-          `Beste ${name},`,
-          `Dit is een testmail: niet gekozen voor «${brief.title}».`,
-        ],
+        this.declinedSelectionParagraphs({
+          firstName: 'Ange',
+          fullName: name,
+          title: brief.title,
+          eventDate: brief.eventDate,
+        }),
       );
       if (!ok) throw new BadRequestException('Testmail mislukt (SMTP). Controleer SMTP in Admin → E-mail.');
       return { ok: true, to, kind };

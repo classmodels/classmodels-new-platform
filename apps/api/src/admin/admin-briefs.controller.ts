@@ -10,7 +10,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsIn } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Permissions } from '../auth/permissions.decorator';
 import { PermissionsGuard } from '../auth/permissions.guard';
@@ -27,6 +27,11 @@ import {
 class AdminPatchResponseDto {
   @IsIn(['accepted', 'declined'])
   status!: 'accepted' | 'declined';
+
+  /** false = alleen status wijzigen, geen selectiemail. Standaard true. */
+  @IsOptional()
+  @IsBoolean()
+  notify?: boolean;
 }
 
 @Controller('admin/briefs')
@@ -53,7 +58,9 @@ export class AdminBriefsController {
     @Param('responseId', ParseUUIDPipe) responseId: string,
     @Body() dto: AdminPatchResponseDto,
   ) {
-    return this.briefs.adminSetResponseStatus(responseId, dto.status);
+    return this.briefs.adminSetResponseStatus(responseId, dto.status, {
+      notify: dto.notify !== false,
+    });
   }
 
   @Delete('model-responses/:responseId')

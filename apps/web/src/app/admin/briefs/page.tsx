@@ -545,13 +545,14 @@ export default function AdminBriefsPage() {
       for (const r of targets) {
         await adminFetch(`/admin/briefs/model-responses/${r.id}`, token, {
           method: 'PATCH',
-          body: JSON.stringify({ status }),
+          body: JSON.stringify({ status, notify: notifyOnStatusChange }),
         });
       }
+      const mailBit = notifyOnStatusChange ? ' — e-mail + push verzonden' : ' — zonder e-mail (alleen status)';
       setMsg(
         status === 'accepted'
-          ? `${targets.length} model(len) gemarkeerd als gekozen — e-mail + push verzonden.`
-          : `${targets.length} model(len) gemarkeerd als niet gekozen — e-mail + push verzonden.`,
+          ? `${targets.length} model(len) gemarkeerd als gekozen${mailBit}.`
+          : `${targets.length} model(len) gemarkeerd als niet gekozen${mailBit}.`,
       );
       setSelResp([]);
       await open(detail.id);
@@ -1414,9 +1415,18 @@ export default function AdminBriefsPage() {
                   Push naar selectie
                 </button>
               </div>
+              <label className="mt-1 flex items-center gap-1.5 text-[11px] text-ink">
+                <input
+                  type="checkbox"
+                  checked={notifyOnStatusChange}
+                  onChange={(e) => setNotifyOnStatusChange(e.target.checked)}
+                />
+                Bij Gekozen / Niet gekozen ook de standaard e-mail sturen
+              </label>
               <p className="text-[10px] text-muted">
-                Vink modellen aan en gebruik de knoppen hierboven. Gekozen / Niet gekozen geldt voor status
-                «Ingeschreven».
+                Vink modellen aan. Gekozen / Niet gekozen geldt voor status «Ingeschreven». Zet het vinkje hierboven
+                uit om alleen de status te wijzigen (geen mail). «Mail schrijven» stuurt een vrije mail en wijzigt de
+                status niet.
               </p>
             </div>
           ) : null}
