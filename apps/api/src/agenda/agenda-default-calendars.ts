@@ -138,7 +138,9 @@ export const DEFAULT_GENERIC_AGENDA_FIELDS: DefaultAgendaFieldSeed[] = [
   },
 ];
 
-/** Zorg dat portfolio/casting/… bestaan (idempotent). Bestaande uren/duur niet overschrijven. */
+/** Zorg dat portfolio/casting/… bestaan (idempotent).
+ * Bestaande capaciteit, uren en duur worden NOOIT overschreven (pipeline mag admin-instellingen niet resetten).
+ */
 export async function ensureDefaultAgendaCalendars(
   prisma: PrismaClient,
 ): Promise<{ created: number; total: number; portfolioScheduleUpgraded: boolean }> {
@@ -146,12 +148,12 @@ export async function ensureDefaultAgendaCalendars(
   for (const d of DEFAULT_AGENDA_CALENDAR_DEFS) {
     const existing = await prisma.agendaCalendar.findUnique({ where: { slug: d.slug } });
     if (existing) {
+      // Alleen metadata die geen boekingscapaciteit/uren wijzigt.
       await prisma.agendaCalendar.update({
         where: { slug: d.slug },
         data: {
           title: d.title,
           color: d.color,
-          capacity: Math.max(1, d.capacity),
           sortOrder: d.sortOrder,
           active: true,
           publicBooking: true,
@@ -198,6 +200,24 @@ export async function ensureDefaultAgendaCalendars(
         })),
       });
     }
+
+    /**
+     * Herstel na oude bug die capaciteit bij elke start naar 1 zette:
+     * als toekomstige sloten al een hogere cap hebben, trek de agenda-cap omhoog (nooit omlaag).
+     */
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const agg = await prisma.agendaSlot.aggregate({
+      where: { calendarId: cal.id, slotDate: { gte: today } },
+      _max: { capacity: true },
+    });
+    const maxSlotCap = Math.max(1, agg._max.capacity ?? 1);
+    if (maxSlotCap > cal.capacity) {
+      await prisma.agendaCalendar.update({
+        where: { id: cal.id },
+        data: { capacity: maxSlotCap },
+      });
+    }
   }
   const total = await prisma.agendaCalendar.count();
   await prisma.agendaCalendar.updateMany({
@@ -225,9 +245,6 @@ export async function ensureDefaultAgendaCalendars(
           showEndTimeOnPublic: true,
         },
       });
-      portfolioScheduleUpgraded = true;
-    } else {
-      /** Duur staat al goed — sloten moeten toch hersteld (oude endTime +30). */
       portfolioScheduleUpgraded = true;
     }
   }

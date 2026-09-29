@@ -137,16 +137,10 @@ async function seedAgenda(p: PrismaClient) {
       update: {
         title: d.title,
         color: d.color,
-        durationMinutes: d.durationMinutes,
-        slotStepMinutes: d.slotStepMinutes ?? null,
-        capacity: d.capacity,
         sortOrder: d.sortOrder,
         active: true,
         publicBooking: true,
-        restrictToOpenDays: true,
-        weekdayOpenMask: 0,
-        defaultDayStartTime: dayStart,
-        defaultDayEndTime: dayEnd,
+        // capacity / uren / duur: nooit resetten bij seed (admin-instellingen behouden)
       },
       create: {
         slug: d.slug,
