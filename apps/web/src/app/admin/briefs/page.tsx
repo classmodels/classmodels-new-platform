@@ -296,6 +296,8 @@ export default function AdminBriefsPage() {
   const [mailBusy, setMailBusy] = useState(false);
   const [selfTestBusy, setSelfTestBusy] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  /** Gekozen / Niet gekozen: ook de standaard selectiemail sturen. */
+  const [notifyOnStatusChange, setNotifyOnStatusChange] = useState(true);
 
   const load = useCallback(async () => {
     if (!token || !can('admin.briefs.read')) return;
