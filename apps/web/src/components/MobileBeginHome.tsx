@@ -711,70 +711,84 @@ function GuestView() {
 
         <Link
           href="/?m=guest&book=inschrijven"
-          className="mt-5 flex w-full items-center justify-center rounded-xl px-4 py-4 text-[15px] font-bold shadow-sm"
+          className="mt-6 flex w-full flex-col items-center justify-center gap-1 rounded-xl px-4 py-4 text-center shadow-sm"
           style={{ background: CTA_BG, color: CTA_TEXT }}
         >
-          Maak een vrijblijvende afspraak →
+          <span className="text-[15px] font-bold leading-tight">Maak een vrijblijvende afspraak →</span>
+          <span className="text-[11.5px] font-semibold leading-tight opacity-80">Maak online een afspraak</span>
         </Link>
-        <p className="m-0 mt-2 text-center text-[12.5px]" style={{ color: TEXT_SOFT }}>
-          Online boeken in enkele minuten · Hulshout
-        </p>
 
-        <div
-          id="inschrijven"
-          className="nieuw-root nieuw-root--mobile-signup mt-7 scroll-mt-24"
-          style={{ minHeight: 0, background: 'transparent' }}
-        >
-          <SectionTitle>Plan je kennismaking</SectionTitle>
-          <p className="m-0 mt-2 mb-3 text-[13.5px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-            {F.bookingLead}
+        <div className="mt-6 space-y-4">
+          <p className="m-0 text-center text-[13px] leading-relaxed" style={{ color: TEXT_SOFT }}>
+            Online boeken in enkele minuten · Hulshout
           </p>
-          <GuestSignupWizard />
-        </div>
-
-        <Link
-          href="/?m=guest&book=inschrijven"
-          className="mt-5 flex w-full items-center justify-center rounded-xl px-4 py-3.5 text-[14.5px] font-bold"
-          style={{ background: CTA_BG, color: CTA_TEXT }}
-        >
-          Klaar om te boeken? →
-        </Link>
-
-        <SectionTitle>Meer info</SectionTitle>
-        <div
-          className="mt-3 overflow-hidden rounded-xl shadow-sm"
-          style={{ background: CARD, border: `1px solid ${LINE}` }}
-        >
-          <div className="[&>a:first-child]:!border-t-0">
-            <ChevronRow
-              href="/gasten/testshoot"
-              label="Testshoot-foto’s"
-              sub="Bekijk en download uw foto’s op gsm"
-            />
-            <ChevronRow href="/reviews" label="Reviews" sub="Ervaringen van onze modellen" />
-            <ChevronRow href="/?m=guest&info=contact" label="Contact" sub="Adres, e-mail en telefoon" />
+          <div
+            className="rounded-xl px-4 py-4 shadow-sm"
+            style={{ background: CARD, border: `1px solid ${LINE}` }}
+          >
+            <p className="m-0 text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+              Jouw keuze bij het boeken
+            </p>
+            <div className="mt-3 space-y-3.5">
+              <div>
+                <p className="m-0 text-[14px] font-semibold" style={{ color: TEXT }}>
+                  Gratis testshoot + intake-gesprek
+                </p>
+                <p className="m-0 mt-1 text-[13px] leading-snug" style={{ color: TEXT_SOFT }}>
+                  Eerst voor de camera, daarna vrijblijvend advies over jouw kansen.
+                </p>
+              </div>
+              <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 14 }}>
+                <p className="m-0 text-[14px] font-semibold" style={{ color: TEXT }}>
+                  Alleen intake-gesprek
+                </p>
+                <p className="m-0 mt-1 text-[13px] leading-snug" style={{ color: TEXT_SOFT }}>
+                  Persoonlijk kennismaken in Hulshout — zonder fotoshoot.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <SectionTitle>Zo begint jouw verhaal</SectionTitle>
-        <div id="hoe-werkt-het" className="mt-3 space-y-3 scroll-mt-24">
-          {F.steps.map((s) => (
-            <div
-              key={s.n}
-              className="rounded-xl px-4 py-3.5 shadow-sm"
-              style={{ background: CARD, border: `1px solid ${LINE}` }}
-            >
-              <p className="m-0 text-[11px] font-bold tracking-[0.18em]" style={{ color: ACCENT }}>
-                {s.n}
-              </p>
-              <h3 className="m-0 mt-1 font-serif text-[17px] font-semibold" style={{ color: TEXT }}>
-                {s.title}
-              </h3>
-              <p className="m-0 mt-1 text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
-                {s.body}
-              </p>
+        <div className="mt-8">
+          <SectionTitle>Meer info</SectionTitle>
+          <div
+            className="mt-3 overflow-hidden rounded-xl shadow-sm"
+            style={{ background: CARD, border: `1px solid ${LINE}` }}
+          >
+            <div className="[&>a:first-child]:!border-t-0">
+              <ChevronRow
+                href="/gasten/testshoot"
+                label="Testshoot-foto’s"
+                sub="Bekijk en download uw foto’s op gsm"
+              />
+              <ChevronRow href="/reviews" label="Reviews" sub="Ervaringen van onze modellen" />
+              <ChevronRow href="/?m=guest&info=contact" label="Contact" sub="Adres, e-mail en telefoon" />
             </div>
-          ))}
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <SectionTitle>Zo begint jouw verhaal</SectionTitle>
+          <div id="hoe-werkt-het" className="mt-3 space-y-3 scroll-mt-24">
+            {F.steps.map((s) => (
+              <div
+                key={s.n}
+                className="rounded-xl px-4 py-3.5 shadow-sm"
+                style={{ background: CARD, border: `1px solid ${LINE}` }}
+              >
+                <p className="m-0 text-[11px] font-bold tracking-[0.18em]" style={{ color: ACCENT }}>
+                  {s.n}
+                </p>
+                <h3 className="m-0 mt-1 font-serif text-[17px] font-semibold" style={{ color: TEXT }}>
+                  {s.title}
+                </h3>
+                <p className="m-0 mt-1 text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
+                  {s.body}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>
