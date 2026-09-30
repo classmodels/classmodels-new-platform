@@ -290,6 +290,7 @@ export function GuestSignupWizard() {
         postcode: postcode.trim(),
         gemeente: city.trim(),
         geboortejaar: birthYear.trim(),
+        geboortedatum: `${birthYear.trim()}-01-01`,
         pakket:
           pkg === 'testshoot_intake'
             ? 'Gratis testshoot + intake-gesprek'
@@ -314,6 +315,9 @@ export function GuestSignupWizard() {
           k === 'postcode' ||
           k === 'gemeente' ||
           k === 'geboortejaar' ||
+          k === 'geboortedatum' ||
+          k === 'pakket' ||
+          k === 'opmerkingen' ||
           k === 'ouder_aanwezig'
         ) {
           mapped[k] = v;
@@ -326,6 +330,7 @@ export function GuestSignupWizard() {
       mapped.postcode = postcode.trim();
       mapped.gemeente = city.trim();
       mapped.geboortejaar = birthYear.trim();
+      mapped.geboortedatum = `${birthYear.trim()}-01-01`;
       mapped.pakket =
         pkg === 'testshoot_intake'
           ? 'Gratis testshoot + intake-gesprek'

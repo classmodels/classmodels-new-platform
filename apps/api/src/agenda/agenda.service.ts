@@ -1136,6 +1136,18 @@ export class AgendaService implements OnModuleInit {
 
     const fieldsJson: Record<string, string> = { ...dto.fields, ...uploadedFieldUrls };
 
+    /** Vereenvoudigde funnel stuurt vaak alleen geboortejaar → vul geboortedatum voor validatie/minderjarig. */
+    if (!(fieldsJson.geboortedatum ?? '').trim()) {
+      const yearRaw = (fieldsJson.geboortejaar ?? '').trim();
+      if (/^\d{4}$/.test(yearRaw)) {
+        const y = Number.parseInt(yearRaw, 10);
+        const nowY = new Date().getFullYear();
+        if (y >= 1920 && y <= nowY) {
+          fieldsJson.geboortedatum = `${yearRaw}-01-01`;
+        }
+      }
+    }
+
     if (userId) {
       const account = await this.prisma.user.findUnique({
         where: { id: userId },

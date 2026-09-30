@@ -53,6 +53,12 @@ export function isValidGuestMinorWithChoice(raw: string | null | undefined): boo
 
 /** Valideert oudergegevens voor minderjarige gastboeking; retourneert fouttekst of null. */
 export function validateGuestMinorParentFields(fieldsJson: Record<string, string>): string | null {
+  /** Model-worden funnel: enkel bevestiging “ouder aanwezig”. */
+  const aanwezig = (fieldsJson.ouder_aanwezig ?? '').trim().toLowerCase();
+  if (aanwezig === 'ja' || aanwezig === 'yes' || aanwezig === '1') {
+    return null;
+  }
+
   const withWho = (fieldsJson[GUEST_MINOR_PARENT_FIELD_KEYS.with] ?? '').trim().toLowerCase();
   if (!isValidGuestMinorWithChoice(withWho)) {
     return 'U bent minderjarig: kies met wie u komt (vader, moeder of allebei ouders).';
