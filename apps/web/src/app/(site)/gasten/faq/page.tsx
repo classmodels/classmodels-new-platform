@@ -40,7 +40,7 @@ export default function FaqPage() {
       />
       <section className="nieuw-sectie">
         <div className="nieuw-wrap" style={{ maxWidth: 860 }}>
-          <span className="nieuw-label">Gastenportaal</span>
+          <span className="nieuw-label">Model worden?</span>
           <h1 className="nieuw-display">
             Veelgestelde <em>vragen</em>
           </h1>

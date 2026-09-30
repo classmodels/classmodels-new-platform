@@ -15,7 +15,7 @@ const CTA_BG = '#d4af6a';
 const CTA_TEXT = '#14110a';
 
 const GUEST_MENU_LINKS = [
-  { label: 'Gastenportaal (home)', href: '/?m=guest' },
+  { label: 'Model worden? (home)', href: '/?m=guest' },
   { label: 'Model worden', href: '/?m=guest&info=model-worden' },
   { label: 'Gratis testshoot', href: '/?m=guest&info=gratis-fotoshoot' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
@@ -88,7 +88,7 @@ export function MobileGuestAppShell({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Gastenportaal menu"
+        aria-label="Model worden? menu"
         className={`fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col shadow-2xl transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -97,7 +97,7 @@ export function MobileGuestAppShell({
         <div className="cm-appbar-safe shrink-0" style={{ borderBottom: '1px solid rgba(243,234,216,0.15)' }}>
           <div className="flex h-12 items-center justify-between gap-2 pl-4 pr-1">
             <p className="notranslate m-0 truncate text-sm font-bold uppercase tracking-wide" style={{ color: BAR_TEXT }}>
-              Gastenportaal
+              Model worden?
             </p>
             <button
               type="button"

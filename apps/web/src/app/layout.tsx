@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     siteName: 'Class-Models',
     title: 'Class-Models | Modellenbureau in Belgie',
     description:
-      'Word model via het gastenportaal van Class-Models of ontdek hoe ons modellenbureau werkt voor castings, fotoshoots en campagnes.',
+      'Word model via Model worden van Class-Models of ontdek hoe ons modellenbureau werkt voor castings, fotoshoots en campagnes.',
   },
   appleWebApp: {
     capable: true,

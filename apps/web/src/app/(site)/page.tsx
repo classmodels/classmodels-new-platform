@@ -2,7 +2,6 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { MobileHomeGate } from '@/components/MobileHomeGate';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
-import { PartnersStrip } from '@/components/PartnersStrip';
 
 export const metadata: Metadata = {
   title: 'Modellenbureau België | Model worden & casting',
@@ -55,7 +54,7 @@ const jsonLd = {
           name: 'Hoe schrijf ik mij in bij Class-Models?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Via het gastenportaal boekt u online een gratis testshoot, casting of intake-gesprek.',
+            text: 'Via Model worden boekt u online een vrijblijvende kennismaking — met of zonder gratis testshoot.',
           },
         },
         {
@@ -95,11 +94,8 @@ export default function NieuwHomePage() {
               testshoot, casting of intake-gesprek.
             </p>
             <div className="nieuw-hero-actions">
-              <Link className="nieuw-btn" href="/gasten/gratis-fotoshoot#agenda">
-                Gratis testshoot boeken
-              </Link>
-              <Link className="nieuw-btn nieuw-btn-ghost" href="/gasten/model-worden">
-                Hoe model worden werkt
+              <Link className="nieuw-btn" href="/gasten/model-worden#inschrijven">
+                Maak een vrijblijvende online afspraak
               </Link>
             </div>
           </div>
@@ -116,10 +112,10 @@ export default function NieuwHomePage() {
               height={1000}
             />
             <div className="nieuw-hero-card-body">
-              <h2>Gastenportaal</h2>
+              <h2>Model worden?</h2>
               <p>
-                De snelste weg om in te schrijven: kies een gratis testshoot, casting of
-                intake-gesprek en plan meteen een afspraak.
+                De snelste weg om in te schrijven: kies je kennismaking en plan meteen een
+                afspraak.
               </p>
               <ul>
                 <li>Geen ervaring nodig</li>
@@ -128,7 +124,7 @@ export default function NieuwHomePage() {
                 <li>Uiteenlopende leeftijden en profielen</li>
               </ul>
               <Link className="nieuw-btn" href="/gasten/model-worden" style={{ marginTop: 18 }}>
-                Naar gastenportaal →
+                Model worden? →
               </Link>
             </div>
           </aside>
@@ -146,19 +142,19 @@ export default function NieuwHomePage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/nieuw/gastenportaal.jpg"
-                alt="Gastenportaal Class-Models"
+                alt="Model worden bij Class-Models"
                 loading="lazy"
                 decoding="async"
                 width={640}
                 height={480}
               />
               <div className="nieuw-card-body">
-                <h3>Gastenportaal</h3>
+                <h3>Model worden?</h3>
                 <p>
                   Voor wie model wil worden: inschrijven, boeken en starten zonder omwegen.
                 </p>
                 <Link className="nieuw-btn" href="/gasten/model-worden">
-                  Open gastenportaal →
+                  Model worden? →
                 </Link>
               </div>
             </article>
@@ -214,58 +210,15 @@ export default function NieuwHomePage() {
           <h2 className="nieuw-display nieuw-display-md">
             Toegankelijk. Eerlijk. <em>Professioneel.</em>
           </h2>
-          <p className="nieuw-lead" style={{ marginTop: 16 }}>
-            Al meer dan 20 jaar helpen we mensen met uitstraling om model te worden — met of
-            zonder ervaring. Diversiteit, flexibiliteit en persoonlijke begeleiding staan centraal.
+          <p
+            className="nieuw-lead"
+            style={{ marginTop: 16, maxWidth: 'min(720px, 100%)', whiteSpace: 'pre-line' }}
+          >
+            {`Al meer dan 20 jaar helpen we mensen met uitstraling om model te worden, met of zonder ervaring.
+Diversiteit, flexibiliteit en persoonlijke begeleiding staan centraal.`}
           </p>
-          <div className="nieuw-pitch-strip">
-            <div>
-              <strong>20+</strong>
-              <span>Jaar ervaring</span>
-            </div>
-            <div>
-              <strong>6</strong>
-              <span>Doelgroepen</span>
-            </div>
-            <div>
-              <strong>0</strong>
-              <span>€ voor testshoot</span>
-            </div>
-            <div>
-              <strong>1</strong>
-              <span>Duidelijk gastenportaal</span>
-            </div>
-          </div>
         </div>
       </section>
-
-      <section className="nieuw-sectie">
-        <div className="nieuw-wrap nieuw-cta-band">
-          <div>
-            <span className="nieuw-label">Klaar om te starten?</span>
-            <h2 className="nieuw-display nieuw-display-md">
-              Plan je testshoot, casting of <em>intake-gesprek</em>
-            </h2>
-            <p className="nieuw-lead">
-              Kies wat bij u past en boek online. Geen ervaring nodig — wel goesting om te
-              schitteren.
-            </p>
-          </div>
-          <div className="nieuw-hero-actions">
-            <Link className="nieuw-btn" href="/gasten/intake#agenda">
-              Intake-gesprek
-            </Link>
-            <Link className="nieuw-btn" href="/gasten/casting#agenda">
-              Casting
-            </Link>
-            <Link className="nieuw-btn" href="/gasten/gratis-fotoshoot#agenda">
-              Gratis testshoot
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <PartnersStrip />
       </NieuwShell>
     </MobileHomeGate>
   );

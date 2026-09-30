@@ -23,7 +23,7 @@ function DrawerPortalRows({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div>
       <Link href="/?m=guest" className={portalRowClass}>
-        <span>Gastenportaal</span>
+        <span>Model worden?</span>
         <span className="text-white/70" aria-hidden>
           ›
         </span>

@@ -46,6 +46,17 @@ export const DEFAULT_AGENDA_CALENDAR_DEFS = [
     defaultDayEndTime: '18:00:00',
   },
   {
+    /** Eén gastenagenda voor model worden (intake en/of gratis testshoot). */
+    slug: 'model-worden',
+    title: 'Model worden',
+    color: '#856b3f',
+    durationMinutes: 90,
+    capacity: 1,
+    sortOrder: 45,
+    defaultDayStartTime: '08:00:00',
+    defaultDayEndTime: '18:00:00',
+  },
+  {
     slug: 'gratis-fotoshoot',
     title: 'Gratis Fotoshoot',
     color: '#b7cae8',
@@ -199,6 +210,29 @@ export async function ensureDefaultAgendaCalendars(
           active: true,
         })),
       });
+    }
+
+    if (d.slug === 'model-worden') {
+      const pakket = await prisma.agendaField.findFirst({
+        where: { calendarId: cal.id, fieldKey: 'pakket' },
+      });
+      if (!pakket) {
+        await prisma.agendaField.create({
+          data: {
+            calendarId: cal.id,
+            fieldKey: 'pakket',
+            label: 'Pakket',
+            type: 'text',
+            required: false,
+            width: '2',
+            placeholder: '',
+            titlePosition: 'above',
+            sortOrder: 5,
+            options: null,
+            active: true,
+          },
+        });
+      }
     }
 
     /**

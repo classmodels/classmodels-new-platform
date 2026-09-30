@@ -119,6 +119,15 @@ async function seedAgenda(p: PrismaClient) {
       sortOrder: 40,
     },
     {
+      slug: 'model-worden',
+      title: 'Model worden',
+      color: '#856b3f',
+      durationMinutes: 90,
+      capacity: 1,
+      legacyType: 'generic',
+      sortOrder: 45,
+    },
+    {
       slug: 'gratis-fotoshoot',
       title: 'Gratis Fotoshoot',
       color: '#b7cae8',

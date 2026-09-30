@@ -1,5 +1,10 @@
-/** Gastagenda’s: intake, casting, gratis fotoshoot (gelijk met web `agenda-guest-intake.ts`). */
-export const GUEST_INTAKE_CALENDAR_SLUGS = new Set(['intake-gesprek', 'casting', 'gratis-fotoshoot']);
+/** Gastagenda’s: intake, casting, gratis fotoshoot, model worden (gelijk met web). */
+export const GUEST_INTAKE_CALENDAR_SLUGS = new Set([
+  'intake-gesprek',
+  'casting',
+  'gratis-fotoshoot',
+  'model-worden',
+]);
 
 export const GUEST_INTAKE_OPTIONAL_FIELD_KEYS = new Set(['foto', 'bericht', 'hoe_terecht']);
 

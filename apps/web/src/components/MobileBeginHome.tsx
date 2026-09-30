@@ -81,11 +81,18 @@ const QUICK_ACTIONS: QuickAction[] = [
   },
 ];
 
-const MOBILE_BOOKINGS: Record<string, { title: string; slug: string; line: string }> = {
+const MOBILE_BOOKINGS: Record<
+  string,
+  { title: string; slug: string; line: string; extraFields?: Record<string, string> }
+> = {
   'gratis-fotoshoot': {
     title: 'Gratis testshoot',
-    slug: 'gratis-fotoshoot',
+    slug: 'model-worden',
     line: 'Kies een moment. Daarna vult u kort uw gegevens in.',
+    extraFields: {
+      pakket: 'Gratis testshoot + intake-gesprek',
+      opmerkingen: 'Inclusief gratis testshoot',
+    },
   },
   casting: {
     title: 'Casting',
@@ -94,12 +101,15 @@ const MOBILE_BOOKINGS: Record<string, { title: string; slug: string; line: strin
   },
   intake: {
     title: 'Intake gesprek',
-    slug: 'intake-gesprek',
+    slug: 'model-worden',
     line: 'Plan een vrijblijvend gesprek.',
+    extraFields: {
+      pakket: 'Alleen intake-gesprek',
+    },
   },
 };
 const GUEST_MENU_LINKS: { label: string; href: string }[] = [
-  { label: 'Gastenportaal (home)', href: '/?m=guest' },
+  { label: 'Model worden? (home)', href: '/?m=guest' },
   { label: 'Model worden', href: '/?m=guest&info=model-worden' },
   { label: 'Gratis testshoot', href: '/?m=guest&info=gratis-fotoshoot' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
@@ -448,7 +458,7 @@ function StartView() {
           >
             <span className="flex items-center justify-between gap-3">
               <span className="font-serif text-[21px] font-semibold" style={{ color: ACCENT }}>
-                Gastenportaal
+                Model worden?
               </span>
               <span aria-hidden className="text-xl" style={{ color: ACCENT }}>
                 ›
@@ -574,6 +584,7 @@ function MobileBookView({ bookKey }: { bookKey: string }) {
               heading=""
               hideSlotTitle
               variant="default"
+              extraFields={meta.extraFields}
               onClose={() => router.push('/?m=guest')}
             />
           </div>
@@ -589,7 +600,7 @@ function MobileInfoView({ infoKey }: { infoKey: string }) {
   }
   return (
     <>
-      <TopBar title={mobileInfoTitle(infoKey)} subtitle="Gastenportaal" />
+      <TopBar title={mobileInfoTitle(infoKey)} subtitle="Model worden?" />
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
         <div
           className="sticky z-30 -mx-4 flex items-center justify-between gap-2.5 px-4 py-2.5"
@@ -656,7 +667,7 @@ function GuestView() {
 
   return (
     <>
-      <TopBar title="Gastenportaal" subtitle="Model worden bij Class-Models" onMenu={() => setOpen(true)} />
+      <TopBar title="Model worden?" subtitle="Model worden bij Class-Models" onMenu={() => setOpen(true)} />
 
       {/* Overlay + inschuifmenu: alleen het gastmenu, plus de andere portalen. */}
       <div
@@ -669,7 +680,7 @@ function GuestView() {
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label="Gastenportaal menu"
+        aria-label="Model worden? menu"
         className={`fixed inset-y-0 left-0 z-50 flex w-[82vw] max-w-[320px] flex-col shadow-2xl transition-transform duration-200 ease-out ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
@@ -681,7 +692,7 @@ function GuestView() {
               className="notranslate m-0 truncate text-sm font-bold uppercase tracking-wide"
               style={{ color: BAR_TEXT }}
             >
-              Gastenportaal
+              Model worden?
             </p>
             <button
               type="button"
@@ -744,7 +755,7 @@ function GuestView() {
         <BackRow />
 
         <h1 className="m-0 mt-5 font-serif text-[25px] font-semibold leading-tight">
-          <span style={{ color: ACCENT }}>Gastenportaal</span>
+          <span style={{ color: ACCENT }}>Model worden?</span>
         </h1>
         <p className="m-0 mt-2 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
           Hier vind je alle info om model te worden, kan je deelnemen aan een casting, een gratis
@@ -959,7 +970,7 @@ function ModelView() {
             <strong style={{ color: ACCENT }}>Let op:</strong> alleen voor modellen met een contract
             bij Class-Models. Nog geen contract? Meld u dan aan via het{' '}
             <Link href="/?m=guest" className="font-semibold underline underline-offset-2" style={{ color: ACCENT }}>
-              gastenportaal
+              Model worden?
             </Link>
             .
           </p>

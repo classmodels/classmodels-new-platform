@@ -12,7 +12,7 @@ export const messagesNl = {
   header: {
     logo: 'Class-Models',
     tagline: 'Modeling Agency',
-    guestPortal: 'Gastenportaal',
+    guestPortal: 'Model worden?',
     modelPortal: 'Modellenportaal',
     clientPortal: 'Klantenportaal',
     contact: 'Contact',
@@ -44,9 +44,9 @@ export const messagesNl = {
     body:
       'Dit platform is jouw persoonlijke omgeving binnen Class-Models, waar je op een stijlvolle en overzichtelijke manier alles beheert wat bij jouw carrière als model komt kijken. Raadpleeg je profiel, houd je portfolio up-to-date, bekijk opdrachten en blijf verbonden met het bureau.',
     moreInfo: 'Meer info over model worden?',
-    viewGuestPortal: 'Bekijk het gastenportaal',
+    viewGuestPortal: 'Bekijk Model worden',
     tabModel: 'Model worden',
-    tabGuest: 'Site gastenportaal',
+    tabGuest: 'Site Model worden',
     tabClient: 'Inloggen klanten',
     tabPhotographer: 'Inloggen fotograaf',
     modelLoginTitle: 'Inloggen als model',

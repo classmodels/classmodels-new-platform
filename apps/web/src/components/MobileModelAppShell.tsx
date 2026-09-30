@@ -149,7 +149,7 @@ export function MobileModelAppShell({ children }: { children: ReactNode }) {
               background: 'rgba(243,234,216,0.08)',
             }}
           >
-            <span>Gastenportaal</span>
+            <span>Model worden?</span>
             <span aria-hidden>›</span>
           </Link>
           <Link

@@ -523,6 +523,31 @@
   position: relative;
   z-index: 1;
 }
+.nieuw-pillar--stack {
+  min-height: 48px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.nieuw-pillar-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1.15;
+}
+.nieuw-pillar-main {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.nieuw-pillar-sub {
+  font-size: 8px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  opacity: 0.78;
+}
 .nieuw-pillar:hover {
   color: var(--n-ink);
   border-color: rgba(238, 233, 223, 0.55);
@@ -3737,6 +3762,13 @@
     font-size: 9px;
     letter-spacing: 0.1em;
     white-space: normal;
+  }
+  .nieuw-pillar-main {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+  .nieuw-pillar-sub {
+    font-size: 7.5px;
   }
   .nieuw-merk-logo {
     height: clamp(44px, 11vw, 60px);

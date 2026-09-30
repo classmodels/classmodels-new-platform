@@ -12,13 +12,13 @@ import './nieuw.css';
 
 export type NieuwPortal = 'home' | 'gasten' | 'modellen' | 'klanten';
 
+/** Korte nav: één inschrijfpad voorop; rest als diepere info. */
 const GASTEN_NAV = [
   { href: '/gasten/model-worden', label: 'Model worden' },
-  { href: '/gasten/gratis-fotoshoot', label: 'Gratis testshoot' },
+  { href: '/gasten/model-worden#inschrijven', label: 'Inschrijven' },
+  { href: '/gasten/model-worden#hoe-werkt-het', label: 'Hoe werkt het?' },
   { href: '/gasten/testshoot', label: 'Testshoot-foto’s' },
-  { href: '/gasten/casting', label: 'Casting' },
-  { href: '/gasten/intake', label: 'Intake-gesprek' },
-  { href: '/gasten/faq', label: 'FAQ' },
+  { href: '/gasten/contact', label: 'Contact' },
 ] as const;
 
 const MODELLEN_NAV = [
@@ -157,8 +157,8 @@ export function NieuwShell({
         </Link>
       )
     ) : (
-      <Link href="/gasten/gratis-fotoshoot#agenda" className="nieuw-cta-top">
-        Inschrijven
+      <Link href="/gasten/model-worden#inschrijven" className="nieuw-cta-top">
+        Ik heb interesse
       </Link>
     );
 
@@ -181,9 +181,12 @@ export function NieuwShell({
             <nav className="nieuw-kop-pillars" aria-label="Portalen">
               <Link
                 href="/gasten/model-worden"
-                className={`nieuw-pillar${activePortal === 'gasten' ? ' actief' : ''}`}
+                className={`nieuw-pillar nieuw-pillar--stack${activePortal === 'gasten' ? ' actief' : ''}`}
               >
-                <span>Gastenportaal · schrijf u in</span>
+                <span className="nieuw-pillar-stack">
+                  <span className="nieuw-pillar-main">Model worden?</span>
+                  <span className="nieuw-pillar-sub">bekijk de info</span>
+                </span>
               </Link>
               <Link
                 href="/modellen"
@@ -271,21 +274,21 @@ export function NieuwShell({
               </p>
             </div>
             <div>
-              <h5>Gastenportaal</h5>
+              <h5>Model worden?</h5>
               <p>
                 <Link href="/gasten/model-worden">Model worden</Link>
                 <br />
+                <Link href="/gasten/model-worden#inschrijven">Ik heb interesse</Link>
+                <br />
+                <Link href="/gasten/model-worden#hoe-werkt-het">Hoe werkt het?</Link>
+                <br />
                 <Link href="/gasten/gratis-fotoshoot">Gratis testshoot</Link>
-                <br />
-                <Link href="/gasten/casting">Casting</Link>
-                <br />
-                <Link href="/gasten/intake">Intake-gesprek</Link>
               </p>
             </div>
             <div>
               <h5>Portalen</h5>
               <p>
-                <Link href="/gasten/model-worden">Gastenportaal</Link>
+                <Link href="/gasten/model-worden">Model worden?</Link>
                 <br />
                 <Link href="/modellen">Modellenportaal</Link>
                 <br />
@@ -336,7 +339,7 @@ export function NieuwShell({
                 ? 'Contact'
                 : pathname?.startsWith('/reviews')
                   ? 'Reviews'
-                  : 'Gastenportaal';
+                  : 'Model worden?';
     return (
       <MobileGuestAppShell title={mobileTitle} subtitle="Class-Models">
         {shellBody}

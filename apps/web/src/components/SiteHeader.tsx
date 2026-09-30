@@ -74,7 +74,7 @@ export function SiteHeader() {
         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-x-5 gap-y-2 md:flex-nowrap md:gap-x-7">
           <nav className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 md:flex-nowrap md:gap-x-6">
             <Link href={guestHref} className="text-white/90 hover:text-white">
-              <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Gastenportaal" />
+              <CmText contentKey="site.header.nav.guest" as="span" className="text-white/90" fallback="Model worden?" />
             </Link>
             <Link href={modelHref} className="text-white/90 hover:text-white">
               <CmText contentKey="site.header.nav.model" as="span" className="text-white/90" fallback="Modellenportaal" />

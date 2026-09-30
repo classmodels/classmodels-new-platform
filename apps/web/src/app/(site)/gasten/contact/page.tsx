@@ -18,7 +18,15 @@ export default function ContactPage() {
       <section className="nieuw-sectie">
         <div className="nieuw-wrap" style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 36 }}>
           <div>
-            <h1 className="nieuw-h1">
+            <h1
+              className="nieuw-h1"
+              style={{
+                fontSize: 'clamp(22px, 2.8vw, 34px)',
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+                maxWidth: 'none',
+              }}
+            >
               Neem <em>contact</em> op
             </h1>
             <div className="nieuw-panel" style={{ marginTop: 28 }}>

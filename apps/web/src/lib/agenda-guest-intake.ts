@@ -1,5 +1,10 @@
-/** Gastagenda’s (intake / casting / gratis fotoshoot) — zelfde slugs als modelportaal “pro” variant. */
-export const GUEST_INTAKE_CALENDAR_SLUGS = ['intake-gesprek', 'casting', 'gratis-fotoshoot'] as const;
+/** Gastagenda’s (intake / casting / gratis fotoshoot / model worden) — zelfde slugs als modelportaal “pro” variant. */
+export const GUEST_INTAKE_CALENDAR_SLUGS = [
+  'intake-gesprek',
+  'casting',
+  'gratis-fotoshoot',
+  'model-worden',
+] as const;
 
 export function isGuestIntakeCalendarSlug(slug: string): boolean {
   return (GUEST_INTAKE_CALENDAR_SLUGS as readonly string[]).includes(slug);

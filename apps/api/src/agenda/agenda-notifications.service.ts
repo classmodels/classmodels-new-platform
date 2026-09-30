@@ -19,6 +19,30 @@ import { AgendaTravelService } from './agenda-travel.service';
 import { isAgendaBookingEnrolled, isGuestIntakeCalendarSlug } from './guest-intake-calendars';
 import { formatBulksmsError } from './agenda-phone';
 
+function packageLabelFromFields(fields: Record<string, string>): string | null {
+  const raw = (fields.pakket ?? fields.package ?? '').trim().toLowerCase();
+  if (!raw) return null;
+  if (raw.includes('testshoot') || raw.includes('fotoshoot') || raw.includes('foto')) {
+    return 'Gratis testshoot + intake-gesprek';
+  }
+  if (raw.includes('intake')) {
+    return 'Intake-gesprek';
+  }
+  return (fields.pakket ?? fields.package ?? '').trim() || null;
+}
+
+/** Voor model-worden: mailtitel volgt het gekozen pakket (intake vs testshoot+intake). */
+function resolveMailCalendarTitle(
+  calendarSlug: string,
+  calendarTitle: string,
+  fields: Record<string, string>,
+): string {
+  if (calendarSlug === 'model-worden') {
+    return packageLabelFromFields(fields) ?? 'Model worden';
+  }
+  return calendarTitle;
+}
+
 export type AgendaConfirmationPayload = {
   toEmail: string | null;
   phone: string | null;
@@ -264,9 +288,14 @@ export class AgendaNotificationService {
         if (!sendEmail) break;
         const to = ctx.toEmail?.trim();
         if (!to) continue;
+        const includesTestshoot = /testshoot|fotoshoot|foto/i.test(ctx.calendarTitle);
         const subject =
-          applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
-          `Melding: ${ctx.calendarTitle}`;
+          ctx.calendarSlug === 'model-worden' && trigger === 'booking_created'
+            ? includesTestshoot
+              ? `Bevestiging: gratis testshoot + intake-gesprek — Class Models`
+              : `Bevestiging: intake-gesprek — Class Models`
+            : applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
+              `Melding: ${ctx.calendarTitle}`;
         let bodyTemplate = t.body;
         // Annulatiemail: reden altijd meesturen, ook als het sjabloon de placeholder niet kent.
         if (
@@ -446,10 +475,25 @@ export class AgendaNotificationService {
     const to = ctx.toEmail?.trim();
     if (!to) return false;
     try {
-      const subject = `Bevestiging: ${ctx.calendarTitle} — Class Models`;
+      const isModelWorden = ctx.calendarSlug === 'model-worden';
+      const includesTestshoot = /testshoot|fotoshoot|foto/i.test(ctx.calendarTitle);
+      const subject = isModelWorden
+        ? includesTestshoot
+          ? `Bevestiging: gratis testshoot + intake-gesprek — Class Models`
+          : `Bevestiging: intake-gesprek — Class Models`
+        : `Bevestiging: ${ctx.calendarTitle} — Class Models`;
+      const intro = isModelWorden
+        ? includesTestshoot
+          ? 'Uw afspraak voor een gratis testshoot met intake-gesprek is ingepland. Hieronder vindt u de gegevens.'
+          : 'Uw afspraak voor een intake-gesprek is ingepland. Hieronder vindt u de gegevens.'
+        : 'Uw afspraak is ingepland. Hieronder vindt u de gegevens en knoppen om te annuleren of — op de dag vóór uw bezoek — uw komst te bevestigen.';
+      const htmlTemplate = AGENDA_DEFAULT_BOOKING_EMAIL_HTML.replace(
+        'Uw afspraak is ingepland. Hieronder vindt u de gegevens en knoppen om te annuleren of — op de dag vóór uw bezoek — uw komst te bevestigen.',
+        intro,
+      );
       const html = coerceOutgoingEmailHtml(
         applyAgendaMailPlaceholders(
-          AGENDA_DEFAULT_BOOKING_EMAIL_HTML,
+          htmlTemplate,
           buildAgendaMailPlaceholderVars(
             {
               displayName: ctx.displayName,
@@ -910,6 +954,7 @@ export class AgendaNotificationService {
       b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
         ? (b.fieldsJson as Record<string, string>)
         : {};
+    const mailCalendarTitle = resolveMailCalendarTitle(cal.slug, cal.title, fj);
     const cancelReason = (fj.annulatie_reden ?? '').toString().trim() || undefined;
     const visitorAddress = formatGuestAddressFromFields(fj);
     let distanceLabel = '';
@@ -930,7 +975,7 @@ export class AgendaNotificationService {
             bookingId: b.id,
             bookingStatus: b.status,
             calendarSlug: cal.slug,
-            calendarTitle: cal.title,
+            calendarTitle: mailCalendarTitle,
             displayName,
             toEmail: b.email,
             phone: b.phone,
@@ -956,7 +1001,7 @@ export class AgendaNotificationService {
       bookingId: b.id,
       bookingStatus: b.status,
       calendarSlug: cal.slug,
-      calendarTitle: cal.title,
+      calendarTitle: mailCalendarTitle,
       displayName,
       toEmail: b.email,
       phone: b.phone,

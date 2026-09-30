@@ -124,6 +124,7 @@ export function GuestBookingPanel({
   autoBookOnPick = false,
   showOccupiedSlots = false,
   hideSlotTitle = false,
+  extraFields,
 }: {
   calendarSlug: string;
   heading: string;
@@ -140,6 +141,8 @@ export function GuestBookingPanel({
   showOccupiedSlots?: boolean;
   /** Titel staat buiten het kader (gasten-agenda’s). */
   hideSlotTitle?: boolean;
+  /** Extra fieldsJson (bv. pakket) — niet getoond in het formulier. */
+  extraFields?: Record<string, string>;
 }) {
   const isMobile = useIsMobile() === true;
   const daysPerPage = isMobile ? DAYS_PER_PAGE_MOBILE : DAYS_PER_PAGE_DESKTOP;
@@ -166,6 +169,8 @@ export function GuestBookingPanel({
 
   /** Pagina voor pro-kolomweergave (0 = eerste 4 datums met sloten). */
   const [dayPage, setDayPage] = useState(0);
+  /** Soft fout bij laden (geen popup) — bv. API tijdelijk offline. */
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const showAlert = useCallback(
     (opts: { title?: string; message?: string; items?: string[] } | string) => {
@@ -186,6 +191,7 @@ export function GuestBookingPanel({
     const base = getApiBase();
     setLoading(true);
     setAlert(null);
+    setLoadError(null);
     try {
       const fromD = new Date();
       const toD = new Date(fromD);
@@ -228,13 +234,21 @@ export function GuestBookingPanel({
         setDayPage(0);
       }
     } catch (e: unknown) {
-      showAlert(e instanceof Error ? e.message : 'Laden mislukt');
+      // Geen popup bij laden — anders ziet de bezoeker “Failed to fetch” bij Model worden.
+      const msg =
+        e instanceof TypeError || (e instanceof Error && /failed to fetch/i.test(e.message))
+          ? 'De agenda is even niet bereikbaar. Probeer het zo opnieuw.'
+          : e instanceof Error
+            ? e.message
+            : 'Laden mislukt';
+      setLoadError(msg);
       setSlots([]);
       setOpenDates([]);
+      setFields([]);
     } finally {
       setLoading(false);
     }
-  }, [calendarSlug, daysPerPage, showAlert]);
+  }, [calendarSlug, daysPerPage]);
 
   useEffect(() => {
     loadData();
@@ -284,7 +298,13 @@ export function GuestBookingPanel({
   const showMinorGuard =
     strictGuestForm && isMinorFromIsoDateString((form.geboortedatum ?? '').trim());
 
-  const displayFields = useMemo(() => fields, [fields]);
+  const displayFields = useMemo(() => {
+    const hide = new Set([
+      ...Object.keys(extraFields ?? {}),
+      ...(calendarSlug === 'model-worden' ? ['pakket'] : []),
+    ]);
+    return fields.filter((f) => !hide.has(f.fieldKey));
+  }, [fields, extraFields, calendarSlug]);
 
   const showDatePager = sortedDates.length > daysPerPage;
 
@@ -535,7 +555,7 @@ export function GuestBookingPanel({
     setAlert(null);
     try {
       const fileKeys = displayFields.filter((x) => x.type === 'file').map((x) => x.fieldKey);
-      const textPayload = { ...form };
+      const textPayload = { ...form, ...(extraFields ?? {}) };
       for (const k of fileKeys) delete textPayload[k];
       const phoneKeySubmit =
         displayFields.find((f) => ['telefoon', 'phone', 'gsm'].includes(f.fieldKey))?.fieldKey ??
@@ -927,27 +947,29 @@ export function GuestBookingPanel({
     return (
       <div className="space-y-4">
         <p className="text-sm font-medium text-zinc-800">
-          Er zijn momenteel geen beschikbare datums.
+          {loadError ? 'Agenda tijdelijk niet beschikbaar' : 'Er zijn momenteel geen beschikbare datums.'}
         </p>
         <p className="text-sm text-zinc-600">
-          Probeer het later opnieuw — zodra er nieuwe datums worden opengezet, kan u hier meteen boeken.
+          {loadError
+            ? loadError
+            : 'Probeer het later opnieuw — zodra er nieuwe datums worden opengezet, kan u hier meteen boeken.'}
         </p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-        >
-          Terug
-        </button>
-        {alert ? (
-          <NieuwAlertDialog
-            open
-            title={alert.title}
-            message={alert.message}
-            items={alert.items}
-            onClose={() => setAlert(null)}
-          />
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+          >
+            Opnieuw laden
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+          >
+            Terug
+          </button>
+        </div>
       </div>
     );
   }

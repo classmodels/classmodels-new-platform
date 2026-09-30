@@ -26,6 +26,90 @@ export const GUEST_SIDEBAR_MENU: { id: GuestMenuId; label: string }[] = GUEST_ME
   (m) => m.id !== 'contact',
 );
 
+/** Eén duidelijke start (niet drie gelijkwaardige keuzes) — conversie-funnel. */
+export const GUEST_SIMPLE_FUNNEL = {
+  kicker: 'GASTENPORTAAL · CLASS-MODELS',
+  headline: ['Geen ervaring.', 'Wel uitstraling.'],
+  lead:
+    'Model worden? Ontdek of het bij jou past. Bij Class-Models zijn alle leeftijden, maten en looks welkom.',
+  primaryCta: 'Ik heb interesse',
+  secondaryCta: 'Eerst even ontdekken',
+  trustLine: 'Geen ervaring nodig · Persoonlijk in Hulshout',
+  bannerTitle: ['Een nieuw gezicht?', 'Misschien ben jij het.'],
+  bannerPoints: [
+    '20+ jaar ervaring',
+    'Alle leeftijden & maten',
+    'Persoonlijke begeleiding',
+    'Goede verdiensten',
+  ],
+  diversityKicker: 'JE HOEFT NIET IN EEN HOKJE TE PASSEN',
+  diversityTitle: ['Er is meer dan', 'één modellook.'],
+  diversityBody: [
+    'Jong of al wat levenservaring — van kinderen (via een ouder) tot 50+. Klein, groot, slank of met rondingen. Een uitgesproken gezicht of juist heel herkenbaar.',
+    'Denk aan modeshows, fotoshoots, reclamespots en meer.\nModellenwerk is bovendien makkelijk te combineren met studie of een job:\njij kiest de opdrachten die in jouw planning passen.',
+    'Wij leren graag de persoon achter de foto kennen en kijken samen welke mogelijkheden bij jouw profiel passen.',
+  ],
+  diversityTags: ['Jongeren', 'Volwassenen', '60+', 'Mannen', 'Alle maten', 'Kinderen, via een ouder'],
+  stepsKicker: 'EEN KLEINE STAP. EEN NIEUWE ERVARING.',
+  stepsTitle: 'Zo begint jouw verhaal.',
+  steps: [
+    {
+      n: '01',
+      title: 'Laat van je horen',
+      body: 'Vertel ons kort wie je bent. Je hoeft nog geen professionele foto’s of portfolio te hebben.',
+    },
+    {
+      n: '02',
+      title: 'Maak kennis met ons',
+      body: 'Kies een kennismaking in Hulshout. Je krijgt uitleg en ruimte om rustig te ontdekken.',
+    },
+    {
+      n: '03',
+      title: 'Bekijk jouw mogelijkheden',
+      body: 'We bespreken je profiel en de eventuele vervolgstappen — volledig vrijblijvend.',
+    },
+  ],
+  calmKicker: 'NOG EEN BEETJE ZENUWACHTIG?',
+  calmTitle: ['Je hoeft alleen', 'jezelf mee te brengen.'],
+  calmBody:
+    'Voor de camera staan kun je ontdekken. We helpen je op weg en leggen uit wat je kunt verwachten.',
+  calmCta: 'Zet mijn eerste stap',
+  bookingKicker: 'JOUW EERSTE STAP',
+  bookingTitle: 'Plan je kennismaking',
+  bookingLead:
+    'Kies een moment in Hulshout. Geen ervaring nodig, geen verplichting — alleen nieuwsgierigheid.',
+  /** Primaire agenda: één pad i.p.v. drie gelijkwaardige keuzes. */
+  primaryAgendaSlug: 'intake-gesprek',
+  softAltLabel: 'Liever eerst voor de camera?',
+  softAltHref: '/gasten/gratis-fotoshoot#agenda',
+  softAltCta: 'Gratis testshoot boeken',
+} as const;
+
+/** Korte FAQ op de vereenvoudigde gastenpagina. */
+export const GUEST_SIMPLE_FAQ = [
+  {
+    q: 'Kan ik starten zonder ervaring?',
+    a: 'Ja. Je hebt geen ervaring of professioneel portfolio nodig. Tijdens de kennismaking bespreken we je mogelijkheden.',
+  },
+  {
+    q: 'Ben ik te oud, te klein of niet slank genoeg?',
+    a: 'Uiteenlopende leeftijden, maten en profielen zijn welkom. Welke opdrachten passen, hangt af van wat klanten zoeken.',
+  },
+  {
+    q: 'Wat kost het?',
+    a: 'De kennismaking is vrijblijvend. Class-Models biedt ook een gratis testshoot met foto’s aan. Eventuele vervolgstappen leggen we vooraf duidelijk uit.',
+  },
+  {
+    q: 'Krijg ik zeker opdrachten?',
+    a: 'Een kennismaking of inschrijving garandeert geen opdrachten. Boekingen hangen af van je profiel, beschikbaarheid en de vraag van klanten.',
+  },
+  {
+    q: 'Kan ik mijn kind aanmelden?',
+    a: 'Een ouder of voogd plant de kennismaking en begeleidt het kind bij de afspraak.',
+  },
+] as const;
+
+/** @deprecated behouden voor diepere info-pagina’s; hoofdfunnel gebruikt GUEST_SIMPLE_FUNNEL. */
 export const CARD_MODEL_WORDEN = [
   {
     kicker: 'GRATIS TESTSHOOT',
@@ -115,7 +199,7 @@ export const GUEST_FAQ = [
   },
   {
     q: 'Hoe schrijf ik mij in bij Class-Models?',
-    a: 'Via het gastenportaal boekt u online een gratis testshoot, casting of intake-gesprek. Na uw afspraak in Hulshout bekijken we samen of en hoe u verder wilt gaan.',
+    a: 'Via Model worden boekt u online een vrijblijvende kennismaking — met of zonder gratis testshoot. Na uw afspraak in Hulshout bekijken we samen of en hoe u verder wilt gaan.',
   },
   {
     q: 'Kost een testshoot of intake iets?',

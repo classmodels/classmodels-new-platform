@@ -118,11 +118,11 @@ function LoginForm() {
           <span className="nieuw-label">Alleen voor contractmodellen</span>
           <p style={{ margin: '12px 0 0', color: 'var(--n-mut)', fontSize: 13, lineHeight: 1.65 }}>
             Het modellenaccount is alleen voor modellen die onder contract staan bij Class-Models.
-            Geen overeenkomst? Ga dan naar het gastenportaal.
+            Geen overeenkomst? Ga dan naar Model worden.
           </p>
           <div className="nieuw-login-actions" style={{ marginTop: 18 }}>
             <Link className="nieuw-btn" href="/?m=guest&info=model-worden">
-              Naar gastenportaal
+              Model worden?
             </Link>
             <Link className="nieuw-btn nieuw-btn-ghost" href="/modellen/registreren">
               Modellenaccount maken
@@ -246,7 +246,7 @@ function WrongRolePanel() {
             Modellenaccount maken
           </Link>
           <Link className="nieuw-btn nieuw-btn-ghost" href="/?m=guest&info=model-worden">
-            Naar gastenportaal
+            Model worden?
           </Link>
         </div>
       </div>
