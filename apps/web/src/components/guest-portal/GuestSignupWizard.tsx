@@ -77,60 +77,6 @@ function weekRangeLabel(weekOffset: number): string {
   return `${fmt(monday)} – ${fmt(sunday)}`;
 }
 
-/** Voorbeeldlayout wanneer de agenda leeg of offline is */
-function buildDemoSlots(): SlotDto[] {
-  const hourSets = [
-    ['10:00', '11:30', '14:00', '15:30', '17:00'],
-    ['09:30', '11:00', '12:30', '14:00', '15:30', '17:00'],
-    ['10:00', '11:00', '13:00', '14:30'],
-    [
-      '09:00',
-      '09:30',
-      '10:00',
-      '10:30',
-      '11:00',
-      '11:30',
-      '12:00',
-      '13:00',
-      '13:30',
-      '14:00',
-      '14:30',
-      '15:00',
-      '15:30',
-      '16:00',
-      '16:30',
-      '17:00',
-      '17:30',
-      '18:00',
-    ],
-    ['10:00', '11:30', '14:00', '15:30', '16:30', '18:00'],
-    ['09:00', '10:30', '12:00', '13:30', '15:00'],
-    ['10:00', '11:30', '14:00'],
-  ];
-  const out: SlotDto[] = [];
-  const today = ymdEuropeBrussels(new Date());
-  // Vul ~4 weken vanaf deze week (alle dagen behalve lege demo)
-  for (let week = 0; week < 4; week += 1) {
-    for (const ymd of weekDaysOrdered(week)) {
-      if (ymd < today) continue;
-      // Zondag: voorbeeld van gesloten dag
-      const d = new Date(`${ymd}T12:00:00`);
-      if (d.getDay() === 0) continue;
-      const dayHours = hourSets[Math.abs(ymd.charCodeAt(8) + week) % hourSets.length];
-      for (const h of dayHours) {
-        out.push({
-          id: `demo-${ymd}-${h}`,
-          slotDate: ymd,
-          startTime: `${h}:00`,
-          endTime: `${h}:00`,
-        });
-      }
-    }
-  }
-  return out;
-}
-
-const DEMO_SLOT_PREFIX = 'demo-';
 const MAX_WEEK_OFFSET = 8;
 
 function stepLabel(step: WizardStep): string {
@@ -247,11 +193,7 @@ export function GuestSignupWizard() {
     }
   }, [step, pkg, loadAgenda]);
 
-  const displaySlots = useMemo(() => {
-    if (loadingSlots) return slots;
-    if (slots.length > 0) return slots;
-    return buildDemoSlots();
-  }, [slots, loadingSlots]);
+  const displaySlots = slots;
 
   const todayYmd = ymdEuropeBrussels(new Date());
 
@@ -297,10 +239,6 @@ export function GuestSignupWizard() {
     if (!slotId) {
       setError('Kies eerst een dag en een uur.');
       setStep('day');
-      return;
-    }
-    if (slotId.startsWith(DEMO_SLOT_PREFIX)) {
-      setError('Dit is een voorbeeldschema. Boeken kan zodra echte momenten geladen zijn.');
       return;
     }
     setError(null);
@@ -703,6 +641,16 @@ export function GuestSignupWizard() {
               Kies een dag, daarna kan je een uur kiezen.
             </p>
             {loadingSlots ? <p className="nieuw-signup-sub">Momenten laden…</p> : null}
+            {!loadingSlots && loadError ? (
+              <p className="nieuw-signup-error" role="alert">
+                {loadError}
+              </p>
+            ) : null}
+            {!loadingSlots && !loadError && displaySlots.length === 0 ? (
+              <p className="nieuw-signup-error" role="alert">
+                Er zijn momenteel geen vrije momenten. Probeer het later opnieuw of kies een andere week.
+              </p>
+            ) : null}
 
             {!loadingSlots ? (
               <div className="nieuw-signup-day-block">
