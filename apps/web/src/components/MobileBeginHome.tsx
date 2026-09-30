@@ -8,7 +8,6 @@ import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
 import { GuestSignupWizard } from '@/components/guest-portal/GuestSignupWizard';
 import {
-  GUEST_SIMPLE_FAQ,
   GUEST_SIMPLE_FUNNEL,
 } from '@/components/guest-portal/guest-portal-data';
 import { PartnersStrip } from '@/components/PartnersStrip';
@@ -72,7 +71,6 @@ const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
   { label: 'Hoe werkt het?', href: '/?m=guest#hoe-werkt-het' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
-  { label: 'Veelgestelde vragen', href: '/?m=guest&info=faq' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'Contact', href: '/?m=guest&info=contact' },
 ];
