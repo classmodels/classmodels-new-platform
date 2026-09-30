@@ -718,38 +718,6 @@ function GuestView() {
           <span className="text-[11.5px] font-semibold leading-tight opacity-80">Maak online een afspraak</span>
         </Link>
 
-        <div className="mt-6 space-y-4">
-          <p className="m-0 text-center text-[13px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-            Online boeken in enkele minuten · Hulshout
-          </p>
-          <div
-            className="rounded-xl px-4 py-4 shadow-sm"
-            style={{ background: CARD, border: `1px solid ${LINE}` }}
-          >
-            <p className="m-0 text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
-              Jouw keuze bij het boeken
-            </p>
-            <div className="mt-3 space-y-3.5">
-              <div>
-                <p className="m-0 text-[14px] font-semibold" style={{ color: TEXT }}>
-                  Gratis testshoot + intake-gesprek
-                </p>
-                <p className="m-0 mt-1 text-[13px] leading-snug" style={{ color: TEXT_SOFT }}>
-                  Eerst voor de camera, daarna vrijblijvend advies over jouw kansen.
-                </p>
-              </div>
-              <div style={{ borderTop: `1px solid ${LINE}`, paddingTop: 14 }}>
-                <p className="m-0 text-[14px] font-semibold" style={{ color: TEXT }}>
-                  Alleen intake-gesprek
-                </p>
-                <p className="m-0 mt-1 text-[13px] leading-snug" style={{ color: TEXT_SOFT }}>
-                  Persoonlijk kennismaken in Hulshout — zonder fotoshoot.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="mt-8">
           <SectionTitle>Meer info</SectionTitle>
           <div
