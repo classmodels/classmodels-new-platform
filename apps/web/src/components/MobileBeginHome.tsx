@@ -6,7 +6,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
-import { GuestBookingPanel } from '@/components/guest-portal/GuestBookingPanel';
+import { GuestSignupWizard } from '@/components/guest-portal/GuestSignupWizard';
+import {
+  GUEST_SIMPLE_FAQ,
+  GUEST_SIMPLE_FUNNEL,
+} from '@/components/guest-portal/guest-portal-data';
 import { PartnersStrip } from '@/components/PartnersStrip';
 import {
   isMobileInfoKey,
@@ -23,11 +27,10 @@ import '@/components/nieuw/nieuw.css';
 
 /**
  * Mobiele versie (gsm + app). Schermen gestuurd met `?m=`:
- * - start (geen parameter): kies Gastenportaal, Modellenportaal of Klantenportaal.
- * - `?m=guest`: gastenportaal (testshoot, casting, intake, info).
+ * - start (geen parameter): kies Model worden?, Modellenportaal of Klantenportaal.
+ * - `?m=guest`: model worden (info + afspraak boeken).
  * - `?m=model`: modellenportaal — inloggen / account (contractmodellen).
  * - `?m=client`: klantenportaal — inloggen / account (bedrijven & merken).
- * Kleuren: zelfde donkere Class-Models-look als klanten- en modellenportaal (zwart + goud).
  */
 
 const BG = '#0e0d0d';
@@ -53,69 +56,22 @@ function parseApiError(err: unknown, fallback: string): string {
   return fallback;
 }
 
-type QuickAction = {
-  title: string;
-  line: string;
-  infoHref: string;
-  bookHref: string;
-};
+const F = GUEST_SIMPLE_FUNNEL;
 
-const QUICK_ACTIONS: QuickAction[] = [
-  {
-    title: 'Gratis testshoot',
-    line: 'Volledig gratis en zonder verplichtingen — ontdek of modellenwerk iets voor jou is.',
-    infoHref: '/?m=guest&info=gratis-fotoshoot',
-    bookHref: '/?m=guest&book=gratis-fotoshoot',
-  },
-  {
-    title: 'Casting',
-    line: 'Schrijf je in voor een casting voor echte opdrachten. Ervaring is niet nodig.',
-    infoHref: '/?m=guest&info=casting',
-    bookHref: '/?m=guest&book=casting',
-  },
-  {
-    title: 'Intake gesprek',
-    line: 'Vrijblijvend gesprek over jouw uitstraling, profiel en mogelijkheden.',
-    infoHref: '/?m=guest&info=intake',
-    bookHref: '/?m=guest&book=intake',
-  },
-];
+/** Alle boek-links openen dezelfde inschrijfwizard (model-worden agenda). */
+const BOOK_SIGNUP_KEYS = new Set([
+  'inschrijven',
+  'model-worden',
+  'gratis-fotoshoot',
+  'intake',
+  'intake-gesprek',
+]);
 
-const MOBILE_BOOKINGS: Record<
-  string,
-  { title: string; slug: string; line: string; extraFields?: Record<string, string> }
-> = {
-  'gratis-fotoshoot': {
-    title: 'Gratis testshoot',
-    slug: 'model-worden',
-    line: 'Kies een moment. Daarna vult u kort uw gegevens in.',
-    extraFields: {
-      pakket: 'Gratis testshoot + intake-gesprek',
-      opmerkingen: 'Inclusief gratis testshoot',
-    },
-  },
-  casting: {
-    title: 'Casting',
-    slug: 'casting',
-    line: 'Kies een castingmoment en schrijf u in.',
-  },
-  intake: {
-    title: 'Intake gesprek',
-    slug: 'model-worden',
-    line: 'Plan een vrijblijvend gesprek.',
-    extraFields: {
-      pakket: 'Alleen intake-gesprek',
-    },
-  },
-};
 const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Model worden? (home)', href: '/?m=guest' },
-  { label: 'Model worden', href: '/?m=guest&info=model-worden' },
-  { label: 'Gratis testshoot', href: '/?m=guest&info=gratis-fotoshoot' },
+  { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
+  { label: 'Hoe werkt het?', href: '/?m=guest#hoe-werkt-het' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
-  { label: 'Casting', href: '/?m=guest&info=casting' },
-  { label: 'Intake gesprek', href: '/?m=guest&info=intake' },
-  { label: 'Doelgroepen', href: '/?m=guest&info=doelgroepen' },
   { label: 'Veelgestelde vragen', href: '/?m=guest&info=faq' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'Contact', href: '/?m=guest&info=contact' },
@@ -465,7 +421,7 @@ function StartView() {
               </span>
             </span>
             <span className="mt-1.5 block text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
-              Model worden? Klik hier — gratis testshoot, casting, intake gesprek en alle info.
+              Model worden? Klik hier — plan een vrijblijvende kennismaking, met of zonder gratis testshoot.
             </span>
           </Link>
 
@@ -529,19 +485,19 @@ function StartView() {
 
 function MobileBookView({ bookKey }: { bookKey: string }) {
   const router = useRouter();
-  const meta = MOBILE_BOOKINGS[bookKey];
+  const isSignup = BOOK_SIGNUP_KEYS.has(bookKey);
 
   useEffect(() => {
-    if (!meta) router.replace('/?m=guest');
-  }, [meta, router]);
+    if (!isSignup) router.replace('/?m=guest&book=inschrijven');
+  }, [isSignup, router]);
 
-  if (!meta) {
+  if (!isSignup) {
     return <div className="min-h-[100dvh] w-full" style={{ background: BG }} aria-hidden />;
   }
 
   return (
     <>
-      <TopBar title={meta.title} subtitle="Afspraak boeken" />
+      <TopBar title="Afspraak maken" subtitle="Model worden bij Class-Models" />
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
         <div
           className="sticky z-30 -mx-4 flex items-center justify-between gap-2.5 px-4 py-2.5"
@@ -567,27 +523,15 @@ function MobileBookView({ bookKey }: { bookKey: string }) {
           </Link>
         </div>
 
-        <h1 className="m-0 mt-5 font-serif text-[24px] font-semibold leading-tight" style={{ color: TEXT }}>
-          {meta.title}
+        <h1 className="m-0 mt-5 font-serif text-[24px] font-semibold leading-tight" style={{ color: ACCENT }}>
+          Plan je kennismaking
         </h1>
         <p className="m-0 mt-2 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-          {meta.line}
+          {F.bookingLead}
         </p>
 
-        <div
-          className="nieuw-root mt-5 overflow-hidden rounded-xl px-3 py-4 shadow-sm"
-          style={{ background: CARD, border: `1px solid ${LINE}` }}
-        >
-          <div className="nieuw-booking nieuw-themed">
-            <GuestBookingPanel
-              calendarSlug={meta.slug}
-              heading=""
-              hideSlotTitle
-              variant="default"
-              extraFields={meta.extraFields}
-              onClose={() => router.push('/?m=guest')}
-            />
-          </div>
+        <div className="nieuw-root nieuw-root--mobile-signup mt-5" style={{ minHeight: 0, background: 'transparent' }}>
+          <GuestSignupWizard />
         </div>
       </div>
     </>
@@ -754,65 +698,100 @@ function GuestView() {
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10">
         <BackRow />
 
-        <h1 className="m-0 mt-5 font-serif text-[25px] font-semibold leading-tight">
+        <h1 className="m-0 mt-5 font-serif text-[26px] font-semibold leading-tight">
           <span style={{ color: ACCENT }}>Model worden?</span>
         </h1>
+        <p className="m-0 mt-2 text-[15px] leading-relaxed" style={{ color: TEXT }}>
+          {F.headline[0]} {F.headline[1]}
+        </p>
         <p className="m-0 mt-2 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-          Hier vind je alle info om model te worden, kan je deelnemen aan een casting, een gratis
-          testfotoshoot boeken of een intakegesprek plannen.
+          {F.lead}
+        </p>
+        <p className="m-0 mt-2 text-[12.5px] font-semibold tracking-wide" style={{ color: ACCENT }}>
+          {F.trustLine}
         </p>
 
-        <SectionTitle>Maak snel een keuze</SectionTitle>
-        <div className="mt-3 space-y-4">
-          {QUICK_ACTIONS.map((a) => (
-            <section
-              key={a.title}
-              className="rounded-xl px-4 py-4 shadow-sm"
+        <Link
+          href="/?m=guest&book=inschrijven"
+          className="mt-5 flex w-full items-center justify-center rounded-xl px-4 py-4 text-[15px] font-bold shadow-sm"
+          style={{ background: CTA_BG, color: CTA_TEXT }}
+        >
+          Maak een vrijblijvende afspraak →
+        </Link>
+        <p className="m-0 mt-2 text-center text-[12.5px]" style={{ color: TEXT_SOFT }}>
+          Online boeken in enkele minuten · Hulshout
+        </p>
+
+        <SectionTitle>Zo begint jouw verhaal</SectionTitle>
+        <div id="hoe-werkt-het" className="mt-3 space-y-3 scroll-mt-24">
+          {F.steps.map((s) => (
+            <div
+              key={s.n}
+              className="rounded-xl px-4 py-3.5 shadow-sm"
               style={{ background: CARD, border: `1px solid ${LINE}` }}
             >
-              <h3 className="m-0 font-serif text-[19px] font-semibold" style={{ color: TEXT }}>
-                {a.title}
-              </h3>
-              <p className="m-0 mt-1.5 text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
-                {a.line}
+              <p className="m-0 text-[11px] font-bold tracking-[0.18em]" style={{ color: ACCENT }}>
+                {s.n}
               </p>
-              <div className="mt-3 grid grid-cols-2 gap-2.5">
-                <Link
-                  href={a.infoHref}
-                  className="flex items-center justify-center rounded-lg px-3 py-2.5 text-[13.5px] font-semibold"
-                  style={{ color: ACCENT, border: `1px solid ${ACCENT}99`, background: BG }}
-                >
-                  Info
-                </Link>
-                <Link
-                  href={a.bookHref}
-                  className="flex items-center justify-center rounded-lg px-3 py-2.5 text-[13.5px] font-bold"
-                  style={{ background: CTA_BG, color: CTA_TEXT }}
-                >
-                  Afspraak boeken
-                </Link>
-              </div>
-            </section>
+              <h3 className="m-0 mt-1 font-serif text-[17px] font-semibold" style={{ color: TEXT }}>
+                {s.title}
+              </h3>
+              <p className="m-0 mt-1 text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
+                {s.body}
+              </p>
+            </div>
           ))}
         </div>
 
-        <SectionTitle>Info model worden</SectionTitle>
+        <div
+          id="inschrijven"
+          className="nieuw-root nieuw-root--mobile-signup mt-7 scroll-mt-24"
+          style={{ minHeight: 0, background: 'transparent' }}
+        >
+          <SectionTitle>Plan je kennismaking</SectionTitle>
+          <p className="m-0 mt-2 mb-3 text-[13.5px] leading-relaxed" style={{ color: TEXT_SOFT }}>
+            {F.bookingLead}
+          </p>
+          <GuestSignupWizard />
+        </div>
+
+        <SectionTitle>Kort antwoord</SectionTitle>
+        <div className="mt-3 space-y-3">
+          {GUEST_SIMPLE_FAQ.slice(0, 3).map((item) => (
+            <div
+              key={item.q}
+              className="rounded-xl px-4 py-3.5 shadow-sm"
+              style={{ background: CARD, border: `1px solid ${LINE}` }}
+            >
+              <h3 className="m-0 text-[14.5px] font-semibold" style={{ color: TEXT }}>
+                {item.q}
+              </h3>
+              <p className="m-0 mt-1.5 text-[13px] leading-relaxed" style={{ color: TEXT_SOFT }}>
+                {item.a}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <Link
+          href="/?m=guest&book=inschrijven"
+          className="mt-5 flex w-full items-center justify-center rounded-xl px-4 py-3.5 text-[14.5px] font-bold"
+          style={{ background: CTA_BG, color: CTA_TEXT }}
+        >
+          Klaar om te boeken? →
+        </Link>
+
+        <SectionTitle>Meer info</SectionTitle>
         <div
           className="mt-3 overflow-hidden rounded-xl shadow-sm"
           style={{ background: CARD, border: `1px solid ${LINE}` }}
         >
           <div className="[&>a:first-child]:!border-t-0">
             <ChevronRow
-              href="/?m=guest&info=model-worden"
-              label="Model worden"
-              sub="Waarom Class-Models, wat mag je verwachten"
-            />
-            <ChevronRow
               href="/gasten/testshoot"
               label="Testshoot-foto’s"
               sub="Bekijk en download uw foto’s op gsm"
             />
-            <ChevronRow href="/?m=guest&info=doelgroepen" label="Doelgroepen" />
             <ChevronRow href="/?m=guest&info=faq" label="Veelgestelde vragen" />
             <ChevronRow href="/reviews" label="Reviews" sub="Ervaringen van onze modellen" />
             <ChevronRow href="/?m=guest&info=contact" label="Contact" sub="Adres, e-mail en telefoon" />

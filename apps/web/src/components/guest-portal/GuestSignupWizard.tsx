@@ -424,7 +424,7 @@ export function GuestSignupWizard() {
               className="nieuw-btn nieuw-btn-ghost nieuw-signup-back-top"
               onClick={() => setStep(step === 'contact' ? 'day' : 'package')}
             >
-              ← Back
+              ← Terug
             </button>
           ) : null}
         </div>

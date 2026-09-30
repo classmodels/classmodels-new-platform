@@ -3,16 +3,12 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import {
-  CARD_MODEL_WORDEN,
-  CASTING_PAGE,
   DOELGROEPEN_CARDS,
   DOELGROEPEN_INTRO,
-  GRATIS_FOTOSHOOT_PAGE,
   GUEST_CONTACT_INFO,
-  GUEST_FAQ,
-  INTAKE_GESPREK_PAGE,
+  GUEST_SIMPLE_FAQ,
+  GUEST_SIMPLE_FUNNEL,
   WAAROM_CHECKLIST,
-  WAAROM_PARAGRAPHS,
 } from '@/components/guest-portal/guest-portal-data';
 import { getApiBase } from '@/lib/api';
 
@@ -24,10 +20,11 @@ const ACCENT = '#d4af6a';
 const CTA_BG = '#d4af6a';
 const CTA_TEXT = '#14110a';
 
+const F = GUEST_SIMPLE_FUNNEL;
+
 export const MOBILE_INFO_KEYS = [
   'model-worden',
   'gratis-fotoshoot',
-  'casting',
   'intake',
   'doelgroepen',
   'faq',
@@ -44,7 +41,6 @@ export function isMobileInfoKey(raw: string | null): raw is MobileInfoKey {
 const TITLES: Record<MobileInfoKey, string> = {
   'model-worden': 'Model worden',
   'gratis-fotoshoot': 'Gratis testshoot',
-  casting: 'Casting',
   intake: 'Intake gesprek',
   doelgroepen: 'Doelgroepen',
   faq: 'Veelgestelde vragen',
@@ -77,115 +73,56 @@ export function mobileInfoTitle(key: MobileInfoKey): string {
 }
 
 export function MobileGuestInfoBody({ infoKey }: { infoKey: MobileInfoKey }) {
-  if (infoKey === 'model-worden') {
+  if (infoKey === 'model-worden' || infoKey === 'gratis-fotoshoot' || infoKey === 'intake') {
     return (
       <div className="space-y-4">
-        <p className="m-0 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-          {WAAROM_PARAGRAPHS[0]}
-        </p>
-        {CARD_MODEL_WORDEN.map((c) => (
-          <Card key={c.title}>
-            <p className="m-0 text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
-              {c.kicker}
+        <Card>
+          <p className="m-0 text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
+            {F.kicker}
+          </p>
+          <h2 className="m-0 mt-2 font-serif text-[20px] font-semibold" style={{ color: TEXT }}>
+            {F.headline[0]} {F.headline[1]}
+          </h2>
+          <p className="m-0 mt-2 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
+            {F.lead}
+          </p>
+          <BookBtn href="/?m=guest&book=inschrijven" label="Maak een vrijblijvende afspraak →" />
+        </Card>
+
+        {F.steps.map((s) => (
+          <Card key={s.n}>
+            <p className="m-0 text-[11px] font-bold tracking-[0.18em]" style={{ color: ACCENT }}>
+              {s.n}
             </p>
-            <h2 className="m-0 mt-2 font-serif text-[18px] font-semibold" style={{ color: TEXT }}>
-              {c.title}
+            <h2 className="m-0 mt-1 font-serif text-[17px] font-semibold" style={{ color: TEXT }}>
+              {s.title}
             </h2>
-            <ul className="m-0 mt-3 list-disc space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
-              {c.bullets.map((b) => (
-                <li key={b}>{b}</li>
-              ))}
-            </ul>
+            <p className="m-0 mt-1.5 text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
+              {s.body}
+            </p>
           </Card>
         ))}
+
         <Card>
           <h2 className="m-0 font-serif text-[18px] font-semibold" style={{ color: TEXT }}>
-            Waarom Class-Models?
+            Jouw keuze bij het boeken
           </h2>
           <ul className="m-0 mt-3 list-disc space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
+            <li>
+              <strong style={{ color: TEXT }}>Gratis testshoot + intake-gesprek</strong> — eerst voor de
+              camera, daarna vrijblijvend advies.
+            </li>
+            <li>
+              <strong style={{ color: TEXT }}>Alleen intake-gesprek</strong> — kennismaken in Hulshout
+              zonder fotoshoot.
+            </li>
+          </ul>
+          <ul className="m-0 mt-4 list-disc space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
             {WAAROM_CHECKLIST.map((b) => (
               <li key={b}>{b}</li>
             ))}
           </ul>
-        </Card>
-      </div>
-    );
-  }
-
-  if (infoKey === 'gratis-fotoshoot') {
-    const p = GRATIS_FOTOSHOOT_PAGE;
-    return (
-      <div className="space-y-4">
-        <Card>
-          <h2 className="m-0 font-serif text-[18px] font-semibold" style={{ color: TEXT }}>
-            {p.expectTitle}
-          </h2>
-          <ul className="m-0 mt-3 list-disc space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
-            {p.expectBullets.map((b) => (
-              <li key={b}>{b}</li>
-            ))}
-          </ul>
-          <p className="m-0 mt-4 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-            {p.whyParagraph}
-          </p>
-          <BookBtn href="/?m=guest&book=gratis-fotoshoot" label={p.ctaButton} />
-        </Card>
-      </div>
-    );
-  }
-
-  if (infoKey === 'casting') {
-    const p = CASTING_PAGE;
-    return (
-      <div className="space-y-4">
-        <Card>
-          <h2 className="m-0 font-serif text-[18px] font-semibold" style={{ color: TEXT }}>
-            {p.expectTitle}
-          </h2>
-          <ul className="m-0 mt-3 list-disc space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
-            {p.expectBullets.map((b) => (
-              <li key={b}>{b}</li>
-            ))}
-          </ul>
-          <p className="m-0 mt-4 text-[14px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-            {p.whyParagraph}
-          </p>
-          <h3 className="m-0 mt-4 text-[14px] font-semibold" style={{ color: TEXT }}>
-            {p.howTitle}
-          </h3>
-          <ol className="m-0 mt-2 list-decimal space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
-            {p.steps.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ol>
-          <BookBtn href="/?m=guest&book=casting" label={p.ctaButton} />
-        </Card>
-      </div>
-    );
-  }
-
-  if (infoKey === 'intake') {
-    const p = INTAKE_GESPREK_PAGE;
-    return (
-      <div className="space-y-4">
-        <Card>
-          <h2 className="m-0 font-serif text-[18px] font-semibold" style={{ color: TEXT }}>
-            {p.howTitle}
-          </h2>
-          <ol className="m-0 mt-3 list-decimal space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
-            {p.steps.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ol>
-          <h3 className="m-0 mt-4 text-[14px] font-semibold" style={{ color: TEXT }}>
-            {p.whyTitle}
-          </h3>
-          <ul className="m-0 mt-2 list-disc space-y-1.5 pl-5 text-[13.5px]" style={{ color: TEXT_SOFT }}>
-            {WAAROM_CHECKLIST.map((b) => (
-              <li key={b}>{b}</li>
-            ))}
-          </ul>
-          <BookBtn href="/?m=guest&book=intake" label={p.ctaButton} />
+          <BookBtn href="/?m=guest&book=inschrijven" label="Plan je kennismaking →" />
         </Card>
       </div>
     );
@@ -207,6 +144,7 @@ export function MobileGuestInfoBody({ infoKey }: { infoKey: MobileInfoKey }) {
             </p>
           </Card>
         ))}
+        <BookBtn href="/?m=guest&book=inschrijven" label="Maak een afspraak →" />
       </div>
     );
   }
@@ -214,7 +152,7 @@ export function MobileGuestInfoBody({ infoKey }: { infoKey: MobileInfoKey }) {
   if (infoKey === 'faq') {
     return (
       <div className="space-y-3">
-        {GUEST_FAQ.map((item) => (
+        {GUEST_SIMPLE_FAQ.map((item) => (
           <Card key={item.q}>
             <h2 className="m-0 text-[15px] font-semibold" style={{ color: TEXT }}>
               {item.q}
@@ -224,7 +162,7 @@ export function MobileGuestInfoBody({ infoKey }: { infoKey: MobileInfoKey }) {
             </p>
           </Card>
         ))}
-        <BookBtn href="/?m=guest&book=gratis-fotoshoot" label="Klaar om te boeken?" />
+        <BookBtn href="/?m=guest&book=inschrijven" label="Klaar om te boeken?" />
       </div>
     );
   }
@@ -266,6 +204,7 @@ export function MobileGuestInfoBody({ infoKey }: { infoKey: MobileInfoKey }) {
           >
             Open in Google Maps
           </a>
+          <BookBtn href="/?m=guest&book=inschrijven" label="Afspraak maken →" />
         </Card>
         <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${LINE}`, minHeight: 220 }}>
           <iframe
@@ -332,6 +271,7 @@ function MobileReviewsList() {
           </Card>
         ))
       )}
+      <BookBtn href="/?m=guest&book=inschrijven" label="Maak een afspraak →" />
       <BookBtn href="/reviews" label="Alle reviews / schrijf een review" />
     </div>
   );

@@ -16,12 +16,8 @@ const CTA_TEXT = '#14110a';
 
 const GUEST_MENU_LINKS = [
   { label: 'Model worden? (home)', href: '/?m=guest' },
-  { label: 'Model worden', href: '/?m=guest&info=model-worden' },
-  { label: 'Gratis testshoot', href: '/?m=guest&info=gratis-fotoshoot' },
+  { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
-  { label: 'Casting', href: '/?m=guest&info=casting' },
-  { label: 'Intake gesprek', href: '/?m=guest&info=intake' },
-  { label: 'Doelgroepen', href: '/?m=guest&info=doelgroepen' },
   { label: 'Veelgestelde vragen', href: '/?m=guest&info=faq' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'Contact', href: '/?m=guest&info=contact' },
