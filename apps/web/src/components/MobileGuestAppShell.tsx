@@ -18,7 +18,6 @@ const GUEST_MENU_LINKS = [
   { label: 'Model worden? (home)', href: '/?m=guest' },
   { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
-  { label: 'Veelgestelde vragen', href: '/?m=guest&info=faq' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'Contact', href: '/?m=guest&info=contact' },
 ] as const;

@@ -722,27 +722,6 @@ function GuestView() {
           Online boeken in enkele minuten · Hulshout
         </p>
 
-        <SectionTitle>Zo begint jouw verhaal</SectionTitle>
-        <div id="hoe-werkt-het" className="mt-3 space-y-3 scroll-mt-24">
-          {F.steps.map((s) => (
-            <div
-              key={s.n}
-              className="rounded-xl px-4 py-3.5 shadow-sm"
-              style={{ background: CARD, border: `1px solid ${LINE}` }}
-            >
-              <p className="m-0 text-[11px] font-bold tracking-[0.18em]" style={{ color: ACCENT }}>
-                {s.n}
-              </p>
-              <h3 className="m-0 mt-1 font-serif text-[17px] font-semibold" style={{ color: TEXT }}>
-                {s.title}
-              </h3>
-              <p className="m-0 mt-1 text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
-                {s.body}
-              </p>
-            </div>
-          ))}
-        </div>
-
         <div
           id="inschrijven"
           className="nieuw-root nieuw-root--mobile-signup mt-7 scroll-mt-24"
@@ -753,24 +732,6 @@ function GuestView() {
             {F.bookingLead}
           </p>
           <GuestSignupWizard />
-        </div>
-
-        <SectionTitle>Kort antwoord</SectionTitle>
-        <div className="mt-3 space-y-3">
-          {GUEST_SIMPLE_FAQ.slice(0, 3).map((item) => (
-            <div
-              key={item.q}
-              className="rounded-xl px-4 py-3.5 shadow-sm"
-              style={{ background: CARD, border: `1px solid ${LINE}` }}
-            >
-              <h3 className="m-0 text-[14.5px] font-semibold" style={{ color: TEXT }}>
-                {item.q}
-              </h3>
-              <p className="m-0 mt-1.5 text-[13px] leading-relaxed" style={{ color: TEXT_SOFT }}>
-                {item.a}
-              </p>
-            </div>
-          ))}
         </div>
 
         <Link
@@ -792,10 +753,30 @@ function GuestView() {
               label="Testshoot-foto’s"
               sub="Bekijk en download uw foto’s op gsm"
             />
-            <ChevronRow href="/?m=guest&info=faq" label="Veelgestelde vragen" />
             <ChevronRow href="/reviews" label="Reviews" sub="Ervaringen van onze modellen" />
             <ChevronRow href="/?m=guest&info=contact" label="Contact" sub="Adres, e-mail en telefoon" />
           </div>
+        </div>
+
+        <SectionTitle>Zo begint jouw verhaal</SectionTitle>
+        <div id="hoe-werkt-het" className="mt-3 space-y-3 scroll-mt-24">
+          {F.steps.map((s) => (
+            <div
+              key={s.n}
+              className="rounded-xl px-4 py-3.5 shadow-sm"
+              style={{ background: CARD, border: `1px solid ${LINE}` }}
+            >
+              <p className="m-0 text-[11px] font-bold tracking-[0.18em]" style={{ color: ACCENT }}>
+                {s.n}
+              </p>
+              <h3 className="m-0 mt-1 font-serif text-[17px] font-semibold" style={{ color: TEXT }}>
+                {s.title}
+              </h3>
+              <p className="m-0 mt-1 text-[13.5px] leading-snug" style={{ color: TEXT_SOFT }}>
+                {s.body}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </>
