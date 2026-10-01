@@ -44,6 +44,7 @@ import {
 import {
   ensureDefaultAgendaCalendars,
 } from './agenda-default-calendars';
+import { restyleAgendaNotificationEmailTemplates } from './agenda-notification-template-restyle';
 import {
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
@@ -392,6 +393,18 @@ export class AgendaService implements OnModuleInit {
     } catch (e) {
       this.log.warn(
         `Agenda standaardagenda's bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+    try {
+      const mailRestyle = await restyleAgendaNotificationEmailTemplates(this.prisma);
+      if (mailRestyle.updated > 0) {
+        this.log.log(
+          `Agenda: ${mailRestyle.updated} e-mail/SMS-sjabloon(nen) omgezet naar huisstijl-inhoud.`,
+        );
+      }
+    } catch (e) {
+      this.log.warn(
+        `Agenda mail-sjablonen restyle bij start mislukt: ${e instanceof Error ? e.message : String(e)}`,
       );
     }
     try {
