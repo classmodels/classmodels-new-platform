@@ -42,6 +42,88 @@ export function isModelWordenFamilySlug(slug: string): boolean {
   return (MODEL_WORDEN_FAMILY_SLUGS as readonly string[]).includes(slug);
 }
 
+export function isLegacyGuestAgendaSlug(slug: string): boolean {
+  return (LEGACY_GUEST_AGENDA_SLUGS as readonly string[]).includes(slug);
+}
+
+/** Virtuele sjabloon-targets i.p.v. aparte legacy-agenda’s. */
+export const MODEL_WORDEN_PKG_TARGET_TESTSHOOT = 'model-worden:testshoot_intake';
+export const MODEL_WORDEN_PKG_TARGET_INTAKE = 'model-worden:intake_only';
+
+export const MODEL_WORDEN_PACKAGE_TARGET_KEYS = [
+  MODEL_WORDEN_PKG_TARGET_TESTSHOOT,
+  MODEL_WORDEN_PKG_TARGET_INTAKE,
+] as const;
+
+export function isModelWordenPackageTargetKey(slug: string): boolean {
+  return (MODEL_WORDEN_PACKAGE_TARGET_KEYS as readonly string[]).includes(slug);
+}
+
+/** Effectief pakket voor matching (ook legacy agenda-slugs). */
+export function effectiveModelWordenPackage(
+  calendarSlug: string,
+  fields: Record<string, unknown> | null | undefined,
+): ModelWordenPackage | null {
+  if (calendarSlug === 'gratis-fotoshoot') return 'testshoot_intake';
+  if (calendarSlug === 'intake-gesprek') return 'intake_only';
+  if (calendarSlug === 'casting') return null;
+  if (calendarSlug === 'model-worden') return detectModelWordenPackage(fields);
+  return null;
+}
+
+function parseTemplateSlugList(templateSlugsRaw: unknown): string[] {
+  let v: unknown = templateSlugsRaw;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return [];
+    try {
+      v = JSON.parse(t) as unknown;
+    } catch {
+      return [];
+    }
+  }
+  if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean);
+  return [];
+}
+
+/**
+ * Of een notificatie-sjabloon geldt voor deze boeking.
+ * Ondersteunt gewone agenda-slugs én `model-worden:testshoot_intake` / `model-worden:intake_only`.
+ */
+export function templateAppliesToBooking(
+  templateSlugsRaw: unknown,
+  calendarSlug: string,
+  fields?: Record<string, unknown> | null,
+): boolean {
+  const slugs = parseTemplateSlugList(templateSlugsRaw);
+  if (!slugs.length) return false;
+
+  if (slugs.includes(calendarSlug)) return true;
+
+  if (!isModelWordenFamilySlug(calendarSlug)) return false;
+
+  if (slugs.includes('model-worden')) return true;
+
+  const pkg = effectiveModelWordenPackage(calendarSlug, fields ?? null);
+  if (pkg === 'testshoot_intake') {
+    return (
+      slugs.includes(MODEL_WORDEN_PKG_TARGET_TESTSHOOT) || slugs.includes('gratis-fotoshoot')
+    );
+  }
+  if (pkg === 'intake_only') {
+    return slugs.includes(MODEL_WORDEN_PKG_TARGET_INTAKE) || slugs.includes('intake-gesprek');
+  }
+  // model-worden zonder pakket / casting
+  if (calendarSlug === 'model-worden' || calendarSlug === 'casting') {
+    return (
+      slugs.includes(MODEL_WORDEN_PKG_TARGET_TESTSHOOT) ||
+      slugs.includes(MODEL_WORDEN_PKG_TARGET_INTAKE) ||
+      slugs.includes('casting')
+    );
+  }
+  return false;
+}
+
 export function resolveMailCalendarTitle(
   calendarSlug: string,
   calendarTitle: string,

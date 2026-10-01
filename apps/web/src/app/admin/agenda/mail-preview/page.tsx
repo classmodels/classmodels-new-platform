@@ -7,6 +7,13 @@ import { useAuth } from '@/context/auth-context';
 import { AgendaMailHtmlEditor, AgendaMailTemplatePreview } from '@/components/admin/AgendaMailTemplateEditor';
 import { adminFetch } from '@/lib/admin-api';
 import { getApiBase } from '@/lib/api';
+import {
+  adminTemplateAgendaTargets,
+  bookingAgendaDisplayLabel,
+  defaultTemplateSlugPick,
+  normalizeTemplateSlugPick,
+  templateAppliesToBooking,
+} from '@/lib/model-worden-agenda';
 
 type Template = {
   id: string;
@@ -76,7 +83,8 @@ type BookingPick = {
   firstname: string | null;
   lastname: string | null;
   email: string | null;
-  calendar: { id: string; title: string };
+  fieldsJson?: Record<string, unknown> | null;
+  calendar: { id: string; slug: string; title: string };
   slot: { slotDate: string; startTime: string; endTime: string };
 };
 
@@ -96,7 +104,9 @@ export default function AdminAgendaMailSmsPage() {
   const [ok, setOk] = useState<string | null>(null);
 
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [calendars, setCalendars] = useState<{ id: string; slug: string; title: string }[]>([]);
+  const [calendars, setCalendars] = useState<
+    { id: string; slug: string; title: string; active?: boolean }[]
+  >([]);
   const [editing, setEditing] = useState<null | Partial<Template> & { id?: string }>(null);
   const [slugPick, setSlugPick] = useState<Set<string>>(() => new Set());
 
@@ -144,7 +154,10 @@ export default function AdminAgendaMailSmsPage() {
 
   const loadCals = useCallback(async () => {
     if (!token) return;
-    const rows = await adminFetch<{ id: string; slug: string; title: string }[]>('/admin/agenda/calendars', token);
+    const rows = await adminFetch<{ id: string; slug: string; title: string; active?: boolean }[]>(
+      '/admin/agenda/calendars',
+      token,
+    );
     setCalendars(rows);
   }, [token]);
 
@@ -273,6 +286,42 @@ export default function AdminAgendaMailSmsPage() {
     [templates],
   );
 
+  const agendaTargets = useMemo(() => adminTemplateAgendaTargets(calendars), [calendars]);
+
+  const sendBooking = useMemo(
+    () => sendBookings.find((b) => b.id === sendBookingId) ?? null,
+    [sendBookings, sendBookingId],
+  );
+
+  /** Sjablonen die nog bij de huidige agenda horen (niet alleen oude casting/intake/fotoshoot). */
+  const sendableTemplates = useMemo(() => {
+    return sortedTemplates.filter((t) => {
+      const slugs = Array.isArray(t.calendarSlugs) ? (t.calendarSlugs as string[]) : [];
+      if (!slugs.length) return false;
+      if (sendBooking) {
+        return templateAppliesToBooking(
+          t.calendarSlugs,
+          sendBooking.calendar.slug,
+          sendBooking.fieldsJson ?? null,
+        );
+      }
+      // Zonder gekozen afspraak: toon sjablonen die op actieve targets kunnen vallen
+      return agendaTargets.some((target) => {
+        if (target.key.startsWith('model-worden:')) {
+          const pkg = target.key.endsWith('testshoot_intake') ? 'testshoot_intake' : 'intake_only';
+          return templateAppliesToBooking(t.calendarSlugs, 'model-worden', { pakket: pkg });
+        }
+        return templateAppliesToBooking(t.calendarSlugs, target.key, null);
+      });
+    });
+  }, [sortedTemplates, sendBooking, agendaTargets]);
+
+  useEffect(() => {
+    if (sendTemplateId && !sendableTemplates.some((t) => t.id === sendTemplateId)) {
+      setSendTemplateId('');
+    }
+  }, [sendableTemplates, sendTemplateId]);
+
   const moveTemplate = async (id: string, direction: 'up' | 'down') => {
     if (!token) return;
     const idx = sortedTemplates.findIndex((t) => t.id === id);
@@ -326,9 +375,12 @@ export default function AdminAgendaMailSmsPage() {
     if (!token) return;
     setErr(null);
     try {
-      const rows = await adminFetch<{ id: string; slug: string; title: string }[]>('/admin/agenda/calendars', token);
+      const rows = await adminFetch<{ id: string; slug: string; title: string; active?: boolean }[]>(
+        '/admin/agenda/calendars',
+        token,
+      );
       setCalendars(rows);
-      setSlugPick(new Set(rows.map((c) => c.slug)));
+      setSlugPick(defaultTemplateSlugPick(rows));
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : 'Agenda’s laden mislukt');
       setSlugPick(new Set());
@@ -348,7 +400,7 @@ export default function AdminAgendaMailSmsPage() {
   const openEdit = (t: Template) => {
     setEditing({ ...t });
     const slugs = Array.isArray(t.calendarSlugs) ? (t.calendarSlugs as string[]) : [];
-    setSlugPick(new Set(slugs));
+    setSlugPick(normalizeTemplateSlugPick(slugs));
   };
 
   const saveTemplate = async (e: FormEvent) => {
@@ -640,41 +692,52 @@ export default function AdminAgendaMailSmsPage() {
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <label className="text-xs text-muted">
+                Afspraak {sendBookingsLoading ? '(laden…)' : `(${sendBookings.length})`}
+                <select
+                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                  value={sendBookingId}
+                  onChange={(e) => {
+                    setSendBookingId(e.target.value);
+                    setSendTemplateId('');
+                  }}
+                >
+                  <option value="">— kies afspraak —</option>
+                  {sendBookings.map((b) => {
+                    const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
+                    const agendaLabel = bookingAgendaDisplayLabel(
+                      b.calendar.slug,
+                      b.calendar.title,
+                      b.fieldsJson ?? null,
+                    );
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.slot.slotDate} {b.slot.startTime.slice(0, 5)} — {nm} ({agendaLabel})
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              <label className="text-xs text-muted">
                 Sjabloon
                 <select
                   className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
                   value={sendTemplateId}
                   onChange={(e) => setSendTemplateId(e.target.value)}
+                  disabled={!sendBookingId}
                 >
-                  <option value="">— kies sjabloon —</option>
-                  {sortedTemplates.map((t) => (
+                  <option value="">
+                    {sendBookingId ? '— kies sjabloon —' : '— kies eerst een afspraak —'}
+                  </option>
+                  {sendableTemplates.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name} ({t.channel} · {t.trigger})
                     </option>
                   ))}
                 </select>
               </label>
-              <label className="text-xs text-muted">
-                Afspraak {sendBookingsLoading ? '(laden…)' : `(${sendBookings.length})`}
-                <select
-                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
-                  value={sendBookingId}
-                  onChange={(e) => setSendBookingId(e.target.value)}
-                >
-                  <option value="">— kies afspraak —</option>
-                  {sendBookings.map((b) => {
-                    const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
-                    return (
-                      <option key={b.id} value={b.id}>
-                        {b.slot.slotDate} {b.slot.startTime.slice(0, 5)} — {nm} ({b.calendar.title})
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
               <label className="text-xs text-muted sm:col-span-2">
                 E-mailadres (leeg = adres van de afspraak{(() => {
-                  const b = sendBookings.find((x) => x.id === sendBookingId);
+                  const b = sendBooking;
                   return b?.email ? `: ${b.email}` : '';
                 })()})
                 <input
@@ -686,6 +749,17 @@ export default function AdminAgendaMailSmsPage() {
                 />
               </label>
             </div>
+            {!sendBookingId ? (
+              <p className="mt-2 text-[11px] text-muted">
+                Kies eerst een afspraak: dan ziet u alleen sjablonen die bij die agenda/pakket horen (o.a. Model
+                worden · Intake + fotoshoot of Alleen intake).
+              </p>
+            ) : sendableTemplates.length === 0 ? (
+              <p className="mt-2 text-[11px] text-amber-900">
+                Geen passend sjabloon voor deze afspraak. Bewerk een sjabloon en vink &quot;Model worden · Intake +
+                fotoshoot&quot; of &quot;Alleen intake&quot; aan.
+              </p>
+            ) : null}
             <div className="mt-3">
               <button
                 type="button"
@@ -858,25 +932,25 @@ export default function AdminAgendaMailSmsPage() {
               <div>
                 <p className="text-xs font-medium text-ink">Geldt voor agenda&apos;s</p>
                 <p className="mb-2 text-[11px] text-muted">
-                  Vink de agenda&apos;s aan waarvoor dit bericht automatisch verstuurd wordt. Bij een{' '}
-                  <strong>nieuw</strong> sjabloon staan alle agenda&apos;s standaard aan.
+                  Alleen wat effectief in de agenda staat: Portfolio, Opleiding, en Model worden (intake + fotoshoot
+                  of alleen intake). Bij een <strong>nieuw</strong> sjabloon staan die standaard aan.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {calendars.map((c) => (
-                    <label key={c.id} className="flex items-center gap-1 text-[11px]">
+                  {agendaTargets.map((t) => (
+                    <label key={t.key} className="flex items-center gap-1 text-[11px]">
                       <input
                         type="checkbox"
-                        checked={slugPick.has(c.slug)}
+                        checked={slugPick.has(t.key)}
                         onChange={() =>
                           setSlugPick((prev) => {
                             const n = new Set(prev);
-                            if (n.has(c.slug)) n.delete(c.slug);
-                            else n.add(c.slug);
+                            if (n.has(t.key)) n.delete(t.key);
+                            else n.add(t.key);
                             return n;
                           })
                         }
                       />
-                      {c.title}
+                      {t.label}
                     </label>
                   ))}
                 </div>

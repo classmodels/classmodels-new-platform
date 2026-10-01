@@ -17,6 +17,12 @@ import {
   parseSlugList,
 } from './agenda-notifications.service';
 import {
+  detectModelWordenPackage,
+  isLegacyGuestAgendaSlug,
+  isModelWordenPackageTargetKey,
+  resolveMailCalendarTitle,
+} from './model-worden-mail';
+import {
   AdminBookingsRangeQueryDto,
   AdminCalendarMonthQueryDto,
   AdminOpenDaysQueryDto,
@@ -38,10 +44,6 @@ import {
 import {
   ensureDefaultAgendaCalendars,
 } from './agenda-default-calendars';
-import {
-  detectModelWordenPackage,
-  resolveMailCalendarTitle,
-} from './model-worden-mail';
 import {
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
@@ -2073,13 +2075,17 @@ export class AgendaService implements OnModuleInit {
     }
   }
 
-  /** Alleen bestaande agenda-slugs bewaren (aangevinkt = expliciet in de lijst). */
+  /** Bestaande agenda-slugs + model-worden pakket-targets; legacy gast-agenda’s niet meer opslaan. */
   private async filterValidTemplateCalendarSlugs(slugs: string[] | undefined): Promise<string[]> {
     const input = (slugs ?? []).map((s) => s.trim()).filter(Boolean);
     if (!input.length) return [];
     const all = await this.prisma.agendaCalendar.findMany({ select: { slug: true } });
     const allSet = new Set(all.map((c) => c.slug));
-    return input.filter((s) => allSet.has(s));
+    return input.filter(
+      (s) =>
+        isModelWordenPackageTargetKey(s) ||
+        (allSet.has(s) && !isLegacyGuestAgendaSlug(s)),
+    );
   }
 
   private async allCalendarSlugs(): Promise<string[]> {

@@ -28,6 +28,7 @@ import {
   modelWordenReminderIntroHtml,
   modelWordenReminderSubject,
   resolveMailCalendarTitle,
+  templateAppliesToBooking,
   type ModelWordenPackage,
 } from './model-worden-mail';
 
@@ -106,11 +107,11 @@ export function parseSlugList(raw: unknown): string[] {
   return [];
 }
 
-/** Alleen aangevinkte agenda-slugs in het sjabloon; lege lijst = nergens. */
+/** Alleen aangevinkte agenda-slugs in het sjabloon; lege lijst = nergens.
+ *  @deprecated gebruik templateAppliesToBooking (pakket-aware).
+ */
 export function templateAppliesToCalendar(templateSlugsRaw: unknown, calendarSlug: string): boolean {
-  const slugs = parseSlugList(templateSlugsRaw);
-  if (!slugs.length) return false;
-  return slugs.includes(calendarSlug);
+  return templateAppliesToBooking(templateSlugsRaw, calendarSlug, null);
 }
 
 /** Belgische GSM → E.164 +32… voor BulkSMS. */
@@ -227,8 +228,9 @@ export class AgendaNotificationService {
 
       const matches = rows.filter(
         (t) =>
-          templateAppliesToCalendar(t.calendarSlugs, ctx.calendarSlug) &&
-          templateMatchesEnrollmentFilter(t.enrollmentFilter, ctx.bookingStatus),
+          templateAppliesToBooking(t.calendarSlugs, ctx.calendarSlug, {
+            pakket: ctx.modelWordenPackage ?? undefined,
+          }) && templateMatchesEnrollmentFilter(t.enrollmentFilter, ctx.bookingStatus),
       );
 
       const dueNow = matches.filter((t) => t.offsetMinutes === 0);
@@ -937,7 +939,11 @@ export class AgendaNotificationService {
 
       for (const b of bookings) {
         const cal = b.slot.calendar;
-        if (!templateAppliesToCalendar(template.calendarSlugs, cal.slug)) continue;
+        const fj =
+          b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+            ? (b.fieldsJson as Record<string, unknown>)
+            : null;
+        if (!templateAppliesToBooking(template.calendarSlugs, cal.slug, fj)) continue;
         if (!templateMatchesEnrollmentFilter(template.enrollmentFilter, b.status)) continue;
 
         const already = await this.prisma.agendaBookingNotificationLog.findFirst({
