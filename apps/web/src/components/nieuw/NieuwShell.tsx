@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { MobileClientAppShell } from '@/components/MobileClientAppShell';
 import { MobileGuestAppShell } from '@/components/MobileGuestAppShell';
 import { MobileModelAppShell } from '@/components/MobileModelAppShell';
+import { ClassModelsLogo } from '@/components/nieuw/ClassModelsLogo';
 import { useIsMobile } from '@/lib/use-is-mobile';
 import './nieuw.css';
 
@@ -168,14 +169,7 @@ export function NieuwShell({
     <div className={`nieuw-root${appMobilePage ? ' nieuw-root--app-mobile-page' : ''}`}>
       <header className={`nieuw-kop${chromeClass}`}>
         <div className="nieuw-kop-inner">
-          <Link className="nieuw-merk" href="/">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              className="nieuw-merk-logo"
-              src="/nieuw/logo-header.png"
-              alt="Class-Models — Modeling Agency"
-            />
-          </Link>
+          <ClassModelsLogo href="/" size="header" />
 
           {!hidePortalNav ? (
             <nav className="nieuw-kop-pillars" aria-label="Portalen">
@@ -263,12 +257,7 @@ export function NieuwShell({
         <div className="nieuw-wrap">
           <div className="nieuw-footer-grid">
             <div>
-              <Link className="nieuw-merk" href="/">
-                <span className="nieuw-merk-naam">
-                  Class<b>-</b>Models
-                </span>
-                <span className="nieuw-merk-sub">Modeling Agency</span>
-              </Link>
+              <ClassModelsLogo href="/" size="footer" />
               <p style={{ marginTop: 14, maxWidth: '36ch' }}>
                 Professioneel modellenbureau in België — model worden, casting en boekingen.
               </p>

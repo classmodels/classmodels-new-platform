@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" role="img" aria-label="Class-Models Modeling Agency">
+  <title>Class-Models  Modeling Agency</title>
+  <!-- Left: CM + Modeling Agency -->
+  <text
+    x="78"
+    y="78"
+    text-anchor="middle"
+    fill="#d4af6a"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="72"
+    font-weight="600"
+    letter-spacing="0.02em"
+  >CM</text>
+  <text
+    x="78"
+    y="108"
+    text-anchor="middle"
+    fill="#9a9894"
+    font-family="Helvetica, Arial, sans-serif"
+    font-size="11"
+    font-weight="500"
+    letter-spacing="0.18em"
+  >Modeling Agency</text>
+
+  <!-- Vertical divider -->
+  <line x1="168" y1="28" x2="168" y2="122" stroke="#d4af6a" stroke-width="1.5" />
+
+  <!-- Right: Class-Models + tagline -->
+  <text
+    x="190"
+    y="78"
+    fill="#f4f1ea"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="52"
+    font-weight="600"
+    letter-spacing="0.01em"
+  >Class-Models</text>
+  <text
+    x="190"
+    y="108"
+    fill="#d4af6a"
+    font-family="Helvetica, Arial, sans-serif"
+    font-size="12"
+    font-weight="600"
+    letter-spacing="0.14em"
+  >TOEGANKELIJK. EERLIJK. PROFESSIONEEL.</text>
+
+  <!-- Bottom rule -->
+  <line x1="12" y1="128" x2="708" y2="128" stroke="#d4af6a" stroke-width="1.5" />
+</svg>

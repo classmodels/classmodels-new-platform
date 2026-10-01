@@ -464,6 +464,113 @@
   object-fit: contain;
   object-position: left center;
 }
+
+/* Huisstijl-lockup: CM | Class-Models + tagline */
+.cm-logo-link {
+  color: inherit;
+}
+.cm-logo {
+  --cm-logo-gold: var(--n-gold, #d4af6a);
+  --cm-logo-ink: var(--n-ink, #eae9e6);
+  --cm-logo-dim: var(--n-dim, #8c8a86);
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.7em;
+  row-gap: 0;
+  padding-bottom: 0.42em;
+  line-height: 1;
+  min-width: 0;
+}
+.cm-logo-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28em;
+  min-width: 0;
+}
+.cm-logo-cm {
+  font-family: var(--n-serif, Georgia, serif);
+  font-weight: 600;
+  font-size: 1.95em;
+  letter-spacing: 0.02em;
+  color: var(--cm-logo-gold);
+  line-height: 0.92;
+}
+.cm-logo-agency {
+  font-family: var(--n-sans, system-ui, sans-serif);
+  font-size: 0.34em;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: none;
+  color: var(--cm-logo-dim);
+  white-space: nowrap;
+}
+.cm-logo-divider {
+  width: 1px;
+  align-self: stretch;
+  min-height: 2.35em;
+  background: var(--cm-logo-gold);
+  opacity: 0.95;
+}
+.cm-logo-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.32em;
+  min-width: 0;
+}
+.cm-logo-name {
+  font-family: var(--n-serif, Georgia, serif);
+  font-weight: 600;
+  font-size: 1.55em;
+  letter-spacing: 0.01em;
+  color: var(--cm-logo-ink);
+  white-space: nowrap;
+  line-height: 0.95;
+}
+.cm-logo-tag {
+  font-family: var(--n-sans, system-ui, sans-serif);
+  font-size: 0.34em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cm-logo-gold);
+  white-space: nowrap;
+}
+.cm-logo-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: var(--cm-logo-gold);
+  opacity: 0.95;
+}
+.cm-logo--header {
+  font-size: clamp(15px, 1.55vw, 20px);
+  max-width: min(520px, 62vw);
+}
+.cm-logo--footer {
+  font-size: clamp(14px, 1.4vw, 18px);
+  max-width: 420px;
+}
+@media (max-width: 720px) {
+  .cm-logo--header {
+    font-size: 13px;
+    max-width: min(300px, 70vw);
+  }
+  .cm-logo-tag {
+    letter-spacing: 0.08em;
+  }
+  .cm-logo-agency {
+    letter-spacing: 0.1em;
+  }
+}
+
 .nieuw-merk-naam {
   font-family: var(--n-serif);
   font-size: 24px;
