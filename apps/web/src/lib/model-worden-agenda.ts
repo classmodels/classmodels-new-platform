@@ -15,6 +15,35 @@ export function isLegacyGuestAgendaSlug(slug: string): boolean {
   return (LEGACY_GUEST_AGENDA_SLUGS as readonly string[]).includes(slug);
 }
 
+export function isModelWordenFamilySlug(slug: string): boolean {
+  return (MODEL_WORDEN_FAMILY_SLUGS as readonly string[]).includes(slug);
+}
+
+/**
+ * Admin-query: als Model worden (of een legacy gast-agenda) geselecteerd is,
+ * altijd de hele familie meenemen zodat oude intake/casting/fotoshoot-boekingen
+ * zichtbaar blijven — ook als die agenda's inactief zijn / geen knop meer hebben.
+ */
+export function expandAgendaCalendarIdsForQuery(
+  selectedIds: Iterable<string>,
+  calendars: ReadonlyArray<{ id: string; slug: string }>,
+): string[] {
+  const selected = new Set(selectedIds);
+  const byId = new Map(calendars.map((c) => [c.id, c]));
+  const familyIds = calendars.filter((c) => isModelWordenFamilySlug(c.slug)).map((c) => c.id);
+
+  const touchesFamily = [...selected].some((id) => {
+    const slug = byId.get(id)?.slug;
+    return slug ? isModelWordenFamilySlug(slug) : false;
+  });
+
+  if (touchesFamily) {
+    for (const id of familyIds) selected.add(id);
+  }
+
+  return [...selected];
+}
+
 export function detectModelWordenPackage(
   fields: Record<string, unknown> | null | undefined,
 ): 'testshoot_intake' | 'intake_only' | null {

@@ -28,6 +28,7 @@ import {
 } from '@/lib/agenda-brussels';
 import { printAttendanceList, bookingAgeLabel } from '@/lib/agenda-print-attendance';
 import {
+  expandAgendaCalendarIdsForQuery,
   isLegacyGuestAgendaSlug,
   MODEL_WORDEN_FAMILY_SLUGS,
 } from '@/lib/model-worden-agenda';
@@ -182,7 +183,7 @@ export default function AdminAgendaPlanningPage() {
   const [selectedInitialized, setSelectedInitialized] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('week');
-  const [showPastBookings, setShowPastBookings] = useState(false);
+  const [showPastBookings, setShowPastBookings] = useState(true);
   const [rows, setRows] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [listPreset, setListPreset] = useState<ListPresetId>('week');
@@ -272,7 +273,7 @@ export default function AdminAgendaPlanningPage() {
     }
     setLoading(true);
     try {
-      const ids = [...selected].join(',');
+      const ids = expandAgendaCalendarIdsForQuery(selected, calendars).join(',');
       const q = `/admin/agenda/bookings-range?from=${queryRange.from}&to=${queryRange.to}&calendarIds=${encodeURIComponent(ids)}&statuses=${encodeURIComponent(statusesParam)}`;
       const list = await adminFetch<BookingRow[]>(q, token);
       setRows(list);
@@ -281,7 +282,7 @@ export default function AdminAgendaPlanningPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, selected, queryRange.from, queryRange.to, statusesParam]);
+  }, [token, selected, calendars, queryRange.from, queryRange.to, statusesParam]);
 
   useEffect(() => {
     loadCals().catch(() => {});

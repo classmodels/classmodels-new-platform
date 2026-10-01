@@ -11,6 +11,7 @@ import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
 import {
   bookingAgendaDisplayLabel,
   bookingPackageBadge,
+  expandAgendaCalendarIdsForQuery,
   isLegacyGuestAgendaSlug,
   MODEL_WORDEN_FAMILY_SLUGS,
 } from '@/lib/model-worden-agenda';
@@ -134,15 +135,15 @@ export default function AdminAgendaBoekingenPage() {
   const [calsReady, setCalsReady] = useState(false);
 
   const [refYmd, setRefYmd] = useState(() => ymd(new Date()));
-  // Standaard de boekingen van vandaag tonen.
-  const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  // Standaard Alles: anders verdwijnen toekomstige + historische gastboekingen uit beeld.
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [nameQuery, setNameQuery] = useState('');
 
   const [statusSel, setStatusSel] = useState<Set<string>>(() => new Set(STATUS_OPTS.map((x) => x.v)));
 
-  const [showPastBookings, setShowPastBookings] = useState(false);
+  const [showPastBookings, setShowPastBookings] = useState(true);
 
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -182,7 +183,7 @@ export default function AdminAgendaBoekingenPage() {
     }
     setLoading(true);
     try {
-      const ids = [...selectedCalIds].join(',');
+      const ids = expandAgendaCalendarIdsForQuery(selectedCalIds, calendars).join(',');
       const q = `/admin/agenda/bookings-range?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}&calendarIds=${encodeURIComponent(ids)}&statuses=${encodeURIComponent(statusesParam)}`;
       const rows = await adminFetch<BookingRow[]>(q, token);
       setBookings(rows);
@@ -192,7 +193,7 @@ export default function AdminAgendaBoekingenPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, calsReady, selectedCalIds, range.from, range.to, statusesParam]);
+  }, [token, calsReady, selectedCalIds, calendars, range.from, range.to, statusesParam]);
 
   useEffect(() => {
     loadCals().catch(() => {});
