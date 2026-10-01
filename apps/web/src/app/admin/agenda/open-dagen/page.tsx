@@ -4,8 +4,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { isLegacyGuestAgendaSlug } from '@/lib/model-worden-agenda';
 
-type Cal = { id: string; slug: string; title: string; color: string; restrictToOpenDays?: boolean };
+type Cal = {
+  id: string;
+  slug: string;
+  title: string;
+  color: string;
+  active?: boolean;
+  restrictToOpenDays?: boolean;
+};
 type OpenRow = { id: string; openDate: string; repeatYearly: boolean };
 
 function monthGrid(year: number, month: number) {
@@ -33,12 +41,19 @@ export default function AdminAgendaOpenDagenPage() {
   const [openRows, setOpenRows] = useState<OpenRow[]>([]);
   const [repeatNext, setRepeatNext] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [selectedYmds, setSelectedYmds] = useState<Set<string>>(() => new Set());
+  const [busy, setBusy] = useState(false);
 
   const loadCals = useCallback(async () => {
     if (!token) return;
     const list = await adminFetch<Cal[]>('/admin/agenda/calendars', token);
-    setCalendars(list);
-    setCalendarId((prev) => prev || list[0]?.id || '');
+    const active = list.filter(
+      (c) => c.active !== false && !isLegacyGuestAgendaSlug(c.slug),
+    );
+    setCalendars(active);
+    setCalendarId((prev) =>
+      prev && active.some((c) => c.id === prev) ? prev : active[0]?.id || '',
+    );
   }, [token]);
 
   const loadOpen = useCallback(async () => {
@@ -56,6 +71,7 @@ export default function AdminAgendaOpenDagenPage() {
 
   useEffect(() => {
     loadOpen().catch(() => setOpenRows([]));
+    setSelectedYmds(new Set());
   }, [loadOpen]);
 
   const byYmd = useMemo(() => {
@@ -66,35 +82,79 @@ export default function AdminAgendaOpenDagenPage() {
 
   const selectedCal = calendars.find((c) => c.id === calendarId);
 
-  const toggleDay = async (ymd: string) => {
-    if (!token || !calendarId) return;
+  const selectedList = useMemo(() => [...selectedYmds].sort(), [selectedYmds]);
+  const selectedClosedCount = selectedList.filter((ymd) => !byYmd.has(ymd)).length;
+  const selectedOpenCount = selectedList.filter((ymd) => byYmd.has(ymd)).length;
+
+  const toggleSelectDay = (ymd: string) => {
+    setSelectedYmds((prev) => {
+      const n = new Set(prev);
+      if (n.has(ymd)) n.delete(ymd);
+      else n.add(ymd);
+      return n;
+    });
+  };
+
+  const clearSelection = () => setSelectedYmds(new Set());
+
+  const openSelected = async () => {
+    if (!token || !calendarId || selectedClosedCount === 0) return;
+    setBusy(true);
     setMsg(null);
-    const existing = byYmd.get(ymd);
     try {
-      if (existing) {
-        const ok = window.confirm(
-          `Open dag ${ymd} uitzetten?\n\n` +
-            'Bestaande afspraken blijven staan in de planning.\n' +
-            'Alleen nieuwe online boekingen voor die dag worden gestopt.',
-        );
-        if (!ok) return;
-        const res = await adminFetch<{ message?: string }>(
-          `/admin/agenda/open-days/${existing.id}`,
-          token,
-          { method: 'DELETE' },
-        );
-        setMsg(res?.message ?? 'Dag uitgezet als open dag (afspraken behouden).');
-      } else {
+      const toOpen = selectedList.filter((ymd) => !byYmd.has(ymd));
+      for (const ymd of toOpen) {
         await adminFetch('/admin/agenda/open-days', token, {
           method: 'POST',
           body: JSON.stringify({ calendarId, openDate: ymd, repeatYearly: repeatNext }),
         });
-        setMsg(repeatNext ? 'Open gezet (jaarlijks).' : 'Open gezet.');
       }
+      setMsg(
+        toOpen.length === 1
+          ? repeatNext
+            ? '1 dag open gezet (jaarlijks).'
+            : '1 dag open gezet.'
+          : `${toOpen.length} dagen open gezet${repeatNext ? ' (jaarlijks)' : ''}.`,
+      );
+      clearSelection();
       await loadOpen();
       router.refresh();
     } catch (e: unknown) {
       setMsg(e instanceof Error ? e.message : 'Mislukt');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeSelected = async () => {
+    if (!token || !calendarId || selectedOpenCount === 0) return;
+    const ok = window.confirm(
+      `${selectedOpenCount} open dag(en) uitzetten?\n\n` +
+        'Bestaande afspraken blijven staan in de planning.\n' +
+        'Alleen nieuwe online boekingen voor die dagen worden gestopt.',
+    );
+    if (!ok) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const toClose = selectedList
+        .map((ymd) => byYmd.get(ymd))
+        .filter((r): r is OpenRow => Boolean(r));
+      for (const row of toClose) {
+        await adminFetch(`/admin/agenda/open-days/${row.id}`, token, { method: 'DELETE' });
+      }
+      setMsg(
+        toClose.length === 1
+          ? '1 dag uitgezet als open dag (afspraken behouden).'
+          : `${toClose.length} dagen uitgezet als open dag (afspraken behouden).`,
+      );
+      clearSelection();
+      await loadOpen();
+      router.refresh();
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Mislukt');
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -111,8 +171,9 @@ export default function AdminAgendaOpenDagenPage() {
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Open dagen per agenda</h2>
         <p className="mt-1 text-xs text-muted">
-          Markeer hier de dagen waarop online geboekt mag worden (oranje). Dit geldt wanneer de agenda op{' '}
-          <strong>alleen open dagen</strong> staat — de standaard; zie anders de melding hieronder.
+          Duid meerdere dagen aan en klik daarna op <strong>Open zetten</strong>. Oranje = al open. Dit geldt
+          wanneer de agenda op <strong>alleen open dagen</strong> staat — de standaard; zie anders de melding
+          hieronder.
           <br />
           <span className="text-amber-900">
             Tip: een dag uitzetten stopt alleen nieuwe boekingen — bestaande afspraken verdwijnen niet.
@@ -140,8 +201,41 @@ export default function AdminAgendaOpenDagenPage() {
         </label>
         <label className="mt-3 flex items-center gap-2 text-xs text-ink">
           <input type="checkbox" checked={repeatNext} onChange={(e) => setRepeatNext(e.target.checked)} />
-          Volgende aangeklikte dag(en) <strong>jaarlijks</strong> herhalen (zelfde kalenderdag elk jaar)
+          Open zetten met <strong>jaarlijks</strong> herhalen (zelfde kalenderdag elk jaar)
         </label>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy || selectedClosedCount === 0}
+            onClick={() => void openSelected()}
+            className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-40"
+          >
+            Open zetten{selectedClosedCount ? ` (${selectedClosedCount})` : ''}
+          </button>
+          <button
+            type="button"
+            disabled={busy || selectedOpenCount === 0}
+            onClick={() => void closeSelected()}
+            className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-medium text-ink hover:bg-zinc-100 disabled:opacity-40"
+          >
+            Uitzetten{selectedOpenCount ? ` (${selectedOpenCount})` : ''}
+          </button>
+          <button
+            type="button"
+            disabled={busy || selectedList.length === 0}
+            onClick={clearSelection}
+            className="rounded-md border border-line bg-white px-3 py-1.5 text-xs font-medium text-muted hover:bg-zinc-50 disabled:opacity-40"
+          >
+            Selectie wissen
+          </button>
+          {selectedList.length > 0 ? (
+            <span className="text-[11px] text-muted">{selectedList.length} dag(en) geselecteerd</span>
+          ) : (
+            <span className="text-[11px] text-muted">Klik dagen om te selecteren</span>
+          )}
+        </div>
+
         <div className="mt-3 flex items-center gap-2">
           <span className="text-xs text-muted">Jaar</span>
           <button
@@ -181,13 +275,24 @@ export default function AdminAgendaOpenDagenPage() {
                       <button
                         key={cell.ymd}
                         type="button"
-                        onClick={() => toggleDay(cell.ymd)}
-                        title={byYmd.get(cell.ymd)?.repeatYearly ? 'Jaarlijks' : ''}
+                        disabled={busy}
+                        onClick={() => toggleSelectDay(cell.ymd)}
+                        title={
+                          [
+                            byYmd.get(cell.ymd)?.repeatYearly ? 'Jaarlijks open' : byYmd.has(cell.ymd) ? 'Open' : 'Gesloten',
+                            selectedYmds.has(cell.ymd) ? 'geselecteerd' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')
+                        }
                         className={[
                           'aspect-square max-h-7 rounded text-[10px] font-medium leading-none',
                           byYmd.has(cell.ymd)
                             ? 'bg-amber-500 text-white ring-1 ring-amber-700 hover:bg-amber-600'
                             : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200',
+                          selectedYmds.has(cell.ymd)
+                            ? 'outline outline-2 outline-offset-1 outline-zinc-900'
+                            : '',
                         ].join(' ')}
                       >
                         {cell.d}
