@@ -718,6 +718,68 @@ function GuestView() {
           <span className="text-[11.5px] font-semibold leading-tight opacity-80">Maak online een afspraak</span>
         </Link>
 
+        <div
+          className="mt-7 rounded-xl px-4 py-5 shadow-sm"
+          style={{ background: CARD, border: `1px solid ${ACCENT}66` }}
+        >
+          <h2 className="m-0 font-serif text-[20px] font-semibold leading-snug" style={{ color: TEXT }}>
+            {F.bannerTitle[0]}{' '}
+            <em style={{ color: ACCENT, fontStyle: 'italic' }}>{F.bannerTitle[1]}</em>
+          </h2>
+          <ul className="m-0 mt-4 list-none space-y-2.5 p-0">
+            {F.bannerPoints.map((p) => (
+              <li
+                key={p}
+                className="flex items-start gap-2 text-[12.5px] font-semibold uppercase tracking-[0.06em]"
+                style={{ color: ACCENT }}
+              >
+                <span aria-hidden>✓</span>
+                <span>{p}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-8">
+          <p className="m-0 text-[11px] font-bold uppercase tracking-[0.18em]" style={{ color: ACCENT }}>
+            {F.diversityKicker}
+          </p>
+          <h2 className="m-0 mt-2 font-serif text-[22px] font-semibold leading-tight" style={{ color: TEXT }}>
+            {F.diversityTitle[0]}{' '}
+            <em style={{ color: ACCENT, fontStyle: 'italic' }}>{F.diversityTitle[1]}</em>
+          </h2>
+          <div className="mt-4 space-y-3.5">
+            {F.diversityBody.map((p) => (
+              <p
+                key={p}
+                className="m-0 text-[14px] leading-relaxed whitespace-pre-line"
+                style={{ color: TEXT_SOFT }}
+              >
+                {p}
+              </p>
+            ))}
+          </div>
+          <div
+            className="relative mt-5 overflow-hidden rounded-xl"
+            style={{ border: `1px solid ${ACCENT}55` }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/nieuw/diversity-models.png"
+              alt="Verschillende leeftijden en looks bij Class-Models"
+              className="block h-auto w-full"
+              loading="lazy"
+              decoding="async"
+            />
+            <p
+              className="pointer-events-none absolute bottom-3 left-0 right-0 m-0 px-3 text-center font-serif text-[15px] italic"
+              style={{ color: '#fff', textShadow: '0 1px 8px rgba(0,0,0,0.75)' }}
+            >
+              Jouw persoonlijkheid maakt het verschil.
+            </p>
+          </div>
+        </div>
+
         <div className="mt-8">
           <SectionTitle>Meer info</SectionTitle>
           <div
