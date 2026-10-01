@@ -322,7 +322,7 @@
   z-index: 80;
   width: 100%;
   background: #000;
-  border-bottom: 1px solid var(--n-hair);
+  border-bottom: none;
 }
 .nieuw-kop-inner {
   display: grid;
@@ -336,13 +336,17 @@
   box-sizing: border-box;
   background: #000;
 }
-/* Tweede balk: portaalmenu links (40px) + reviews/contact/cta rechts, fade naar zwart */
+/* Tweede balk: portaalmenu links + reviews/contact/cta rechts; subtiel goud lintje boven/onder */
 .nieuw-util-bar {
   position: relative;
   width: 100%;
   background: #141210;
-  border-bottom: 1px solid var(--n-hair);
+  border-top: 1px solid rgba(212, 175, 106, 0.22);
+  border-bottom: 1px solid rgba(212, 175, 106, 0.22);
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(212, 175, 106, 0.06),
+    inset 0 -1px 0 rgba(212, 175, 106, 0.06);
 }
 .nieuw-util-bar::after {
   content: '';
@@ -479,7 +483,6 @@
   align-items: center;
   column-gap: 0.7em;
   row-gap: 0;
-  padding-bottom: 0.42em;
   line-height: 1;
   min-width: 0;
 }
@@ -540,15 +543,6 @@
   text-transform: uppercase;
   color: var(--cm-logo-gold);
   white-space: nowrap;
-}
-.cm-logo-rule {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-  background: var(--cm-logo-gold);
-  opacity: 0.95;
 }
 .cm-logo--header {
   font-size: clamp(15px, 1.55vw, 20px);

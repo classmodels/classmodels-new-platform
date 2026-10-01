@@ -9,7 +9,7 @@ type Props = {
 
 /**
  * Merklogo zoals huisstijl-lockup:
- * CM | Class-Models + tagline + gouden lijnen.
+ * CM | Class-Models + tagline.
  */
 export function ClassModelsLogo({ href = '/', className = '', size = 'header' }: Props) {
   const inner = (
@@ -23,7 +23,6 @@ export function ClassModelsLogo({ href = '/', className = '', size = 'header' }:
         <span className="cm-logo-name">Class-Models</span>
         <span className="cm-logo-tag">Toegankelijk. Eerlijk. Professioneel.</span>
       </span>
-      <span className="cm-logo-rule" aria-hidden="true" />
     </span>
   );
 
