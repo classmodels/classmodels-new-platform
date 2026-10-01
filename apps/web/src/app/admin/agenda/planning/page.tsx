@@ -293,7 +293,9 @@ export default function AdminAgendaPlanningPage() {
 
   useEffect(() => {
     if (!calendars.length || selectedInitialized) return;
-    setSelected(new Set(calendars.map((c) => c.id)));
+    setSelected(
+      new Set(calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug)).map((c) => c.id)),
+    );
     setSelectedInitialized(true);
   }, [calendars, selectedInitialized]);
 
@@ -681,7 +683,11 @@ export default function AdminAgendaPlanningPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => setSelected(new Set(calendars.map((c) => c.id)))}
+            onClick={() =>
+              setSelected(
+                new Set(calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug)).map((c) => c.id)),
+              )
+            }
             className="rounded-lg border border-line bg-panel px-3 py-2 text-xs font-medium text-ink hover:bg-zinc-100"
           >
             Alle
@@ -720,7 +726,7 @@ export default function AdminAgendaPlanningPage() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {calendars
-            .filter((c) => !isLegacyGuestAgendaSlug(c.slug))
+            .filter((c) => !isLegacyGuestAgendaSlug(c.slug) && (c as { active?: boolean }).active !== false)
             .map((c) => {
             const on =
               c.slug === 'model-worden'

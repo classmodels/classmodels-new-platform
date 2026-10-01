@@ -411,7 +411,7 @@ export function GuestSignupWizard() {
           </li>
           <li>
             <span className="v">✓</span>
-            <span>Vrijblijvend in Hulshout</span>
+            <span>Provinciebaan 3, 2235 Hulshout</span>
           </li>
           <li>
             <span className="v">✓</span>
@@ -443,7 +443,7 @@ export function GuestSignupWizard() {
         {step === 'package' ? (
           <>
             <h3 className="nieuw-signup-title">Maak een afspraak</h3>
-            <p className="nieuw-signup-sub">Maak uw keuze</p>
+            <p className="nieuw-signup-sub">Maak uw keuze — afspraak op Provinciebaan 3, 2235 Hulshout</p>
             <button
               type="button"
               className={`nieuw-signup-choice${pkg === 'testshoot_intake' ? ' is-on' : ''}`}
@@ -481,36 +481,39 @@ export function GuestSignupWizard() {
             ) : null}
 
             <label className="nieuw-signup-label">
-              E-mailadres
+              <span className="sr-only">E-mailadres</span>
               <input
                 className="nieuw-signup-input"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="jij@voorbeeld.be"
+                placeholder="E-mailadres"
+                aria-label="E-mailadres"
                 autoComplete="email"
               />
             </label>
 
             <div className="nieuw-signup-row">
               <label className="nieuw-signup-label">
-                Postcode
+                <span className="sr-only">Postcode</span>
                 <input
                   className="nieuw-signup-input"
                   value={postcode}
                   onChange={(e) => setPostcode(e.target.value)}
-                  placeholder="2220"
+                  placeholder="Postcode"
+                  aria-label="Postcode"
                   autoComplete="postal-code"
                   inputMode="numeric"
                 />
               </label>
               <label className="nieuw-signup-label">
-                Gemeente
+                <span className="sr-only">Gemeente</span>
                 <input
                   className="nieuw-signup-input"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  placeholder="Hulshout"
+                  placeholder="Gemeente"
+                  aria-label="Gemeente"
                   autoComplete="address-level2"
                 />
               </label>
@@ -518,22 +521,24 @@ export function GuestSignupWizard() {
 
             <div className="nieuw-signup-row">
               <label className="nieuw-signup-label">
-                Naam
+                <span className="sr-only">Naam</span>
                 <input
                   className="nieuw-signup-input"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Jouw naam"
+                  placeholder="Naam"
+                  aria-label="Naam"
                   autoComplete="family-name"
                 />
               </label>
               <label className="nieuw-signup-label">
-                Voornaam
+                <span className="sr-only">Voornaam</span>
                 <input
                   className="nieuw-signup-input"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Jouw voornaam"
+                  placeholder="Voornaam"
+                  aria-label="Voornaam"
                   autoComplete="given-name"
                 />
               </label>
@@ -541,23 +546,25 @@ export function GuestSignupWizard() {
 
             <div className="nieuw-signup-row">
               <label className="nieuw-signup-label">
-                Gsm
+                <span className="sr-only">Gsm</span>
                 <input
                   className="nieuw-signup-input"
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="Bijvoorbeeld 0498…"
+                  placeholder="Gsm"
+                  aria-label="Gsm"
                   autoComplete="tel"
                 />
               </label>
               <label className="nieuw-signup-label">
-                Geboortejaar
+                <span className="sr-only">Geboortejaar</span>
                 <input
                   className="nieuw-signup-input"
                   value={birthYear}
                   onChange={(e) => setBirthYear(e.target.value.replace(/[^\d]/g, '').slice(0, 4))}
-                  placeholder="2005"
+                  placeholder="Geboortejaar"
+                  aria-label="Geboortejaar"
                   inputMode="numeric"
                   autoComplete="bday-year"
                 />

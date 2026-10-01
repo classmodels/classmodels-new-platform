@@ -10,6 +10,7 @@ import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave,
 import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
 import {
   bookingAgendaDisplayLabel,
+  bookingPackageBadge,
   isLegacyGuestAgendaSlug,
   MODEL_WORDEN_FAMILY_SLUGS,
 } from '@/lib/model-worden-agenda';
@@ -168,7 +169,9 @@ export default function AdminAgendaBoekingenPage() {
     if (!token) return;
     const rows = await adminFetch<Cal[]>('/admin/agenda/calendars', token);
     setCalendars(rows);
-    setSelectedCalIds(new Set(rows.map((c) => c.id)));
+    setSelectedCalIds(
+      new Set(rows.filter((c) => !isLegacyGuestAgendaSlug(c.slug)).map((c) => c.id)),
+    );
     setCalsReady(true);
   }, [token]);
 
@@ -255,7 +258,9 @@ export default function AdminAgendaBoekingenPage() {
     setSelectedCalIds(new Set(ids));
   };
 
-  const filterCalendars = calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug));
+  const filterCalendars = calendars.filter(
+    (c) => !isLegacyGuestAgendaSlug(c.slug) && c.active !== false,
+  );
 
   const printSelected = () => {
     const selected = visibleBookings.filter((b) => selectedIds.has(b.id));
@@ -543,7 +548,7 @@ export default function AdminAgendaBoekingenPage() {
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setSelectedCalIds(new Set(calendars.map((c) => c.id)))}
+              onClick={() => setSelectedCalIds(new Set(filterCalendars.map((c) => c.id)))}
               className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
             >
               Alle
@@ -690,6 +695,11 @@ export default function AdminAgendaBoekingenPage() {
                   b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
                 const cancelled = isCancelledAgendaStatus(b.status);
                 const acknowledged = b.status === 'acknowledged';
+                const fj =
+                  b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+                    ? (b.fieldsJson as Record<string, unknown>)
+                    : null;
+                const packageBadge = bookingPackageBadge(b.calendar.slug, fj);
                 return (
                   <tr key={b.id} className="border-b border-line/80">
                     <td className="py-2 pr-2 align-top">
@@ -711,14 +721,19 @@ export default function AdminAgendaBoekingenPage() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="py-2 pr-3 align-top text-muted">
-                      {bookingAgendaDisplayLabel(
-                        b.calendar.slug,
-                        b.calendar.title,
-                        b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
-                          ? (b.fieldsJson as Record<string, unknown>)
-                          : null,
-                      )}
+                    <td className="py-2 pr-3 align-top">
+                      <div className="text-muted">
+                        {b.calendar.slug === 'model-worden' || isLegacyGuestAgendaSlug(b.calendar.slug)
+                          ? 'Model worden'
+                          : b.calendar.title}
+                      </div>
+                      {packageBadge ? (
+                        <div className="mt-0.5 inline-block rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                          {packageBadge}
+                        </div>
+                      ) : b.calendar.slug === 'model-worden' ? (
+                        <div className="mt-0.5 text-[10px] font-medium text-amber-800">Pakket niet ingevuld</div>
+                      ) : null}
                     </td>
                     <td className="py-2 pr-3 align-top">{nm}</td>
                     <td className="py-2 pr-3 align-top text-muted">

@@ -37,12 +37,33 @@ export function bookingAgendaDisplayLabel(
 ): string {
   if (calendarSlug === 'model-worden') {
     const pkg = detectModelWordenPackage(fields);
-    if (pkg === 'testshoot_intake') return 'Model worden · Testshoot + intake';
+    if (pkg === 'testshoot_intake') return 'Model worden · Intake + fotoshoot';
     if (pkg === 'intake_only') return 'Model worden · Alleen intake';
     return 'Model worden';
   }
-  if (calendarSlug === 'gratis-fotoshoot') return 'Model worden · Testshoot + intake';
+  if (calendarSlug === 'gratis-fotoshoot') return 'Model worden · Intake + fotoshoot';
   if (calendarSlug === 'intake-gesprek') return 'Model worden · Alleen intake';
   if (calendarSlug === 'casting') return 'Model worden · Casting';
   return calendarTitle;
+}
+
+/** Kort pakketbadge voor admin-lijst (onder of naast agenda). */
+export function bookingPackageBadge(
+  calendarSlug: string,
+  fields: Record<string, unknown> | null | undefined,
+): string | null {
+  if (
+    calendarSlug === 'model-worden' ||
+    calendarSlug === 'gratis-fotoshoot' ||
+    calendarSlug === 'intake-gesprek'
+  ) {
+    const pkg = detectModelWordenPackage(fields);
+    if (pkg === 'testshoot_intake' || calendarSlug === 'gratis-fotoshoot') {
+      return 'Intake + fotoshoot';
+    }
+    if (pkg === 'intake_only' || calendarSlug === 'intake-gesprek') {
+      return 'Alleen intake';
+    }
+  }
+  return null;
 }

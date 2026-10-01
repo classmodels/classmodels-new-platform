@@ -5293,6 +5293,25 @@
   letter-spacing: 0.04em;
   color: var(--n-ink);
 }
+.nieuw-signup-label:has(> .sr-only) {
+  font-size: 0;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.nieuw-signup-label:has(> .sr-only) .nieuw-signup-input {
+  margin-top: 0;
+}
+.nieuw-signup-label .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .nieuw-signup-intro {
   padding-top: 4px;
 }

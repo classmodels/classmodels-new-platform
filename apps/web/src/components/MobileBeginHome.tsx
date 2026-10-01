@@ -10,7 +10,6 @@ import { GuestSignupWizard } from '@/components/guest-portal/GuestSignupWizard';
 import {
   GUEST_SIMPLE_FUNNEL,
 } from '@/components/guest-portal/guest-portal-data';
-import { PartnersStrip } from '@/components/PartnersStrip';
 import {
   isMobileInfoKey,
   mobileInfoTitle,
@@ -397,7 +396,9 @@ function StartView() {
       <TopBar title="Class-Models" subtitle="Welkom" />
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10 pt-8">
         <h1 className="m-0 font-serif text-[27px] font-semibold leading-tight" style={{ color: TEXT }}>
-          Welkom bij <span style={{ color: ACCENT }}>Class-Models</span>
+          Welkom bij
+          <br />
+          <span style={{ color: ACCENT }}>Class-Models</span>
         </h1>
         <p className="m-0 mt-2 text-[14.5px] leading-relaxed" style={{ color: TEXT_SOFT }}>
           Kies hieronder uw portaal.
@@ -472,7 +473,6 @@ function StartView() {
           Class-Models — Provinciebaan 3, 2235 Hulshout
         </p>
       </div>
-      <PartnersStrip />
     </>
   );
 }
@@ -723,7 +723,8 @@ function GuestView() {
           style={{ background: CARD, border: `1px solid ${ACCENT}66` }}
         >
           <h2 className="m-0 font-serif text-[20px] font-semibold leading-snug" style={{ color: TEXT }}>
-            {F.bannerTitle[0]}{' '}
+            {F.bannerTitle[0]}
+            <br />
             <em style={{ color: ACCENT, fontStyle: 'italic' }}>{F.bannerTitle[1]}</em>
           </h2>
           <ul className="m-0 mt-4 list-none space-y-2.5 p-0">
@@ -731,9 +732,11 @@ function GuestView() {
               <li
                 key={p}
                 className="flex items-start gap-2 text-[12.5px] font-semibold uppercase tracking-[0.06em]"
-                style={{ color: ACCENT }}
+                style={{ color: TEXT }}
               >
-                <span aria-hidden>✓</span>
+                <span aria-hidden style={{ color: ACCENT }}>
+                  ✓
+                </span>
                 <span>{p}</span>
               </li>
             ))}
@@ -745,7 +748,8 @@ function GuestView() {
             {F.diversityKicker}
           </p>
           <h2 className="m-0 mt-2 font-serif text-[22px] font-semibold leading-tight" style={{ color: TEXT }}>
-            {F.diversityTitle[0]}{' '}
+            {F.diversityTitle[0]}
+            <br />
             <em style={{ color: ACCENT, fontStyle: 'italic' }}>{F.diversityTitle[1]}</em>
           </h2>
           <div className="mt-4 space-y-3.5">
@@ -780,22 +784,19 @@ function GuestView() {
           </div>
         </div>
 
-        <div className="mt-8">
-          <SectionTitle>Meer info</SectionTitle>
-          <div
-            className="mt-3 overflow-hidden rounded-xl shadow-sm"
-            style={{ background: CARD, border: `1px solid ${LINE}` }}
-          >
-            <div className="[&>a:first-child]:!border-t-0">
-              <ChevronRow
-                href="/gasten/testshoot"
-                label="Testshoot-foto’s"
-                sub="Bekijk en download uw foto’s op gsm"
-              />
-              <ChevronRow href="/reviews" label="Reviews" sub="Ervaringen van onze modellen" />
-              <ChevronRow href="/?m=guest&info=contact" label="Contact" sub="Adres, e-mail en telefoon" />
-            </div>
-          </div>
+        <div
+          className="mt-8 rounded-xl px-4 py-4 text-center shadow-sm"
+          style={{ background: CARD, border: `1px solid ${LINE}` }}
+        >
+          <p className="m-0 text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+            Afspraaklocatie
+          </p>
+          <p className="m-0 mt-2 text-[15px] font-semibold" style={{ color: TEXT }}>
+            Provinciebaan 3
+          </p>
+          <p className="m-0 mt-0.5 text-[14px]" style={{ color: TEXT_SOFT }}>
+            2235 Hulshout
+          </p>
         </div>
 
         <div className="mt-8">
@@ -818,6 +819,24 @@ function GuestView() {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <SectionTitle>Meer info</SectionTitle>
+          <div
+            className="mt-3 overflow-hidden rounded-xl shadow-sm"
+            style={{ background: CARD, border: `1px solid ${LINE}` }}
+          >
+            <div className="[&>a:first-child]:!border-t-0">
+              <ChevronRow
+                href="/gasten/testshoot"
+                label="Testshoot-foto’s"
+                sub="Bekijk en download uw foto’s op gsm"
+              />
+              <ChevronRow href="/reviews" label="Reviews" sub="Ervaringen van onze modellen" />
+              <ChevronRow href="/?m=guest&info=contact" label="Contact" sub="Adres, e-mail en telefoon" />
+            </div>
           </div>
         </div>
       </div>

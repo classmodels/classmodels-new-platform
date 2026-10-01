@@ -69,7 +69,9 @@ export default function ModelWordenPage() {
             }}
           >
             <h2 className="nieuw-display nieuw-display-md" style={{ margin: 0 }}>
-              {F.bannerTitle[0]} <em>{F.bannerTitle[1]}</em>
+              {F.bannerTitle[0]}
+              <br />
+              <em>{F.bannerTitle[1]}</em>
             </h2>
             <div
               style={{
@@ -86,10 +88,11 @@ export default function ModelWordenPage() {
                     fontSize: 12,
                     letterSpacing: '0.08em',
                     textTransform: 'uppercase',
-                    color: 'var(--n-gold)',
+                    color: 'var(--n-ink)',
                   }}
                 >
-                  ✓ {p}
+                  <span style={{ color: 'var(--n-gold)', marginRight: 6 }}>✓</span>
+                  {p}
                 </span>
               ))}
             </div>
@@ -203,6 +206,13 @@ export default function ModelWordenPage() {
             </h2>
             <p className="nieuw-lead" style={{ margin: '14px auto 0', maxWidth: 52 * 8 }}>
               {F.calmBody}
+            </p>
+            <p
+              className="nieuw-lead"
+              style={{ margin: '18px auto 0', maxWidth: 52 * 8, fontSize: 14, color: 'var(--n-mut)' }}
+            >
+              De afspraak gaat door op{' '}
+              <strong style={{ color: 'var(--n-ink)' }}>Provinciebaan 3, 2235 Hulshout</strong>.
             </p>
             <a className="nieuw-btn" href="#inschrijven" style={{ marginTop: 22 }}>
               {F.calmCta} →
@@ -376,6 +386,33 @@ export default function ModelWordenPage() {
         }
         .nieuw-signup-row .nieuw-signup-label {
           margin-bottom: 14px;
+        }
+        .nieuw-signup-label {
+          display: block;
+          margin: 0 0 14px;
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          color: var(--n-ink);
+        }
+        .nieuw-signup-label:has(> .sr-only) {
+          font-size: 0;
+          letter-spacing: 0;
+          font-weight: 400;
+        }
+        .nieuw-signup-label:has(> .sr-only) .nieuw-signup-input {
+          margin-top: 0;
+        }
+        .nieuw-signup-label .sr-only {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
         }
         .nieuw-signup-check {
           display: flex;
