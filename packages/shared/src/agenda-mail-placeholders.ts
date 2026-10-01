@@ -73,12 +73,30 @@ export function buildAgendaMailPlaceholderVars(
   };
 }
 
+/** Afleid demotitel uit sjabloonnaam (admin-voorbeeld / testmail-preview). */
+export function inferDemoCalendarTitleFromTemplateName(name?: string | null): string {
+  const n = (name ?? '').toLowerCase();
+  if (!n.trim()) return 'Voorbeeld afspraak';
+  if (/portfolio/.test(n)) return 'Portfolio afspraak';
+  if (/opleiding/.test(n)) return 'Opleiding afspraak';
+  if (/fotoshoot|testshoot|foto/.test(n)) return 'Gratis testshoot + intake-gesprek';
+  if (/intake|model worden|casting/.test(n)) return 'Alleen intake-gesprek';
+  return 'Voorbeeld afspraak';
+}
+
 /** Vaste demowaarden voor admin-voorbeeld (zelfde stijl als echte mail). */
-export function buildAgendaMailPreviewDemoVars(): Record<string, string> {
+export function buildAgendaMailPreviewDemoVars(opts?: {
+  calendarTitle?: string;
+  templateName?: string;
+}): Record<string, string> {
+  const calendarTitle =
+    opts?.calendarTitle?.trim() ||
+    inferDemoCalendarTitleFromTemplateName(opts?.templateName) ||
+    'Voorbeeld afspraak';
   return buildAgendaMailPlaceholderVars(
     {
       displayName: 'Jan Janssens',
-      calendarTitle: 'Portfolio afspraak',
+      calendarTitle,
       dateLabel: 'dinsdag 13 mei 2026',
       timeLabel: '10:00 – 10:30',
       cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',
@@ -89,11 +107,18 @@ export function buildAgendaMailPreviewDemoVars(): Record<string, string> {
 }
 
 /** Vaste demowaarden voor SMS-voorbeeld (platte URL’s). */
-export function buildAgendaMailPreviewDemoVarsPlain(): Record<string, string> {
+export function buildAgendaMailPreviewDemoVarsPlain(opts?: {
+  calendarTitle?: string;
+  templateName?: string;
+}): Record<string, string> {
+  const calendarTitle =
+    opts?.calendarTitle?.trim() ||
+    inferDemoCalendarTitleFromTemplateName(opts?.templateName) ||
+    'Voorbeeld afspraak';
   return buildAgendaMailPlaceholderVars(
     {
       displayName: 'Jan Janssens',
-      calendarTitle: 'Portfolio afspraak',
+      calendarTitle,
       dateLabel: 'dinsdag 13 mei 2026',
       timeLabel: '10:00 – 10:30',
       cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',

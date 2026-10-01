@@ -125,25 +125,35 @@ type PreviewProps = {
   channel: string;
   body: string;
   subject: string;
+  /** Sjabloonnaam → demotitel (niet meer altijd «Portfolio afspraak»). */
+  templateName?: string;
+  calendarTitle?: string;
 };
 
-export function AgendaMailTemplatePreview({ channel, body, subject }: PreviewProps) {
+export function AgendaMailTemplatePreview({
+  channel,
+  body,
+  subject,
+  templateName,
+  calendarTitle,
+}: PreviewProps) {
   const isSms = channel === 'sms';
 
   const { subjectLine, bodyContent } = useMemo(() => {
+    const opts = { templateName, calendarTitle };
     if (isSms) {
-      const vars = buildAgendaMailPreviewDemoVarsPlain();
+      const vars = buildAgendaMailPreviewDemoVarsPlain(opts);
       return {
         subjectLine: applyAgendaMailPlaceholders(subject || '', vars),
         bodyContent: applyAgendaMailPlaceholders(body, vars),
       };
     }
-    const vars = buildAgendaMailPreviewDemoVars();
+    const vars = buildAgendaMailPreviewDemoVars(opts);
     return {
       subjectLine: applyAgendaMailPlaceholders(subject || '', vars),
       bodyContent: coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(body, vars)),
     };
-  }, [body, subject, isSms]);
+  }, [body, subject, isSms, templateName, calendarTitle]);
 
   return (
     <div className="rounded-lg border border-line bg-zinc-50 p-3">

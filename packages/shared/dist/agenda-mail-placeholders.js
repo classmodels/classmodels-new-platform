@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.coerceOutgoingEmailHtml = void 0;
 exports.applyAgendaMailPlaceholders = applyAgendaMailPlaceholders;
 exports.buildAgendaMailPlaceholderVars = buildAgendaMailPlaceholderVars;
+exports.inferDemoCalendarTitleFromTemplateName = inferDemoCalendarTitleFromTemplateName;
 exports.buildAgendaMailPreviewDemoVars = buildAgendaMailPreviewDemoVars;
 exports.buildAgendaMailPreviewDemoVarsPlain = buildAgendaMailPreviewDemoVarsPlain;
 function escHtml(s) {
@@ -60,11 +61,29 @@ function buildAgendaMailPlaceholderVars(ctx, mode) {
         confirm_button_html: `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border:1px solid #c2a164;background:#c2a164;"><a href="${confirmU}" style="display:inline-block;padding:12px 18px;color:#191919;text-decoration:none;font-weight:700;font-size:14px;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;">Ik bevestig mijn komst</a></td></tr></table>`,
     };
 }
+/** Afleid demotitel uit sjabloonnaam (admin-voorbeeld / testmail-preview). */
+function inferDemoCalendarTitleFromTemplateName(name) {
+    const n = (name ?? '').toLowerCase();
+    if (!n.trim())
+        return 'Voorbeeld afspraak';
+    if (/portfolio/.test(n))
+        return 'Portfolio afspraak';
+    if (/opleiding/.test(n))
+        return 'Opleiding afspraak';
+    if (/fotoshoot|testshoot|foto/.test(n))
+        return 'Gratis testshoot + intake-gesprek';
+    if (/intake|model worden|casting/.test(n))
+        return 'Alleen intake-gesprek';
+    return 'Voorbeeld afspraak';
+}
 /** Vaste demowaarden voor admin-voorbeeld (zelfde stijl als echte mail). */
-function buildAgendaMailPreviewDemoVars() {
+function buildAgendaMailPreviewDemoVars(opts) {
+    const calendarTitle = opts?.calendarTitle?.trim() ||
+        inferDemoCalendarTitleFromTemplateName(opts?.templateName) ||
+        'Voorbeeld afspraak';
     return buildAgendaMailPlaceholderVars({
         displayName: 'Jan Janssens',
-        calendarTitle: 'Portfolio afspraak',
+        calendarTitle,
         dateLabel: 'dinsdag 13 mei 2026',
         timeLabel: '10:00 – 10:30',
         cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',
@@ -72,10 +91,13 @@ function buildAgendaMailPreviewDemoVars() {
     }, 'html');
 }
 /** Vaste demowaarden voor SMS-voorbeeld (platte URL’s). */
-function buildAgendaMailPreviewDemoVarsPlain() {
+function buildAgendaMailPreviewDemoVarsPlain(opts) {
+    const calendarTitle = opts?.calendarTitle?.trim() ||
+        inferDemoCalendarTitleFromTemplateName(opts?.templateName) ||
+        'Voorbeeld afspraak';
     return buildAgendaMailPlaceholderVars({
         displayName: 'Jan Janssens',
-        calendarTitle: 'Portfolio afspraak',
+        calendarTitle,
         dateLabel: 'dinsdag 13 mei 2026',
         timeLabel: '10:00 – 10:30',
         cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',

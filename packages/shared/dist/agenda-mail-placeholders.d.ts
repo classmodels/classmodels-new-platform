@@ -11,8 +11,16 @@ export type AgendaMailPlaceholderContext = {
 /** Vervangt `{{key}}` en daarna `{key}` (langere sleutels eerst bij enkele accolades). */
 export declare function applyAgendaMailPlaceholders(template: string | null | undefined, vars: Record<string, string>): string;
 export declare function buildAgendaMailPlaceholderVars(ctx: AgendaMailPlaceholderContext, mode: 'html' | 'plain'): Record<string, string>;
+/** Afleid demotitel uit sjabloonnaam (admin-voorbeeld / testmail-preview). */
+export declare function inferDemoCalendarTitleFromTemplateName(name?: string | null): string;
 /** Vaste demowaarden voor admin-voorbeeld (zelfde stijl als echte mail). */
-export declare function buildAgendaMailPreviewDemoVars(): Record<string, string>;
+export declare function buildAgendaMailPreviewDemoVars(opts?: {
+    calendarTitle?: string;
+    templateName?: string;
+}): Record<string, string>;
 /** Vaste demowaarden voor SMS-voorbeeld (platte URL’s). */
-export declare function buildAgendaMailPreviewDemoVarsPlain(): Record<string, string>;
+export declare function buildAgendaMailPreviewDemoVarsPlain(opts?: {
+    calendarTitle?: string;
+    templateName?: string;
+}): Record<string, string>;
 export { coerceOutgoingEmailHtml } from './email-layout';

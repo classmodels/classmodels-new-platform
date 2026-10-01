@@ -19,6 +19,8 @@ import { AgendaTravelService } from './agenda-travel.service';
 import { isAgendaBookingEnrolled, isGuestIntakeCalendarSlug } from './guest-intake-calendars';
 import { formatBulksmsError } from './agenda-phone';
 import {
+  MODEL_WORDEN_PKG_TARGET_INTAKE,
+  MODEL_WORDEN_PKG_TARGET_TESTSHOOT,
   detectModelWordenPackage,
   modelWordenConfirmationIntroHtml,
   modelWordenConfirmationSubject,
@@ -1252,14 +1254,18 @@ export class AgendaNotificationService {
     return this.dispatchBookingLifecycle('booking_updated', ctx, { channels });
   }
 
-  /** Demo-context voor testmails (zelfde voorbeeldwaarden als de preview). */
-  private buildDemoDispatchCtx(): DispatchBookingCtx {
+  /** Demo-context voor testmails (voorbeeldwaarden; type volgt het sjabloon). */
+  private buildDemoDispatchCtx(opts?: {
+    calendarTitle?: string;
+    calendarSlug?: string;
+    modelWordenPackage?: ModelWordenPackage | null;
+  }): DispatchBookingCtx {
     return {
       toEmail: null,
       phone: '+32 470 00 00 00',
       displayName: 'Jan Janssens (TEST)',
-      calendarTitle: 'Portfolio afspraak',
-      calendarSlug: 'test',
+      calendarTitle: opts?.calendarTitle?.trim() || 'Voorbeeld afspraak',
+      calendarSlug: opts?.calendarSlug?.trim() || 'test',
       dateLabel: 'dinsdag 13 mei 2026',
       timeLabel: '10:00 – 10:30',
       cancelUrl: 'https://www.class-models.be/gasten/annuleer?token=demo-token',
@@ -1267,6 +1273,83 @@ export class AgendaNotificationService {
       officeAddress: CLASS_MODELS_OFFICE.fullAddress,
       distanceLabel: 'ca. 12 km',
       cancelReason: 'Voorbeeldreden van annulatie (testmail)',
+      modelWordenPackage: opts?.modelWordenPackage ?? null,
+    };
+  }
+
+  /**
+   * Bepaal demotitel/slug voor een testmail op basis van sjabloon-agenda’s + naam.
+   * (Vroeger stond overal hardcoded «Portfolio afspraak».)
+   */
+  private resolveDemoCalendarForTemplate(
+    template: { name: string; calendarSlugs: unknown },
+    titleBySlug: Map<string, string>,
+  ): { calendarTitle: string; calendarSlug: string; modelWordenPackage: ModelWordenPackage | null } {
+    const slugs = parseSlugList(template.calendarSlugs);
+    const name = template.name.toLowerCase();
+
+    if (slugs.includes(MODEL_WORDEN_PKG_TARGET_TESTSHOOT) || slugs.includes('gratis-fotoshoot')) {
+      return {
+        calendarTitle: 'Gratis testshoot + intake-gesprek',
+        calendarSlug: 'model-worden',
+        modelWordenPackage: 'testshoot_intake',
+      };
+    }
+    if (slugs.includes(MODEL_WORDEN_PKG_TARGET_INTAKE) || slugs.includes('intake-gesprek')) {
+      return {
+        calendarTitle: 'Alleen intake-gesprek',
+        calendarSlug: 'model-worden',
+        modelWordenPackage: 'intake_only',
+      };
+    }
+    if (slugs.includes('model-worden') || slugs.includes('casting')) {
+      return {
+        calendarTitle: 'Model worden',
+        calendarSlug: 'model-worden',
+        modelWordenPackage: null,
+      };
+    }
+
+    for (const slug of slugs) {
+      const title = titleBySlug.get(slug);
+      if (title) {
+        return { calendarTitle: title, calendarSlug: slug, modelWordenPackage: null };
+      }
+    }
+
+    if (/portfolio/i.test(name)) {
+      return {
+        calendarTitle: titleBySlug.get('portfolio') || 'Portfolio afspraak',
+        calendarSlug: 'portfolio',
+        modelWordenPackage: null,
+      };
+    }
+    if (/opleiding/i.test(name)) {
+      return {
+        calendarTitle: titleBySlug.get('opleiding') || 'Opleiding afspraak',
+        calendarSlug: 'opleiding',
+        modelWordenPackage: null,
+      };
+    }
+    if (/fotoshoot|testshoot|foto/i.test(name)) {
+      return {
+        calendarTitle: 'Gratis testshoot + intake-gesprek',
+        calendarSlug: 'model-worden',
+        modelWordenPackage: 'testshoot_intake',
+      };
+    }
+    if (/intake|model worden|casting/i.test(name)) {
+      return {
+        calendarTitle: 'Alleen intake-gesprek',
+        calendarSlug: 'model-worden',
+        modelWordenPackage: 'intake_only',
+      };
+    }
+
+    return {
+      calendarTitle: 'Voorbeeld afspraak',
+      calendarSlug: 'test',
+      modelWordenPackage: null,
     };
   }
 
@@ -1340,9 +1423,14 @@ export class AgendaNotificationService {
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     if (!rows.length) throw new NotFoundException('Geen sjablonen gevonden.');
-    const ctx = this.buildDemoDispatchCtx();
+    const calendars = await this.prisma.agendaCalendar.findMany({
+      select: { slug: true, title: true },
+    });
+    const titleBySlug = new Map(calendars.map((c) => [c.slug, c.title]));
     const results: { templateId: string; name: string; sent: boolean; error?: string }[] = [];
     for (const t of rows) {
+      const demo = this.resolveDemoCalendarForTemplate(t, titleBySlug);
+      const ctx = this.buildDemoDispatchCtx(demo);
       const { subject, html } = this.renderTemplateForTest(t, ctx);
       const r = await this.trySendSmtpDetailed(addr, subject, html);
       results.push({ templateId: t.id, name: t.name, sent: r.ok, error: r.ok ? undefined : r.error });

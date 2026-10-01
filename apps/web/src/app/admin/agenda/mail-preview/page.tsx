@@ -915,6 +915,7 @@ export default function AdminAgendaMailSmsPage() {
                 channel={editing.channel ?? 'email'}
                 body={editing.body ?? ''}
                 subject={editing.subject ?? ''}
+                templateName={editing.name ?? ''}
               />
               {editing.channel === 'email' ? (
                 <button
