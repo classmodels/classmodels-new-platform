@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { PrismaService } from '../prisma/prisma.service';
 import { resolveSmtpConfig, smtpTransportOptions } from './mail-smtp-resolve';
+import { coerceOutgoingEmailHtml } from './email-layout';
 
 const log = new Logger('sendHtmlMail');
 
@@ -70,12 +71,13 @@ export async function sendHtmlMailDetailed(
     const transporter = nodemailer.createTransport(smtpTransportOptions(cfg));
 
     try {
+      const preparedHtml = coerceOutgoingEmailHtml(html);
       await transporter.sendMail({
         from: cfg.from,
         to: addr,
         subject,
-        html,
-        text: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+        html: preparedHtml,
+        text: preparedHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
         ...(opts?.replyTo?.trim() ? { replyTo: opts.replyTo.trim() } : {}),
       });
       log.log(`E-mail verstuurd naar ${addr} via ${cfg.host} (${cfg.source})`);

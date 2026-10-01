@@ -123,8 +123,8 @@ export function formatBookingChangesHtml(lines: BookingChangeLine[]): string {
   const rows = lines
     .map(
       (l) =>
-        `<tr><td style="padding:10px 0;border-bottom:1px solid #e4e4e7;"><strong>${escHtml(l.label)}</strong><br/><span style="font-size:14px;color:#18181b;">De afspraak is veranderd van <span style="color:#71717a;">${escHtml(l.from)}</span> naar <strong>${escHtml(l.to)}</strong>.</span></td></tr>`,
+        `<tr><td style="padding:10px 0;border-bottom:1px solid rgba(194,161,100,0.35);"><strong style="color:#191919;">${escHtml(l.label)}</strong><br/><span style="font-size:14px;color:#262420;">Van <span style="color:#857f74;">${escHtml(l.from)}</span> naar <strong>${escHtml(l.to)}</strong>.</span></td></tr>`,
     )
     .join('');
-  return `<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #e4e4e7;border-radius:6px;margin:0 0 16px;background:#fff7ed;"><tr><td style="padding:14px 16px;text-align:left;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#9a3412;margin-bottom:4px;">Wat is gewijzigd?</div><p style="margin:0 0 10px;font-size:14px;color:#52525b;">Hieronder ziet u wat er aan uw afspraak is veranderd:</p><table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;">${rows}</table></td></tr></table>`;
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #c2a164;margin:0 0 16px;background:#ffffff;"><tr><td style="padding:14px 16px;text-align:left;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:#856b3f;margin-bottom:4px;">Wat is gewijzigd?</div><p style="margin:0 0 10px;font-size:14px;color:#525049;">Hieronder ziet u wat er aan uw afspraak is veranderd:</p><table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;">${rows}</table></td></tr></table>`;
 }

@@ -8,18 +8,6 @@ function escHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
-const FOOTER = `
-<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:48px;border-top:1px solid #e4e4e7;padding-top:24px;">
-  <tr>
-    <td style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:13px;line-height:1.65;color:#52525b;">
-      <p style="margin:0 0 8px;"><a href="https://www.class-models.be" style="color:#111827;text-decoration:none;font-weight:600;">www.class-models.be</a></p>
-      <p style="margin:0 0 4px;">Provinciebaan 3, 2235 Hulshout</p>
-      <p style="margin:0 0 4px;">GSM <a href="tel:+32485322307" style="color:#52525b;text-decoration:none;">+32 (0) 485 322 307</a></p>
-      <p style="margin:0;"><a href="mailto:info@class-models.be" style="color:#52525b;text-decoration:none;">info@class-models.be</a></p>
-    </td>
-  </tr>
-</table>`;
-
 export function webPublicBaseUrl(): string {
   return (process.env.WEB_PUBLIC_URL || process.env.WEB_APP_URL || 'https://www.class-models.be').replace(
     /\/$/,
@@ -34,13 +22,20 @@ export function wrapBulkMailHtml(
 ): string {
   const name = displayName?.trim();
   const greeting = name
-    ? `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;text-align:left;">Beste ${escHtml(name)},</p>`
-    : `<p style="margin:0 0 24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.55;color:#18181b;text-align:left;">Beste,</p>`;
+    ? `<p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:32px;color:#191919;">Beste ${escHtml(name)},</p>`
+    : `<p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:32px;color:#191919;">Beste,</p>`;
   const body = (innerHtml || '').trim() || '<p></p>';
   const unsub = unsubscribeUrl?.trim()
-    ? `<p style="margin:20px 0 0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:12px;line-height:1.5;color:#71717a;text-align:left;"><a href="${escHtml(unsubscribeUrl.trim())}" style="color:#71717a;text-decoration:underline;">Uitschrijven van deze e-mails</a></p>`
+    ? `<p style="margin:24px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:20px;color:#857f74;text-align:left;"><a href="${escHtml(unsubscribeUrl.trim())}" style="color:#857f74;text-decoration:underline;">Uitschrijven van deze e-mails</a></p>`
     : '';
-  return coerceOutgoingEmailHtml(`${greeting}<div style="margin-top:8px;text-align:left">${body}</div>${unsub}${FOOTER}`);
+  // Shell bevat al header/footer; geen tweede adresblok toevoegen.
+  return coerceOutgoingEmailHtml(
+    `${greeting}<div style="margin-top:4px;text-align:left;color:#262420;font-size:16px;line-height:27px;">${body}</div>${unsub}`,
+    {
+      includeUnsubscribe: Boolean(unsubscribeUrl?.trim()),
+      unsubscribeUrl: unsubscribeUrl?.trim() || undefined,
+    },
+  );
 }
 
 export function appendTrackingPixel(html: string, trackingUrl: string): string {

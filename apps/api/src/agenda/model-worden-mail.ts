@@ -157,7 +157,7 @@ export function bookingAgendaDisplayLabel(
 }
 
 const PARENT_NOTE_HTML =
-  '<p style="margin:16px 0 0;padding:12px 14px;border:1px solid #e4e4e7;border-radius:6px;background:#fafafa;font-size:13px;line-height:1.5;color:#3f3f46;text-align:left;"><strong>Belangrijk:</strong> bent u minderjarig, student of thuiswonend, dan is de aanwezigheid van een ouder of voogd bij de afspraak verplicht.</p>';
+  '<p style="margin:16px 0 0;padding:12px 14px;border:1px solid #c2a164;background:#ffffff;font-size:13px;line-height:1.5;color:#262420;text-align:left;"><strong>Belangrijk:</strong> bent u minderjarig, student of thuiswonend, dan is de aanwezigheid van een ouder of voogd bij de afspraak verplicht.</p>';
 
 const PARENT_NOTE_PLAIN =
   'Belangrijk: bent u minderjarig, student of thuiswonend, dan is de aanwezigheid van een ouder of voogd bij de afspraak verplicht.';

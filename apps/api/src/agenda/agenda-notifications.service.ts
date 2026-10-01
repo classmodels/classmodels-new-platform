@@ -860,7 +860,7 @@ export class AgendaNotificationService {
           from: smtp.from,
           to: addr,
           subject,
-          html,
+          html: coerceOutgoingEmailHtml(html),
           ...(attachments?.length
             ? {
                 attachments: attachments.map((a) => ({

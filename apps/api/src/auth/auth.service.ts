@@ -163,16 +163,18 @@ export class AuthService {
 
     const link = resetPasswordPageUrl(rawToken);
     const html = `
-      <p>Hallo${user.firstName ? ` ${user.firstName}` : ''},</p>
-      <p>Je vroeg een nieuw wachtwoord aan voor Class Models.</p>
-      <p><a href="${link}">Klik hier om een nieuw wachtwoord te kiezen</a> (geldig 24 uur).</p>
-      <p>Werkt de link niet? Kopieer: ${link}</p>
-      <p>Heb je dit niet aangevraagd? Negeer deze mail.</p>
+      <p style="margin:0 0 18px;font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:32px;color:#191919;">Beste${user.firstName ? ` ${user.firstName}` : ''},</p>
+      <p style="margin:0 0 18px;color:#262420;font-size:16px;line-height:27px;">U vroeg een nieuw wachtwoord aan voor Class-Models.</p>
+      <p style="margin:0 0 22px;color:#262420;font-size:16px;line-height:27px;">Klik op de knop hieronder om een nieuw wachtwoord te kiezen. De link is 24 uur geldig.</p>
+      <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 22px;"><tr><td style="border:1px solid #c2a164;background:#c2a164;"><a href="${link}" style="display:inline-block;padding:14px 22px;color:#191919;text-decoration:none;font-weight:700;font-size:15px;font-family:Arial,Helvetica,sans-serif;">Nieuw wachtwoord kiezen</a></td></tr></table>
+      <p style="margin:0 0 18px;font-size:13px;line-height:22px;color:#857f74;">Werkt de knop niet? Kopieer deze link in uw browser:<br/><span style="word-break:break-all;color:#525049;">${link}</span></p>
+      <p style="margin:0 0 0;color:#262420;font-size:16px;line-height:27px;">Hebt u dit niet aangevraagd? Dan mag u deze mail negeren.</p>
+      <p style="margin:28px 0 0;color:#262420;font-size:16px;line-height:27px;">Met vriendelijke groeten,<br/>Het Class-Models-team</p>
     `;
     const mail = await sendHtmlMailDetailed(
       this.prisma,
       user.email,
-      'Nieuw wachtwoord — Class Models',
+      'Nieuw wachtwoord — Class-Models',
       html,
     );
     if (!mail.ok) {

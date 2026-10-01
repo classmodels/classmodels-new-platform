@@ -46,7 +46,7 @@ function buildAgendaMailPlaceholderVars(ctx, mode) {
     return {
         cancel_reason: esc(cancelReason),
         cancel_reason_block_html: cancelReason
-            ? `<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #fecaca;border-radius:6px;margin:16px 0;background:#fef2f2;"><tr><td style="padding:12px 16px;"><p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#991b1b;">Reden van annulatie</p><p style="margin:6px 0 0;font-size:14px;color:#18181b;white-space:pre-wrap;">${esc(cancelReason)}</p></td></tr></table>`
+            ? `<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #c2a164;margin:16px 0;background:#ffffff;"><tr><td style="padding:12px 16px;"><p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.12em;color:#856b3f;">Reden van annulatie</p><p style="margin:6px 0 0;font-size:14px;color:#191919;white-space:pre-wrap;">${esc(cancelReason)}</p></td></tr></table>`
             : '',
         client_name: esc(ctx.displayName || 'klant'),
         calendar_title: esc(ctx.calendarTitle),
@@ -54,10 +54,10 @@ function buildAgendaMailPlaceholderVars(ctx, mode) {
         appointment_time: esc(ctx.timeLabel),
         cancel_url: cancelU,
         confirm_url: confirmU,
-        cancel_link_html: `<a href="${cancelU}">Afspraak annuleren</a>`,
-        confirm_link_html: `<a href="${confirmU}">Ik bevestig mijn komst</a>`,
-        cancel_button_html: `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border-radius:6px;background:#6f121b;"><a href="${cancelU}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Afspraak annuleren</a></td></tr></table>`,
-        confirm_button_html: `<table role="presentation" cellspacing="0" cellpadding="0" style="margin-bottom:20px;"><tr><td style="border-radius:6px;background:#0f766e;"><a href="${confirmU}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;">Ik bevestig mijn komst</a></td></tr></table>`,
+        cancel_link_html: `<a href="${cancelU}" style="color:#191919;">Afspraak annuleren</a>`,
+        confirm_link_html: `<a href="${confirmU}" style="color:#856b3f;">Ik bevestig mijn komst</a>`,
+        cancel_button_html: `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border:1px solid #191919;background:#191919;"><a href="${cancelU}" style="display:inline-block;padding:12px 18px;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;">Afspraak annuleren</a></td></tr></table>`,
+        confirm_button_html: `<table role="presentation" cellspacing="0" cellpadding="0"><tr><td style="border:1px solid #c2a164;background:#c2a164;"><a href="${confirmU}" style="display:inline-block;padding:12px 18px;color:#191919;text-decoration:none;font-weight:700;font-size:14px;font-family:Arial,Helvetica,sans-serif;white-space:nowrap;">Ik bevestig mijn komst</a></td></tr></table>`,
     };
 }
 /** Vaste demowaarden voor admin-voorbeeld (zelfde stijl als echte mail). */
