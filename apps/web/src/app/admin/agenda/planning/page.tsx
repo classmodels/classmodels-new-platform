@@ -27,6 +27,10 @@ import {
   timeStringToMinutes,
 } from '@/lib/agenda-brussels';
 import { printAttendanceList, bookingAgeLabel } from '@/lib/agenda-print-attendance';
+import {
+  isLegacyGuestAgendaSlug,
+  MODEL_WORDEN_FAMILY_SLUGS,
+} from '@/lib/model-worden-agenda';
 
 type Cal = { id: string; slug: string; title: string; color: string; durationMinutes: number; planningTextOnColor?: string | null };
 
@@ -715,13 +719,40 @@ export default function AdminAgendaPlanningPage() {
           </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          {calendars.map((c) => {
-            const on = selected.has(c.id);
+          {calendars
+            .filter((c) => !isLegacyGuestAgendaSlug(c.slug))
+            .map((c) => {
+            const on =
+              c.slug === 'model-worden'
+                ? calendars
+                    .filter((x) =>
+                      MODEL_WORDEN_FAMILY_SLUGS.includes(
+                        x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number],
+                      ),
+                    )
+                    .some((x) => selected.has(x.id))
+                : selected.has(c.id);
             return (
               <button
                 key={c.id}
                 type="button"
-                onClick={() => toggleCal(c.id)}
+                onClick={() => {
+                  if (c.slug === 'model-worden') {
+                    setSelected(
+                      new Set(
+                        calendars
+                          .filter((x) =>
+                            MODEL_WORDEN_FAMILY_SLUGS.includes(
+                              x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number],
+                            ),
+                          )
+                          .map((x) => x.id),
+                      ),
+                    );
+                    return;
+                  }
+                  toggleCal(c.id);
+                }}
                 className={[
                   'rounded-lg border px-3 py-2 text-left text-xs font-medium transition',
                   on ? 'border-zinc-900 text-white shadow-sm' : 'border-line bg-white text-ink hover:bg-panel',

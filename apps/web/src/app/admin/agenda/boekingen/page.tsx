@@ -8,6 +8,11 @@ import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEdit
 import { normalizeHm } from '@/components/admin-agenda/normalize-hm';
 import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
 import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
+import {
+  bookingAgendaDisplayLabel,
+  isLegacyGuestAgendaSlug,
+  MODEL_WORDEN_FAMILY_SLUGS,
+} from '@/lib/model-worden-agenda';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 import { printAttendanceList } from '@/lib/agenda-print-attendance';
@@ -242,10 +247,15 @@ export default function AdminAgendaBoekingenPage() {
   };
 
   const selectCalendarsBySlug = (slugs: string[]) => {
-    const ids = calendars.filter((c) => slugs.includes(c.slug)).map((c) => c.id);
+    const expanded = slugs.includes('model-worden')
+      ? [...new Set([...slugs, ...MODEL_WORDEN_FAMILY_SLUGS])]
+      : slugs;
+    const ids = calendars.filter((c) => expanded.includes(c.slug)).map((c) => c.id);
     if (!ids.length) return;
     setSelectedCalIds(new Set(ids));
   };
+
+  const filterCalendars = calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug));
 
   const printSelected = () => {
     const selected = visibleBookings.filter((b) => selectedIds.has(b.id));
@@ -561,13 +571,22 @@ export default function AdminAgendaBoekingenPage() {
             </button>
           </div>
           <div className="mt-2 flex flex-wrap gap-2">
-            {calendars.map((c) => (
+            {filterCalendars.map((c) => (
               <button
                 key={c.id}
                 type="button"
-                onClick={() => toggleCal(c.id)}
+                onClick={() => {
+                  if (c.slug === 'model-worden') selectCalendarsBySlug(['model-worden']);
+                  else toggleCal(c.id);
+                }}
                 className={`rounded-lg border px-2 py-1 text-[11px] font-medium ${
-                  selectedCalIds.has(c.id) ? 'border-zinc-900 bg-zinc-900 text-white' : 'border-line bg-white text-ink'
+                  selectedCalIds.has(c.id) ||
+                  (c.slug === 'model-worden' &&
+                    calendars
+                      .filter((x) => MODEL_WORDEN_FAMILY_SLUGS.includes(x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number]))
+                      .some((x) => selectedCalIds.has(x.id)))
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-line bg-white text-ink'
                 }`}
               >
                 {c.title}
@@ -692,7 +711,15 @@ export default function AdminAgendaBoekingenPage() {
                         </div>
                       ) : null}
                     </td>
-                    <td className="py-2 pr-3 align-top text-muted">{b.calendar.title}</td>
+                    <td className="py-2 pr-3 align-top text-muted">
+                      {bookingAgendaDisplayLabel(
+                        b.calendar.slug,
+                        b.calendar.title,
+                        b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+                          ? (b.fieldsJson as Record<string, unknown>)
+                          : null,
+                      )}
+                    </td>
                     <td className="py-2 pr-3 align-top">{nm}</td>
                     <td className="py-2 pr-3 align-top text-muted">
                       {b.email || '—'}
@@ -770,7 +797,11 @@ export default function AdminAgendaBoekingenPage() {
                   <div>
                     <h3 className="text-lg font-bold text-ink">Bewerk reserveringsdetails</h3>
                     <span className="mt-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-muted">
-                      {detail.calendar.title}
+                      {bookingAgendaDisplayLabel(
+                        detail.calendar.slug,
+                        detail.calendar.title,
+                        detail.fieldsJson,
+                      )}
                     </span>
                   </div>
                   <button type="button" className="text-2xl leading-none text-zinc-400 hover:text-ink" onClick={closeDetail}>

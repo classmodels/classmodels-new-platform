@@ -39,6 +39,10 @@ import {
   ensureDefaultAgendaCalendars,
 } from './agenda-default-calendars';
 import {
+  detectModelWordenPackage,
+  resolveMailCalendarTitle,
+} from './model-worden-mail';
+import {
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
@@ -1377,8 +1381,9 @@ export class AgendaService implements OnModuleInit {
         toEmail: email || null,
         phone: phone || null,
         displayName: name || firstname || 'klant',
-        calendarTitle: String(cal.title ?? ''),
+        calendarTitle: resolveMailCalendarTitle(String(cal.slug ?? ''), String(cal.title ?? ''), fieldsJson),
         calendarSlug: String(cal.slug ?? ''),
+        modelWordenPackage: detectModelWordenPackage(fieldsJson),
         bookingStatus: booking.status,
         dateLabel,
         timeLabel,

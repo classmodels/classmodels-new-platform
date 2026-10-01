@@ -284,8 +284,23 @@ export async function ensureDefaultAgendaCalendars(
   }
 
   await bootstrapModelWordenAvailability(prisma);
+  await retireLegacyGuestCalendars(prisma);
 
   return { created, total, portfolioScheduleUpgraded };
+}
+
+/**
+ * Intake / casting / gratis-fotoshoot: niet meer publiek of actief in admin als aparte funnel.
+ * Bestaande boekingen blijven staan (calendarId ongewijzigd).
+ */
+async function retireLegacyGuestCalendars(prisma: PrismaClient): Promise<void> {
+  await prisma.agendaCalendar.updateMany({
+    where: { slug: { in: ['intake-gesprek', 'casting', 'gratis-fotoshoot'] } },
+    data: {
+      active: false,
+      publicBooking: false,
+    },
+  });
 }
 
 /**
@@ -307,7 +322,7 @@ async function bootstrapModelWordenAvailability(prisma: PrismaClient): Promise<v
   if (futureOpenCount > 0 || hasWeekdayMask) return;
 
   const sources = await prisma.agendaCalendar.findMany({
-    where: { slug: { in: ['intake-gesprek', 'gratis-fotoshoot'] }, active: true },
+    where: { slug: { in: ['intake-gesprek', 'gratis-fotoshoot'] } },
   });
   const preferred =
     sources.find((s) => s.slug === 'intake-gesprek') ??

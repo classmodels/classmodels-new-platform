@@ -18,30 +18,18 @@ type SmtpAttachment = SmtpInlineAttachment | { filename: string; content: Buffer
 import { AgendaTravelService } from './agenda-travel.service';
 import { isAgendaBookingEnrolled, isGuestIntakeCalendarSlug } from './guest-intake-calendars';
 import { formatBulksmsError } from './agenda-phone';
-
-function packageLabelFromFields(fields: Record<string, string>): string | null {
-  const raw = (fields.pakket ?? fields.package ?? '').trim().toLowerCase();
-  if (!raw) return null;
-  if (raw.includes('testshoot') || raw.includes('fotoshoot') || raw.includes('foto')) {
-    return 'Gratis testshoot + intake-gesprek';
-  }
-  if (raw.includes('intake')) {
-    return 'Intake-gesprek';
-  }
-  return (fields.pakket ?? fields.package ?? '').trim() || null;
-}
-
-/** Voor model-worden: mailtitel volgt het gekozen pakket (intake vs testshoot+intake). */
-function resolveMailCalendarTitle(
-  calendarSlug: string,
-  calendarTitle: string,
-  fields: Record<string, string>,
-): string {
-  if (calendarSlug === 'model-worden') {
-    return packageLabelFromFields(fields) ?? 'Model worden';
-  }
-  return calendarTitle;
-}
+import {
+  detectModelWordenPackage,
+  modelWordenConfirmationIntroHtml,
+  modelWordenConfirmationSubject,
+  modelWordenExtraBlocksHtml,
+  modelWordenFollowupIntroHtml,
+  modelWordenFollowupSubject,
+  modelWordenReminderIntroHtml,
+  modelWordenReminderSubject,
+  resolveMailCalendarTitle,
+  type ModelWordenPackage,
+} from './model-worden-mail';
 
 export type AgendaConfirmationPayload = {
   toEmail: string | null;
@@ -77,6 +65,8 @@ export type DispatchBookingCtx = AgendaConfirmationPayload & {
   changeSummaryHtml?: string;
   /** Reden van annulatie — komt in de annulatiemail/SMS terecht. */
   cancelReason?: string;
+  /** Gekozen pakket (model-worden). */
+  modelWordenPackage?: ModelWordenPackage | null;
 };
 
 export type DispatchBookingResult = {
@@ -283,19 +273,51 @@ export class AgendaNotificationService {
             errorMessage: lastEmailError,
           });
         }
+      } else if (
+        trigger === 'booking_created' &&
+        ctx.calendarSlug === 'model-worden' &&
+        sendEmail &&
+        ctx.toEmail?.trim()
+      ) {
+        /** Model-worden: altijd pakket-specifieke bevestiging (niet generiek admin-sjabloon). */
+        const fallbackOk = await this.sendDefaultBookingConfirmation(ctx);
+        const subject = modelWordenConfirmationSubject(ctx.modelWordenPackage ?? null);
+        if (fallbackOk) {
+          emailSent = true;
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'email',
+            trigger,
+            templateId: null,
+            templateName: 'Bevestiging model worden',
+            subject,
+            recipient: ctx.toEmail.trim(),
+            bodyPreview: `${ctx.calendarTitle} · ${ctx.dateLabel} ${ctx.timeLabel}`.slice(0, 4000),
+            sent: true,
+          });
+        } else {
+          lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'email',
+            trigger,
+            templateId: null,
+            templateName: 'Bevestiging model worden',
+            subject,
+            recipient: ctx.toEmail.trim(),
+            bodyPreview: ctx.calendarTitle,
+            sent: false,
+            errorMessage: lastEmailError,
+          });
+        }
       } else {
       for (const t of emailTemplates) {
         if (!sendEmail) break;
         const to = ctx.toEmail?.trim();
         if (!to) continue;
-        const includesTestshoot = /testshoot|fotoshoot|foto/i.test(ctx.calendarTitle);
         const subject =
-          ctx.calendarSlug === 'model-worden' && trigger === 'booking_created'
-            ? includesTestshoot
-              ? `Bevestiging: gratis testshoot + intake-gesprek — Class Models`
-              : `Bevestiging: intake-gesprek — Class Models`
-            : applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
-              `Melding: ${ctx.calendarTitle}`;
+          applyAgendaMailPlaceholders(t.subject?.trim() || `Melding: ${ctx.calendarTitle}`, vars) ||
+          `Melding: ${ctx.calendarTitle}`;
         let bodyTemplate = t.body;
         // Annulatiemail: reden altijd meesturen, ook als het sjabloon de placeholder niet kent.
         if (
@@ -304,6 +326,18 @@ export class AgendaNotificationService {
           !t.body.includes('cancel_reason')
         ) {
           bodyTemplate = `${t.body}\n${buildCancelReasonBlockHtml(ctx.cancelReason)}`;
+        }
+        if (
+          ctx.calendarSlug === 'model-worden' &&
+          (trigger === 'reminder' || trigger === 'followup')
+        ) {
+          const pkg = ctx.modelWordenPackage ?? null;
+          const intro =
+            trigger === 'reminder'
+              ? modelWordenReminderIntroHtml(pkg)
+              : modelWordenFollowupIntroHtml(pkg);
+          const extra = modelWordenExtraBlocksHtml(pkg);
+          bodyTemplate = `<p style="margin:0 0 16px;text-align:left;">Beste {{client_name}},</p><p style="margin:0 0 16px;text-align:left;">${intro}</p>${extra}\n${bodyTemplate}`;
         }
         const html = coerceOutgoingEmailHtml(applyAgendaMailPlaceholders(bodyTemplate, vars));
         const smtpFast = trigger === 'booking_created';
@@ -325,7 +359,12 @@ export class AgendaNotificationService {
           trigger,
           templateId: t.id,
           templateName: t.name,
-          subject,
+          subject:
+            ctx.calendarSlug === 'model-worden' && trigger === 'reminder'
+              ? modelWordenReminderSubject(ctx.modelWordenPackage ?? null)
+              : ctx.calendarSlug === 'model-worden' && trigger === 'followup'
+                ? modelWordenFollowupSubject(ctx.modelWordenPackage ?? null)
+                : subject,
           recipient: to,
           bodyPreview: html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
           sent: sendResult.ok,
@@ -348,8 +387,31 @@ export class AgendaNotificationService {
         if (fallbackOk) {
           emailSent = true;
           lastEmailError = undefined;
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'email',
+            trigger,
+            templateId: null,
+            templateName: 'Standaard bevestigingsmail',
+            subject: `Bevestiging: ${ctx.calendarTitle} — Class Models`,
+            recipient: ctx.toEmail.trim(),
+            bodyPreview: `${ctx.calendarTitle} · ${ctx.dateLabel} ${ctx.timeLabel}`.slice(0, 4000),
+            sent: true,
+          });
         } else if (!lastEmailError) {
           lastEmailError = 'SMTP niet geconfigureerd of verzending mislukt';
+          await this.recordBookingNotificationLog({
+            bookingId: ctx.bookingId,
+            channel: 'email',
+            trigger,
+            templateId: null,
+            templateName: 'Standaard bevestigingsmail',
+            subject: `Bevestiging: ${ctx.calendarTitle} — Class Models`,
+            recipient: ctx.toEmail.trim(),
+            bodyPreview: ctx.calendarTitle,
+            sent: false,
+            errorMessage: lastEmailError,
+          });
         }
       }
       result.emailSent = emailSent;
@@ -476,21 +538,27 @@ export class AgendaNotificationService {
     if (!to) return false;
     try {
       const isModelWorden = ctx.calendarSlug === 'model-worden';
-      const includesTestshoot = /testshoot|fotoshoot|foto/i.test(ctx.calendarTitle);
+      const pkg =
+        ctx.modelWordenPackage ??
+        (isModelWorden
+          ? detectModelWordenPackage({ pakket: ctx.calendarTitle })
+          : null);
       const subject = isModelWorden
-        ? includesTestshoot
-          ? `Bevestiging: gratis testshoot + intake-gesprek — Class Models`
-          : `Bevestiging: intake-gesprek — Class Models`
+        ? modelWordenConfirmationSubject(pkg)
         : `Bevestiging: ${ctx.calendarTitle} — Class Models`;
       const intro = isModelWorden
-        ? includesTestshoot
-          ? 'Uw afspraak voor een gratis testshoot met intake-gesprek is ingepland. Hieronder vindt u de gegevens.'
-          : 'Uw afspraak voor een intake-gesprek is ingepland. Hieronder vindt u de gegevens.'
+        ? modelWordenConfirmationIntroHtml(pkg)
         : 'Uw afspraak is ingepland. Hieronder vindt u de gegevens en knoppen om te annuleren of — op de dag vóór uw bezoek — uw komst te bevestigen.';
-      const htmlTemplate = AGENDA_DEFAULT_BOOKING_EMAIL_HTML.replace(
+      let htmlTemplate = AGENDA_DEFAULT_BOOKING_EMAIL_HTML.replace(
         'Uw afspraak is ingepland. Hieronder vindt u de gegevens en knoppen om te annuleren of — op de dag vóór uw bezoek — uw komst te bevestigen.',
         intro,
       );
+      if (isModelWorden) {
+        htmlTemplate = htmlTemplate.replace(
+          '</p>\n<table role="presentation"',
+          `</p>\n${modelWordenExtraBlocksHtml(pkg)}\n<table role="presentation"`,
+        );
+      }
       const html = coerceOutgoingEmailHtml(
         applyAgendaMailPlaceholders(
           htmlTemplate,
@@ -955,6 +1023,7 @@ export class AgendaNotificationService {
         ? (b.fieldsJson as Record<string, string>)
         : {};
     const mailCalendarTitle = resolveMailCalendarTitle(cal.slug, cal.title, fj);
+    const modelWordenPackage = detectModelWordenPackage(fj);
     const cancelReason = (fj.annulatie_reden ?? '').toString().trim() || undefined;
     const visitorAddress = formatGuestAddressFromFields(fj);
     let distanceLabel = '';
@@ -976,6 +1045,7 @@ export class AgendaNotificationService {
             bookingStatus: b.status,
             calendarSlug: cal.slug,
             calendarTitle: mailCalendarTitle,
+            modelWordenPackage,
             displayName,
             toEmail: b.email,
             phone: b.phone,
@@ -1002,6 +1072,7 @@ export class AgendaNotificationService {
       bookingStatus: b.status,
       calendarSlug: cal.slug,
       calendarTitle: mailCalendarTitle,
+      modelWordenPackage,
       displayName,
       toEmail: b.email,
       phone: b.phone,
