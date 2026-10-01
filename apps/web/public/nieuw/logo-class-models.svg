@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" role="img" aria-label="Class-Models Modeling Agency">
-  <title>Class-Models  Modeling Agency</title>
-  <!-- Left: CM + Modeling Agency -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 140" role="img" aria-label="Class-Models Modeling Agency">
+  <title>Class-Models — Modeling Agency</title>
   <text
     x="78"
     y="78"
@@ -21,11 +20,7 @@
     font-weight="500"
     letter-spacing="0.18em"
   >Modeling Agency</text>
-
-  <!-- Vertical divider -->
   <line x1="168" y1="28" x2="168" y2="122" stroke="#d4af6a" stroke-width="1.5" />
-
-  <!-- Right: Class-Models + tagline -->
   <text
     x="190"
     y="78"
@@ -44,7 +39,4 @@
     font-weight="600"
     letter-spacing="0.14em"
   >TOEGANKELIJK. EERLIJK. PROFESSIONEEL.</text>
-
-  <!-- Bottom rule -->
-  <line x1="12" y1="128" x2="708" y2="128" stroke="#d4af6a" stroke-width="1.5" />
 </svg>
