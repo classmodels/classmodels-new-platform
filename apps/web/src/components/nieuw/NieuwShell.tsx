@@ -18,6 +18,7 @@ const GASTEN_NAV = [
   { href: '/gasten/model-worden', label: 'Model worden' },
   { href: '/gasten/model-worden#inschrijven', label: 'Inschrijven' },
   { href: '/gasten/model-worden#hoe-werkt-het', label: 'Hoe werkt het?' },
+  { href: '/tickets', label: 'Tickets modeshow' },
   { href: '/gasten/testshoot', label: 'Testshoot-foto’s' },
   { href: '/gasten/contact', label: 'Contact' },
 ] as const;
@@ -56,6 +57,7 @@ const BOOKING_PATHS = [
 function portalFromPath(pathname: string | null): NieuwPortal {
   if (!pathname) return 'home';
   if (pathname.startsWith('/gasten')) return 'gasten';
+  if (pathname.startsWith('/tickets')) return 'gasten';
   if (pathname.startsWith('/modellen')) return 'modellen';
   if (pathname.startsWith('/klanten')) return 'klanten';
   return 'home';
@@ -104,7 +106,12 @@ export function NieuwShell({
   /** Op gsm: gasten/modellen/klanten in de app-shell (niet de desktop-header). */
   const appMobileGuest =
     isMobile === true &&
-    Boolean(pathname?.startsWith('/gasten') || pathname === '/reviews' || pathname?.startsWith('/reviews/'));
+    Boolean(
+      pathname?.startsWith('/gasten') ||
+        pathname?.startsWith('/tickets') ||
+        pathname === '/reviews' ||
+        pathname?.startsWith('/reviews/'),
+    );
   const appMobileModel = isMobile === true && Boolean(pathname?.startsWith('/modellen'));
   const appMobileClient = isMobile === true && Boolean(pathname?.startsWith('/klanten'));
   const appMobilePage = appMobileGuest || appMobileModel || appMobileClient;
@@ -234,6 +241,7 @@ export function NieuwShell({
             <span className="nieuw-util-nav-spacer" aria-hidden="true" />
           )}
           <nav className="nieuw-util-actions" aria-label="Snelle acties">
+            <Link href="/tickets">Tickets modeshow</Link>
             <Link href="/reviews">Reviews</Link>
             <Link href="/gasten/contact">Contact</Link>
             {cta}
@@ -282,6 +290,8 @@ export function NieuwShell({
                 <Link href="/modellen">Modellenportaal</Link>
                 <br />
                 <Link href="/klanten">Klantenportaal</Link>
+                <br />
+                <Link href="/tickets">Tickets modeshow</Link>
                 <br />
                 <Link href="/reviews">Reviews</Link>
               </p>

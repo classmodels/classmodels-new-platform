@@ -20,6 +20,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { BulkCommsModule } from './bulk-comms/bulk-comms.module';
 import { PluginsModule } from './plugins/plugins.module';
 import { PartnersModule } from './partners/partners.module';
+import { ModeshowTicketsModule } from './modeshow-tickets/modeshow-tickets.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PartnersModule } from './partners/partners.module';
     BulkCommsModule,
     PluginsModule,
     PartnersModule,
+    ModeshowTicketsModule,
   ],
 })
 export class AppModule {}

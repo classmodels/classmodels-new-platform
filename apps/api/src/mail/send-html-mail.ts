@@ -29,6 +29,7 @@ export type SendHtmlMailOptions = {
   fast?: boolean;
   /** Reply-To (bv. e-mail van het model). */
   replyTo?: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 };
 
 /** SMTP-mail zonder pool — betrouwbaarder voor losse transactionele mails. */
@@ -79,6 +80,15 @@ export async function sendHtmlMailDetailed(
         html: preparedHtml,
         text: preparedHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
         ...(opts?.replyTo?.trim() ? { replyTo: opts.replyTo.trim() } : {}),
+        ...(opts?.attachments?.length
+          ? {
+              attachments: opts.attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: a.contentType || 'application/pdf',
+              })),
+            }
+          : {}),
       });
       log.log(`E-mail verstuurd naar ${addr} via ${cfg.host} (${cfg.source})`);
       return { ok: true, smtpSource: cfg.source };
@@ -109,4 +119,14 @@ export async function sendHtmlMail(
 ): Promise<boolean> {
   const r = await sendHtmlMailDetailed(prisma, to, subject, html);
   return r.ok;
+}
+
+export async function sendHtmlMailWithAttachments(
+  prisma: PrismaService,
+  to: string,
+  subject: string,
+  html: string,
+  attachments: { filename: string; content: Buffer; contentType?: string }[],
+): Promise<{ ok: boolean; error?: string }> {
+  return sendHtmlMailDetailed(prisma, to, subject, html, { attachments });
 }

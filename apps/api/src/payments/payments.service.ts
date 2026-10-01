@@ -1,9 +1,11 @@
 import {
   BadRequestException,
   Injectable,
+  Inject,
   Logger,
   NotFoundException,
   ServiceUnavailableException,
+  forwardRef,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import createMollieClient, { Payment } from '@mollie/api-client';
@@ -14,6 +16,7 @@ import { resolveTryoutCoupon } from '../portal/tryout-coupon.util';
 import { sendHtmlMail } from '../mail/send-html-mail';
 import { isPremiumPromoActive, PREMIUM_YEARLY_EUROS, premiumPromoDeadlineMs } from './premium-promo.util';
 import { pushMijnBtwInvoiceForUser } from '../billing/mijnbtw.client';
+import { ModeshowTicketsService } from '../modeshow-tickets/modeshow-tickets.service';
 
 export type MollieMode = 'test' | 'live';
 
@@ -64,6 +67,8 @@ export class PaymentsService {
   constructor(
     private prisma: PrismaService,
     private modelHistory: ModelPortalHistoryService,
+    @Inject(forwardRef(() => ModeshowTicketsService))
+    private modeshowTickets: ModeshowTicketsService,
   ) {}
 
   /** Actieve modus: backoffice (DB) → MOLLIE_MODE env → test (veilige default). */
@@ -770,6 +775,12 @@ export class PaymentsService {
       this.log.error(`Webhook: payment ophalen mislukt ${paymentId} (geen geldige test/live key)`);
       return;
     }
+
+    const ticketHandled = await this.modeshowTickets.fulfillByMolliePaymentId(
+      payment.id,
+      payment.status,
+    );
+    if (ticketHandled) return;
 
     const setCardDraft = await this.prisma.modelSetCardDraft.findUnique({
       where: { molliePaymentId: payment.id },

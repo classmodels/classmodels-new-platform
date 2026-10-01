@@ -17,6 +17,7 @@ const CTA_TEXT = '#14110a';
 const GUEST_MENU_LINKS = [
   { label: 'Model worden? (home)', href: '/?m=guest' },
   { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
+  { label: 'Tickets modeshow', href: '/tickets' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'Contact', href: '/?m=guest&info=contact' },

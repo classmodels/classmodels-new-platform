@@ -5426,3 +5426,8 @@
 .nieuw-root--mobile-signup .nieuw-signup-panel {
   padding: 18px 14px 20px;
 }
+
+.cm-tickets-grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 28px; align-items: start; }
+@media (max-width: 900px) {
+  .cm-tickets-grid { grid-template-columns: 1fr; }
+}

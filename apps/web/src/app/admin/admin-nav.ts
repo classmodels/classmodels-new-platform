@@ -69,6 +69,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
     items: [
       { href: '/admin/premium', label: 'Premium & abonnementen', permission: 'admin.subscriptions.read' },
       { href: '/admin/tryout-modeshow', label: 'Try-out modeshow', permission: 'admin.billing.read' },
+      { href: '/admin/modeshow-tickets', label: 'Tickets modeshow', permission: 'admin.billing.read' },
       { href: '/admin/mollie', label: 'Mollie-instellingen', permission: 'admin.billing.read' },
       { href: '/admin/mail-instellingen', label: 'E-mail (SMTP)', permission: 'admin.agenda.read' },
     ],
@@ -157,6 +158,7 @@ export const ADMIN_MODULES = [
   { slug: 'rollen', label: 'Rollen', permission: 'admin.roles.read' as const },
   { slug: 'premium', label: 'Premium', permission: 'admin.subscriptions.read' as const },
   { slug: 'tryout-modeshow', label: 'Try-out modeshow', permission: 'admin.billing.read' as const },
+  { slug: 'modeshow-tickets', label: 'Tickets modeshow', permission: 'admin.billing.read' as const },
   { slug: 'mollie', label: 'Mollie instellingen', permission: 'admin.billing.read' as const },
   { slug: 'menus', label: "Menu's", permission: 'admin.menus.read' as const },
   { slug: 'content', label: 'Content', permission: 'content.strings.write' as const },

@@ -29,6 +29,7 @@ function allowMobilePath(pathname: string): boolean {
   if (pathname.startsWith('/gasten/testshoot')) return true;
   if (pathname.startsWith('/gasten/annuleer')) return true;
   if (pathname.startsWith('/gasten/bevestig')) return true;
+  if (pathname.startsWith('/tickets')) return true;
   if (pathname.startsWith('/account')) return true;
   return false;
 }
