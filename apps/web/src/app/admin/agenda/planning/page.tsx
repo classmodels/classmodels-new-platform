@@ -293,9 +293,8 @@ export default function AdminAgendaPlanningPage() {
 
   useEffect(() => {
     if (!calendars.length || selectedInitialized) return;
-    setSelected(
-      new Set(calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug)).map((c) => c.id)),
-    );
+    // Alle agenda's (incl. legacy) zodat historische boekingen zichtbaar blijven.
+    setSelected(new Set(calendars.map((c) => c.id)));
     setSelectedInitialized(true);
   }, [calendars, selectedInitialized]);
 
@@ -683,11 +682,7 @@ export default function AdminAgendaPlanningPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() =>
-              setSelected(
-                new Set(calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug)).map((c) => c.id)),
-              )
-            }
+            onClick={() => setSelected(new Set(calendars.map((c) => c.id)))}
             className="rounded-lg border border-line bg-panel px-3 py-2 text-xs font-medium text-ink hover:bg-zinc-100"
           >
             Alle
@@ -726,17 +721,18 @@ export default function AdminAgendaPlanningPage() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {calendars
-            .filter((c) => !isLegacyGuestAgendaSlug(c.slug) && (c as { active?: boolean }).active !== false)
+            .filter((c) => !isLegacyGuestAgendaSlug(c.slug))
             .map((c) => {
+            const familyIds = calendars
+              .filter((x) =>
+                MODEL_WORDEN_FAMILY_SLUGS.includes(
+                  x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number],
+                ),
+              )
+              .map((x) => x.id);
             const on =
               c.slug === 'model-worden'
-                ? calendars
-                    .filter((x) =>
-                      MODEL_WORDEN_FAMILY_SLUGS.includes(
-                        x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number],
-                      ),
-                    )
-                    .some((x) => selected.has(x.id))
+                ? familyIds.some((id) => selected.has(id))
                 : selected.has(c.id);
             return (
               <button
@@ -744,17 +740,13 @@ export default function AdminAgendaPlanningPage() {
                 type="button"
                 onClick={() => {
                   if (c.slug === 'model-worden') {
-                    setSelected(
-                      new Set(
-                        calendars
-                          .filter((x) =>
-                            MODEL_WORDEN_FAMILY_SLUGS.includes(
-                              x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number],
-                            ),
-                          )
-                          .map((x) => x.id),
-                      ),
-                    );
+                    setSelected((prev) => {
+                      const n = new Set(prev);
+                      const anyOn = familyIds.some((id) => n.has(id));
+                      if (anyOn) familyIds.forEach((id) => n.delete(id));
+                      else familyIds.forEach((id) => n.add(id));
+                      return n;
+                    });
                     return;
                   }
                   toggleCal(c.id);

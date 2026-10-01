@@ -169,9 +169,9 @@ export default function AdminAgendaBoekingenPage() {
     if (!token) return;
     const rows = await adminFetch<Cal[]>('/admin/agenda/calendars', token);
     setCalendars(rows);
-    setSelectedCalIds(
-      new Set(rows.filter((c) => !isLegacyGuestAgendaSlug(c.slug)).map((c) => c.id)),
-    );
+    // Alle agenda's selecteren (incl. legacy intake/casting/fotoshoot) zodat historische
+    // boekingen zichtbaar blijven. Knoppen tonen we apart zonder legacy-labels.
+    setSelectedCalIds(new Set(rows.map((c) => c.id)));
     setCalsReady(true);
   }, [token]);
 
@@ -258,9 +258,24 @@ export default function AdminAgendaBoekingenPage() {
     setSelectedCalIds(new Set(ids));
   };
 
-  const filterCalendars = calendars.filter(
-    (c) => !isLegacyGuestAgendaSlug(c.slug) && c.active !== false,
-  );
+  /** Filterknoppen: legacy intake/casting/fotoshoot verbergen, data blijft wel in de query. */
+  const filterCalendars = calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug));
+
+  const toggleModelWordenFamily = () => {
+    const familyIds = calendars
+      .filter((c) =>
+        MODEL_WORDEN_FAMILY_SLUGS.includes(c.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number]),
+      )
+      .map((c) => c.id);
+    if (!familyIds.length) return;
+    setSelectedCalIds((prev) => {
+      const n = new Set(prev);
+      const anyOn = familyIds.some((id) => n.has(id));
+      if (anyOn) familyIds.forEach((id) => n.delete(id));
+      else familyIds.forEach((id) => n.add(id));
+      return n;
+    });
+  };
 
   const printSelected = () => {
     const selected = visibleBookings.filter((b) => selectedIds.has(b.id));
@@ -548,7 +563,7 @@ export default function AdminAgendaBoekingenPage() {
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setSelectedCalIds(new Set(filterCalendars.map((c) => c.id)))}
+              onClick={() => setSelectedCalIds(new Set(calendars.map((c) => c.id)))}
               className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
             >
               Alle
@@ -581,14 +596,18 @@ export default function AdminAgendaBoekingenPage() {
                 key={c.id}
                 type="button"
                 onClick={() => {
-                  if (c.slug === 'model-worden') selectCalendarsBySlug(['model-worden']);
+                  if (c.slug === 'model-worden') toggleModelWordenFamily();
                   else toggleCal(c.id);
                 }}
                 className={`rounded-lg border px-2 py-1 text-[11px] font-medium ${
                   selectedCalIds.has(c.id) ||
                   (c.slug === 'model-worden' &&
                     calendars
-                      .filter((x) => MODEL_WORDEN_FAMILY_SLUGS.includes(x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number]))
+                      .filter((x) =>
+                        MODEL_WORDEN_FAMILY_SLUGS.includes(
+                          x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number],
+                        ),
+                      )
                       .some((x) => selectedCalIds.has(x.id)))
                     ? 'border-zinc-900 bg-zinc-900 text-white'
                     : 'border-line bg-white text-ink'
