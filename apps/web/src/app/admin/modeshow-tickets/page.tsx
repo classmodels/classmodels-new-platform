@@ -29,6 +29,15 @@ type EventRow = {
   description?: string | null;
   coverImageUrl?: string | null;
   ticketFooter?: string | null;
+  priceDrinks?: number;
+  drinkTitle?: string | null;
+  drinkDescription?: string | null;
+  drinkCouponsPerTicket?: number;
+  sponsorText?: string | null;
+  sponsorImageUrls?: string[] | unknown;
+  claimEnabled?: boolean;
+  claimRequiredForCheckin?: boolean;
+  claimInfoText?: string | null;
   coupons?: { id: string; code: string; ticketType: string; maxQty: number; active: boolean }[];
 };
 
@@ -41,11 +50,52 @@ type OrderRow = {
   email: string;
   qtyStd: number;
   qtyVip: number;
+  qtyDrinks?: number;
   totalAmount: number;
   createdAt: string;
   event: { title: string } | null;
   tickets: { code: string; ticketType: string; checkedIn: boolean }[];
 };
+
+type ClaimRow = {
+  id: string;
+  ticketCode: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  createdAt: string;
+  event: { id: string; title: string; eventDate: string };
+  ticket: { code: string; ticketType: string; checkedIn: boolean };
+};
+
+type CheckLookup = {
+  ticket: { code: string; ticketType: string; label: string | null; checkedIn: boolean };
+  order: { firstName: string; lastName: string; email: string; status: string };
+  event: { title: string; eventDate: string; claimRequiredForCheckin?: boolean; claimEnabled?: boolean };
+  claim: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    archived: boolean;
+  } | null;
+  claimed: boolean;
+  claimRequired: boolean;
+  canCheckIn: boolean;
+};
+
+function sponsorUrlsToText(urls: unknown): string {
+  if (Array.isArray(urls)) return urls.filter((u): u is string => typeof u === 'string').join('\n');
+  return '';
+}
+
+function parseSponsorUrlsField(text: string): string[] {
+  return text
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 const emptyEventForm = {
   title: '',
@@ -65,6 +115,15 @@ const emptyEventForm = {
   ticketFooter: '',
   priceStd: '25',
   priceVip: '45',
+  priceDrinks: '0',
+  drinkTitle: 'Drankbon',
+  drinkDescription: '',
+  drinkCouponsPerTicket: '1',
+  sponsorText: '',
+  sponsorImageUrls: '',
+  claimEnabled: true,
+  claimRequiredForCheckin: false,
+  claimInfoText: '',
   ticketStock: '200',
   published: true,
 };
@@ -74,9 +133,10 @@ export default function AdminModeshowTicketsPage() {
   const canRead = can('admin.billing.read');
   const canWrite = can('admin.billing.write');
 
-  const [tab, setTab] = useState<'events' | 'orders' | 'checkin'>('events');
+  const [tab, setTab] = useState<'events' | 'orders' | 'checkin' | 'claims'>('events');
   const [events, setEvents] = useState<EventRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [claims, setClaims] = useState<ClaimRow[]>([]);
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [editing, setEditing] = useState<EventRow | null>(null);
@@ -84,7 +144,7 @@ export default function AdminModeshowTicketsPage() {
   const [couponForm, setCouponForm] = useState({ code: '', ticketType: 'std', maxQty: '1' });
   const [orderSearch, setOrderSearch] = useState('');
   const [checkCode, setCheckCode] = useState('');
-  const [checkResult, setCheckResult] = useState<unknown>(null);
+  const [checkResult, setCheckResult] = useState<CheckLookup | null>(null);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [manual, setManual] = useState({
     eventId: '',
@@ -93,6 +153,7 @@ export default function AdminModeshowTicketsPage() {
     email: '',
     qtyStd: '1',
     qtyVip: '0',
+    qtyDrinks: '0',
     markFree: true,
     sendEmail: true,
   });
@@ -111,6 +172,12 @@ export default function AdminModeshowTicketsPage() {
     setOrders(rows);
   }, [token, orderSearch]);
 
+  const loadClaims = useCallback(async () => {
+    if (!token) return;
+    const rows = await adminFetch<ClaimRow[]>('/admin/modeshow-tickets/claims', token);
+    setClaims(rows);
+  }, [token]);
+
   useEffect(() => {
     if (!canRead || !token) return;
     void loadEvents().catch((e) => setErr(e instanceof Error ? e.message : 'Laden mislukt'));
@@ -120,6 +187,11 @@ export default function AdminModeshowTicketsPage() {
     if (!canRead || !token || tab !== 'orders') return;
     void loadOrders().catch((e) => setErr(e instanceof Error ? e.message : 'Orders laden mislukt'));
   }, [canRead, token, tab, loadOrders]);
+
+  useEffect(() => {
+    if (!canRead || !token || tab !== 'claims') return;
+    void loadClaims().catch((e) => setErr(e instanceof Error ? e.message : 'Claims laden mislukt'));
+  }, [canRead, token, tab, loadClaims]);
 
   if (!canRead) {
     return (
@@ -153,6 +225,15 @@ export default function AdminModeshowTicketsPage() {
         ticketFooter: form.ticketFooter,
         priceStd: Number(form.priceStd) || 0,
         priceVip: Number(form.priceVip) || 0,
+        priceDrinks: Number(form.priceDrinks) || 0,
+        drinkTitle: form.drinkTitle || undefined,
+        drinkDescription: form.drinkDescription || undefined,
+        drinkCouponsPerTicket: Number(form.drinkCouponsPerTicket) || 1,
+        sponsorText: form.sponsorText || undefined,
+        sponsorImageUrls: parseSponsorUrlsField(form.sponsorImageUrls),
+        claimEnabled: form.claimEnabled,
+        claimRequiredForCheckin: form.claimRequiredForCheckin,
+        claimInfoText: form.claimInfoText || undefined,
         ticketStock: form.ticketStock === '' ? null : Number(form.ticketStock),
         published: form.published,
       };
@@ -197,6 +278,15 @@ export default function AdminModeshowTicketsPage() {
       ticketFooter: ev.ticketFooter || '',
       priceStd: String(ev.priceStd),
       priceVip: String(ev.priceVip),
+      priceDrinks: String(ev.priceDrinks ?? 0),
+      drinkTitle: ev.drinkTitle || 'Drankbon',
+      drinkDescription: ev.drinkDescription || '',
+      drinkCouponsPerTicket: String(ev.drinkCouponsPerTicket ?? 1),
+      sponsorText: ev.sponsorText || '',
+      sponsorImageUrls: sponsorUrlsToText(ev.sponsorImageUrls),
+      claimEnabled: ev.claimEnabled !== false,
+      claimRequiredForCheckin: Boolean(ev.claimRequiredForCheckin),
+      claimInfoText: ev.claimInfoText || '',
       ticketStock: ev.ticketStock == null ? '' : String(ev.ticketStock),
       published: ev.published,
     });
@@ -211,6 +301,15 @@ export default function AdminModeshowTicketsPage() {
         ticketFooter: full.ticketFooter || '',
         summary: full.summary || f.summary,
         description: full.description || f.description,
+        priceDrinks: String(full.priceDrinks ?? 0),
+        drinkTitle: full.drinkTitle || 'Drankbon',
+        drinkDescription: full.drinkDescription || '',
+        drinkCouponsPerTicket: String(full.drinkCouponsPerTicket ?? 1),
+        sponsorText: full.sponsorText || '',
+        sponsorImageUrls: sponsorUrlsToText(full.sponsorImageUrls),
+        claimEnabled: full.claimEnabled !== false,
+        claimRequiredForCheckin: Boolean(full.claimRequiredForCheckin),
+        claimInfoText: full.claimInfoText || '',
       }));
     })();
   }
@@ -240,7 +339,10 @@ export default function AdminModeshowTicketsPage() {
     if (!token || !checkCode.trim()) return;
     setErr('');
     try {
-      const r = await adminFetch(`/admin/modeshow-tickets/check-in/lookup?code=${encodeURIComponent(checkCode.trim())}`, token);
+      const r = await adminFetch<CheckLookup>(
+        `/admin/modeshow-tickets/check-in/lookup?code=${encodeURIComponent(checkCode.trim())}`,
+        token,
+      );
       setCheckResult(r);
     } catch (ex) {
       setCheckResult(null);
@@ -251,10 +353,14 @@ export default function AdminModeshowTicketsPage() {
   async function doCheckIn() {
     if (!token || !canWrite || !checkCode.trim()) return;
     try {
-      const r = await adminFetch('/admin/modeshow-tickets/check-in', token, {
+      await adminFetch('/admin/modeshow-tickets/check-in', token, {
         method: 'POST',
         body: JSON.stringify({ code: checkCode.trim() }),
       });
+      const r = await adminFetch<CheckLookup>(
+        `/admin/modeshow-tickets/check-in/lookup?code=${encodeURIComponent(checkCode.trim())}`,
+        token,
+      );
       setCheckResult(r);
       setMsg('Ingecheckt');
     } catch (ex) {
@@ -276,6 +382,7 @@ export default function AdminModeshowTicketsPage() {
           [
             ['events', 'Evenementen'],
             ['orders', 'Bestellingen'],
+            ['claims', 'Registraties'],
             ['checkin', 'Check-in'],
           ] as const
         ).map(([id, label]) => (
@@ -417,6 +524,105 @@ export default function AdminModeshowTicketsPage() {
                   placeholder="Geldig voor één persoon. Toon QR aan de ingang."
                 />
               </label>
+              <div className="sm:col-span-2 space-y-2 rounded border border-dashed border-line p-3">
+                <p className="text-xs font-medium text-ink">Drankbonnen</p>
+                <label className="block text-xs text-muted">
+                  Prijs drankbon (0 = uit)
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm text-ink"
+                    value={form.priceDrinks}
+                    onChange={(e) => setForm((f) => ({ ...f, priceDrinks: e.target.value }))}
+                    disabled={!canWrite}
+                  />
+                </label>
+                <label className="block text-xs text-muted">
+                  Titel in shop
+                  <input
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm text-ink"
+                    value={form.drinkTitle}
+                    onChange={(e) => setForm((f) => ({ ...f, drinkTitle: e.target.value }))}
+                    disabled={!canWrite}
+                  />
+                </label>
+                <label className="block text-xs text-muted">
+                  Omschrijving
+                  <textarea
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                    rows={2}
+                    value={form.drinkDescription}
+                    onChange={(e) => setForm((f) => ({ ...f, drinkDescription: e.target.value }))}
+                    disabled={!canWrite}
+                  />
+                </label>
+                <label className="block text-xs text-muted">
+                  Coupons per drankbon-ticket
+                  <input
+                    type="number"
+                    min={1}
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm text-ink"
+                    value={form.drinkCouponsPerTicket}
+                    onChange={(e) => setForm((f) => ({ ...f, drinkCouponsPerTicket: e.target.value }))}
+                    disabled={!canWrite}
+                  />
+                </label>
+              </div>
+              <div className="sm:col-span-2 space-y-2 rounded border border-dashed border-line p-3">
+                <p className="text-xs font-medium text-ink">Sponsors</p>
+                <label className="block text-xs text-muted">
+                  Sponsortekst (op ticket / shop)
+                  <input
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm text-ink"
+                    value={form.sponsorText}
+                    onChange={(e) => setForm((f) => ({ ...f, sponsorText: e.target.value }))}
+                    disabled={!canWrite}
+                  />
+                </label>
+                <label className="block text-xs text-muted">
+                  Logo-URL&apos;s (één per regel)
+                  <textarea
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm font-mono"
+                    rows={3}
+                    value={form.sponsorImageUrls}
+                    onChange={(e) => setForm((f) => ({ ...f, sponsorImageUrls: e.target.value }))}
+                    disabled={!canWrite}
+                    placeholder="https://…/logo.png"
+                  />
+                </label>
+              </div>
+              <div className="sm:col-span-2 space-y-2 rounded border border-dashed border-line p-3">
+                <p className="text-xs font-medium text-ink">QR-registratie (claim)</p>
+                <label className="flex items-center gap-2 text-xs text-ink">
+                  <input
+                    type="checkbox"
+                    checked={form.claimEnabled}
+                    onChange={(e) => setForm((f) => ({ ...f, claimEnabled: e.target.checked }))}
+                    disabled={!canWrite}
+                  />
+                  Claim/registratie actief
+                </label>
+                <label className="flex items-center gap-2 text-xs text-ink">
+                  <input
+                    type="checkbox"
+                    checked={form.claimRequiredForCheckin}
+                    onChange={(e) => setForm((f) => ({ ...f, claimRequiredForCheckin: e.target.checked }))}
+                    disabled={!canWrite}
+                  />
+                  Registratie verplicht vóór check-in
+                </label>
+                <label className="block text-xs text-muted">
+                  Uitleg op claimpagina
+                  <textarea
+                    className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                    rows={2}
+                    value={form.claimInfoText}
+                    onChange={(e) => setForm((f) => ({ ...f, claimInfoText: e.target.value }))}
+                    disabled={!canWrite}
+                  />
+                </label>
+              </div>
               <label className="flex items-center gap-2 text-xs text-ink sm:col-span-2">
                 <input
                   type="checkbox"
@@ -561,6 +767,7 @@ export default function AdminModeshowTicketsPage() {
                       email: manual.email,
                       qtyStd: Number(manual.qtyStd) || 0,
                       qtyVip: Number(manual.qtyVip) || 0,
+                      qtyDrinks: Number(manual.qtyDrinks) || 0,
                       markFree: manual.markFree,
                       sendEmail: manual.sendEmail,
                     }),
@@ -589,6 +796,7 @@ export default function AdminModeshowTicketsPage() {
               <input className="rounded border border-line px-2 py-1.5 text-sm sm:col-span-2" type="email" placeholder="E-mail" required value={manual.email} onChange={(e) => setManual((m) => ({ ...m, email: e.target.value }))} />
               <input className="rounded border border-line px-2 py-1.5 text-sm" type="number" min={0} placeholder="qty std" value={manual.qtyStd} onChange={(e) => setManual((m) => ({ ...m, qtyStd: e.target.value }))} />
               <input className="rounded border border-line px-2 py-1.5 text-sm" type="number" min={0} placeholder="qty vip" value={manual.qtyVip} onChange={(e) => setManual((m) => ({ ...m, qtyVip: e.target.value }))} />
+              <input className="rounded border border-line px-2 py-1.5 text-sm" type="number" min={0} placeholder="qty drinks" value={manual.qtyDrinks} onChange={(e) => setManual((m) => ({ ...m, qtyDrinks: e.target.value }))} />
               <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={manual.markFree} onChange={(e) => setManual((m) => ({ ...m, markFree: e.target.checked }))} /> Gratis</label>
               <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={manual.sendEmail} onChange={(e) => setManual((m) => ({ ...m, sendEmail: e.target.checked }))} /> Mail versturen</label>
               <button type="submit" className="rounded bg-zinc-900 px-3 py-1.5 text-xs text-white sm:col-span-4 w-fit">Aanmaken</button>
@@ -629,6 +837,7 @@ export default function AdminModeshowTicketsPage() {
                       <td className="py-2 pr-2">{o.event?.title}</td>
                       <td className="py-2 pr-2">
                         std {o.qtyStd} / vip {o.qtyVip}
+                        {(o.qtyDrinks ?? 0) > 0 ? ` / drinks ${o.qtyDrinks}` : ''}
                         <div className="text-[10px] text-muted">
                           {o.tickets.map((t) => t.code).join(', ')}
                         </div>
@@ -661,6 +870,69 @@ export default function AdminModeshowTicketsPage() {
         </div>
       ) : null}
 
+      {tab === 'claims' ? (
+        <div className="rounded border border-line bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-ink">Ticketregistraties (claim)</h2>
+            <button
+              type="button"
+              className="rounded border border-line px-3 py-1.5 text-xs"
+              onClick={() => void loadClaims().catch((e) => setErr(e instanceof Error ? e.message : 'Laden mislukt'))}
+            >
+              Vernieuwen
+            </button>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-line text-muted">
+                  <th className="py-2 pr-2">Naam</th>
+                  <th className="py-2 pr-2">E-mail</th>
+                  <th className="py-2 pr-2">Code</th>
+                  <th className="py-2 pr-2">Event</th>
+                  <th className="py-2 pr-2">Datum</th>
+                  <th className="py-2">Actie</th>
+                </tr>
+              </thead>
+              <tbody>
+                {claims.map((c) => (
+                  <tr key={c.id} className="border-b border-line/60 align-top">
+                    <td className="py-2 pr-2">
+                      {c.firstName} {c.lastName}
+                    </td>
+                    <td className="py-2 pr-2">{c.email}</td>
+                    <td className="py-2 pr-2 font-mono">{c.ticketCode}</td>
+                    <td className="py-2 pr-2">{c.event.title}</td>
+                    <td className="py-2 pr-2">{c.event.eventDate}</td>
+                    <td className="py-2">
+                      {canWrite ? (
+                        <button
+                          type="button"
+                          className="text-red-700 underline"
+                          onClick={() =>
+                            void adminFetch(`/admin/modeshow-tickets/claims/${c.id}/archive`, token!, {
+                              method: 'POST',
+                            })
+                              .then(() => {
+                                setMsg('Registratie gearchiveerd');
+                                return loadClaims();
+                              })
+                              .catch((ex) => setErr(ex instanceof Error ? ex.message : 'Archiveren mislukt'))
+                          }
+                        >
+                          Archiveer
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!claims.length ? <p className="mt-3 text-xs text-muted">Geen actieve registraties.</p> : null}
+          </div>
+        </div>
+      ) : null}
+
       {tab === 'checkin' ? (
         <div className="rounded border border-line bg-white p-4 max-w-xl space-y-3">
           <h2 className="text-sm font-semibold text-ink">Ticket check-in</h2>
@@ -684,9 +956,42 @@ export default function AdminModeshowTicketsPage() {
             ) : null}
           </div>
           {checkResult ? (
-            <pre className="overflow-auto rounded bg-zinc-50 p-3 text-[11px] text-ink">
-              {JSON.stringify(checkResult, null, 2)}
-            </pre>
+            <div className="space-y-3 text-xs text-ink">
+              <div className="rounded border border-line bg-zinc-50 p-3 space-y-1">
+                <p>
+                  <strong>{checkResult.order.firstName} {checkResult.order.lastName}</strong> ·{' '}
+                  {checkResult.event.title} · {checkResult.ticket.ticketType}
+                </p>
+                <p className="text-muted">{checkResult.order.email}</p>
+                <p>
+                  Check-in:{' '}
+                  {checkResult.ticket.checkedIn ? (
+                    <span className="font-medium text-emerald-800">al ingecheckt</span>
+                  ) : checkResult.canCheckIn ? (
+                    <span className="font-medium text-emerald-800">mogelijk</span>
+                  ) : (
+                    <span className="font-medium text-red-800">niet mogelijk</span>
+                  )}
+                </p>
+                {checkResult.claimRequired || checkResult.claim ? (
+                  <p>
+                    Registratie (claim):{' '}
+                    {checkResult.claim && !checkResult.claim.archived ? (
+                      <span className="text-emerald-800">
+                        ja — {checkResult.claim.firstName} {checkResult.claim.lastName} ({checkResult.claim.email})
+                      </span>
+                    ) : checkResult.claimRequired ? (
+                      <span className="text-red-800">nog niet geregistreerd (verplicht)</span>
+                    ) : (
+                      <span className="text-muted">nee</span>
+                    )}
+                  </p>
+                ) : null}
+              </div>
+              <pre className="overflow-auto rounded bg-zinc-50 p-3 text-[11px] text-ink">
+                {JSON.stringify(checkResult, null, 2)}
+              </pre>
+            </div>
           ) : null}
         </div>
       ) : null}

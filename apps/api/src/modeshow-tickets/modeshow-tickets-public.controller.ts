@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ModeshowTicketsService } from './modeshow-tickets.service';
 
 @Controller('modeshow-tickets')
@@ -22,6 +22,7 @@ export class ModeshowTicketsPublicController {
       eventId: string;
       qtyStd?: number;
       qtyVip?: number;
+      qtyDrinks?: number;
       couponCode?: string;
       firstName: string;
       lastName: string;
@@ -40,5 +41,24 @@ export class ModeshowTicketsPublicController {
   @Get('orders/:orderKey')
   orderStatus(@Param('orderKey') orderKey: string) {
     return this.tickets.getPublicOrderStatus(orderKey);
+  }
+
+  @Get('claim')
+  claimInfo(@Query('code') code: string) {
+    return this.tickets.getClaimInfo(code || '');
+  }
+
+  @Post('claim')
+  submitClaim(
+    @Body()
+    body: {
+      code: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone?: string;
+    },
+  ) {
+    return this.tickets.submitClaim(body);
   }
 }

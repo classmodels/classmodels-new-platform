@@ -1,7 +1,7 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { useRouter } from 'next/navigation';
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { useAuth } from '@/context/auth-context';
@@ -20,6 +20,13 @@ type PublicEvent = {
   coverImageUrl: string | null;
   priceStd: number;
   priceVip: number;
+  priceDrinks: number;
+  drinkTitle: string;
+  drinkDescription: string | null;
+  hasDrinks: boolean;
+  sponsorText: string | null;
+  sponsorImageUrls: string[];
+  claimEnabled: boolean;
   remaining: number | null;
   soldOut: boolean;
   hasStd: boolean;
@@ -30,15 +37,45 @@ function eur(n: number) {
   return `€ ${n.toFixed(2).replace('.', ',')}`;
 }
 
-export default function TicketsModeshowPage() {
+function SponsorBlock({ text, urls }: { text: string | null; urls: string[] }) {
+  if (!text && !urls.length) return null;
+  return (
+    <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #e8e2d6' }}>
+      {text ? (
+        <div style={{ fontSize: 12, color: '#857f74', marginBottom: urls.length ? 8 : 0 }}>{text}</div>
+      ) : null}
+      {urls.length ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+          {urls.map((url) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={url}
+              src={url}
+              alt=""
+              style={{ height: 36, maxWidth: 120, objectFit: 'contain' }}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TicketsModeshowPageInner() {
   const { isAdmin, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const eventSlug = searchParams.get('event') || '';
+  const drinksFocus = searchParams.get('drinks') === '1';
+  const drinksInputRef = useRef<HTMLInputElement>(null);
+
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [qtyStd, setQtyStd] = useState(1);
   const [qtyVip, setQtyVip] = useState(0);
+  const [qtyDrinks, setQtyDrinks] = useState(0);
   const [couponCode, setCouponCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
@@ -65,7 +102,9 @@ export default function TicketsModeshowPage() {
         const rows = await apiFetch<PublicEvent[]>('/modeshow-tickets/events');
         if (cancelled) return;
         setEvents(rows);
-        if (rows[0]) setSelectedId(rows[0].id);
+        const bySlug = eventSlug ? rows.find((r) => r.slug === eventSlug) : null;
+        if (bySlug) setSelectedId(bySlug.id);
+        else if (rows[0]) setSelectedId(rows[0].id);
       } catch (e) {
         if (!cancelled) setErr(e instanceof Error ? e.message : 'Laden mislukt');
       } finally {
@@ -75,7 +114,7 @@ export default function TicketsModeshowPage() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isAdmin]);
+  }, [authLoading, isAdmin, eventSlug]);
 
   const selected = useMemo(
     () => events.find((e) => e.id === selectedId) ?? null,
@@ -86,12 +125,18 @@ export default function TicketsModeshowPage() {
     if (!selected) return;
     setQtyStd(selected.hasStd ? 1 : 0);
     setQtyVip(0);
-  }, [selected?.id]);
+    setQtyDrinks(drinksFocus && selected.hasDrinks ? 1 : 0);
+  }, [selected?.id, drinksFocus]);
+
+  useEffect(() => {
+    if (!drinksFocus || !selected?.hasDrinks) return;
+    drinksInputRef.current?.focus();
+  }, [drinksFocus, selected?.id, selected?.hasDrinks]);
 
   const subtotal = useMemo(() => {
     if (!selected) return 0;
-    return qtyStd * selected.priceStd + qtyVip * selected.priceVip;
-  }, [selected, qtyStd, qtyVip]);
+    return qtyStd * selected.priceStd + qtyVip * selected.priceVip + qtyDrinks * selected.priceDrinks;
+  }, [selected, qtyStd, qtyVip, qtyDrinks]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -110,6 +155,7 @@ export default function TicketsModeshowPage() {
           eventId: selected.id,
           qtyStd,
           qtyVip,
+          qtyDrinks,
           couponCode: couponCode.trim() || undefined,
           ...form,
           returnOrigin: typeof window !== 'undefined' ? window.location.origin : undefined,
@@ -224,36 +270,50 @@ export default function TicketsModeshowPage() {
                     />
                   ) : null}
                   <div style={{ padding: '18px 20px' }}>
-                  <div style={{ fontFamily: 'Georgia, serif', fontSize: 22, color: '#191919', fontWeight: 600 }}>
-                    {ev.title}
-                  </div>
-                  <div style={{ marginTop: 8, color: '#856b3f', fontSize: 13, fontWeight: 600 }}>
-                    {ev.eventDateLabel}
-                    {ev.doorsTime ? ` · Deuren ${ev.doorsTime.slice(0, 5)}` : ''}
-                    {ev.startTime ? ` · Start ${ev.startTime.slice(0, 5)}` : ''}
-                  </div>
-                  {ev.addressLabel ? (
-                    <div style={{ marginTop: 6, color: '#525049', fontSize: 14 }}>{ev.addressLabel}</div>
-                  ) : null}
-                  {ev.summary ? (
-                    <div style={{ marginTop: 10, color: '#3f3c37', fontSize: 14, lineHeight: 1.55 }}>
-                      {ev.summary}
+                    <div style={{ fontFamily: 'Georgia, serif', fontSize: 22, color: '#191919', fontWeight: 600 }}>
+                      {ev.title}
                     </div>
-                  ) : null}
-                  {ev.description && active ? (
-                    <div style={{ marginTop: 10, color: '#525049', fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
-                      {ev.description}
+                    <div style={{ marginTop: 8, color: '#856b3f', fontSize: 13, fontWeight: 600 }}>
+                      {ev.eventDateLabel}
+                      {ev.doorsTime ? ` · Deuren ${ev.doorsTime.slice(0, 5)}` : ''}
+                      {ev.startTime ? ` · Start ${ev.startTime.slice(0, 5)}` : ''}
                     </div>
-                  ) : null}
-                  <div style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
-                    {ev.hasStd ? <span>Standaard {eur(ev.priceStd)}</span> : null}
-                    {ev.hasVip ? <span>VIP {eur(ev.priceVip)}</span> : null}
-                    {ev.soldOut ? (
-                      <span style={{ color: '#8b1e1e', fontWeight: 700 }}>Uitverkocht</span>
-                    ) : ev.remaining != null ? (
-                      <span style={{ color: '#857f74' }}>Nog {ev.remaining}</span>
+                    {ev.addressLabel ? (
+                      <div style={{ marginTop: 6, color: '#525049', fontSize: 14 }}>{ev.addressLabel}</div>
                     ) : null}
-                  </div>
+                    {ev.summary ? (
+                      <div style={{ marginTop: 10, color: '#3f3c37', fontSize: 14, lineHeight: 1.55 }}>
+                        {ev.summary}
+                      </div>
+                    ) : null}
+                    {ev.description && active ? (
+                      <div
+                        style={{
+                          marginTop: 10,
+                          color: '#525049',
+                          fontSize: 13,
+                          lineHeight: 1.55,
+                          whiteSpace: 'pre-wrap',
+                        }}
+                      >
+                        {ev.description}
+                      </div>
+                    ) : null}
+                    <div style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
+                      {ev.hasStd ? <span>Standaard {eur(ev.priceStd)}</span> : null}
+                      {ev.hasVip ? <span>VIP {eur(ev.priceVip)}</span> : null}
+                      {ev.hasDrinks ? (
+                        <span>
+                          {ev.drinkTitle} {eur(ev.priceDrinks)}
+                        </span>
+                      ) : null}
+                      {ev.soldOut ? (
+                        <span style={{ color: '#8b1e1e', fontWeight: 700 }}>Uitverkocht</span>
+                      ) : ev.remaining != null ? (
+                        <span style={{ color: '#857f74' }}>Nog {ev.remaining}</span>
+                      ) : null}
+                    </div>
+                    <SponsorBlock text={ev.sponsorText} urls={ev.sponsorImageUrls ?? []} />
                   </div>
                 </button>
               );
@@ -307,6 +367,23 @@ export default function TicketsModeshowPage() {
                       max={20}
                       value={qtyVip}
                       onChange={(e) => setQtyVip(Math.max(0, Number(e.target.value) || 0))}
+                      style={inputStyle}
+                    />
+                  </label>
+                ) : null}
+                {selected.hasDrinks ? (
+                  <label style={{ display: 'grid', gap: 4, fontSize: 13, color: '#525049' }}>
+                    {selected.drinkTitle} ({eur(selected.priceDrinks)})
+                    {selected.drinkDescription ? (
+                      <span style={{ fontSize: 12, color: '#857f74', lineHeight: 1.45 }}>{selected.drinkDescription}</span>
+                    ) : null}
+                    <input
+                      ref={drinksInputRef}
+                      type="number"
+                      min={0}
+                      max={20}
+                      value={qtyDrinks}
+                      onChange={(e) => setQtyDrinks(Math.max(0, Number(e.target.value) || 0))}
                       style={inputStyle}
                     />
                   </label>
@@ -375,7 +452,7 @@ export default function TicketsModeshowPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={busy || qtyStd + qtyVip < 1}
+                  disabled={busy || qtyStd + qtyVip + qtyDrinks < 1}
                   style={{
                     marginTop: 8,
                     border: '1px solid #c2a164',
@@ -400,6 +477,22 @@ export default function TicketsModeshowPage() {
         </div>
       </div>
     </NieuwShell>
+  );
+}
+
+export default function TicketsModeshowPage() {
+  return (
+    <Suspense
+      fallback={
+        <NieuwShell portal="gasten">
+          <div className="nieuw-wrap" style={{ paddingTop: 48, color: '#857f74' }}>
+            Laden…
+          </div>
+        </NieuwShell>
+      }
+    >
+      <TicketsModeshowPageInner />
+    </Suspense>
   );
 }
 

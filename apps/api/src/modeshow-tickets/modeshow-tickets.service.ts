@@ -18,10 +18,10 @@ import {
   newOrderKey,
   newTicketCode,
   parseEventDateOnly,
+  parseSponsorUrls,
   quoteCart,
   slugifyModeshowTitle,
   ticketTypeLabel,
-  type TicketType,
 } from './modeshow-ticket-utils';
 
 function webBase(): string {
@@ -68,6 +68,7 @@ export class ModeshowTicketsService {
     eventId: string;
     qtyStd?: number;
     qtyVip?: number;
+    qtyDrinks?: number;
     couponCode?: string | null;
     firstName: string;
     lastName: string;
@@ -79,6 +80,8 @@ export class ModeshowTicketsService {
     city?: string;
     returnOrigin?: string | null;
   }) {
+    await this.ensureSchemaExtensions();
+
     const event = await this.prisma.modeshowEvent.findUnique({
       where: { id: dto.eventId },
       include: { coupons: { where: { active: true } } },
@@ -89,12 +92,20 @@ export class ModeshowTicketsService {
 
     const qtyStd = Math.max(0, Math.floor(Number(dto.qtyStd) || 0));
     const qtyVip = Math.max(0, Math.floor(Number(dto.qtyVip) || 0));
-    if (qtyStd + qtyVip < 1) throw new BadRequestException('Kies minstens één ticket.');
+    const qtyDrinks = Math.max(0, Math.floor(Number(dto.qtyDrinks) || 0));
+    const hasEntry = qtyStd + qtyVip >= 1;
+    const hasDrinks = qtyDrinks >= 1 && Number(event.priceDrinks) > 0;
+    if (!hasEntry && !hasDrinks) {
+      throw new BadRequestException('Kies minstens één ticket of drankbon.');
+    }
     if (event.priceStd.lte(0) && qtyStd > 0) {
       throw new BadRequestException('Standaardtickets zijn niet beschikbaar voor dit evenement.');
     }
     if (event.priceVip.lte(0) && qtyVip > 0) {
       throw new BadRequestException('VIP-tickets zijn niet beschikbaar voor dit evenement.');
+    }
+    if (qtyDrinks > 0 && event.priceDrinks.lte(0)) {
+      throw new BadRequestException('Drankbonnen zijn niet beschikbaar voor dit evenement.');
     }
 
     const sold = (await this.soldCounts([event.id])).get(event.id) ?? 0;
@@ -112,12 +123,12 @@ export class ModeshowTicketsService {
       throw new BadRequestException('Vul voornaam, naam en een geldig e-mailadres in.');
     }
 
-    let coupon: { code: string; ticketType: TicketType; maxQty: number } | null = null;
+    let coupon: { code: string; ticketType: 'std' | 'vip'; maxQty: number } | null = null;
     const rawCode = (dto.couponCode ?? '').trim().toUpperCase();
     if (rawCode) {
       const match = event.coupons.find((c) => c.code.toUpperCase() === rawCode);
       if (!match) throw new BadRequestException('Ongeldige couponcode.');
-      const type = match.ticketType === 'vip' ? 'vip' : 'std';
+      const type: 'std' | 'vip' = match.ticketType === 'vip' ? 'vip' : 'std';
       if ((type === 'std' && qtyStd < 1) || (type === 'vip' && qtyVip < 1)) {
         throw new BadRequestException(
           `Deze coupon geldt alleen voor ${ticketTypeLabel(type).toLowerCase()}en.`,
@@ -129,35 +140,52 @@ export class ModeshowTicketsService {
     const quote = quoteCart({
       qtyStd,
       qtyVip,
+      qtyDrinks: hasDrinks ? qtyDrinks : 0,
       priceStd: event.priceStd,
       priceVip: event.priceVip,
+      priceDrinks: event.priceDrinks,
       coupon,
     });
 
-    const order = await this.prisma.modeshowTicketOrder.create({
-      data: {
-        eventId: event.id,
-        orderKey: newOrderKey(),
-        status: 'pending',
-        firstName,
-        lastName,
-        email,
-        phone: dto.phone?.trim() || null,
-        street: dto.street?.trim() || null,
-        streetNo: dto.streetNo?.trim() || null,
-        postcode: dto.postcode?.trim() || null,
-        city: dto.city?.trim() || null,
-        qtyStd: quote.qtyStd,
-        qtyVip: quote.qtyVip,
-        unitPriceStd: quote.unitPriceStd,
-        unitPriceVip: quote.unitPriceVip,
-        subtotal: quote.subtotal,
-        discountAmount: quote.discountAmount,
-        totalAmount: quote.totalAmount,
-        couponCode: quote.couponCode,
-        couponTicketType: quote.couponTicketType,
-      },
-    });
+    let order;
+    try {
+      order = await this.prisma.modeshowTicketOrder.create({
+        data: {
+          eventId: event.id,
+          orderKey: newOrderKey(),
+          status: 'pending',
+          firstName,
+          lastName,
+          email,
+          phone: dto.phone?.trim() || null,
+          street: dto.street?.trim() || null,
+          streetNo: dto.streetNo?.trim() || null,
+          postcode: dto.postcode?.trim() || null,
+          city: dto.city?.trim() || null,
+          qtyStd: quote.qtyStd,
+          qtyVip: quote.qtyVip,
+          qtyDrinks: quote.qtyDrinks,
+          unitPriceStd: quote.unitPriceStd,
+          unitPriceVip: quote.unitPriceVip,
+          unitPriceDrinks: quote.unitPriceDrinks,
+          subtotal: quote.subtotal,
+          discountAmount: quote.discountAmount,
+          totalAmount: quote.totalAmount,
+          couponCode: quote.couponCode,
+          couponTicketType: quote.couponTicketType,
+        },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log.error(`Modeshow order create mislukt: ${msg}`);
+      if (/Unknown column|does not exist|P2022/i.test(msg)) {
+        await this.ensureSchemaExtensions();
+        throw new BadRequestException(
+          'Ticketdatabase wordt bijgewerkt. Vernieuw de pagina en probeer opnieuw.',
+        );
+      }
+      throw new BadRequestException('Bestelling kon niet worden aangemaakt. Probeer opnieuw.');
+    }
 
     if (quote.totalAmount.lte(0)) {
       await this.fulfillOrder(order.id, { status: 'free', paymentStatus: 'free' });
@@ -173,7 +201,6 @@ export class ModeshowTicketsService {
     const mode = await this.resolveMollieMode();
     const apiKey = await this.mollieApiKey(mode);
     if (!apiKey) {
-      // Lokaal zonder Mollie-key: bestelling gratis afronden zodat de flow testbaar blijft.
       const allowDev =
         process.env.NODE_ENV !== 'production' ||
         String(process.env.ALLOW_TICKET_DEV_CHECKOUT || '').trim() === '1';
@@ -200,18 +227,31 @@ export class ModeshowTicketsService {
     const webhookUrl = `${apiPublicBase()}/payments/mollie/webhook`;
     const redirectUrl = this.thanksUrl(order.orderKey, dto.returnOrigin);
 
-    const payment = await mollie.payments.create({
-      amount: { currency: 'EUR', value: quote.totalAmount.toFixed(2) },
-      description: `Modeshow tickets: ${event.title} (#${order.id.slice(0, 8)})`,
-      redirectUrl,
-      webhookUrl,
-      metadata: {
-        kind: 'modeshow_ticket',
-        orderId: order.id,
-        orderKey: order.orderKey,
-        eventId: event.id,
-      },
-    });
+    let payment;
+    try {
+      payment = await mollie.payments.create({
+        amount: { currency: 'EUR', value: quote.totalAmount.toFixed(2) },
+        description: `Modeshow tickets: ${event.title} (#${order.id.slice(0, 8)})`,
+        redirectUrl,
+        webhookUrl,
+        metadata: {
+          kind: 'modeshow_ticket',
+          orderId: order.id,
+          orderKey: order.orderKey,
+          eventId: event.id,
+        },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this.log.error(`Mollie payment create mislukt voor order ${order.id}: ${msg}`);
+      await this.prisma.modeshowTicketOrder.update({
+        where: { id: order.id },
+        data: { status: 'failed', paymentStatus: 'mollie_error' },
+      });
+      throw new BadRequestException(
+        'Betaling starten mislukt. Controleer Mollie-instellingen of probeer later opnieuw.',
+      );
+    }
 
     await this.prisma.modeshowTicketOrder.update({
       where: { id: order.id },
@@ -331,6 +371,19 @@ export class ModeshowTicketsService {
         label: ticketTypeLabel('vip'),
       });
     }
+    const drinksQty = order.qtyDrinks || 0;
+    const drinkLabel =
+      (order.event.drinkTitle || '').trim() || ticketTypeLabel('drinks');
+    const couponsPer = Math.max(1, order.event.drinkCouponsPerTicket || 1);
+    for (let i = 0; i < drinksQty; i++) {
+      counter += 1;
+      ticketsData.push({
+        orderId: order.id,
+        code: newTicketCode(order.id, counter),
+        ticketType: 'drinks',
+        label: couponsPer > 1 ? `${drinkLabel} (${couponsPer}×)` : drinkLabel,
+      });
+    }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.modeshowTicketOrder.update({
@@ -377,17 +430,27 @@ export class ModeshowTicketsService {
     }
 
     try {
+      const claimOn =
+        order.event.claimEnabled !== false &&
+        order.tickets.some((t) => t.ticketType !== 'drinks');
       const pdf = await buildModeshowTicketsPdf({
         event: order.event,
         order,
         tickets: order.tickets,
-        claimBaseUrl: `${webBase()}/tickets/check-in`,
+        claimBaseUrl: claimOn
+          ? `${webBase()}/tickets/claim`
+          : `${webBase()}/tickets/check-in`,
+        useClaimQr: claimOn,
       });
       const dateLabel = formatEventDateNl(order.event.eventDate);
+      const claimHint = claimOn
+        ? `<p style="margin:0 0 16px;color:#262420;font-size:15px;line-height:1.6;">Scan de QR-code of open de claimlink om je ticket te registreren vóór aankomst.</p>`
+        : '';
       const html = `<p style="margin:0 0 16px;font-family:Georgia,serif;font-size:22px;color:#191919;">Beste ${escapeHtml(order.firstName)},</p>
 <p style="margin:0 0 16px;color:#262420;font-size:15px;line-height:1.6;">Bedankt voor je bestelling voor <strong>${escapeHtml(order.event.title)}</strong> op ${escapeHtml(dateLabel)}.</p>
 <p style="margin:0 0 16px;color:#262420;font-size:15px;line-height:1.6;">In bijlage vind je je ticket(s) als PDF met QR-code. Toon deze aan de ingang.</p>
-<p style="margin:0 0 8px;color:#525049;font-size:13px;">Totaal: ${formatEur(order.totalAmount)} · ${order.tickets.length} ticket(s)</p>
+${claimHint}
+<p style="margin:0 0 8px;color:#525049;font-size:13px;">Totaal: ${formatEur(order.totalAmount)} · ${order.tickets.length} ticket(s)/bon(nen)</p>
 <p style="margin:24px 0 0;color:#262420;font-size:15px;">Tot dan,<br/>Class-Models</p>`;
 
       const r = await sendHtmlMailWithAttachments(
@@ -477,6 +540,10 @@ export class ModeshowTicketsService {
         locationExtra: strOrNull(dto.locationExtra),
         priceStd: money(Number(dto.priceStd) || 0),
         priceVip: money(Number(dto.priceVip) || 0),
+        priceDrinks: money(Number(dto.priceDrinks) || 0),
+        drinkTitle: strOrNull(dto.drinkTitle),
+        drinkDescription: strOrNull(dto.drinkDescription),
+        drinkCouponsPerTicket: Math.max(1, Math.floor(Number(dto.drinkCouponsPerTicket) || 1)),
         ticketStock:
           dto.ticketStock === null || dto.ticketStock === '' || dto.ticketStock === undefined
             ? null
@@ -484,6 +551,11 @@ export class ModeshowTicketsService {
         published: Boolean(dto.published),
         coverImageUrl: strOrNull(dto.coverImageUrl),
         ticketFooter: strOrNull(dto.ticketFooter),
+        sponsorText: strOrNull(dto.sponsorText),
+        sponsorImageUrls: parseSponsorUrls(dto.sponsorImageUrls),
+        claimEnabled: dto.claimEnabled !== false && dto.claimEnabled !== 'false',
+        claimRequiredForCheckin: Boolean(dto.claimRequiredForCheckin),
+        claimInfoText: strOrNull(dto.claimInfoText),
         sortOrder: Math.floor(Number(dto.sortOrder) || 0),
       },
     });
@@ -517,6 +589,12 @@ export class ModeshowTicketsService {
     if (dto.locationExtra !== undefined) data.locationExtra = strOrNull(dto.locationExtra);
     if (dto.priceStd !== undefined) data.priceStd = money(Number(dto.priceStd) || 0);
     if (dto.priceVip !== undefined) data.priceVip = money(Number(dto.priceVip) || 0);
+    if (dto.priceDrinks !== undefined) data.priceDrinks = money(Number(dto.priceDrinks) || 0);
+    if (dto.drinkTitle !== undefined) data.drinkTitle = strOrNull(dto.drinkTitle);
+    if (dto.drinkDescription !== undefined) data.drinkDescription = strOrNull(dto.drinkDescription);
+    if (dto.drinkCouponsPerTicket !== undefined) {
+      data.drinkCouponsPerTicket = Math.max(1, Math.floor(Number(dto.drinkCouponsPerTicket) || 1));
+    }
     if (dto.ticketStock !== undefined) {
       data.ticketStock =
         dto.ticketStock === null || dto.ticketStock === ''
@@ -527,6 +605,17 @@ export class ModeshowTicketsService {
     if (dto.archived !== undefined) data.archived = Boolean(dto.archived);
     if (dto.coverImageUrl !== undefined) data.coverImageUrl = strOrNull(dto.coverImageUrl);
     if (dto.ticketFooter !== undefined) data.ticketFooter = strOrNull(dto.ticketFooter);
+    if (dto.sponsorText !== undefined) data.sponsorText = strOrNull(dto.sponsorText);
+    if (dto.sponsorImageUrls !== undefined) {
+      data.sponsorImageUrls = parseSponsorUrls(dto.sponsorImageUrls);
+    }
+    if (dto.claimEnabled !== undefined) {
+      data.claimEnabled = dto.claimEnabled !== false && dto.claimEnabled !== 'false';
+    }
+    if (dto.claimRequiredForCheckin !== undefined) {
+      data.claimRequiredForCheckin = Boolean(dto.claimRequiredForCheckin);
+    }
+    if (dto.claimInfoText !== undefined) data.claimInfoText = strOrNull(dto.claimInfoText);
     if (dto.sortOrder !== undefined) data.sortOrder = Math.floor(Number(dto.sortOrder) || 0);
 
     await this.prisma.modeshowEvent.update({ where: { id }, data });
@@ -606,6 +695,7 @@ export class ModeshowTicketsService {
     eventId: string;
     qtyStd?: number;
     qtyVip?: number;
+    qtyDrinks?: number;
     firstName: string;
     lastName: string;
     email: string;
@@ -613,16 +703,20 @@ export class ModeshowTicketsService {
     sendEmail?: boolean;
     markFree?: boolean;
   }) {
+    await this.ensureSchemaExtensions();
     const event = await this.prisma.modeshowEvent.findUnique({ where: { id: dto.eventId } });
     if (!event) throw new NotFoundException('Evenement niet gevonden');
     const qtyStd = Math.max(0, Math.floor(Number(dto.qtyStd) || 0));
     const qtyVip = Math.max(0, Math.floor(Number(dto.qtyVip) || 0));
-    if (qtyStd + qtyVip < 1) throw new BadRequestException('Kies minstens één ticket.');
+    const qtyDrinks = Math.max(0, Math.floor(Number(dto.qtyDrinks) || 0));
+    if (qtyStd + qtyVip + qtyDrinks < 1) throw new BadRequestException('Kies minstens één ticket.');
     const quote = quoteCart({
       qtyStd,
       qtyVip,
+      qtyDrinks: Number(event.priceDrinks) > 0 ? qtyDrinks : 0,
       priceStd: event.priceStd,
       priceVip: event.priceVip,
+      priceDrinks: event.priceDrinks,
       coupon: null,
     });
     const free = dto.markFree || quote.totalAmount.lte(0);
@@ -637,8 +731,10 @@ export class ModeshowTicketsService {
         phone: dto.phone?.trim() || null,
         qtyStd: quote.qtyStd,
         qtyVip: quote.qtyVip,
+        qtyDrinks: quote.qtyDrinks,
         unitPriceStd: quote.unitPriceStd,
         unitPriceVip: quote.unitPriceVip,
+        unitPriceDrinks: quote.unitPriceDrinks,
         subtotal: free ? money(0) : quote.subtotal,
         discountAmount: free ? quote.subtotal : money(0),
         totalAmount: free ? money(0) : quote.totalAmount,
@@ -662,9 +758,14 @@ export class ModeshowTicketsService {
       where: { code: code.trim().toUpperCase() },
       include: {
         order: { include: { event: true } },
+        claim: true,
       },
     });
     if (!ticket) throw new NotFoundException('Ticket niet gevonden');
+    const claimRequired = Boolean(ticket.order.event.claimRequiredForCheckin);
+    const claimed = Boolean(ticket.claim && !ticket.claim.archived);
+    const paidOk = ticket.order.status === 'paid' || ticket.order.status === 'free';
+    const isDrinks = ticket.ticketType === 'drinks';
     return {
       ticket: {
         id: ticket.id,
@@ -685,15 +786,39 @@ export class ModeshowTicketsService {
         id: ticket.order.event.id,
         title: ticket.order.event.title,
         eventDate: ticket.order.event.eventDate.toISOString().slice(0, 10),
+        claimRequiredForCheckin: claimRequired,
+        claimEnabled: ticket.order.event.claimEnabled,
       },
-      canCheckIn: (ticket.order.status === 'paid' || ticket.order.status === 'free') && !ticket.checkedIn,
+      claim: ticket.claim
+        ? {
+            firstName: ticket.claim.firstName,
+            lastName: ticket.claim.lastName,
+            email: ticket.claim.email,
+            phone: ticket.claim.phone,
+            createdAt: ticket.claim.createdAt,
+            archived: ticket.claim.archived,
+          }
+        : null,
+      claimed,
+      claimRequired,
+      canCheckIn:
+        paidOk &&
+        !ticket.checkedIn &&
+        !isDrinks &&
+        (!claimRequired || claimed),
     };
   }
 
   async checkInTicket(code: string, by?: string) {
     const info = await this.lookupTicket(code);
     if (!info.canCheckIn) {
+      if (info.ticket.ticketType === 'drinks') {
+        throw new BadRequestException('Drankbonnen worden niet ingecheckt.');
+      }
       if (info.ticket.checkedIn) throw new BadRequestException('Dit ticket is al ingecheckt.');
+      if (info.claimRequired && !info.claimed) {
+        throw new BadRequestException('Dit ticket is nog niet geregistreerd (QR-claim).');
+      }
       throw new BadRequestException('Ticket is niet geldig voor check-in (niet betaald).');
     }
     const updated = await this.prisma.modeshowTicket.update({
@@ -715,7 +840,175 @@ export class ModeshowTicketsService {
       },
       order: info.order,
       event: info.event,
+      claim: info.claim,
     };
+  }
+
+  /* ---------- Public QR-claim ---------- */
+
+  async getClaimInfo(code: string) {
+    await this.ensureSchemaExtensions();
+    const ticket = await this.prisma.modeshowTicket.findUnique({
+      where: { code: code.trim().toUpperCase() },
+      include: {
+        order: { include: { event: true } },
+        claim: true,
+      },
+    });
+    if (!ticket) throw new NotFoundException('Ticket niet gevonden');
+    const event = ticket.order.event;
+    if (!event.claimEnabled) {
+      throw new BadRequestException('Registratie is niet actief voor dit evenement.');
+    }
+    if (ticket.ticketType === 'drinks') {
+      throw new BadRequestException('Drankbonnen hoeven niet geregistreerd te worden.');
+    }
+    if (ticket.order.status !== 'paid' && ticket.order.status !== 'free') {
+      throw new BadRequestException('Dit ticket is nog niet betaald.');
+    }
+    const sponsors = parseSponsorUrls(event.sponsorImageUrls);
+    return {
+      code: ticket.code,
+      ticketType: ticket.ticketType,
+      label: ticket.label,
+      alreadyClaimed: Boolean(ticket.claim && !ticket.claim.archived),
+      claim: ticket.claim
+        ? {
+            firstName: ticket.claim.firstName,
+            lastName: ticket.claim.lastName,
+            email: ticket.claim.email,
+          }
+        : null,
+      event: {
+        id: event.id,
+        title: event.title,
+        eventDate: event.eventDate.toISOString().slice(0, 10),
+        eventDateLabel: formatEventDateNl(event.eventDate),
+        doorsTime: event.doorsTime,
+        startTime: event.startTime,
+        addressLabel: formatAddress(event),
+        claimInfoText: event.claimInfoText,
+        priceDrinks: Number(event.priceDrinks),
+        drinkTitle: event.drinkTitle || 'Drankbon',
+        hasDrinks: Number(event.priceDrinks) > 0,
+        sponsorText: event.sponsorText,
+        sponsorImageUrls: sponsors,
+        slug: event.slug,
+      },
+      buyer: {
+        firstName: ticket.order.firstName,
+        lastName: ticket.order.lastName,
+        email: ticket.order.email,
+      },
+    };
+  }
+
+  async submitClaim(dto: {
+    code: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone?: string;
+  }) {
+    await this.ensureSchemaExtensions();
+    const info = await this.getClaimInfo(dto.code);
+    if (info.alreadyClaimed) {
+      throw new BadRequestException('Dit ticket is al geregistreerd.');
+    }
+    const firstName = dto.firstName?.trim();
+    const lastName = dto.lastName?.trim();
+    const email = dto.email?.trim().toLowerCase();
+    if (!firstName || !lastName || !email || !email.includes('@')) {
+      throw new BadRequestException('Vul voornaam, naam en een geldig e-mailadres in.');
+    }
+    const ticket = await this.prisma.modeshowTicket.findUnique({
+      where: { code: dto.code.trim().toUpperCase() },
+      include: { claim: true },
+    });
+    if (!ticket) throw new NotFoundException('Ticket niet gevonden');
+
+    if (ticket.claim) {
+      if (!ticket.claim.archived) {
+        throw new BadRequestException('Dit ticket is al geregistreerd.');
+      }
+      const claim = await this.prisma.modeshowTicketClaim.update({
+        where: { id: ticket.claim.id },
+        data: {
+          firstName,
+          lastName,
+          email,
+          phone: dto.phone?.trim() || null,
+          archived: false,
+        },
+      });
+      return {
+        ok: true,
+        claimId: claim.id,
+        event: info.event,
+        drinksShopUrl: info.event.hasDrinks
+          ? `${webBase()}/tickets?event=${encodeURIComponent(info.event.slug)}&drinks=1`
+          : null,
+      };
+    }
+
+    const claim = await this.prisma.modeshowTicketClaim.create({
+      data: {
+        eventId: info.event.id,
+        ticketId: ticket.id,
+        ticketCode: ticket.code,
+        firstName,
+        lastName,
+        email,
+        phone: dto.phone?.trim() || null,
+      },
+    });
+    return {
+      ok: true,
+      claimId: claim.id,
+      event: info.event,
+      drinksShopUrl: info.event.hasDrinks
+        ? `${webBase()}/tickets?event=${encodeURIComponent(info.event.slug)}&drinks=1`
+        : null,
+    };
+  }
+
+  async adminListClaims(eventId?: string) {
+    await this.ensureSchemaExtensions();
+    const rows = await this.prisma.modeshowTicketClaim.findMany({
+      where: {
+        ...(eventId ? { eventId } : {}),
+        archived: false,
+      },
+      include: {
+        event: { select: { id: true, title: true, eventDate: true } },
+        ticket: { select: { code: true, ticketType: true, checkedIn: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 1000,
+    });
+    return rows.map((c) => ({
+      id: c.id,
+      ticketCode: c.ticketCode,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      email: c.email,
+      phone: c.phone,
+      createdAt: c.createdAt,
+      event: {
+        id: c.event.id,
+        title: c.event.title,
+        eventDate: c.event.eventDate.toISOString().slice(0, 10),
+      },
+      ticket: c.ticket,
+    }));
+  }
+
+  async adminArchiveClaim(id: string) {
+    await this.prisma.modeshowTicketClaim.update({
+      where: { id },
+      data: { archived: true },
+    });
+    return { ok: true };
   }
 
   /**
@@ -750,11 +1043,20 @@ export class ModeshowTicketsService {
         \`locationExtra\` VARCHAR(191) NULL,
         \`priceStd\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
         \`priceVip\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        \`priceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        \`drinkTitle\` VARCHAR(191) NULL,
+        \`drinkDescription\` TEXT NULL,
+        \`drinkCouponsPerTicket\` INT NOT NULL DEFAULT 1,
         \`ticketStock\` INT NULL,
         \`published\` BOOLEAN NOT NULL DEFAULT false,
         \`archived\` BOOLEAN NOT NULL DEFAULT false,
         \`coverImageUrl\` TEXT NULL,
         \`ticketFooter\` TEXT NULL,
+        \`sponsorText\` TEXT NULL,
+        \`sponsorImageUrls\` JSON NULL,
+        \`claimEnabled\` BOOLEAN NOT NULL DEFAULT true,
+        \`claimRequiredForCheckin\` BOOLEAN NOT NULL DEFAULT false,
+        \`claimInfoText\` TEXT NULL,
         \`sortOrder\` INT NOT NULL DEFAULT 0,
         \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         \`updatedAt\` DATETIME(3) NOT NULL,
@@ -789,8 +1091,10 @@ export class ModeshowTicketsService {
         \`city\` VARCHAR(191) NULL,
         \`qtyStd\` INT NOT NULL DEFAULT 0,
         \`qtyVip\` INT NOT NULL DEFAULT 0,
+        \`qtyDrinks\` INT NOT NULL DEFAULT 0,
         \`unitPriceStd\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
         \`unitPriceVip\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        \`unitPriceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
         \`subtotal\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
         \`discountAmount\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
         \`totalAmount\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
@@ -823,20 +1127,61 @@ export class ModeshowTicketsService {
     this.log.log('Modeshow ticket-tabellen aangemaakt.');
   }
 
-  /** Zorg dat coverImageUrl TEXT is (lange CDN-URL’s). */
-  private async ensureCoverUrlColumnWide() {
+  /** Kolommen/tabellen voor drinks, sponsors, claims (Combell-veilig, kolom per kolom). */
+  async ensureSchemaExtensions() {
+    await this.ensureTablesExist();
+    const alters: string[] = [
+      `ALTER TABLE \`ModeshowEvent\` MODIFY \`coverImageUrl\` TEXT NULL`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`priceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`drinkTitle\` VARCHAR(191) NULL`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`drinkDescription\` TEXT NULL`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`drinkCouponsPerTicket\` INT NOT NULL DEFAULT 1`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`sponsorText\` TEXT NULL`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`sponsorImageUrls\` JSON NULL`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`claimEnabled\` BOOLEAN NOT NULL DEFAULT true`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`claimRequiredForCheckin\` BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`claimInfoText\` TEXT NULL`,
+      `ALTER TABLE \`ModeshowTicketOrder\` ADD COLUMN \`qtyDrinks\` INT NOT NULL DEFAULT 0`,
+      `ALTER TABLE \`ModeshowTicketOrder\` ADD COLUMN \`unitPriceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0`,
+    ];
+    for (const sql of alters) {
+      try {
+        await this.prisma.$executeRawUnsafe(sql);
+      } catch {
+        /* bestaat al */
+      }
+    }
     try {
       await this.prisma.$executeRawUnsafe(
-        `ALTER TABLE \`ModeshowEvent\` MODIFY \`coverImageUrl\` TEXT NULL`,
+        `UPDATE \`ModeshowEvent\` SET \`sponsorImageUrls\` = JSON_ARRAY() WHERE \`sponsorImageUrls\` IS NULL`,
       );
     } catch {
-      /* kolom/tabel bestaat al in goede vorm */
+      /* ok */
+    }
+    try {
+      await this.prisma.$executeRawUnsafe(`
+        CREATE TABLE IF NOT EXISTS \`ModeshowTicketClaim\` (
+          \`id\` VARCHAR(191) NOT NULL,
+          \`eventId\` VARCHAR(191) NOT NULL,
+          \`ticketId\` VARCHAR(191) NOT NULL,
+          \`ticketCode\` VARCHAR(191) NOT NULL,
+          \`firstName\` VARCHAR(191) NOT NULL,
+          \`lastName\` VARCHAR(191) NOT NULL,
+          \`email\` VARCHAR(191) NOT NULL,
+          \`phone\` VARCHAR(191) NULL,
+          \`archived\` BOOLEAN NOT NULL DEFAULT false,
+          \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+          PRIMARY KEY (\`id\`),
+          UNIQUE KEY \`ModeshowTicketClaim_ticketId_key\` (\`ticketId\`),
+          UNIQUE KEY \`ModeshowTicketClaim_ticketCode_key\` (\`ticketCode\`)
+        ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    } catch {
+      /* ok */
     }
   }
 
   async ensureDemoEventIfEmpty() {
-    await this.ensureTablesExist();
-    await this.ensureCoverUrlColumnWide();
+    await this.ensureSchemaExtensions();
     const count = await this.prisma.modeshowEvent.count();
     if (count > 0) return { created: false };
     const eventDate = new Date();
@@ -858,8 +1203,15 @@ export class ModeshowTicketsService {
         city: 'Hulshout',
         priceStd: money(25),
         priceVip: money(45),
+        priceDrinks: money(5),
+        drinkTitle: 'Drankbon',
+        drinkDescription: 'Inwisselbaar aan de bar tijdens de modeshow.',
+        drinkCouponsPerTicket: 1,
         ticketStock: 200,
         published: true,
+        claimEnabled: true,
+        claimRequiredForCheckin: false,
+        claimInfoText: 'Registreer je ticket vóór aankomst zodat check-in sneller verloopt.',
         ticketFooter: 'Geldig voor één persoon. Niet doorverkoopbaar zonder toestemming van Class-Models.',
         coupons: {
           create: [
@@ -928,11 +1280,20 @@ export class ModeshowTicketsService {
       locationExtra: string | null;
       priceStd: Prisma.Decimal;
       priceVip: Prisma.Decimal;
+      priceDrinks?: Prisma.Decimal;
+      drinkTitle?: string | null;
+      drinkDescription?: string | null;
+      drinkCouponsPerTicket?: number;
       ticketStock: number | null;
       published: boolean;
       archived: boolean;
       coverImageUrl: string | null;
       ticketFooter: string | null;
+      sponsorText?: string | null;
+      sponsorImageUrls?: unknown;
+      claimEnabled?: boolean;
+      claimRequiredForCheckin?: boolean;
+      claimInfoText?: string | null;
       sortOrder: number;
     },
     sold: number,
@@ -940,6 +1301,8 @@ export class ModeshowTicketsService {
   ) {
     const remaining =
       e.ticketStock == null ? null : Math.max(0, e.ticketStock - sold);
+    const priceDrinks = Number(e.priceDrinks ?? 0);
+    const sponsors = parseSponsorUrls(e.sponsorImageUrls);
     return {
       id: e.id,
       slug: e.slug,
@@ -959,6 +1322,10 @@ export class ModeshowTicketsService {
       addressLabel: formatAddress(e),
       priceStd: Number(e.priceStd),
       priceVip: Number(e.priceVip),
+      priceDrinks,
+      drinkTitle: e.drinkTitle || 'Drankbon',
+      drinkDescription: e.drinkDescription ?? null,
+      drinkCouponsPerTicket: e.drinkCouponsPerTicket ?? 1,
       ticketStock: e.ticketStock,
       sold,
       remaining,
@@ -967,9 +1334,15 @@ export class ModeshowTicketsService {
       archived: e.archived,
       coverImageUrl: e.coverImageUrl,
       ticketFooter: publicView ? undefined : e.ticketFooter,
+      sponsorText: e.sponsorText ?? null,
+      sponsorImageUrls: sponsors,
+      claimEnabled: e.claimEnabled !== false,
+      claimRequiredForCheckin: Boolean(e.claimRequiredForCheckin),
+      claimInfoText: e.claimInfoText ?? null,
       sortOrder: e.sortOrder,
       hasStd: Number(e.priceStd) > 0,
       hasVip: Number(e.priceVip) > 0,
+      hasDrinks: priceDrinks > 0,
     };
   }
 
@@ -987,6 +1360,7 @@ export class ModeshowTicketsService {
     city?: string | null;
     qtyStd: number;
     qtyVip: number;
+    qtyDrinks?: number;
     subtotal: Prisma.Decimal;
     discountAmount: Prisma.Decimal;
     totalAmount: Prisma.Decimal;
@@ -1024,6 +1398,7 @@ export class ModeshowTicketsService {
       city: o.city ?? null,
       qtyStd: o.qtyStd,
       qtyVip: o.qtyVip,
+      qtyDrinks: o.qtyDrinks ?? 0,
       subtotal: Number(o.subtotal),
       discountAmount: Number(o.discountAmount),
       totalAmount: Number(o.totalAmount),

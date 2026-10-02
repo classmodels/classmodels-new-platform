@@ -15,9 +15,20 @@ function CheckInHintInner() {
         <p style={{ color: '#525049', lineHeight: 1.6 }}>
           Dit is de QR-link van je ticket. Check-in gebeurt door het Class-Models-team via de admin.
         </p>
+        <p style={{ color: '#525049', lineHeight: 1.6, marginTop: 12 }}>
+          Gastregistratie vóór aankomst verloopt via{' '}
+          <Link href={code ? `/tickets/claim?code=${encodeURIComponent(code)}` : '/tickets/claim'} style={{ color: '#856b3f', fontWeight: 700 }}>
+            ticketregistratie (claim)
+          </Link>
+          . Scan de QR op je PDF-ticket of open de claimlink uit je e-mail.
+        </p>
         {code ? (
           <p style={{ marginTop: 16 }}>
             Code: <code style={{ fontSize: 16 }}>{code}</code>
+            {' · '}
+            <Link href={`/tickets/claim?code=${encodeURIComponent(code)}`} style={{ color: '#856b3f', fontWeight: 700 }}>
+              Registreer dit ticket
+            </Link>
           </p>
         ) : null}
         <p style={{ marginTop: 24 }}>

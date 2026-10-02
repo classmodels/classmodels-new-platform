@@ -1,7 +1,6 @@
-import { createHash, randomBytes } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 
-export type TicketType = 'std' | 'vip';
+export type TicketType = 'std' | 'vip' | 'drinks';
 
 export function slugifyModeshowTitle(title: string): string {
   return title
@@ -14,10 +13,12 @@ export function slugifyModeshowTitle(title: string): string {
 }
 
 export function newOrderKey(): string {
+  const { randomBytes } = require('node:crypto') as typeof import('node:crypto');
   return randomBytes(16).toString('hex');
 }
 
 export function newTicketCode(orderId: string, counter: number): string {
+  const { createHash, randomBytes } = require('node:crypto') as typeof import('node:crypto');
   const h = createHash('sha256')
     .update(`${orderId}|${counter}|${randomBytes(8).toString('hex')}|${Date.now()}`)
     .digest('hex');
@@ -33,40 +34,49 @@ export function formatEur(amount: Prisma.Decimal | number | string): string {
   return `€ ${n.toFixed(2).replace('.', ',')}`;
 }
 
-export function ticketTypeLabel(type: TicketType): string {
-  return type === 'vip' ? 'VIP-ticket' : 'Standaardticket';
+export function ticketTypeLabel(type: TicketType | string): string {
+  if (type === 'vip') return 'VIP-ticket';
+  if (type === 'drinks') return 'Drankbon';
+  return 'Standaardticket';
 }
 
 export type CartQuote = {
   qtyStd: number;
   qtyVip: number;
+  qtyDrinks: number;
   unitPriceStd: Prisma.Decimal;
   unitPriceVip: Prisma.Decimal;
+  unitPriceDrinks: Prisma.Decimal;
   subtotal: Prisma.Decimal;
   discountAmount: Prisma.Decimal;
   totalAmount: Prisma.Decimal;
   couponCode: string | null;
-  couponTicketType: TicketType | null;
+  couponTicketType: 'std' | 'vip' | null;
 };
 
 export function quoteCart(input: {
   qtyStd: number;
   qtyVip: number;
+  qtyDrinks?: number;
   priceStd: Prisma.Decimal;
   priceVip: Prisma.Decimal;
-  coupon?: { code: string; ticketType: TicketType; maxQty: number } | null;
+  priceDrinks?: Prisma.Decimal;
+  coupon?: { code: string; ticketType: 'std' | 'vip'; maxQty: number } | null;
 }): CartQuote {
   const qtyStd = Math.max(0, Math.floor(input.qtyStd || 0));
   const qtyVip = Math.max(0, Math.floor(input.qtyVip || 0));
+  const qtyDrinks = Math.max(0, Math.floor(input.qtyDrinks || 0));
   const unitPriceStd = money(input.priceStd);
   const unitPriceVip = money(input.priceVip);
+  const unitPriceDrinks = money(input.priceDrinks ?? 0);
   const lineStd = unitPriceStd.mul(qtyStd);
   const lineVip = unitPriceVip.mul(qtyVip);
-  const subtotal = lineStd.add(lineVip);
+  const lineDrinks = unitPriceDrinks.mul(qtyDrinks);
+  const subtotal = lineStd.add(lineVip).add(lineDrinks);
 
   let discountAmount = money(0);
   let couponCode: string | null = null;
-  let couponTicketType: TicketType | null = null;
+  let couponTicketType: 'std' | 'vip' | null = null;
 
   if (input.coupon) {
     const type = input.coupon.ticketType;
@@ -85,8 +95,10 @@ export function quoteCart(input: {
   return {
     qtyStd,
     qtyVip,
+    qtyDrinks,
     unitPriceStd,
     unitPriceVip,
+    unitPriceDrinks,
     subtotal,
     discountAmount,
     totalAmount: totalAmount.lt(0) ? money(0) : totalAmount,
@@ -99,7 +111,6 @@ export function parseEventDateOnly(isoDate: string): Date {
   const raw = isoDate.trim();
   let m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
   if (!m) {
-    // Browser/locale: DD-MM-YYYY of DD/MM/YYYY
     m = /^(\d{2})[-/.](\d{2})[-/.](\d{4})$/.exec(raw);
     if (m) {
       return new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1]), 12, 0, 0));
@@ -134,4 +145,20 @@ export function formatAddress(parts: {
   const line1 = [parts.street, parts.streetNo].filter(Boolean).join(' ').trim();
   const line2 = [parts.postcode, parts.city].filter(Boolean).join(' ').trim();
   return [parts.venueName, line1, line2, parts.locationExtra].filter(Boolean).join(', ');
+}
+
+export function parseSponsorUrls(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.map((x) => String(x).trim()).filter(Boolean);
+  if (typeof raw === 'string') {
+    try {
+      const p = JSON.parse(raw) as unknown;
+      if (Array.isArray(p)) return p.map((x) => String(x).trim()).filter(Boolean);
+    } catch {
+      return raw
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
 }

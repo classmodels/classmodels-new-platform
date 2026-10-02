@@ -84,6 +84,7 @@ export class ModeshowTicketsAdminController {
       eventId: string;
       qtyStd?: number;
       qtyVip?: number;
+      qtyDrinks?: number;
       firstName: string;
       lastName: string;
       email: string;
@@ -99,6 +100,18 @@ export class ModeshowTicketsAdminController {
   @Permissions('admin.billing.write')
   resend(@Param('id') id: string) {
     return this.tickets.adminResendTickets(id);
+  }
+
+  @Get('claims')
+  @Permissions('admin.billing.read')
+  listClaims(@Query('eventId') eventId?: string) {
+    return this.tickets.adminListClaims(eventId);
+  }
+
+  @Post('claims/:id/archive')
+  @Permissions('admin.billing.write')
+  archiveClaim(@Param('id') id: string) {
+    return this.tickets.adminArchiveClaim(id);
   }
 
   @Get('check-in/lookup')

@@ -1,7 +1,7 @@
 'use strict';
 /**
- * Zorgt dat Modeshow ticket-tabellen bestaan, ook als prisma migrate faalde op Combell.
- * Zonder dit: Admin → Tickets modeshow → 500 ("Er ging iets mis op de server").
+ * Zorgt dat Modeshow ticket-tabellen + drinks/sponsors/claims bestaan
+ * (ook als prisma migrate faalde op Combell).
  */
 const fs = require('fs');
 const path = require('path');
@@ -24,16 +24,91 @@ async function tableExists(prisma, table) {
   return rows.length > 0;
 }
 
-async function ensureModeshowTicketsSchema(prisma) {
-  if (await tableExists(prisma, 'ModeshowEvent')) {
-    console.error('[combell] ModeshowEvent bestaat al');
+async function tryAlter(prisma, sql) {
+  try {
+    await prisma.$executeRawUnsafe(sql);
+  } catch {
+    /* kolom bestaat al of tabel ontbreekt (wordt elders aangemaakt) */
+  }
+}
+
+async function ensureExtensions(prisma) {
+  await tryAlter(prisma, `ALTER TABLE \`ModeshowEvent\` MODIFY \`coverImageUrl\` TEXT NULL`);
+  await tryAlter(
+    prisma,
+    `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`priceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0`,
+  );
+  await tryAlter(prisma, `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`drinkTitle\` VARCHAR(191) NULL`);
+  await tryAlter(prisma, `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`drinkDescription\` TEXT NULL`);
+  await tryAlter(
+    prisma,
+    `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`drinkCouponsPerTicket\` INT NOT NULL DEFAULT 1`,
+  );
+  await tryAlter(prisma, `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`sponsorText\` TEXT NULL`);
+  await tryAlter(prisma, `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`sponsorImageUrls\` JSON NULL`);
+  await tryAlter(
+    prisma,
+    `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`claimEnabled\` BOOLEAN NOT NULL DEFAULT true`,
+  );
+  await tryAlter(
+    prisma,
+    `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`claimRequiredForCheckin\` BOOLEAN NOT NULL DEFAULT false`,
+  );
+  await tryAlter(prisma, `ALTER TABLE \`ModeshowEvent\` ADD COLUMN \`claimInfoText\` TEXT NULL`);
+  await tryAlter(
+    prisma,
+    `ALTER TABLE \`ModeshowTicketOrder\` ADD COLUMN \`qtyDrinks\` INT NOT NULL DEFAULT 0`,
+  );
+  await tryAlter(
+    prisma,
+    `ALTER TABLE \`ModeshowTicketOrder\` ADD COLUMN \`unitPriceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0`,
+  );
+
+  if (!(await tableExists(prisma, 'ModeshowTicketClaim'))) {
+    console.error('[combell] ModeshowTicketClaim ontbreekt — aanmaken…');
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE \`ModeshowTicketClaim\` (
+        \`id\` VARCHAR(191) NOT NULL,
+        \`eventId\` VARCHAR(191) NOT NULL,
+        \`ticketId\` VARCHAR(191) NOT NULL,
+        \`ticketCode\` VARCHAR(191) NOT NULL,
+        \`firstName\` VARCHAR(191) NOT NULL,
+        \`lastName\` VARCHAR(191) NOT NULL,
+        \`email\` VARCHAR(191) NOT NULL,
+        \`phone\` VARCHAR(191) NULL,
+        \`archived\` BOOLEAN NOT NULL DEFAULT false,
+        \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`id\`)
+      ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci
+    `);
     try {
       await prisma.$executeRawUnsafe(
-        `ALTER TABLE \`ModeshowEvent\` MODIFY \`coverImageUrl\` TEXT NULL`,
+        `CREATE UNIQUE INDEX \`ModeshowTicketClaim_ticketId_key\` ON \`ModeshowTicketClaim\`(\`ticketId\`)`,
       );
     } catch {
       /* ok */
     }
+    try {
+      await prisma.$executeRawUnsafe(
+        `CREATE UNIQUE INDEX \`ModeshowTicketClaim_ticketCode_key\` ON \`ModeshowTicketClaim\`(\`ticketCode\`)`,
+      );
+    } catch {
+      /* ok */
+    }
+    try {
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX \`ModeshowTicketClaim_eventId_idx\` ON \`ModeshowTicketClaim\`(\`eventId\`)`,
+      );
+    } catch {
+      /* ok */
+    }
+  }
+}
+
+async function ensureModeshowTicketsSchema(prisma) {
+  if (await tableExists(prisma, 'ModeshowEvent')) {
+    console.error('[combell] ModeshowEvent bestaat al — extensies controleren…');
+    await ensureExtensions(prisma);
     return true;
   }
   console.error('[combell] Modeshow ticket-tabellen ontbreken — aanmaken…');
@@ -56,11 +131,20 @@ async function ensureModeshowTicketsSchema(prisma) {
       \`locationExtra\` VARCHAR(191) NULL,
       \`priceStd\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
       \`priceVip\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      \`priceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      \`drinkTitle\` VARCHAR(191) NULL,
+      \`drinkDescription\` TEXT NULL,
+      \`drinkCouponsPerTicket\` INT NOT NULL DEFAULT 1,
       \`ticketStock\` INT NULL,
       \`published\` BOOLEAN NOT NULL DEFAULT false,
       \`archived\` BOOLEAN NOT NULL DEFAULT false,
       \`coverImageUrl\` TEXT NULL,
       \`ticketFooter\` TEXT NULL,
+      \`sponsorText\` TEXT NULL,
+      \`sponsorImageUrls\` JSON NULL,
+      \`claimEnabled\` BOOLEAN NOT NULL DEFAULT true,
+      \`claimRequiredForCheckin\` BOOLEAN NOT NULL DEFAULT false,
+      \`claimInfoText\` TEXT NULL,
       \`sortOrder\` INT NOT NULL DEFAULT 0,
       \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
       \`updatedAt\` DATETIME(3) NOT NULL,
@@ -109,8 +193,10 @@ async function ensureModeshowTicketsSchema(prisma) {
       \`city\` VARCHAR(191) NULL,
       \`qtyStd\` INT NOT NULL DEFAULT 0,
       \`qtyVip\` INT NOT NULL DEFAULT 0,
+      \`qtyDrinks\` INT NOT NULL DEFAULT 0,
       \`unitPriceStd\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
       \`unitPriceVip\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
+      \`unitPriceDrinks\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
       \`subtotal\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
       \`discountAmount\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
       \`totalAmount\` DECIMAL(10, 2) NOT NULL DEFAULT 0,
@@ -164,6 +250,8 @@ async function ensureModeshowTicketsSchema(prisma) {
   await prisma.$executeRawUnsafe(
     `CREATE INDEX \`ModeshowTicket_checkedIn_idx\` ON \`ModeshowTicket\`(\`checkedIn\`)`,
   );
+
+  await ensureExtensions(prisma);
 
   try {
     await prisma.$executeRawUnsafe(`

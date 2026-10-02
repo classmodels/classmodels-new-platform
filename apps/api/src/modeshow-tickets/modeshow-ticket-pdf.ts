@@ -1,7 +1,14 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import QRCode from 'qrcode';
 import type { ModeshowEvent, ModeshowTicket, ModeshowTicketOrder } from '@prisma/client';
-import { formatAddress, formatEventDateNl, formatEur, ticketTypeLabel, type TicketType } from './modeshow-ticket-utils';
+import {
+  formatAddress,
+  formatEventDateNl,
+  formatEur,
+  parseSponsorUrls,
+  ticketTypeLabel,
+  type TicketType,
+} from './modeshow-ticket-utils';
 
 const GOLD = rgb(0.76, 0.63, 0.39);
 const INK = rgb(0.1, 0.1, 0.1);
@@ -12,6 +19,7 @@ export async function buildModeshowTicketsPdf(opts: {
   order: ModeshowTicketOrder;
   tickets: ModeshowTicket[];
   claimBaseUrl: string;
+  useClaimQr?: boolean;
 }): Promise<Buffer> {
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -20,6 +28,8 @@ export async function buildModeshowTicketsPdf(opts: {
   const dateLabel = formatEventDateNl(opts.event.eventDate);
   const address = formatAddress(opts.event);
   const footer = (opts.event.ticketFooter || '').trim();
+  const sponsorUrls = parseSponsorUrls(opts.event.sponsorImageUrls);
+  const sponsorText = (opts.event.sponsorText || '').trim();
 
   let coverImage: Awaited<ReturnType<PDFDocument['embedPng']>> | null = null;
   const coverUrl = (opts.event.coverImageUrl || '').trim();
@@ -40,13 +50,31 @@ export async function buildModeshowTicketsPdf(opts: {
     }
   }
 
+  const sponsorImages: Awaited<ReturnType<PDFDocument['embedPng']>>[] = [];
+  for (const url of sponsorUrls.slice(0, 6)) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const buf = Buffer.from(await res.arrayBuffer());
+      const ct = (res.headers.get('content-type') || '').toLowerCase();
+      if (ct.includes('png') || url.toLowerCase().includes('.png')) {
+        sponsorImages.push(await pdf.embedPng(buf));
+      } else {
+        sponsorImages.push(await pdf.embedJpg(buf));
+      }
+    } catch {
+      /* skip */
+    }
+  }
+
   for (const ticket of opts.tickets) {
     const page = pdf.addPage([595.28, 841.89]); // A4
     const { width, height } = page.getSize();
     const margin = 48;
+    const isDrinks = ticket.ticketType === 'drinks';
 
     let topY = height - margin - 28;
-    if (coverImage) {
+    if (coverImage && !isDrinks) {
       const maxW = width - 2 * margin;
       const maxH = 140;
       const scale = Math.min(maxW / coverImage.width, maxH / coverImage.height);
@@ -76,7 +104,7 @@ export async function buildModeshowTicketsPdf(opts: {
       font: fontBold,
       color: GOLD,
     });
-    page.drawText('MODESHOW TICKET', {
+    page.drawText(isDrinks ? 'DRANKBON' : 'MODESHOW TICKET', {
       x: margin,
       y: topY - 20,
       size: 22,
@@ -94,7 +122,7 @@ export async function buildModeshowTicketsPdf(opts: {
     });
 
     const type = ticket.ticketType as TicketType;
-    page.drawText(ticketTypeLabel(type), {
+    page.drawText(ticket.label || ticketTypeLabel(type), {
       x: margin,
       y: topY - 84,
       size: 13,
@@ -102,16 +130,34 @@ export async function buildModeshowTicketsPdf(opts: {
       color: GOLD,
     });
 
-    const lines: [string, string][] = [
-      ['Naam', owner],
-      ['Datum', dateLabel],
-      ['Deuren', opts.event.doorsTime ? opts.event.doorsTime.slice(0, 5) : '—'],
-      ['Aanvang', opts.event.startTime ? opts.event.startTime.slice(0, 5) : '—'],
-      ['Locatie', address || '—'],
-      ['Code', ticket.code],
-    ];
+    if (isDrinks && opts.event.drinkDescription) {
+      page.drawText(String(opts.event.drinkDescription).slice(0, 100), {
+        x: margin,
+        y: topY - 104,
+        size: 10,
+        font,
+        color: MUTED,
+        maxWidth: width - 2 * margin - 160,
+      });
+    }
 
-    let y = topY - 122;
+    const lines: [string, string][] = isDrinks
+      ? [
+          ['Naam', owner],
+          ['Datum', dateLabel],
+          ['Locatie', address || '—'],
+          ['Code', ticket.code],
+        ]
+      : [
+          ['Naam', owner],
+          ['Datum', dateLabel],
+          ['Deuren', opts.event.doorsTime ? opts.event.doorsTime.slice(0, 5) : '—'],
+          ['Aanvang', opts.event.startTime ? opts.event.startTime.slice(0, 5) : '—'],
+          ['Locatie', address || '—'],
+          ['Code', ticket.code],
+        ];
+
+    let y = topY - (isDrinks ? 140 : 122);
     for (const [label, value] of lines) {
       page.drawText(label.toUpperCase(), {
         x: margin,
@@ -131,28 +177,83 @@ export async function buildModeshowTicketsPdf(opts: {
       y -= 44;
     }
 
-    const claimUrl = `${opts.claimBaseUrl.replace(/\/$/, '')}?code=${encodeURIComponent(ticket.code)}`;
-    const qrPng = await QRCode.toBuffer(claimUrl, {
-      type: 'png',
-      width: 220,
-      margin: 1,
-      errorCorrectionLevel: 'M',
-    });
-    const qrImage = await pdf.embedPng(qrPng);
-    const qrSize = 130;
-    page.drawImage(qrImage, {
-      x: width - margin - qrSize,
-      y: topY - 200,
-      width: qrSize,
-      height: qrSize,
-    });
-    page.drawText('Scan voor check-in', {
-      x: width - margin - qrSize,
-      y: topY - 216,
-      size: 8,
-      font,
-      color: MUTED,
-    });
+    if (!isDrinks) {
+      const claimUrl = `${opts.claimBaseUrl.replace(/\/$/, '')}?code=${encodeURIComponent(ticket.code)}`;
+      const qrPng = await QRCode.toBuffer(claimUrl, {
+        type: 'png',
+        width: 220,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+      });
+      const qrImage = await pdf.embedPng(qrPng);
+      const qrSize = 130;
+      page.drawImage(qrImage, {
+        x: width - margin - qrSize,
+        y: topY - 200,
+        width: qrSize,
+        height: qrSize,
+      });
+      page.drawText(opts.useClaimQr ? 'Scan om te registreren' : 'Scan voor check-in', {
+        x: width - margin - qrSize,
+        y: topY - 216,
+        size: 8,
+        font,
+        color: MUTED,
+      });
+    } else {
+      const qrPng = await QRCode.toBuffer(ticket.code, {
+        type: 'png',
+        width: 220,
+        margin: 1,
+        errorCorrectionLevel: 'M',
+      });
+      const qrImage = await pdf.embedPng(qrPng);
+      const qrSize = 110;
+      page.drawImage(qrImage, {
+        x: width - margin - qrSize,
+        y: topY - 180,
+        width: qrSize,
+        height: qrSize,
+      });
+      page.drawText('Toon aan de bar', {
+        x: width - margin - qrSize,
+        y: topY - 196,
+        size: 8,
+        font,
+        color: MUTED,
+      });
+    }
+
+    if (sponsorImages.length || sponsorText) {
+      let sy = 120;
+      if (sponsorText) {
+        page.drawText('SPONSORS', {
+          x: margin,
+          y: sy + 36,
+          size: 8,
+          font: fontBold,
+          color: MUTED,
+        });
+        page.drawText(sponsorText.slice(0, 110), {
+          x: margin,
+          y: sy + 20,
+          size: 9,
+          font,
+          color: MUTED,
+          maxWidth: width - 2 * margin,
+        });
+      }
+      let sx = margin;
+      for (const img of sponsorImages) {
+        const maxH = 28;
+        const scale = Math.min(70 / img.width, maxH / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        page.drawImage(img, { x: sx, y: sy - h, width: w, height: h });
+        sx += w + 12;
+        if (sx > width - margin - 40) break;
+      }
+    }
 
     page.drawRectangle({
       x: margin - 12,
