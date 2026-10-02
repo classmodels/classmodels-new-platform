@@ -1,8 +1,10 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
+import { useAuth } from '@/context/auth-context';
 
 type PublicEvent = {
   id: string;
@@ -28,6 +30,8 @@ function eur(n: number) {
 }
 
 export default function TicketsModeshowPage() {
+  const { isAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [events, setEvents] = useState<PublicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -48,6 +52,12 @@ export default function TicketsModeshowPage() {
   });
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAdmin) router.replace('/');
+  }, [authLoading, isAdmin, router]);
+
+  useEffect(() => {
+    if (authLoading || !isAdmin) return;
     let cancelled = false;
     (async () => {
       try {
@@ -64,7 +74,7 @@ export default function TicketsModeshowPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authLoading, isAdmin]);
 
   const selected = useMemo(
     () => events.find((e) => e.id === selectedId) ?? null,
@@ -119,6 +129,16 @@ export default function TicketsModeshowPage() {
     }
   }
 
+  if (authLoading || !isAdmin) {
+    return (
+      <NieuwShell portal="gasten">
+        <div className="nieuw-wrap" style={{ paddingTop: 48, color: '#857f74' }}>
+          Laden…
+        </div>
+      </NieuwShell>
+    );
+  }
+
   return (
     <NieuwShell portal="gasten">
       <div className="nieuw-wrap" style={{ paddingTop: 36, paddingBottom: 72 }}>
@@ -133,7 +153,7 @@ export default function TicketsModeshowPage() {
               fontWeight: 700,
             }}
           >
-            Tickets
+            Tickets · alleen admin (tijdelijk)
           </p>
           <h1
             style={{

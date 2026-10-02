@@ -17,11 +17,12 @@ const CTA_TEXT = '#14110a';
 const GUEST_MENU_LINKS = [
   { label: 'Model worden? (home)', href: '/?m=guest' },
   { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
-  { label: 'Tickets modeshow', href: '/tickets' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'Contact', href: '/?m=guest&info=contact' },
 ] as const;
+
+const GUEST_MENU_TICKETS = { label: 'Tickets modeshow', href: '/tickets' } as const;
 
 export function MobileGuestAppShell({
   title,
@@ -32,9 +33,12 @@ export function MobileGuestAppShell({
   subtitle: string;
   children: ReactNode;
 }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const menuLinks = isAdmin
+    ? [GUEST_MENU_LINKS[0], GUEST_MENU_LINKS[1], GUEST_MENU_TICKETS, ...GUEST_MENU_LINKS.slice(2)]
+    : [...GUEST_MENU_LINKS];
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
@@ -107,7 +111,7 @@ export function MobileGuestAppShell({
           </div>
         </div>
         <nav className="cm-safe-bottom min-h-0 flex-1 overflow-y-auto" onClick={() => setOpen(false)}>
-          {GUEST_MENU_LINKS.map((m) => (
+          {menuLinks.map((m) => (
             <Link
               key={m.label}
               href={m.href}

@@ -18,10 +18,12 @@ const GASTEN_NAV = [
   { href: '/gasten/model-worden', label: 'Model worden' },
   { href: '/gasten/model-worden#inschrijven', label: 'Inschrijven' },
   { href: '/gasten/model-worden#hoe-werkt-het', label: 'Hoe werkt het?' },
-  { href: '/tickets', label: 'Tickets modeshow' },
   { href: '/gasten/testshoot', label: 'Testshoot-foto’s' },
   { href: '/gasten/contact', label: 'Contact' },
 ] as const;
+
+/** Tijdelijk: tickets alleen in menu voor admin (nog in opbouw). */
+const TICKETS_NAV_ITEM = { href: '/tickets', label: 'Tickets modeshow' } as const;
 
 const MODELLEN_NAV = [
   { href: '/modellen', label: 'Home' },
@@ -98,7 +100,7 @@ export function NieuwShell({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout, loading } = useAuth();
+  const { user, logout, loading, isAdmin } = useAuth();
   const isMobile = useIsMobile();
   const activePortal = portal ?? portalFromPath(pathname);
   const search = searchParams?.toString() ? `?${searchParams.toString()}` : '';
@@ -123,9 +125,20 @@ export function NieuwShell({
       user?.permissions?.some((p) => p.startsWith('admin.')),
   );
 
+  const gastenNav = isAdmin
+    ? ([
+        GASTEN_NAV[0],
+        GASTEN_NAV[1],
+        GASTEN_NAV[2],
+        TICKETS_NAV_ITEM,
+        GASTEN_NAV[3],
+        GASTEN_NAV[4],
+      ] as const)
+    : GASTEN_NAV;
+
   const subNav =
     activePortal === 'gasten'
-      ? GASTEN_NAV
+      ? gastenNav
       : activePortal === 'modellen'
         ? MODELLEN_NAV
         : activePortal === 'klanten' && isKlantUser
@@ -241,7 +254,7 @@ export function NieuwShell({
             <span className="nieuw-util-nav-spacer" aria-hidden="true" />
           )}
           <nav className="nieuw-util-actions" aria-label="Snelle acties">
-            <Link href="/tickets">Tickets modeshow</Link>
+            {isAdmin ? <Link href="/tickets">Tickets modeshow</Link> : null}
             <Link href="/reviews">Reviews</Link>
             <Link href="/gasten/contact">Contact</Link>
             {cta}
@@ -291,8 +304,12 @@ export function NieuwShell({
                 <br />
                 <Link href="/klanten">Klantenportaal</Link>
                 <br />
-                <Link href="/tickets">Tickets modeshow</Link>
-                <br />
+                {isAdmin ? (
+                  <>
+                    <Link href="/tickets">Tickets modeshow</Link>
+                    <br />
+                  </>
+                ) : null}
                 <Link href="/reviews">Reviews</Link>
               </p>
             </div>
