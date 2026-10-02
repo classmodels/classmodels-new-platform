@@ -966,7 +966,7 @@ model ModeshowEvent {
   ticketStock     Int?
   published       Boolean  @default(false)
   archived        Boolean  @default(false)
-  coverImageUrl   String?
+  coverImageUrl   String?  @db.Text
   ticketFooter    String?  @db.Text
   sortOrder       Int      @default(0)
   createdAt       DateTime @default(now())

@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { ContainerMediaPicker } from '@/components/admin/ContainerMediaPicker';
 
 type EventRow = {
   id: string;
@@ -23,8 +24,11 @@ type EventRow = {
   streetNo?: string | null;
   postcode?: string | null;
   city?: string | null;
+  locationExtra?: string | null;
   summary?: string | null;
   description?: string | null;
+  coverImageUrl?: string | null;
+  ticketFooter?: string | null;
   coupons?: { id: string; code: string; ticketType: string; maxQty: number; active: boolean }[];
 };
 
@@ -54,8 +58,11 @@ const emptyEventForm = {
   streetNo: '',
   postcode: '',
   city: '',
+  locationExtra: '',
   summary: '',
   description: '',
+  coverImageUrl: '',
+  ticketFooter: '',
   priceStd: '25',
   priceVip: '45',
   ticketStock: '200',
@@ -78,6 +85,7 @@ export default function AdminModeshowTicketsPage() {
   const [orderSearch, setOrderSearch] = useState('');
   const [checkCode, setCheckCode] = useState('');
   const [checkResult, setCheckResult] = useState<unknown>(null);
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [manual, setManual] = useState({
     eventId: '',
     firstName: '',
@@ -138,8 +146,11 @@ export default function AdminModeshowTicketsPage() {
         streetNo: form.streetNo,
         postcode: form.postcode,
         city: form.city,
+        locationExtra: form.locationExtra,
         summary: form.summary,
         description: form.description,
+        coverImageUrl: form.coverImageUrl || null,
+        ticketFooter: form.ticketFooter,
         priceStd: Number(form.priceStd) || 0,
         priceVip: Number(form.priceVip) || 0,
         ticketStock: form.ticketStock === '' ? null : Number(form.ticketStock),
@@ -179,8 +190,11 @@ export default function AdminModeshowTicketsPage() {
       streetNo: ev.streetNo || '',
       postcode: ev.postcode || '',
       city: ev.city || '',
+      locationExtra: ev.locationExtra || '',
       summary: ev.summary || '',
       description: ev.description || '',
+      coverImageUrl: ev.coverImageUrl || '',
+      ticketFooter: ev.ticketFooter || '',
       priceStd: String(ev.priceStd),
       priceVip: String(ev.priceVip),
       ticketStock: ev.ticketStock == null ? '' : String(ev.ticketStock),
@@ -190,6 +204,14 @@ export default function AdminModeshowTicketsPage() {
       if (!token) return;
       const full = await adminFetch<EventRow>(`/admin/modeshow-tickets/events/${ev.id}`, token);
       setEditing(full);
+      setForm((f) => ({
+        ...f,
+        locationExtra: full.locationExtra || '',
+        coverImageUrl: full.coverImageUrl || '',
+        ticketFooter: full.ticketFooter || '',
+        summary: full.summary || f.summary,
+        description: full.description || f.description,
+      }));
     })();
   }
 
@@ -308,6 +330,16 @@ export default function AdminModeshowTicketsPage() {
                 </label>
               ))}
               <label className="sm:col-span-2 text-xs text-muted">
+                Extra locatie-info
+                <input
+                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm text-ink"
+                  value={form.locationExtra}
+                  onChange={(e) => setForm((f) => ({ ...f, locationExtra: e.target.value }))}
+                  disabled={!canWrite}
+                  placeholder="Zaal, verdieping, parking…"
+                />
+              </label>
+              <label className="sm:col-span-2 text-xs text-muted">
                 Samenvatting
                 <textarea
                   className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
@@ -325,6 +357,64 @@ export default function AdminModeshowTicketsPage() {
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   disabled={!canWrite}
+                />
+              </label>
+              <div className="sm:col-span-2 space-y-2 rounded border border-dashed border-line p-3">
+                <p className="text-xs font-medium text-ink">Coverfoto / affiche</p>
+                <p className="text-[11px] text-muted">
+                  Zichtbaar in de ticketshop en op het PDF-ticket. Kies uit de mediatheek of plak een URL.
+                </p>
+                {form.coverImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={form.coverImageUrl}
+                    alt="Cover"
+                    className="max-h-40 w-full rounded object-cover border border-line"
+                  />
+                ) : (
+                  <div className="flex h-28 items-center justify-center rounded bg-zinc-50 text-xs text-muted">
+                    Geen foto
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    className="min-w-[12rem] flex-1 rounded border border-line px-2 py-1.5 text-sm"
+                    placeholder="https://… of /media/public/…"
+                    value={form.coverImageUrl}
+                    onChange={(e) => setForm((f) => ({ ...f, coverImageUrl: e.target.value }))}
+                    disabled={!canWrite}
+                  />
+                  {canWrite ? (
+                    <>
+                      <button
+                        type="button"
+                        className="rounded border border-line bg-panel px-3 py-1.5 text-xs font-medium"
+                        onClick={() => setMediaPickerOpen(true)}
+                      >
+                        Mediatheek
+                      </button>
+                      {form.coverImageUrl ? (
+                        <button
+                          type="button"
+                          className="rounded border border-line px-3 py-1.5 text-xs text-red-700"
+                          onClick={() => setForm((f) => ({ ...f, coverImageUrl: '' }))}
+                        >
+                          Foto wissen
+                        </button>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              <label className="sm:col-span-2 text-xs text-muted">
+                Tekst onderaan PDF-ticket
+                <textarea
+                  className="mt-1 w-full rounded border border-line px-2 py-1.5 text-sm"
+                  rows={2}
+                  value={form.ticketFooter}
+                  onChange={(e) => setForm((f) => ({ ...f, ticketFooter: e.target.value }))}
+                  disabled={!canWrite}
+                  placeholder="Geldig voor één persoon. Toon QR aan de ingang."
                 />
               </label>
               <label className="flex items-center gap-2 text-xs text-ink sm:col-span-2">
@@ -416,7 +506,23 @@ export default function AdminModeshowTicketsPage() {
                 <tbody>
                   {events.map((ev) => (
                     <tr key={ev.id} className="border-b border-line/60">
-                      <td className="py-2 pr-2 font-medium text-ink">{ev.title}</td>
+                      <td className="py-2 pr-2 font-medium text-ink">
+                        <div className="flex items-center gap-2">
+                          {ev.coverImageUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={ev.coverImageUrl}
+                              alt=""
+                              className="h-10 w-10 rounded object-cover border border-line"
+                            />
+                          ) : (
+                            <span className="flex h-10 w-10 items-center justify-center rounded bg-zinc-100 text-[10px] text-muted">
+                              —
+                            </span>
+                          )}
+                          <span>{ev.title}</span>
+                        </div>
+                      </td>
                       <td className="py-2 pr-2">{ev.eventDate}</td>
                       <td className="py-2 pr-2">
                         {ev.sold}
@@ -584,6 +690,19 @@ export default function AdminModeshowTicketsPage() {
           ) : null}
         </div>
       ) : null}
+
+      <ContainerMediaPicker
+        open={mediaPickerOpen}
+        onClose={() => setMediaPickerOpen(false)}
+        onPick={(url) => {
+          setForm((f) => ({ ...f, coverImageUrl: url }));
+          setMediaPickerOpen(false);
+        }}
+        token={token}
+        canRead={can('admin.media.read')}
+        canWrite={can('admin.media.write')}
+        mode="image"
+      />
     </div>
   );
 }

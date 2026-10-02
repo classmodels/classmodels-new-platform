@@ -753,7 +753,7 @@ export class ModeshowTicketsService {
         \`ticketStock\` INT NULL,
         \`published\` BOOLEAN NOT NULL DEFAULT false,
         \`archived\` BOOLEAN NOT NULL DEFAULT false,
-        \`coverImageUrl\` VARCHAR(191) NULL,
+        \`coverImageUrl\` TEXT NULL,
         \`ticketFooter\` TEXT NULL,
         \`sortOrder\` INT NOT NULL DEFAULT 0,
         \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -823,8 +823,20 @@ export class ModeshowTicketsService {
     this.log.log('Modeshow ticket-tabellen aangemaakt.');
   }
 
+  /** Zorg dat coverImageUrl TEXT is (lange CDN-URL’s). */
+  private async ensureCoverUrlColumnWide() {
+    try {
+      await this.prisma.$executeRawUnsafe(
+        `ALTER TABLE \`ModeshowEvent\` MODIFY \`coverImageUrl\` TEXT NULL`,
+      );
+    } catch {
+      /* kolom/tabel bestaat al in goede vorm */
+    }
+  }
+
   async ensureDemoEventIfEmpty() {
     await this.ensureTablesExist();
+    await this.ensureCoverUrlColumnWide();
     const count = await this.prisma.modeshowEvent.count();
     if (count > 0) return { created: false };
     const eventDate = new Date();

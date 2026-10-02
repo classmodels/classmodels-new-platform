@@ -21,14 +21,49 @@ export async function buildModeshowTicketsPdf(opts: {
   const address = formatAddress(opts.event);
   const footer = (opts.event.ticketFooter || '').trim();
 
+  let coverImage: Awaited<ReturnType<PDFDocument['embedPng']>> | null = null;
+  const coverUrl = (opts.event.coverImageUrl || '').trim();
+  if (coverUrl) {
+    try {
+      const res = await fetch(coverUrl);
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        const ct = (res.headers.get('content-type') || '').toLowerCase();
+        if (ct.includes('png') || coverUrl.toLowerCase().includes('.png')) {
+          coverImage = await pdf.embedPng(buf);
+        } else {
+          coverImage = await pdf.embedJpg(buf);
+        }
+      }
+    } catch {
+      coverImage = null;
+    }
+  }
+
   for (const ticket of opts.tickets) {
     const page = pdf.addPage([595.28, 841.89]); // A4
     const { width, height } = page.getSize();
     const margin = 48;
 
+    let topY = height - margin - 28;
+    if (coverImage) {
+      const maxW = width - 2 * margin;
+      const maxH = 140;
+      const scale = Math.min(maxW / coverImage.width, maxH / coverImage.height);
+      const w = coverImage.width * scale;
+      const h = coverImage.height * scale;
+      page.drawImage(coverImage, {
+        x: margin,
+        y: height - margin - h,
+        width: w,
+        height: h,
+      });
+      topY = height - margin - h - 24;
+    }
+
     page.drawRectangle({
       x: margin - 12,
-      y: height - margin - 36,
+      y: topY + 8,
       width: width - 2 * (margin - 12),
       height: 4,
       color: GOLD,
@@ -36,14 +71,14 @@ export async function buildModeshowTicketsPdf(opts: {
 
     page.drawText('CLASS-MODELS', {
       x: margin,
-      y: height - margin - 28,
+      y: topY,
       size: 11,
       font: fontBold,
       color: GOLD,
     });
     page.drawText('MODESHOW TICKET', {
       x: margin,
-      y: height - margin - 48,
+      y: topY - 20,
       size: 22,
       font: fontBold,
       color: INK,
@@ -51,7 +86,7 @@ export async function buildModeshowTicketsPdf(opts: {
 
     page.drawText(opts.event.title, {
       x: margin,
-      y: height - margin - 84,
+      y: topY - 56,
       size: 16,
       font: fontBold,
       color: INK,
@@ -61,7 +96,7 @@ export async function buildModeshowTicketsPdf(opts: {
     const type = ticket.ticketType as TicketType;
     page.drawText(ticketTypeLabel(type), {
       x: margin,
-      y: height - margin - 112,
+      y: topY - 84,
       size: 13,
       font: fontBold,
       color: GOLD,
@@ -76,7 +111,7 @@ export async function buildModeshowTicketsPdf(opts: {
       ['Code', ticket.code],
     ];
 
-    let y = height - margin - 150;
+    let y = topY - 122;
     for (const [label, value] of lines) {
       page.drawText(label.toUpperCase(), {
         x: margin,
@@ -107,13 +142,13 @@ export async function buildModeshowTicketsPdf(opts: {
     const qrSize = 130;
     page.drawImage(qrImage, {
       x: width - margin - qrSize,
-      y: height - margin - 220,
+      y: topY - 200,
       width: qrSize,
       height: qrSize,
     });
     page.drawText('Scan voor check-in', {
       x: width - margin - qrSize,
-      y: height - margin - 236,
+      y: topY - 216,
       size: 8,
       font,
       color: MUTED,

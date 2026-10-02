@@ -27,6 +27,13 @@ async function tableExists(prisma, table) {
 async function ensureModeshowTicketsSchema(prisma) {
   if (await tableExists(prisma, 'ModeshowEvent')) {
     console.error('[combell] ModeshowEvent bestaat al');
+    try {
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE \`ModeshowEvent\` MODIFY \`coverImageUrl\` TEXT NULL`,
+      );
+    } catch {
+      /* ok */
+    }
     return true;
   }
   console.error('[combell] Modeshow ticket-tabellen ontbreken — aanmaken…');
@@ -52,7 +59,7 @@ async function ensureModeshowTicketsSchema(prisma) {
       \`ticketStock\` INT NULL,
       \`published\` BOOLEAN NOT NULL DEFAULT false,
       \`archived\` BOOLEAN NOT NULL DEFAULT false,
-      \`coverImageUrl\` VARCHAR(191) NULL,
+      \`coverImageUrl\` TEXT NULL,
       \`ticketFooter\` TEXT NULL,
       \`sortOrder\` INT NOT NULL DEFAULT 0,
       \`createdAt\` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

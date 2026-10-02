@@ -17,6 +17,7 @@ type PublicEvent = {
   doorsTime: string | null;
   startTime: string | null;
   addressLabel: string;
+  coverImageUrl: string | null;
   priceStd: number;
   priceVip: number;
   remaining: number | null;
@@ -204,10 +205,25 @@ export default function TicketsModeshowPage() {
                     textAlign: 'left',
                     border: active ? '1px solid #c2a164' : '1px solid #ddd6c8',
                     background: active ? '#faf7f0' : '#fff',
-                    padding: '18px 20px',
+                    padding: 0,
                     cursor: 'pointer',
+                    overflow: 'hidden',
                   }}
                 >
+                  {ev.coverImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={ev.coverImageUrl}
+                      alt=""
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        height: 180,
+                        objectFit: 'cover',
+                      }}
+                    />
+                  ) : null}
+                  <div style={{ padding: '18px 20px' }}>
                   <div style={{ fontFamily: 'Georgia, serif', fontSize: 22, color: '#191919', fontWeight: 600 }}>
                     {ev.title}
                   </div>
@@ -224,6 +240,11 @@ export default function TicketsModeshowPage() {
                       {ev.summary}
                     </div>
                   ) : null}
+                  {ev.description && active ? (
+                    <div style={{ marginTop: 10, color: '#525049', fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                      {ev.description}
+                    </div>
+                  ) : null}
                   <div style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
                     {ev.hasStd ? <span>Standaard {eur(ev.priceStd)}</span> : null}
                     {ev.hasVip ? <span>VIP {eur(ev.priceVip)}</span> : null}
@@ -232,6 +253,7 @@ export default function TicketsModeshowPage() {
                     ) : ev.remaining != null ? (
                       <span style={{ color: '#857f74' }}>Nog {ev.remaining}</span>
                     ) : null}
+                  </div>
                   </div>
                 </button>
               );
