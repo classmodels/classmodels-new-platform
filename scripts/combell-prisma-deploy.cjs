@@ -106,6 +106,19 @@ function runEnsureBriefProfileMatchedSchemaSync(root) {
   return r.status === 0;
 }
 
+function runEnsureModeshowTicketsSchemaSync(root) {
+  const runner = path.join(root, 'scripts', 'ensure-modeshow-tickets-schema.cjs');
+  const r = spawnSync(
+    process.execPath,
+    [
+      '-e',
+      `require(${JSON.stringify(runner)}).runEnsureModeshowTicketsSchema(${JSON.stringify(root)}).then((ok)=>process.exit(ok?0:1)).catch((e)=>{console.error(e);process.exit(1)})`,
+    ],
+    { cwd: root, env: process.env, stdio: 'inherit' },
+  );
+  return r.status === 0;
+}
+
 function runCombellDbSetup(root) {
   const migrated = runPrismaMigrateDeploy(root);
   // Altijd kolommen forceren — ook als migrate faalde (anders 500 op feedback/admin/login).
@@ -114,7 +127,18 @@ function runCombellDbSetup(root) {
   const loginOk = runEnsureLoginCriticalSchemaSync(root);
   const portfolioOk = runEnsurePortfolioDeliveryAckSchemaSync(root);
   const briefMatchOk = runEnsureBriefProfileMatchedSchemaSync(root);
-  if (!migrated && !ensureOk && !tryoutOk && !loginOk && !portfolioOk && !briefMatchOk) return false;
+  const modeshowTicketsOk = runEnsureModeshowTicketsSchemaSync(root);
+  if (
+    !migrated &&
+    !ensureOk &&
+    !tryoutOk &&
+    !loginOk &&
+    !portfolioOk &&
+    !briefMatchOk &&
+    !modeshowTicketsOk
+  ) {
+    return false;
+  }
   const { runCombellBootstrapDb } = require('./combell-bootstrap-db.cjs');
   return runCombellBootstrapDb(root);
 }

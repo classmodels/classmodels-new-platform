@@ -43,6 +43,13 @@ export class HttpAllExceptionsFilter implements ExceptionFilter {
       });
     }
 
+    if (code === 'P2021' || /does not exist|existiert nicht|n\'existe pas|Table .* doesn\'t exist/i.test(rawMsg)) {
+      return res.status(HttpStatus.SERVICE_UNAVAILABLE).json({
+        message:
+          'Database-tabellen ontbreken nog (migratie). Herstart/deploy de API zodat prisma migrate + ensure-schema draaien, of run npm run db:deploy.',
+      });
+    }
+
     this.log.error(
       `${req.method ?? '?'} ${req.url ?? '?'}: ${rawMsg}`,
       exception instanceof Error ? exception.stack : undefined,
