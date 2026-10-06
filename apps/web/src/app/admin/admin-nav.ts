@@ -96,6 +96,11 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/agenda/open-dagen', label: 'Open dagen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/planning', label: 'Planning', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/mail-preview', label: 'Mail / SMS', permission: 'admin.agenda.read' },
+      {
+        href: '/admin/open-modellendag',
+        label: 'Open Modellendag',
+        permission: 'admin.agenda.read',
+      },
     ],
   },
   {

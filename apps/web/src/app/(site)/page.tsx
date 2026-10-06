@@ -1,22 +1,41 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { MobileHomeGate } from '@/components/MobileHomeGate';
+import { OpenModellendagHomeGate } from '@/components/OpenModellendagHomeGate';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
+import { OPEN_MODELLENDAG_ENABLED } from '@/lib/open-modellendag';
 
-export const metadata: Metadata = {
-  title: 'Modellenbureau België | Model worden & casting',
-  description:
-    'Class-Models is een modellenbureau in België. Word model via een gratis testshoot, casting of intake-gesprek. Bedrijven boeken modellen voor campagnes, events en fotoshoots.',
-  alternates: { canonical: '/' },
-  openGraph: {
-    title: 'Class-Models | Modellenbureau België',
-    description:
-      'Model worden of modellen boeken? Class-Models begeleidt nieuwe gezichten en levert professionele casting voor merken.',
-    url: 'https://www.class-models.be',
-    locale: 'nl_BE',
-    type: 'website',
-  },
-};
+export const metadata: Metadata = OPEN_MODELLENDAG_ENABLED
+  ? {
+      title: 'Open Modellendag | Class-Models',
+      description:
+        'Gratis catwalkles op zondag 11 oktober in Hulshout. Schrijf je in voor 11.00, 13.00, 15.00 of 17.00 — toegankelijk voor iedereen, geen ervaring nodig.',
+      alternates: { canonical: '/' },
+      openGraph: {
+        title: 'Open Modellendag | Class-Models',
+        description:
+          'Ontdek het model in jezelf. Gratis catwalkles, kleine groepen, alle leeftijden welkom.',
+        url: 'https://www.class-models.be',
+        locale: 'nl_BE',
+        type: 'website',
+        images: [{ url: 'https://www.class-models.be/nieuw/open-modellendag-poster.jpg' }],
+      },
+    }
+  : {
+      title: 'Modellenbureau België | Model worden & casting',
+      description:
+        'Class-Models is een modellenbureau in België. Word model via een gratis testshoot, casting of intake-gesprek. Bedrijven boeken modellen voor campagnes, events en fotoshoots.',
+      alternates: { canonical: '/' },
+      openGraph: {
+        title: 'Class-Models | Modellenbureau België',
+        description:
+          'Model worden of modellen boeken? Class-Models begeleidt nieuwe gezichten en levert professionele casting voor merken.',
+        url: 'https://www.class-models.be',
+        locale: 'nl_BE',
+        type: 'website',
+      },
+    };
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -72,12 +91,14 @@ const jsonLd = {
 
 export default function NieuwHomePage() {
   return (
-    <MobileHomeGate>
-      <NieuwShell portal="home">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
+    <Suspense fallback={<div className="min-h-[100dvh]" style={{ background: '#f3ebe0' }} />}>
+      <OpenModellendagHomeGate>
+        <MobileHomeGate>
+          <NieuwShell portal="home">
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+            />
 
       <section className="nieuw-hero">
         <div className="nieuw-wrap nieuw-hero-grid">
@@ -219,7 +240,9 @@ Diversiteit, flexibiliteit en persoonlijke begeleiding staan centraal.`}
           </p>
         </div>
       </section>
-      </NieuwShell>
-    </MobileHomeGate>
+          </NieuwShell>
+        </MobileHomeGate>
+      </OpenModellendagHomeGate>
+    </Suspense>
   );
 }

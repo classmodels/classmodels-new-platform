@@ -1081,3 +1081,22 @@ model ModeshowTicketClaim {
   @@index([eventId])
   @@index([email])
 }
+
+/// Eenmalige actie: Open Modellendag (publieke inschrijving zonder account).
+model OpenModellendagRegistration {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(120)
+  email     String   @db.VarChar(200)
+  phone     String   @db.VarChar(40)
+  age       Int
+  /// Startuur: 11:00 | 13:00 | 15:00 | 17:00
+  timeSlot  String   @db.VarChar(8)
+  /// Afgeleid: 6-12 | 13-17 | 18-45 | 45-60+
+  ageGroup  String   @db.VarChar(16)
+  createdAt DateTime @default(now())
+
+  @@unique([email])
+  @@index([timeSlot])
+  @@index([ageGroup])
+  @@index([createdAt])
+}

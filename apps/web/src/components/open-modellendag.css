@@ -1,0 +1,230 @@
+.omd-root {
+  --omd-ink: #1a1612;
+  --omd-mut: #5c564c;
+  --omd-gold: #c4a35a;
+  --omd-gold-deep: #8a7040;
+  --omd-cream: #faf6ef;
+  --omd-card: #ffffff;
+  background: linear-gradient(180deg, #f3ebe0 0%, var(--omd-cream) 40%, #fff 100%);
+  color: var(--omd-ink);
+}
+.omd-hero {
+  padding: 20px 0 48px;
+}
+.omd-wrap {
+  width: min(1100px, 92vw);
+  margin: 0 auto;
+}
+.omd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 28px 36px;
+  align-items: start;
+}
+.omd-poster {
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(26, 22, 18, 0.18);
+  background: #ddd;
+  position: sticky;
+  top: 16px;
+}
+.omd-poster img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.omd-kicker {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--omd-gold-deep);
+}
+.omd-title {
+  margin: 0;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 600;
+  line-height: 1.05;
+  color: var(--omd-ink);
+}
+.omd-sub {
+  margin: 8px 0 16px;
+  font-size: 1.05rem;
+  color: var(--omd-gold-deep);
+  font-weight: 600;
+}
+.omd-sub em {
+  font-style: normal;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.omd-lead {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+.omd-text {
+  margin: 0 0 14px;
+  color: var(--omd-mut);
+  line-height: 1.55;
+}
+.omd-bullets {
+  margin: 0 0 22px;
+  padding: 0 0 0 1.1rem;
+  color: var(--omd-mut);
+  line-height: 1.55;
+}
+.omd-bullets li {
+  margin-bottom: 6px;
+}
+.omd-form-card {
+  background: var(--omd-card);
+  border: 1px solid rgba(138, 112, 64, 0.28);
+  border-radius: 16px;
+  padding: 18px 16px 16px;
+  box-shadow: 0 10px 28px rgba(26, 22, 18, 0.08);
+}
+.omd-form-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.omd-form-hint {
+  margin: 6px 0 14px;
+  font-size: 0.92rem;
+  color: var(--omd-mut);
+}
+.omd-form {
+  display: grid;
+  gap: 12px;
+}
+.omd-field {
+  display: grid;
+  gap: 5px;
+}
+.omd-field span {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--omd-mut);
+}
+.omd-field input {
+  width: 100%;
+  border: 1px solid #ddd4c4;
+  border-radius: 12px;
+  padding: 14px 14px;
+  font-size: 16px;
+  background: #fff;
+  color: var(--omd-ink);
+}
+.omd-slots {
+  margin: 4px 0 0;
+  padding: 0;
+  border: 0;
+}
+.omd-slots legend {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--omd-mut);
+  margin-bottom: 8px;
+}
+.omd-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.omd-slot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid #ddd4c4;
+  background: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  user-select: none;
+}
+.omd-slot input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.omd-slot.is-on {
+  border-color: var(--omd-gold-deep);
+  background: #f3e6c8;
+  color: var(--omd-ink);
+  box-shadow: inset 0 0 0 1px rgba(138, 112, 64, 0.35);
+}
+.omd-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.omd-submit {
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 12px;
+  background: #14110a;
+  color: #f7efd8;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.omd-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.omd-fine {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--omd-mut);
+}
+.omd-success h2 {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+}
+.omd-success p {
+  margin: 0 0 10px;
+  color: var(--omd-mut);
+  line-height: 1.55;
+}
+.omd-site-link {
+  margin: 18px 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+}
+.omd-site-link a {
+  color: var(--omd-gold-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media (max-width: 860px) {
+  .omd-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .omd-poster {
+    position: static;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+  .omd-hero {
+    padding: 12px 0 36px;
+  }
+  .omd-wrap {
+    width: min(100%, 94vw);
+  }
+}

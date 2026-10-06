@@ -21,6 +21,7 @@ import { BulkCommsModule } from './bulk-comms/bulk-comms.module';
 import { PluginsModule } from './plugins/plugins.module';
 import { PartnersModule } from './partners/partners.module';
 import { ModeshowTicketsModule } from './modeshow-tickets/modeshow-tickets.module';
+import { OpenModellendagModule } from './open-modellendag/open-modellendag.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { ModeshowTicketsModule } from './modeshow-tickets/modeshow-tickets.modul
     PluginsModule,
     PartnersModule,
     ModeshowTicketsModule,
+    OpenModellendagModule,
   ],
 })
 export class AppModule {}
