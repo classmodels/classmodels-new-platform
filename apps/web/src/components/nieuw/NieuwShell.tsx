@@ -23,7 +23,6 @@ const GASTEN_NAV = [
   { href: '/gasten/contact', label: 'Contact' },
 ] as const;
 
-/** Tijdelijk: tickets alleen in menu voor admin (nog in opbouw). */
 const TICKETS_NAV_ITEM = { href: '/tickets', label: 'Tickets modeshow' } as const;
 
 const MODELLEN_NAV = [
@@ -126,16 +125,15 @@ export function NieuwShell({
       user?.permissions?.some((p) => p.startsWith('admin.')),
   );
 
-  const gastenNav = isAdmin
-    ? ([
-        GASTEN_NAV[0],
-        GASTEN_NAV[1],
-        GASTEN_NAV[2],
-        TICKETS_NAV_ITEM,
-        GASTEN_NAV[3],
-        GASTEN_NAV[4],
-      ] as const)
-    : GASTEN_NAV;
+  const gastenNav = [
+    GASTEN_NAV[0],
+    GASTEN_NAV[1],
+    GASTEN_NAV[2],
+    TICKETS_NAV_ITEM,
+    GASTEN_NAV[3],
+    GASTEN_NAV[4],
+    GASTEN_NAV[5],
+  ] as const;
 
   const subNav =
     activePortal === 'gasten'
@@ -255,7 +253,7 @@ export function NieuwShell({
             <span className="nieuw-util-nav-spacer" aria-hidden="true" />
           )}
           <nav className="nieuw-util-actions" aria-label="Snelle acties">
-            {isAdmin ? <Link href="/tickets">Tickets modeshow</Link> : null}
+            <Link href="/tickets">Tickets modeshow</Link>
             <Link href="/reviews">Reviews</Link>
             <Link href="/gasten/contact">Contact</Link>
             {cta}
@@ -305,12 +303,8 @@ export function NieuwShell({
                 <br />
                 <Link href="/klanten">Klantenportaal</Link>
                 <br />
-                {isAdmin ? (
-                  <>
-                    <Link href="/tickets">Tickets modeshow</Link>
-                    <br />
-                  </>
-                ) : null}
+                <Link href="/tickets">Tickets modeshow</Link>
+                <br />
                 <Link href="/reviews">Reviews</Link>
               </p>
             </div>
