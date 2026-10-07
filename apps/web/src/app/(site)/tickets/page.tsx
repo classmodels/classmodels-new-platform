@@ -1,9 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
-import { useAuth } from '@/context/auth-context';
 
 const MYZYNN_SHOP =
   process.env.NEXT_PUBLIC_MYZYNN_SHOP_URL?.trim() ||
@@ -13,81 +11,57 @@ const MYZYNN_EMBED =
   process.env.NEXT_PUBLIC_MYZYNN_SHOP_EMBED_URL?.trim() ||
   `${MYZYNN_SHOP}?embed=1`;
 
+const MIN_IFRAME_HEIGHT = 900;
+
 export default function TicketsModeshowPage() {
-  const { isAdmin, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const [iframeHeight, setIframeHeight] = useState(MIN_IFRAME_HEIGHT);
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!isAdmin) router.replace('/');
-  }, [authLoading, isAdmin, router]);
-
-  if (authLoading || !isAdmin) {
-    return (
-      <NieuwShell portal="gasten">
-        <main style={{ padding: '48px 16px', textAlign: 'center', color: '#5c564c' }}>Laden…</main>
-      </NieuwShell>
-    );
-  }
+    function onMessage(event: MessageEvent) {
+      const data = event.data;
+      if (!data || typeof data !== 'object') return;
+      if (data.type !== 'myzynn-shop-height') return;
+      const next = Number(data.height);
+      if (!Number.isFinite(next) || next < 200) return;
+      setIframeHeight(Math.max(MIN_IFRAME_HEIGHT, Math.ceil(next)));
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   return (
     <NieuwShell portal="gasten">
       <main
         style={{
-          padding: '12px 0 40px',
+          padding: '0 0 40px',
           width: '100%',
           maxWidth: '100%',
           boxSizing: 'border-box',
           overflowX: 'hidden',
         }}
       >
-        <header style={{ marginBottom: 12, padding: '0 12px' }}>
-          <h1
-            style={{
-              margin: 0,
-              fontFamily: 'var(--cm-serif, Georgia, serif)',
-              fontSize: 'clamp(1.2rem, 5.5vw, 2.35rem)',
-              fontWeight: 700,
-              color: '#1a1714',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Tickets modeshow
-          </h1>
-          <p
-            style={{
-              margin: '8px 0 0',
-              fontSize: 'clamp(12px, 3.4vw, 14px)',
-              lineHeight: 1.5,
-              color: '#5c564c',
-              maxWidth: 560,
-            }}
-          >
-            Voorbeeldwinkel (alleen admin). Bezoekers zien dit menu nog niet.
-          </p>
-        </header>
-
         <div
           style={{
             width: '100%',
             maxWidth: '100%',
-            overflow: 'hidden',
             background: '#fff',
-            borderTop: '1px solid #e8e2d6',
-            borderBottom: '1px solid #e8e2d6',
           }}
         >
           <iframe
+            ref={iframeRef}
             src={MYZYNN_EMBED}
             title="Class-Models ticketwinkel"
             allow="payment"
+            scrolling="no"
             style={{
               display: 'block',
               width: '100%',
               maxWidth: '100%',
-              height: 'min(90dvh, 1100px)',
-              minHeight: 520,
+              height: iframeHeight,
+              minHeight: MIN_IFRAME_HEIGHT,
               border: 0,
+              overflow: 'hidden',
             }}
           />
         </div>

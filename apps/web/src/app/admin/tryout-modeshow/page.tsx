@@ -1,12 +1,13 @@
 'use client';
 
 import { TryoutModeshowRegistrationsPanel } from '@/components/admin/TryoutModeshowRegistrationsPanel';
-import { TRYOUT_MODESHOW_EDITION_SLUG } from '@/lib/tryout-modeshow-edition';
+import { TRYOUT_MODESHOW_EDITION, TRYOUT_MODESHOW_EDITION_SLUG } from '@/lib/tryout-modeshow-edition';
 import { useAuth } from '@/context/auth-context';
 import Link from 'next/link';
 
 export default function AdminTryoutModeshowPage() {
   const { token, can } = useAuth();
+  const ed = TRYOUT_MODESHOW_EDITION;
 
   if (!token) return <p className="text-sm text-zinc-600">Inloggen vereist.</p>;
 
@@ -31,8 +32,11 @@ export default function AdminTryoutModeshowPage() {
           pushberichten en coupons. Alleen echte keuzes worden getoond — niet alle modellen. Inschrijvingen kun je
           altijd ongedaan maken of verwijderen.
         </p>
-        <p className="mt-2 text-xs text-zinc-500">
-          Prijs en Mollie-keys:{' '}
+        <p className="mt-2 text-sm font-medium text-zinc-800">
+          {ed.dateLabelNl} · {ed.venueName}, {ed.addressLine}, {ed.postalCode} {ed.city}
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          Deuren {ed.doorsTimeNl} — show {ed.showTimeNl}. Prijs en Mollie-keys:{' '}
           <Link href="/admin/mollie" className="underline hover:text-zinc-800">
             Mollie-instellingen
           </Link>

@@ -23,7 +23,7 @@ const GUEST_MENU_LINKS = [
   { label: 'Contact', href: '/?m=guest&info=contact' },
 ] as const;
 
-const GUEST_MENU_TICKETS = { label: 'Tickets modeshow', href: '/tickets' } as const;
+const GUEST_MENU_TICKETS = { label: 'Inkomtickets', href: '/tickets' } as const;
 
 export function MobileGuestAppShell({
   title,
@@ -34,12 +34,15 @@ export function MobileGuestAppShell({
   subtitle: string;
   children: ReactNode;
 }) {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const menuLinks = isAdmin
-    ? [GUEST_MENU_LINKS[0], GUEST_MENU_LINKS[1], GUEST_MENU_TICKETS, ...GUEST_MENU_LINKS.slice(2)]
-    : [...GUEST_MENU_LINKS];
+  const menuLinks = [
+    GUEST_MENU_LINKS[0],
+    GUEST_MENU_LINKS[1],
+    GUEST_MENU_TICKETS,
+    ...GUEST_MENU_LINKS.slice(2),
+  ];
 
   return (
     <div className="min-h-[100dvh] w-full" style={{ background: BG, color: TEXT }}>
