@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { useAuth } from '@/context/auth-context';
 
-const MYZYNN_EMBED =
-  process.env.NEXT_PUBLIC_MYZYNN_SHOP_EMBED_URL?.trim() ||
-  'https://myzynn.be/events-tickets/embed/class-models/modeshow';
-
 const MYZYNN_SHOP =
   process.env.NEXT_PUBLIC_MYZYNN_SHOP_URL?.trim() ||
   'https://myzynn.be/events-tickets/shop/class-models/modeshow';
+
+const MYZYNN_EMBED =
+  process.env.NEXT_PUBLIC_MYZYNN_SHOP_EMBED_URL?.trim() ||
+  `${MYZYNN_SHOP}?embed=1`;
 
 export default function TicketsModeshowPage() {
   const { isAdmin, loading: authLoading } = useAuth();
