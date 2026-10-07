@@ -3,7 +3,11 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from '../payments/payments.service';
 import { ModelPortalHistoryService } from './model-portal-history.service';
-import { TRYOUT_MODESHOW_ACTIVE_SLUG, TRYOUT_MODESHOW_EDITION } from './tryout-modeshow-edition';
+import {
+  migrateTryoutEditionSlugs,
+  TRYOUT_MODESHOW_ACTIVE_SLUG,
+  TRYOUT_MODESHOW_EDITION,
+} from './tryout-modeshow-edition';
 import { resolveTryoutCoupon } from './tryout-coupon.util';
 
 @Injectable()
@@ -31,6 +35,7 @@ export class TryoutModeshowService {
   }
 
   private async getOrCreateRegistration(userId: string) {
+    await migrateTryoutEditionSlugs(this.prisma);
     const editionSlug = this.editionSlug();
     return this.prisma.tryoutModeshowRegistration.upsert({
       where: { userId_editionSlug: { userId, editionSlug } },
@@ -40,6 +45,7 @@ export class TryoutModeshowService {
   }
 
   async getState(userId: string) {
+    await migrateTryoutEditionSlugs(this.prisma);
     const editionSlug = this.editionSlug();
     // Geen auto-create bij alleen bekijken — anders vult de adminlijst met "geen keuze".
     const reg = await this.prisma.tryoutModeshowRegistration.findUnique({

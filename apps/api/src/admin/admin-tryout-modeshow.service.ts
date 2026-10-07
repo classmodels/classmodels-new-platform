@@ -3,7 +3,11 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { sendHtmlMail } from '../mail/send-html-mail';
 import { modelAgeFromSheet } from '../portal/brief-eligibility';
-import { TRYOUT_MODESHOW_ACTIVE_SLUG } from '../portal/tryout-modeshow-edition';
+import {
+  migrateTryoutEditionSlugs,
+  TRYOUT_MODESHOW_ACTIVE_SLUG,
+  TRYOUT_MODESHOW_LEGACY_SLUGS,
+} from '../portal/tryout-modeshow-edition';
 import { ModelPushService } from '../push/model-push.service';
 
 export type TryoutPipelinePhase =
@@ -123,6 +127,11 @@ export class AdminTryoutModeshowService {
     const editionSlug = (editionSlugRaw?.trim() || TRYOUT_MODESHOW_ACTIVE_SLUG).slice(0, 120);
     const qRaw = searchRaw?.trim() ?? '';
 
+    // Oude editie-slug → actieve (Combel-migratie kan nog niet gelopen zijn).
+    if (editionSlug === TRYOUT_MODESHOW_ACTIVE_SLUG || TRYOUT_MODESHOW_LEGACY_SLUGS.includes(editionSlug as (typeof TRYOUT_MODESHOW_LEGACY_SLUGS)[number])) {
+      await migrateTryoutEditionSlugs(this.prisma);
+    }
+
     const userWhere: Prisma.UserWhereInput | undefined = qRaw
       ? {
           OR: [
@@ -135,10 +144,16 @@ export class AdminTryoutModeshowService {
         }
       : undefined;
 
+    const resolvedSlug =
+      editionSlug === TRYOUT_MODESHOW_ACTIVE_SLUG ||
+      TRYOUT_MODESHOW_LEGACY_SLUGS.includes(editionSlug as (typeof TRYOUT_MODESHOW_LEGACY_SLUGS)[number])
+        ? TRYOUT_MODESHOW_ACTIVE_SLUG
+        : editionSlug;
+
     // Alleen echte keuzes: geen auto-aangemaakte "none"-rijen van portaalbezoek.
     const rows = await this.prisma.tryoutModeshowRegistration.findMany({
       where: {
-        editionSlug,
+        editionSlug: resolvedSlug,
         interestStatus: { not: 'none' },
         ...(userWhere ? { user: userWhere } : {}),
       },
@@ -162,7 +177,7 @@ export class AdminTryoutModeshowService {
       .reduce((sum, m) => sum + Number(m.amount ?? 0), 0);
 
     return {
-      editionSlug,
+      editionSlug: resolvedSlug,
       search: qRaw || null,
       generatedAt: new Date().toISOString(),
       counts: {
@@ -191,6 +206,17 @@ export class AdminTryoutModeshowService {
   async listTryoutRoleModels(editionSlugRaw?: string, searchRaw?: string) {
     const editionSlug = (editionSlugRaw?.trim() || TRYOUT_MODESHOW_ACTIVE_SLUG).slice(0, 120);
     const qRaw = searchRaw?.trim() ?? '';
+    if (
+      editionSlug === TRYOUT_MODESHOW_ACTIVE_SLUG ||
+      TRYOUT_MODESHOW_LEGACY_SLUGS.includes(editionSlug as (typeof TRYOUT_MODESHOW_LEGACY_SLUGS)[number])
+    ) {
+      await migrateTryoutEditionSlugs(this.prisma);
+    }
+    const resolvedSlug =
+      editionSlug === TRYOUT_MODESHOW_ACTIVE_SLUG ||
+      TRYOUT_MODESHOW_LEGACY_SLUGS.includes(editionSlug as (typeof TRYOUT_MODESHOW_LEGACY_SLUGS)[number])
+        ? TRYOUT_MODESHOW_ACTIVE_SLUG
+        : editionSlug;
 
     const users = await this.prisma.user.findMany({
       where: {
@@ -212,7 +238,7 @@ export class AdminTryoutModeshowService {
 
     const regs = await this.prisma.tryoutModeshowRegistration.findMany({
       where: {
-        editionSlug,
+        editionSlug: resolvedSlug,
         userId: { in: users.map((u) => u.id) },
       },
     });
@@ -246,7 +272,7 @@ export class AdminTryoutModeshowService {
     });
 
     return {
-      editionSlug,
+      editionSlug: resolvedSlug,
       search: qRaw || null,
       generatedAt: new Date().toISOString(),
       count: items.length,
