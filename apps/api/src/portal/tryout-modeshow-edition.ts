@@ -48,13 +48,26 @@ type RegRow = {
   declineReason: string | null;
 };
 
+type UserNameRow = { id: string; firstName: string | null; lastName: string | null };
+
 type PrismaLike = {
+  user: {
+    findMany: (args: {
+      where: Record<string, unknown>;
+      select: { id: true; firstName: true; lastName: true };
+    }) => Promise<UserNameRow[]>;
+  };
   tryoutModeshowRegistration: {
     findMany: (args: { where: { editionSlug: { in: string[] } } }) => Promise<RegRow[]>;
     findUnique: (args: {
       where: { userId_editionSlug: { userId: string; editionSlug: string } };
     }) => Promise<RegRow | null>;
     update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
+    upsert: (args: {
+      where: { userId_editionSlug: { userId: string; editionSlug: string } };
+      create: Record<string, unknown>;
+      update: Record<string, unknown>;
+    }) => Promise<unknown>;
     delete: (args: { where: { id: string } }) => Promise<unknown>;
   };
   tryoutCoupon: {
@@ -64,6 +77,78 @@ type PrismaLike = {
     }) => Promise<unknown>;
   };
 };
+
+function normName(value: string | null | undefined) {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+/** Handmatig als ingeschreven+betaald gezet (op verzoek). */
+const MANUAL_PAID_NAMES: Array<{ first: string; last: string[] }> = [
+  { first: 'leen', last: ['martens'] },
+  { first: 'nadine', last: ['de roos', 'deroos'] },
+  { first: 'carine', last: ['vermeiren'] },
+  { first: 'ilse', last: ['huysmans', 'heymans'] },
+];
+
+function isManualPaidTarget(firstName: string | null, lastName: string | null) {
+  const first = normName(firstName);
+  const last = normName(lastName).replace(/\s+/g, ' ');
+  const lastCompact = last.replace(/\s+/g, '');
+  for (const t of MANUAL_PAID_NAMES) {
+    if (first === t.first && (t.last.includes(last) || t.last.includes(lastCompact))) return true;
+    // Omgekeerde volgorde (bv. "Heymans Ilse")
+    if (t.last.includes(first) && last === t.first) return true;
+  }
+  return false;
+}
+
+/** Zet de vaste lijst modellen op paid — werkt ook zonder SQL-migratie (bij openen backsite). */
+export async function ensureManualPaidTryoutModels(prisma: PrismaLike) {
+  const candidates = await prisma.user.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: 'Leen' }, lastName: { contains: 'Martens' } },
+        { firstName: { contains: 'Nadine' }, lastName: { contains: 'Roos' } },
+        { firstName: { contains: 'Carine' }, lastName: { contains: 'Vermeiren' } },
+        { firstName: { contains: 'Ilse' }, lastName: { contains: 'Huysmans' } },
+        { firstName: { contains: 'Ilse' }, lastName: { contains: 'Heymans' } },
+        { firstName: { contains: 'Huysmans' }, lastName: { contains: 'Ilse' } },
+        { firstName: { contains: 'Heymans' }, lastName: { contains: 'Ilse' } },
+      ],
+    },
+    select: { id: true, firstName: true, lastName: true },
+  });
+
+  const matched = candidates.filter((u) => isManualPaidTarget(u.firstName, u.lastName));
+  const now = new Date();
+  for (const u of matched) {
+    await prisma.tryoutModeshowRegistration.upsert({
+      where: {
+        userId_editionSlug: { userId: u.id, editionSlug: TRYOUT_MODESHOW_ACTIVE_SLUG },
+      },
+      create: {
+        userId: u.id,
+        editionSlug: TRYOUT_MODESHOW_ACTIVE_SLUG,
+        interestStatus: 'paid',
+        termsAcceptedAt: now,
+        paymentStatus: 'manual',
+        isFree: true,
+      },
+      update: {
+        interestStatus: 'paid',
+        paymentStatus: 'manual',
+        termsAcceptedAt: now,
+        isFree: true,
+        declineReason: null,
+      },
+    });
+  }
+  return { matched: matched.length, names: matched.map((u) => `${u.firstName} ${u.lastName}`) };
+}
 
 function statusRank(status: string): number {
   if (status === 'paid') return 4;

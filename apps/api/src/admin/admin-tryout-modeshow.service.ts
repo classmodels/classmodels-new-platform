@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { sendHtmlMail } from '../mail/send-html-mail';
 import { modelAgeFromSheet } from '../portal/brief-eligibility';
 import {
+  ensureManualPaidTryoutModels,
   migrateTryoutEditionSlugs,
   TRYOUT_MODESHOW_ACTIVE_SLUG,
   tryoutEditionQuerySlugs,
@@ -133,6 +134,11 @@ export class AdminTryoutModeshowService {
       await migrateTryoutEditionSlugs(this.prisma);
     } catch (err) {
       console.error('[tryout] edition slug migrate failed', err);
+    }
+    try {
+      await ensureManualPaidTryoutModels(this.prisma);
+    } catch (err) {
+      console.error('[tryout] manual paid ensure failed', err);
     }
 
     const userWhere: Prisma.UserWhereInput | undefined = qRaw
