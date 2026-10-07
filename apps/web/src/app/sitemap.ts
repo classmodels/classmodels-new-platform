@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: '/gasten/intake', changeFrequency: 'weekly', priority: 0.9 },
     { path: '/gasten/faq', changeFrequency: 'monthly', priority: 0.85 },
     { path: '/gasten/doelgroepen', changeFrequency: 'monthly', priority: 0.75 },
+    { path: '/gasten/modellen', changeFrequency: 'weekly', priority: 0.85 },
     { path: '/gasten/contact', changeFrequency: 'monthly', priority: 0.8 },
     { path: '/reviews', changeFrequency: 'weekly', priority: 0.8 },
     { path: '/klanten', changeFrequency: 'monthly', priority: 0.7 },

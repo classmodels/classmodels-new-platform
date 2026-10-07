@@ -18,6 +18,7 @@ const GASTEN_NAV = [
   { href: '/gasten/model-worden', label: 'Model worden' },
   { href: '/gasten/model-worden#inschrijven', label: 'Inschrijven' },
   { href: '/gasten/model-worden#hoe-werkt-het', label: 'Hoe werkt het?' },
+  { href: '/gasten/modellen', label: 'Modellen' },
   { href: '/gasten/testshoot', label: 'Testshoot-foto’s' },
   { href: '/gasten/contact', label: 'Contact' },
 ] as const;

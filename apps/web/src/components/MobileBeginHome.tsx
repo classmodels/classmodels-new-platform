@@ -71,6 +71,7 @@ const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Model worden? (home)', href: '/?m=guest' },
   { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
   { label: 'Hoe werkt het?', href: '/?m=guest#hoe-werkt-het' },
+  { label: 'Modellen', href: '/gasten/modellen' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'Contact', href: '/?m=guest&info=contact' },
