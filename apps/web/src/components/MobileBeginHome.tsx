@@ -70,6 +70,7 @@ const BOOK_SIGNUP_KEYS = new Set([
 const GUEST_MENU_LINKS: { label: string; href: string }[] = [
   { label: 'Model worden? (home)', href: '/?m=guest' },
   { label: 'Afspraak maken', href: '/?m=guest&book=inschrijven' },
+  { label: 'Inkomtickets', href: '/tickets' },
   { label: 'Hoe werkt het?', href: '/?m=guest#hoe-werkt-het' },
   { label: 'Modellen', href: '/gasten/modellen' },
   { label: 'Testshoot-foto’s', href: '/gasten/testshoot' },
@@ -398,20 +399,33 @@ function StartView() {
     <>
       <TopBar title="Class-Models" subtitle="Welkom" />
       <div className="cm-safe-bottom mx-auto w-full max-w-[560px] px-4 pb-10 pt-8">
-        <h1 className="m-0 font-serif text-[27px] font-semibold leading-tight" style={{ color: TEXT }}>
-          Welkom bij
-          <br />
-          <span style={{ color: ACCENT }}>Class-Models</span>
+        <h1
+          className="m-0 whitespace-nowrap font-serif font-semibold leading-none"
+          style={{
+            color: TEXT,
+            fontSize: 'clamp(1.15rem, 6.2vw, 1.7rem)',
+            letterSpacing: '-0.02em',
+          }}
+        >
+          Welkom bij <span style={{ color: ACCENT }}>Class-Models</span>
         </h1>
-        <p className="m-0 mt-2 text-[14.5px] leading-relaxed" style={{ color: TEXT_SOFT }}>
+        <p
+          className="m-0 mt-2 leading-relaxed"
+          style={{ color: TEXT_SOFT, fontSize: 'clamp(12.5px, 3.6vw, 14.5px)' }}
+        >
           Kies hieronder uw portaal.
         </p>
 
-        {OPEN_MODELLENDAG_ENABLED ? (
-          <div className="mt-5">
-            <OpenModellendagSiteCta block />
-          </div>
-        ) : null}
+        <div className="mt-5 space-y-2.5">
+          <Link
+            href="/tickets"
+            className="omd-cta-site omd-cta-site--block"
+            style={{ display: 'block', textAlign: 'center' }}
+          >
+            Try-out modeshow · Inkomtickets
+          </Link>
+          {OPEN_MODELLENDAG_ENABLED ? <OpenModellendagSiteCta block /> : null}
+        </div>
 
         <div className="mt-7 space-y-6">
           {/* Gastenportaal */}

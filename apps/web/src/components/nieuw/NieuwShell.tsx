@@ -110,6 +110,7 @@ export function NieuwShell({
     isMobile === true &&
     Boolean(
       pathname?.startsWith('/gasten') ||
+        pathname?.startsWith('/tickets') ||
         pathname === '/reviews' ||
         pathname?.startsWith('/reviews/'),
     );

@@ -104,11 +104,12 @@ export default function NieuwHomePage() {
       <section className="nieuw-hero">
         <div className="nieuw-wrap nieuw-hero-grid">
           <div>
-            {OPEN_MODELLENDAG_ENABLED ? (
-              <div className="nieuw-hero-actions" style={{ marginBottom: 18 }}>
-                <OpenModellendagSiteCta />
-              </div>
-            ) : null}
+            <div className="nieuw-hero-actions" style={{ marginBottom: 18, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <Link className="nieuw-btn" href="/tickets">
+                Try-out modeshow · Inkomtickets
+              </Link>
+              {OPEN_MODELLENDAG_ENABLED ? <OpenModellendagSiteCta /> : null}
+            </div>
             <span className="nieuw-label">Modellenbureau · België</span>
             <h1 className="nieuw-display">
               Word model.
