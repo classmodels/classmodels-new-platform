@@ -21,6 +21,8 @@ import {
   MOBILE_INTRO_VIDEO_SRC,
   SiteIntroOverlay,
 } from '@/components/SiteIntroOverlay';
+import { OpenModellendagSiteCta } from '@/components/OpenModellendagSiteCta';
+import { OPEN_MODELLENDAG_ENABLED } from '@/lib/open-modellendag';
 import '@/components/nieuw/nieuw.css';
 
 /**
@@ -403,6 +405,12 @@ function StartView() {
         <p className="m-0 mt-2 text-[14.5px] leading-relaxed" style={{ color: TEXT_SOFT }}>
           Kies hieronder uw portaal.
         </p>
+
+        {OPEN_MODELLENDAG_ENABLED ? (
+          <div className="mt-5">
+            <OpenModellendagSiteCta block />
+          </div>
+        ) : null}
 
         <div className="mt-7 space-y-6">
           {/* Gastenportaal */}

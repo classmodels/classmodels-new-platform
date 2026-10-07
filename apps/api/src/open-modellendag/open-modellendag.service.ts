@@ -87,16 +87,15 @@ export class OpenModellendagService {
           <p style="margin:0"><strong>Adres:</strong> ${OPEN_MODELLENDAG_VENUE}</p>
         </div>
         <p style="margin:0 0 14px">
-          Veel mensen denken: <em>“Modellenwerk? Dat is toch niets voor mij…”</em>
-          — en dan komen ze toch. Je staat <strong>niet</strong> tussen ervaren modellen.
-          Iedereen in jouw groep doet dit voor het eerst of bijna voor het eerst.
-          Kleine groepjes van max. <strong>6 personen</strong>, opgedeeld op leeftijd,
-          zodat je je op je gemak voelt.
+          Die dag mag je gewoon <strong>komen kijken</strong> hoe een modellenbureau werkt —
+          en optioneel meedoen met een <strong>gratis initiatieles catwalk</strong>.
+          Het is geen examen: we laten zien hoe we werken, wat we zoeken en hoe opdrachten
+          verlopen. Je mag al je vragen stellen.
         </p>
         <p style="margin:0 0 14px">
-          Je krijgt een <strong>gratis catwalkles</strong> van één uur: wandelen, draaien
-          en passeren — onder begeleiding van een ervaren choreografe. Geen verplichtingen,
-          niets te bewijzen. Gewoon komen, meedoen en ontdekken.
+          Je staat <strong>niet</strong> tussen ervaren modellen. Iedereen in jouw groepje
+          doet dit voor het eerst of bijna voor het eerst. Max. <strong>6 personen</strong>,
+          opgedeeld op leeftijd. Niets moet — kijken mag ook.
         </p>
         <p style="margin:0 0 14px">
           Trek iets aan waarin je je goed voelt. We kijken ernaar uit je te verwelkomen.

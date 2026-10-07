@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from 'react';
 import Link from 'next/link';
 import { apiFetch, parseApiErrorBody } from '@/lib/api';
 import {
+  OPEN_MODELLENDAG_BUTTON_LABEL,
   OPEN_MODELLENDAG_DATE_LABEL,
   OPEN_MODELLENDAG_POSTER,
   OPEN_MODELLENDAG_SLOTS,
@@ -78,7 +79,7 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={OPEN_MODELLENDAG_POSTER}
-                alt="Open Modellendag Class-Models — zondag 11 oktober"
+                alt={`${OPEN_MODELLENDAG_BUTTON_LABEL} Class-Models`}
                 width={1024}
                 height={1536}
                 loading="eager"
@@ -88,28 +89,35 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
             </figure>
 
             <div className="omd-copy">
-              <p className="omd-kicker">Class-Models · eenmalige actie</p>
+              <p className="omd-kicker">Class-Models · {OPEN_MODELLENDAG_DATE_LABEL}</p>
               <h1 id="omd-title" className="omd-title">
                 Open Modellendag
               </h1>
               <p className="omd-sub">
-                Toegankelijk voor <em>écht IEDEREEN</em>
+                Kom kijken · doe mee als je wilt · <em>zonder verplichtingen</em>
               </p>
               <p className="omd-lead">
-                <strong>Modellenwerk? Dat is toch niets voor mij?</strong>
-                <br />
-                Misschien denk je daar na één kennismaking helemaal anders over.
+                Die zondag mag je gewoon <strong>komen kijken</strong> hoe een
+                modellenbureau werkt — en optioneel meedoen met een{' '}
+                <strong>gratis initiatieles catwalk</strong>.
               </p>
               <p className="omd-text">
-                Merken zoeken gewone mensen met uitstraling — alle leeftijden, maten en
-                achtergronden. Geen ervaring nodig. Ook met een maatje meer ben je welkom.
+                Het is geen examen en geen casting onder druk. We laten zien hoe we werken,
+                welke modellen we zoeken, hoe opdrachten verlopen, en je mag al je vragen
+                stellen. Wil je meedoen met de les? Super. Wil je vooral observeren? Dat mag
+                ook.
+              </p>
+              <p className="omd-text">
+                Je staat niet tussen ervaren modellen: iedereen in jouw groepje doet dit voor
+                het eerst of bijna voor het eerst. Kleine groepen (max. 6), opgedeeld op
+                leeftijd. Geen ervaring nodig — ook met een maatje meer ben je welkom.
               </p>
               <ul className="omd-bullets">
                 <li>
-                  <strong>Gratis catwalkles</strong> — 1 uur, max. 6 personen per groep
+                  <strong>Initiatieles</strong> (1 uur) — wandelen, draaien, passeren — als
+                  jij dat wilt
                 </li>
-                <li>Opgedeeld op leeftijd: 6–12 · 13–17 · 18–45 · 45–60+</li>
-                <li>Je staat bij mensen die dit ook voor het eerst doen</li>
+                <li>Leeftijdsgroepen: 6–12 · 13–17 · 18–45 · 45–60+</li>
                 <li>
                   {OPEN_MODELLENDAG_DATE_LABEL} · starturen 11.00 · 13.00 · 15.00 · 17.00
                 </li>
@@ -121,19 +129,18 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
                   <div className="omd-success" role="status">
                     <h2>Je bent ingeschreven</h2>
                     <p>
-                      We zien je graag op <strong>{OPEN_MODELLENDAG_DATE_LABEL}</strong> om{' '}
+                      Tot <strong>{OPEN_MODELLENDAG_DATE_LABEL}</strong> om{' '}
                       <strong>{done.timeSlot}</strong> (groep {done.ageGroup}).
                     </p>
                     <p>
-                      Check je inbox voor een bevestiging — en onthoud: je hoeft niets te
-                      bewijzen. Iedereen is een beetje zenuwachtig. Dat hoort erbij.
+                      Check je mail — en weet: je mag kijken, meedoen of allebei. Niks moet.
                     </p>
                   </div>
                 ) : (
                   <>
-                    <h2 className="omd-form-title">Schrijf je gratis in</h2>
+                    <h2 className="omd-form-title">Gratis inschrijven</h2>
                     <p className="omd-form-hint">
-                      Naam, mail, tel, leeftijd en je startuur — klaar in 30 seconden.
+                      Kies je startuur. Je komt kijken en mag meedoen met de initiatieles.
                     </p>
                     <form onSubmit={onSubmit} className="omd-form">
                       <label className="omd-field">
@@ -188,7 +195,7 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
                         />
                       </label>
                       <fieldset className="omd-slots">
-                        <legend>Kies je startuur</legend>
+                        <legend>Startuur</legend>
                         <div className="omd-slot-grid">
                           {OPEN_MODELLENDAG_SLOTS.map((slot) => (
                             <label
@@ -209,20 +216,20 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
                       </fieldset>
                       {error ? <p className="omd-error">{error}</p> : null}
                       <button type="submit" className="omd-submit" disabled={pending}>
-                        {pending ? 'Even geduld…' : 'Gratis inschrijven'}
+                        {pending ? 'Even geduld…' : 'Inschrijven'}
                       </button>
-                      <p className="omd-fine">
-                        Zonder verplichtingen. Je krijgt een bevestiging per e-mail.
-                      </p>
+                      <p className="omd-fine">Gratis · zonder verplichtingen · bevestiging per mail</p>
                     </form>
                   </>
                 )}
               </div>
 
               {showSiteLink ? (
-                <p className="omd-site-link">
-                  <Link href="/?skipOmd=1">Naar de Class-Models website →</Link>
-                </p>
+                <div className="omd-site-actions">
+                  <Link href="/?skipOmd=1" className="omd-site-btn">
+                    Naar de Class-Models website
+                  </Link>
+                </div>
               ) : null}
             </div>
           </div>

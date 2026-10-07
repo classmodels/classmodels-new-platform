@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { MobileHomeGate } from '@/components/MobileHomeGate';
 import { OpenModellendagHomeGate } from '@/components/OpenModellendagHomeGate';
+import { OpenModellendagSiteCta } from '@/components/OpenModellendagSiteCta';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { OPEN_MODELLENDAG_ENABLED } from '@/lib/open-modellendag';
 
@@ -91,7 +92,7 @@ const jsonLd = {
 
 export default function NieuwHomePage() {
   return (
-    <Suspense fallback={<div className="min-h-[100dvh]" style={{ background: '#f3ebe0' }} />}>
+    <Suspense fallback={<div className="min-h-[100dvh]" style={{ background: '#0a0908' }} />}>
       <OpenModellendagHomeGate>
         <MobileHomeGate>
           <NieuwShell portal="home">
@@ -103,6 +104,11 @@ export default function NieuwHomePage() {
       <section className="nieuw-hero">
         <div className="nieuw-wrap nieuw-hero-grid">
           <div>
+            {OPEN_MODELLENDAG_ENABLED ? (
+              <div className="nieuw-hero-actions" style={{ marginBottom: 18 }}>
+                <OpenModellendagSiteCta />
+              </div>
+            ) : null}
             <span className="nieuw-label">Modellenbureau · België</span>
             <h1 className="nieuw-display">
               Word model.

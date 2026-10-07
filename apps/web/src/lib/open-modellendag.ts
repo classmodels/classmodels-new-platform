@@ -7,3 +7,5 @@ export type OpenModellendagSlot = (typeof OPEN_MODELLENDAG_SLOTS)[number];
 export const OPEN_MODELLENDAG_POSTER = '/nieuw/open-modellendag-poster.jpg';
 export const OPEN_MODELLENDAG_DATE_LABEL = 'zondag 11 oktober';
 export const OPEN_MODELLENDAG_VENUE = 'Provinciebaan 3, 2235 Hulshout';
+export const OPEN_MODELLENDAG_BUTTON_LABEL = 'Open Modellendag · 11 oktober';
+export const OPEN_MODELLENDAG_SKIP_KEY = 'cm-skip-open-modellendag';

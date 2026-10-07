@@ -3,13 +3,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { OpenModellendagLanding } from '@/components/OpenModellendagLanding';
-import { OPEN_MODELLENDAG_ENABLED } from '@/lib/open-modellendag';
-
-const SKIP_KEY = 'cm-skip-open-modellendag';
+import {
+  OPEN_MODELLENDAG_ENABLED,
+  OPEN_MODELLENDAG_SKIP_KEY,
+} from '@/lib/open-modellendag';
 
 /**
  * Toont Open Modellendag als eerste beeld (gsm + desktop), tenzij bezoeker
- * “Naar de website” koos (?skipOmd=1) of de actie uitstaat.
+ * “Naar de website” koos (?skipOmd=1). Terug via ?omd=1.
  */
 export function OpenModellendagHomeGate({ children }: { children: ReactNode }) {
   const search = useSearchParams();
@@ -20,9 +21,18 @@ export function OpenModellendagHomeGate({ children }: { children: ReactNode }) {
       setSkip(true);
       return;
     }
+    if (search.get('omd') === '1') {
+      try {
+        sessionStorage.removeItem(OPEN_MODELLENDAG_SKIP_KEY);
+      } catch {
+        /* ignore */
+      }
+      setSkip(false);
+      return;
+    }
     if (search.get('skipOmd') === '1') {
       try {
-        sessionStorage.setItem(SKIP_KEY, '1');
+        sessionStorage.setItem(OPEN_MODELLENDAG_SKIP_KEY, '1');
       } catch {
         /* ignore */
       }
@@ -30,7 +40,7 @@ export function OpenModellendagHomeGate({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      setSkip(sessionStorage.getItem(SKIP_KEY) === '1');
+      setSkip(sessionStorage.getItem(OPEN_MODELLENDAG_SKIP_KEY) === '1');
     } catch {
       setSkip(false);
     }
@@ -38,7 +48,7 @@ export function OpenModellendagHomeGate({ children }: { children: ReactNode }) {
 
   if (!OPEN_MODELLENDAG_ENABLED) return <>{children}</>;
   if (skip === null) {
-    return <div className="min-h-[100dvh]" style={{ background: '#f3ebe0' }} aria-hidden />;
+    return <div className="min-h-[100dvh]" style={{ background: '#0a0908' }} aria-hidden />;
   }
   if (skip) return <>{children}</>;
 
