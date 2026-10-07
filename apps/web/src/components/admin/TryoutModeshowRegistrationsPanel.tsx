@@ -46,6 +46,8 @@ export type AdminRegistrationRow = {
 
 type AdminPayload = {
   editionSlug: string;
+  querySlugs?: string[];
+  slugCounts?: { editionSlug: string; count: number }[];
   search: string | null;
   generatedAt: string;
   counts: {
@@ -464,6 +466,12 @@ export function TryoutModeshowRegistrationsPanel({
               Editie: <code className="rounded bg-zinc-100 px-1 font-mono text-[11px]">{editionSlug}</code>
               {data?.generatedAt ? <> · Sync: {fmtNlShort(data.generatedAt)}</> : null}
             </p>
+            {data?.slugCounts?.length ? (
+              <p className="mt-1 text-[11px] text-zinc-500">
+                DB-rijen per slug:{' '}
+                {data.slugCounts.map((s) => `${s.editionSlug}=${s.count}`).join(' · ')}
+              </p>
+            ) : null}
             {counts ? (
               <p className="mt-2 text-sm font-semibold text-zinc-900">
                 Ingeschreven: {counts.paid} · In behandeling: {counts.inProgress} · Niet deelnemen:{' '}

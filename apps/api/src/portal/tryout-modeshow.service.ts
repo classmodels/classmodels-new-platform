@@ -35,7 +35,11 @@ export class TryoutModeshowService {
   }
 
   private async getOrCreateRegistration(userId: string) {
-    await migrateTryoutEditionSlugs(this.prisma);
+    try {
+      await migrateTryoutEditionSlugs(this.prisma);
+    } catch (err) {
+      console.error('[tryout] edition slug migrate failed', err);
+    }
     const editionSlug = this.editionSlug();
     return this.prisma.tryoutModeshowRegistration.upsert({
       where: { userId_editionSlug: { userId, editionSlug } },
@@ -45,7 +49,11 @@ export class TryoutModeshowService {
   }
 
   async getState(userId: string) {
-    await migrateTryoutEditionSlugs(this.prisma);
+    try {
+      await migrateTryoutEditionSlugs(this.prisma);
+    } catch (err) {
+      console.error('[tryout] edition slug migrate failed', err);
+    }
     const editionSlug = this.editionSlug();
     // Geen auto-create bij alleen bekijken — anders vult de adminlijst met "geen keuze".
     const reg = await this.prisma.tryoutModeshowRegistration.findUnique({
