@@ -419,8 +419,14 @@ function StartView() {
         <div className="mt-5 space-y-2.5">
           <Link
             href="/tickets"
-            className="omd-cta-site omd-cta-site--block"
-            style={{ display: 'block', textAlign: 'center' }}
+            className="flex w-full max-w-[420px] items-center justify-center rounded-xl px-4 py-3.5 text-center text-[0.95rem] font-bold leading-snug tracking-wide no-underline"
+            style={{
+              color: ACCENT,
+              background: 'rgba(212, 175, 106, 0.14)',
+              border: `1.5px solid ${ACCENT}`,
+              boxShadow: '0 0 0 1px rgba(212, 175, 106, 0.12), 0 8px 22px rgba(0, 0, 0, 0.25)',
+              backdropFilter: 'blur(6px)',
+            }}
           >
             Try-out modeshow · Inkomtickets
           </Link>
