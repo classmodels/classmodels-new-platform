@@ -6,6 +6,8 @@
   --omd-card: #161412;
   --omd-card-line: rgba(212, 175, 106, 0.35);
   --omd-input: #0f0e0c;
+  --omd-yellow: #f5e6a8;
+  --omd-yellow-ink: #1a1612;
   background:
     radial-gradient(ellipse 70% 45% at 80% 0%, rgba(212, 175, 106, 0.1), transparent 55%),
     linear-gradient(180deg, #0a0908 0%, #12100e 45%, #0a0908 100%);
@@ -51,14 +53,14 @@
 .omd-title {
   margin: 0;
   font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-size: clamp(2.1rem, 4.6vw, 3.1rem);
   font-weight: 600;
   line-height: 1.05;
   color: #fff;
 }
 .omd-sub {
-  margin: 8px 0 16px;
-  font-size: 1.05rem;
+  margin: 8px 0 18px;
+  font-size: 0.98rem;
   color: var(--omd-gold);
   font-weight: 600;
 }
@@ -67,61 +69,104 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.omd-lead {
+
+/* Tekstblokken */
+.omd-block {
   margin: 0 0 12px;
-  font-size: 1.05rem;
-  line-height: 1.55;
-  color: var(--omd-ink);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
 }
-.omd-text {
-  margin: 0 0 12px;
-  color: var(--omd-mut);
+.omd-block p {
+  margin: 0;
+  font-size: 0.9rem;
   line-height: 1.55;
-  font-size: 0.95rem;
+  color: var(--omd-mut);
+}
+.omd-block strong {
+  color: var(--omd-ink);
+  font-weight: 700;
+}
+.omd-block-label {
+  margin: 0 0 6px !important;
+  font-size: 0.68rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--omd-gold) !important;
+}
+.omd-block--highlight {
+  background: var(--omd-yellow);
+  border-color: rgba(196, 163, 90, 0.55);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+.omd-block--highlight p {
+  color: var(--omd-yellow-ink);
+}
+.omd-block--highlight .omd-block-label {
+  color: #6b5420 !important;
+}
+.omd-block--highlight strong {
+  color: #0f0c08;
+}
+.omd-block--soft {
+  background: rgba(212, 175, 106, 0.1);
+  border-color: rgba(212, 175, 106, 0.28);
+}
+.omd-block--facts {
+  padding-bottom: 10px;
 }
 .omd-bullets {
-  margin: 0 0 20px;
-  padding: 0 0 0 1.1rem;
+  margin: 0;
+  padding: 0 0 0 1.05rem;
   color: var(--omd-mut);
-  line-height: 1.55;
-  font-size: 0.92rem;
+  line-height: 1.5;
+  font-size: 0.88rem;
 }
 .omd-bullets li {
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 .omd-bullets strong {
   color: var(--omd-ink);
 }
+
+/* Formulier: volle kolombreedte, fijner / strakker */
 .omd-form-card {
+  width: 100%;
   background: var(--omd-card);
   border: 1px solid var(--omd-card-line);
-  border-radius: 12px;
-  padding: 12px 12px 11px;
+  border-radius: 10px;
+  padding: 14px 14px 12px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
-  max-width: 340px;
 }
 .omd-form-title {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: #fff;
 }
 .omd-form-hint {
-  margin: 4px 0 10px;
+  margin: 4px 0 11px;
   font-size: 0.78rem;
   color: var(--omd-mut);
   line-height: 1.4;
 }
 .omd-form {
   display: grid;
-  gap: 8px;
+  gap: 7px;
+}
+.omd-form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
 }
 .omd-field {
   display: grid;
   gap: 3px;
 }
 .omd-field span {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -130,9 +175,10 @@
 .omd-field input {
   width: 100%;
   border: 1px solid rgba(212, 175, 106, 0.28);
-  border-radius: 8px;
-  padding: 9px 10px;
-  font-size: 15px;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 14px;
+  line-height: 1.3;
   background: var(--omd-input);
   color: var(--omd-ink);
 }
@@ -150,29 +196,29 @@
   border: 0;
 }
 .omd-slots legend {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--omd-mut);
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 .omd-slot-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
 }
 .omd-slot {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 36px;
-  border-radius: 8px;
+  min-height: 34px;
+  border-radius: 7px;
   border: 1px solid rgba(212, 175, 106, 0.28);
   background: var(--omd-input);
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--omd-ink);
   cursor: pointer;
   user-select: none;
@@ -191,17 +237,17 @@
 .omd-error {
   margin: 0;
   color: #ff8f80;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 600;
 }
 .omd-submit {
   width: 100%;
-  min-height: 40px;
+  min-height: 38px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--omd-gold);
   color: #14110a;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
 }
@@ -212,12 +258,12 @@
 .omd-fine {
   margin: 0;
   text-align: center;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: var(--omd-mut);
 }
 .omd-success h2 {
   margin: 0 0 8px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: #fff;
 }
 .omd-success p {
@@ -227,23 +273,23 @@
   font-size: 0.88rem;
 }
 .omd-site-actions {
-  margin: 20px 0 0;
+  margin: 16px 0 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
-  max-width: 340px;
+  width: 100%;
 }
 .omd-site-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 52px;
+  min-height: 50px;
   padding: 0 18px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fff;
   color: #0a0908;
-  font-size: 1rem;
+  font-size: 0.98rem;
   font-weight: 800;
   text-decoration: none;
   letter-spacing: 0.01em;
@@ -315,8 +361,7 @@
   .omd-wrap {
     width: min(100%, 94vw);
   }
-  .omd-form-card,
-  .omd-site-actions {
-    max-width: none;
+  .omd-slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

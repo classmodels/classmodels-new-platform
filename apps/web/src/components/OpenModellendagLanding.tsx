@@ -96,33 +96,48 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
               <p className="omd-sub">
                 Kom kijken · doe mee als je wilt · <em>zonder verplichtingen</em>
               </p>
-              <p className="omd-lead">
-                Die zondag mag je gewoon <strong>komen kijken</strong> hoe een
-                modellenbureau werkt — en optioneel meedoen met een{' '}
-                <strong>gratis initiatieles catwalk</strong>.
-              </p>
-              <p className="omd-text">
-                Het is geen examen en geen casting onder druk. We laten zien hoe we werken,
-                welke modellen we zoeken, hoe opdrachten verlopen, en je mag al je vragen
-                stellen. Wil je meedoen met de les? Super. Wil je vooral observeren? Dat mag
-                ook.
-              </p>
-              <p className="omd-text">
-                Je staat niet tussen ervaren modellen: iedereen in jouw groepje doet dit voor
-                het eerst of bijna voor het eerst. Kleine groepen (max. 6), opgedeeld op
-                leeftijd. Geen ervaring nodig — ook met een maatje meer ben je welkom.
-              </p>
-              <ul className="omd-bullets">
-                <li>
-                  <strong>Initiatieles</strong> (1 uur) — wandelen, draaien, passeren — als
-                  jij dat wilt
-                </li>
-                <li>Leeftijdsgroepen: 6–12 · 13–17 · 18–45 · 45–60+</li>
-                <li>
-                  {OPEN_MODELLENDAG_DATE_LABEL} · starturen 11.00 · 13.00 · 15.00 · 17.00
-                </li>
-                <li>{OPEN_MODELLENDAG_VENUE}</li>
-              </ul>
+
+              <div className="omd-block omd-block--highlight">
+                <p className="omd-block-label">Wat mag je verwachten?</p>
+                <p>
+                  Die zondag mag je gewoon <strong>komen kijken</strong> hoe een
+                  modellenbureau werkt — en optioneel meedoen met een{' '}
+                  <strong>gratis initiatieles catwalk</strong>.
+                </p>
+              </div>
+
+              <div className="omd-block">
+                <p className="omd-block-label">Hoe het werkt</p>
+                <p>
+                  We laten zien hoe we werken, welke modellen we zoeken, hoe opdrachten
+                  verlopen, en je mag al je vragen stellen. Wil je meedoen met de les?
+                  Super. Wil je vooral observeren? Dat mag ook.
+                </p>
+              </div>
+
+              <div className="omd-block omd-block--soft">
+                <p className="omd-block-label">Op je gemak</p>
+                <p>
+                  Je staat niet tussen ervaren modellen: iedereen in jouw groepje doet dit
+                  voor het eerst of bijna voor het eerst. Kleine groepen (max. 6), opgedeeld
+                  op leeftijd. Geen ervaring nodig — ook met een maatje meer ben je welkom.
+                </p>
+              </div>
+
+              <div className="omd-block omd-block--facts">
+                <p className="omd-block-label">Praktisch</p>
+                <ul className="omd-bullets">
+                  <li>
+                    <strong>Initiatieles</strong> (1 uur) — wandelen, draaien, passeren — als
+                    jij dat wilt
+                  </li>
+                  <li>Leeftijdsgroepen: 6–12 · 13–17 · 18–45 · 45–60+</li>
+                  <li>
+                    {OPEN_MODELLENDAG_DATE_LABEL} · starturen 11.00 · 13.00 · 15.00 · 17.00
+                  </li>
+                  <li>{OPEN_MODELLENDAG_VENUE}</li>
+                </ul>
+              </div>
 
               <div id="inschrijven" className="omd-form-card">
                 {done ? (
@@ -180,20 +195,22 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
                           placeholder="0470 00 00 00"
                         />
                       </label>
-                      <label className="omd-field">
-                        <span>Leeftijd</span>
-                        <input
-                          name="age"
-                          type="number"
-                          required
-                          min={6}
-                          max={99}
-                          inputMode="numeric"
-                          value={age}
-                          onChange={(e) => setAge(e.target.value)}
-                          placeholder="bv. 28"
-                        />
-                      </label>
+                      <div className="omd-form-row">
+                        <label className="omd-field">
+                          <span>Leeftijd</span>
+                          <input
+                            name="age"
+                            type="number"
+                            required
+                            min={6}
+                            max={99}
+                            inputMode="numeric"
+                            value={age}
+                            onChange={(e) => setAge(e.target.value)}
+                            placeholder="bv. 28"
+                          />
+                        </label>
+                      </div>
                       <fieldset className="omd-slots">
                         <legend>Startuur</legend>
                         <div className="omd-slot-grid">
