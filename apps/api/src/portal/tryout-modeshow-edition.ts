@@ -1,3 +1,6 @@
+import type { PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+
 /** Actieve try-out editie — inschrijvingen zijn per `editionSlug` gescheiden. */
 export const TRYOUT_MODESHOW_ACTIVE_SLUG = 'tryout-2027-03-27';
 
@@ -31,53 +34,6 @@ export function tryoutEditionQuerySlugs(requestedRaw?: string | null): string[] 
   return [requested];
 }
 
-type RegRow = {
-  id: string;
-  userId: string;
-  editionSlug: string;
-  interestStatus: string;
-  termsAcceptedAt: Date | null;
-  paymentStatus: string | null;
-  amount: unknown;
-  listPrice: unknown;
-  discountAmount: unknown;
-  isFree: boolean;
-  couponId: string | null;
-  couponCode: string | null;
-  molliePaymentId: string | null;
-  declineReason: string | null;
-};
-
-type UserNameRow = { id: string; firstName: string | null; lastName: string | null };
-
-type PrismaLike = {
-  user: {
-    findMany: (args: {
-      where: Record<string, unknown>;
-      select: { id: true; firstName: true; lastName: true };
-    }) => Promise<UserNameRow[]>;
-  };
-  tryoutModeshowRegistration: {
-    findMany: (args: { where: { editionSlug: { in: string[] } } }) => Promise<RegRow[]>;
-    findUnique: (args: {
-      where: { userId_editionSlug: { userId: string; editionSlug: string } };
-    }) => Promise<RegRow | null>;
-    update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
-    upsert: (args: {
-      where: { userId_editionSlug: { userId: string; editionSlug: string } };
-      create: Record<string, unknown>;
-      update: Record<string, unknown>;
-    }) => Promise<unknown>;
-    delete: (args: { where: { id: string } }) => Promise<unknown>;
-  };
-  tryoutCoupon: {
-    updateMany: (args: {
-      where: { editionSlug: { in: string[] } };
-      data: { editionSlug: string };
-    }) => Promise<unknown>;
-  };
-};
-
 function normName(value: string | null | undefined) {
   return (value ?? '')
     .trim()
@@ -100,14 +56,20 @@ function isManualPaidTarget(firstName: string | null, lastName: string | null) {
   const lastCompact = last.replace(/\s+/g, '');
   for (const t of MANUAL_PAID_NAMES) {
     if (first === t.first && (t.last.includes(last) || t.last.includes(lastCompact))) return true;
-    // Omgekeerde volgorde (bv. "Heymans Ilse")
     if (t.last.includes(first) && last === t.first) return true;
   }
   return false;
 }
 
+function statusRank(status: string): number {
+  if (status === 'paid') return 4;
+  if (status === 'interested') return 3;
+  if (status === 'declined') return 2;
+  return 1;
+}
+
 /** Zet de vaste lijst modellen op paid — werkt ook zonder SQL-migratie (bij openen backsite). */
-export async function ensureManualPaidTryoutModels(prisma: PrismaLike) {
+export async function ensureManualPaidTryoutModels(prisma: PrismaClient) {
   const candidates = await prisma.user.findMany({
     where: {
       OR: [
@@ -150,18 +112,11 @@ export async function ensureManualPaidTryoutModels(prisma: PrismaLike) {
   return { matched: matched.length, names: matched.map((u) => `${u.firstName} ${u.lastName}`) };
 }
 
-function statusRank(status: string): number {
-  if (status === 'paid') return 4;
-  if (status === 'interested') return 3;
-  if (status === 'declined') return 2;
-  return 1;
-}
-
 /**
  * Verplaatst legacy-inschrijvingen naar de actieve slug.
  * Bij conflict (zelfde user al op actieve slug): behoud de “sterkste” status, wis de andere rij.
  */
-export async function migrateTryoutEditionSlugs(prisma: PrismaLike) {
+export async function migrateTryoutEditionSlugs(prisma: PrismaClient) {
   const legacy = [...TRYOUT_MODESHOW_LEGACY_SLUGS];
   if (!legacy.length) return;
 
@@ -189,21 +144,24 @@ export async function migrateTryoutEditionSlugs(prisma: PrismaLike) {
     const loserId = keepLegacy ? existing.id : row.id;
 
     if (keepLegacy) {
+      const data: Prisma.TryoutModeshowRegistrationUpdateInput = {
+        interestStatus: winner.interestStatus,
+        declineReason: winner.declineReason,
+        termsAcceptedAt: winner.termsAcceptedAt,
+        molliePaymentId: winner.molliePaymentId,
+        paymentStatus: winner.paymentStatus,
+        amount: winner.amount === null ? null : winner.amount,
+        listPrice: winner.listPrice === null ? null : winner.listPrice,
+        discountAmount: winner.discountAmount === null ? null : winner.discountAmount,
+        isFree: winner.isFree,
+        couponCode: winner.couponCode,
+        ...(winner.couponId
+          ? { coupon: { connect: { id: winner.couponId } } }
+          : { coupon: { disconnect: true } }),
+      };
       await prisma.tryoutModeshowRegistration.update({
         where: { id: existing.id },
-        data: {
-          interestStatus: winner.interestStatus,
-          declineReason: winner.declineReason,
-          termsAcceptedAt: winner.termsAcceptedAt,
-          molliePaymentId: winner.molliePaymentId,
-          paymentStatus: winner.paymentStatus,
-          amount: winner.amount,
-          listPrice: winner.listPrice,
-          discountAmount: winner.discountAmount,
-          isFree: winner.isFree,
-          couponId: winner.couponId,
-          couponCode: winner.couponCode,
-        },
+        data,
       });
     }
     await prisma.tryoutModeshowRegistration.delete({ where: { id: loserId } });
