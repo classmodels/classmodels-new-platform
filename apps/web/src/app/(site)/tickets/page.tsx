@@ -32,13 +32,21 @@ export default function TicketsModeshowPage() {
 
   return (
     <NieuwShell portal="gasten">
-      <main style={{ padding: '28px 16px 64px', maxWidth: 960, margin: '0 auto' }}>
-        <header style={{ marginBottom: 20 }}>
+      <main
+        style={{
+          padding: '16px 12px 48px',
+          maxWidth: 960,
+          margin: '0 auto',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      >
+        <header style={{ marginBottom: 14 }}>
           <h1
             style={{
               margin: 0,
               fontFamily: 'var(--cm-serif, Georgia, serif)',
-              fontSize: 'clamp(1.75rem, 4vw, 2.35rem)',
+              fontSize: 'clamp(1.35rem, 5vw, 2.35rem)',
               fontWeight: 700,
               color: '#1a1714',
               letterSpacing: '-0.02em',
@@ -46,29 +54,45 @@ export default function TicketsModeshowPage() {
           >
             Tickets modeshow
           </h1>
-          <p style={{ margin: '10px 0 0', fontSize: 15, lineHeight: 1.55, color: '#5c564c', maxWidth: 560 }}>
+          <p
+            style={{
+              margin: '8px 0 0',
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: '#5c564c',
+              maxWidth: 560,
+            }}
+          >
             Voorbeeldwinkel (alleen admin). Bezoekers zien dit menu nog niet.
           </p>
         </header>
 
         <div
           style={{
-            borderRadius: 16,
+            borderRadius: 12,
             overflow: 'hidden',
             border: '1px solid #e8e2d6',
             background: '#fff',
-            minHeight: 720,
+            width: '100%',
+            maxWidth: '100%',
           }}
         >
           <iframe
             src={MYZYNN_EMBED}
             title="Class-Models ticketwinkel"
             allow="payment"
-            style={{ display: 'block', width: '100%', minHeight: 720, border: 0 }}
+            style={{
+              display: 'block',
+              width: '100%',
+              maxWidth: '100%',
+              height: 'min(85vh, 980px)',
+              minHeight: 480,
+              border: 0,
+            }}
           />
         </div>
 
-        <p style={{ marginTop: 14, fontSize: 13, color: '#857f74' }}>
+        <p style={{ marginTop: 12, fontSize: 13, color: '#857f74' }}>
           Winkel opent niet?{' '}
           <a href={MYZYNN_SHOP} style={{ color: '#856b3f', fontWeight: 700 }} target="_blank" rel="noreferrer">
             Open de ticketshop in een nieuw tabblad
