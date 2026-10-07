@@ -34,19 +34,19 @@ export default function TicketsModeshowPage() {
     <NieuwShell portal="gasten">
       <main
         style={{
-          padding: '16px 12px 48px',
-          maxWidth: 960,
-          margin: '0 auto',
+          padding: '12px 0 40px',
           width: '100%',
+          maxWidth: '100%',
           boxSizing: 'border-box',
+          overflowX: 'hidden',
         }}
       >
-        <header style={{ marginBottom: 14 }}>
+        <header style={{ marginBottom: 12, padding: '0 12px' }}>
           <h1
             style={{
               margin: 0,
               fontFamily: 'var(--cm-serif, Georgia, serif)',
-              fontSize: 'clamp(1.35rem, 5vw, 2.35rem)',
+              fontSize: 'clamp(1.2rem, 5.5vw, 2.35rem)',
               fontWeight: 700,
               color: '#1a1714',
               letterSpacing: '-0.02em',
@@ -57,7 +57,7 @@ export default function TicketsModeshowPage() {
           <p
             style={{
               margin: '8px 0 0',
-              fontSize: 14,
+              fontSize: 'clamp(12px, 3.4vw, 14px)',
               lineHeight: 1.5,
               color: '#5c564c',
               maxWidth: 560,
@@ -69,12 +69,12 @@ export default function TicketsModeshowPage() {
 
         <div
           style={{
-            borderRadius: 12,
-            overflow: 'hidden',
-            border: '1px solid #e8e2d6',
-            background: '#fff',
             width: '100%',
             maxWidth: '100%',
+            overflow: 'hidden',
+            background: '#fff',
+            borderTop: '1px solid #e8e2d6',
+            borderBottom: '1px solid #e8e2d6',
           }}
         >
           <iframe
@@ -85,14 +85,14 @@ export default function TicketsModeshowPage() {
               display: 'block',
               width: '100%',
               maxWidth: '100%',
-              height: 'min(85vh, 980px)',
-              minHeight: 480,
+              height: 'min(90dvh, 1100px)',
+              minHeight: 520,
               border: 0,
             }}
           />
         </div>
 
-        <p style={{ marginTop: 12, fontSize: 13, color: '#857f74' }}>
+        <p style={{ margin: '12px 12px 0', fontSize: 13, color: '#857f74' }}>
           Winkel opent niet?{' '}
           <a href={MYZYNN_SHOP} style={{ color: '#856b3f', fontWeight: 700 }} target="_blank" rel="noreferrer">
             Open de ticketshop in een nieuw tabblad
