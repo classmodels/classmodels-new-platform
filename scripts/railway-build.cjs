@@ -8,9 +8,13 @@
  */
 const { spawnSync } = require('child_process');
 const path = require('path');
+const { applyDbEnv } = require('./railway-db-url.cjs');
 
 const root = path.join(__dirname, '..');
 process.chdir(root);
+
+// prisma generate eist dat env("DB_URL") bestaat — geen live verbinding nodig.
+applyDbEnv({ allowDummyForGenerate: true });
 
 function run(label, cmd, args) {
   console.error(`[railway-build] ${label}`);

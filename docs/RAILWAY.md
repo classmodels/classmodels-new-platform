@@ -45,6 +45,18 @@ npm run railway:start
 - **Ideaal eerst:** zelfde MySQL op Combell, als Combell **remote MySQL** toelaat.
 - Als dat niet mag: later aparte MySQL op Railway + data-export (extra stap).
 
+**Waarom Combell-pipeline wél werkt en Railway soms niet**
+
+| | Combell pipeline | Railway |
+|---|---|---|
+| Waar draait de API? | Op Combell, naast de MySQL | In de cloud (VS), ver weg van Combell |
+| DB-bereik | Intern netwerk → OK | Extern via `….db.webhosting.be:3306` |
+| Als Combell remote MySQL dicht zet | Pipeline blijft werken | Deploy/API kan DB niet bereiken |
+
+Dit is **geen fout in de app-code**. Poort 3306 van Combell is vaak alleen lokaal/intern open.  
+Controle in Combell: Databases → externe toegang / remote hosts aanzetten (of `%` / Railway toestaan).  
+Zonder dat blijft Railway falen, ook bij een perfecte build.
+
 ### Testen op de Railway-URL (vóór DNS)
 
 - `/health`
