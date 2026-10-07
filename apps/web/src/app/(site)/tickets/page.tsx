@@ -1,12 +1,9 @@
-import type { Metadata } from 'next';
-import { NieuwShell } from '@/components/nieuw/NieuwShell';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Tickets modeshow | Class-Models',
-  description:
-    'Koop tickets voor de Class-Models modeshow. Veilig online betalen; je ontvangt je e-ticket met QR-code per e-mail.',
-  alternates: { canonical: '/tickets' },
-};
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { NieuwShell } from '@/components/nieuw/NieuwShell';
+import { useAuth } from '@/context/auth-context';
 
 const MYZYNN_EMBED =
   process.env.NEXT_PUBLIC_MYZYNN_SHOP_EMBED_URL?.trim() ||
@@ -17,6 +14,22 @@ const MYZYNN_SHOP =
   'https://myzynn.be/events-tickets/shop/class-models/modeshow';
 
 export default function TicketsModeshowPage() {
+  const { isAdmin, loading: authLoading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAdmin) router.replace('/');
+  }, [authLoading, isAdmin, router]);
+
+  if (authLoading || !isAdmin) {
+    return (
+      <NieuwShell portal="gasten">
+        <main style={{ padding: '48px 16px', textAlign: 'center', color: '#5c564c' }}>Laden…</main>
+      </NieuwShell>
+    );
+  }
+
   return (
     <NieuwShell portal="gasten">
       <main style={{ padding: '28px 16px 64px', maxWidth: 960, margin: '0 auto' }}>
@@ -34,8 +47,7 @@ export default function TicketsModeshowPage() {
             Tickets modeshow
           </h1>
           <p style={{ margin: '10px 0 0', fontSize: 15, lineHeight: 1.55, color: '#5c564c', maxWidth: 560 }}>
-            Koop je toegangskaarten veilig online. Na betaling ontvang je je tickets met QR-code per
-            e-mail.
+            Voorbeeldwinkel (alleen admin). Bezoekers zien dit menu nog niet.
           </p>
         </header>
 
