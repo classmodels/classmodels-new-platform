@@ -74,6 +74,11 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/agenda/open-dagen', label: t('admin.agendaOpenDays'), permission: 'admin.agenda.read' },
           { href: '/admin/agenda/planning', label: t('admin.agendaPlanning'), permission: 'admin.agenda.read' },
           { href: '/admin/agenda/mail-preview', label: t('admin.agendaMail'), permission: 'admin.agenda.read' },
+          {
+            href: '/admin/open-modellendag',
+            label: 'Open Modellendag',
+            permission: 'admin.agenda.read',
+          },
         ],
       },
       {
