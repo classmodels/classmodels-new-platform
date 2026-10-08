@@ -5,6 +5,7 @@ import { sendHtmlMailDetailed } from '../mail/send-html-mail';
 import type { OpenModellendagRegisterDto } from './dto/register.dto';
 import {
   ageGroupFromAge,
+  isOpenModellendagSlotFull,
   OPEN_MODELLENDAG_DATE_LABEL,
   OPEN_MODELLENDAG_VENUE,
 } from './open-modellendag.constants';
@@ -33,6 +34,11 @@ export class OpenModellendagService {
 
     if (ageGroup === 'onbekend') {
       throw new BadRequestException('Leeftijd moet tussen 6 en 99 jaar liggen.');
+    }
+    if (isOpenModellendagSlotFull(timeSlot)) {
+      throw new BadRequestException(
+        `Het startuur ${timeSlot.replace(':', '.')} u is volzet. Kies een ander startuur.`,
+      );
     }
 
     try {

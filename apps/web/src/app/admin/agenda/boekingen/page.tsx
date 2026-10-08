@@ -143,7 +143,8 @@ export default function AdminAgendaBoekingenPage() {
 
   const [statusSel, setStatusSel] = useState<Set<string>>(() => new Set(STATUS_OPTS.map((x) => x.v)));
 
-  const [showPastBookings, setShowPastBookings] = useState(true);
+  /** Standaard alleen komende afspraken; verleden via «Toon verleden». */
+  const [showPastBookings, setShowPastBookings] = useState(false);
 
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);

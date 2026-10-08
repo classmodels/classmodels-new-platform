@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from 'react';
 import Link from 'next/link';
 import { apiFetch, parseApiErrorBody } from '@/lib/api';
 import {
+  isOpenModellendagSlotFull,
   OPEN_MODELLENDAG_BUTTON_LABEL,
   OPEN_MODELLENDAG_DATE_LABEL,
   OPEN_MODELLENDAG_POSTER,
@@ -32,8 +33,8 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!timeSlot) {
-      setError('Kies een startuur.');
+    if (!timeSlot || isOpenModellendagSlotFull(timeSlot)) {
+      setError(timeSlot && isOpenModellendagSlotFull(timeSlot) ? 'Dit startuur is volzet.' : 'Kies een startuur.');
       return;
     }
     const ageNum = Number(age);
@@ -133,7 +134,8 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
                   </li>
                   <li>Leeftijdsgroepen: 6–12 · 13–17 · 18–45 · 45–60+</li>
                   <li>
-                    {OPEN_MODELLENDAG_DATE_LABEL} · starturen 11.00 · 13.00 · 15.00 · 17.00
+                    {OPEN_MODELLENDAG_DATE_LABEL} · starturen 11.00 · 13.00 ·{' '}
+                    <span className="omd-slot-full-inline">15.00 volzet</span> · 17.00
                   </li>
                   <li>{OPEN_MODELLENDAG_VENUE}</li>
                 </ul>
@@ -214,21 +216,31 @@ export function OpenModellendagLanding({ variant = 'section', showSiteLink = tru
                       <fieldset className="omd-slots">
                         <legend>Startuur</legend>
                         <div className="omd-slot-grid">
-                          {OPEN_MODELLENDAG_SLOTS.map((slot) => (
-                            <label
-                              key={slot}
-                              className={`omd-slot ${timeSlot === slot ? 'is-on' : ''}`}
-                            >
-                              <input
-                                type="radio"
-                                name="timeSlot"
-                                value={slot}
-                                checked={timeSlot === slot}
-                                onChange={() => setTimeSlot(slot)}
-                              />
-                              <span>{slot.replace(':', '.')} u</span>
-                            </label>
-                          ))}
+                          {OPEN_MODELLENDAG_SLOTS.map((slot) => {
+                            const full = isOpenModellendagSlotFull(slot);
+                            return (
+                              <label
+                                key={slot}
+                                className={`omd-slot${timeSlot === slot && !full ? ' is-on' : ''}${full ? ' is-full' : ''}`}
+                                aria-disabled={full || undefined}
+                              >
+                                <input
+                                  type="radio"
+                                  name="timeSlot"
+                                  value={slot}
+                                  checked={timeSlot === slot && !full}
+                                  disabled={full}
+                                  onChange={() => {
+                                    if (!full) setTimeSlot(slot);
+                                  }}
+                                />
+                                <span>
+                                  {slot.replace(':', '.')} u
+                                  {full ? <em className="omd-slot-full-tag"> volzet</em> : null}
+                                </span>
+                              </label>
+                            );
+                          })}
                         </div>
                       </fieldset>
                       {error ? <p className="omd-error">{error}</p> : null}

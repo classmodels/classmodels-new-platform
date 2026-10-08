@@ -4,6 +4,13 @@ export const OPEN_MODELLENDAG_ENABLED = true;
 export const OPEN_MODELLENDAG_SLOTS = ['11:00', '13:00', '15:00', '17:00'] as const;
 export type OpenModellendagSlot = (typeof OPEN_MODELLENDAG_SLOTS)[number];
 
+/** Volle starturen — blijven zichtbaar (rood / volzet), niet boekenbaar. */
+export const OPEN_MODELLENDAG_FULL_SLOTS: readonly OpenModellendagSlot[] = ['15:00'];
+
+export function isOpenModellendagSlotFull(slot: string): boolean {
+  return (OPEN_MODELLENDAG_FULL_SLOTS as readonly string[]).includes(slot);
+}
+
 export const OPEN_MODELLENDAG_POSTER = '/nieuw/open-modellendag-poster.jpg';
 export const OPEN_MODELLENDAG_DATE_LABEL = 'zondag 11 oktober';
 export const OPEN_MODELLENDAG_VENUE = 'Provinciebaan 3, 2235 Hulshout';

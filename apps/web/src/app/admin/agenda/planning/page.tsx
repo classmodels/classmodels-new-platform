@@ -183,7 +183,8 @@ export default function AdminAgendaPlanningPage() {
   const [selectedInitialized, setSelectedInitialized] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('week');
-  const [showPastBookings, setShowPastBookings] = useState(true);
+  /** Standaard alleen komende afspraken (alle agenda’s); verleden via «Toon verleden». */
+  const [showPastBookings, setShowPastBookings] = useState(false);
   const [rows, setRows] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [listPreset, setListPreset] = useState<ListPresetId>('week');
