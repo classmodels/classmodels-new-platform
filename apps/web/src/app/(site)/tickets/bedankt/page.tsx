@@ -78,48 +78,123 @@ function BedanktInner() {
   }, [orderKey]);
 
   const paid = order?.status === 'paid' || order?.status === 'free';
+  const pending = loading || order?.status === 'pending_payment' || order?.status === 'pending';
 
   return (
     <NieuwShell portal="gasten">
-      <div className="nieuw-wrap" style={{ paddingTop: 48, paddingBottom: 80, maxWidth: 720 }}>
-        <p style={{ margin: 0, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#856b3f', fontWeight: 700 }}>
+      <div
+        className="nieuw-wrap"
+        style={{
+          paddingTop: 48,
+          paddingBottom: 80,
+          maxWidth: 720,
+          color: '#f3ead8',
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            fontSize: 11,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: '#c2a164',
+            fontWeight: 700,
+          }}
+        >
           Bestelling
         </p>
-        <h1 style={{ margin: '10px 0 16px', fontFamily: 'Georgia, serif', fontSize: 'clamp(1.8rem, 3vw, 2.4rem)', color: '#191919' }}>
-          {paid ? 'Bedankt voor je aankoop' : loading ? 'Betaling controleren…' : 'Bestellingstatus'}
+        <h1
+          style={{
+            margin: '10px 0 20px',
+            fontFamily: 'Georgia, serif',
+            fontSize: 'clamp(1.8rem, 3vw, 2.4rem)',
+            color: '#f7f1e6',
+            fontWeight: 600,
+            lineHeight: 1.15,
+          }}
+        >
+          {paid ? 'Bedankt voor je aankoop' : pending ? 'Betaling controleren…' : 'Bestellingstatus'}
         </h1>
-        {err ? <p style={{ color: '#8b1e1e' }}>{err}</p> : null}
+        {err ? (
+          <p
+            style={{
+              color: '#ffb4a8',
+              background: 'rgba(139,30,30,0.25)',
+              border: '1px solid rgba(255,140,120,0.35)',
+              padding: '12px 14px',
+              borderRadius: 8,
+            }}
+          >
+            {err}
+          </p>
+        ) : null}
         {order ? (
-          <div style={{ border: '1px solid #c2a164', padding: 22, background: '#fff' }}>
-            <p style={{ margin: '0 0 8px', color: '#525049' }}>
-              Status: <strong style={{ color: '#191919' }}>{order.status}</strong>
+          <div
+            style={{
+              border: '1px solid rgba(194,161,100,0.55)',
+              padding: 22,
+              background: 'linear-gradient(165deg, rgba(34,28,21,0.95), rgba(18,15,12,0.98))',
+              borderRadius: 10,
+              boxShadow: '0 18px 40px rgba(0,0,0,0.35)',
+            }}
+          >
+            <p style={{ margin: '0 0 8px', color: 'rgba(243,234,216,0.72)' }}>
+              Status:{' '}
+              <strong style={{ color: paid ? '#b8e0a8' : '#f7f1e6' }}>
+                {paid ? 'Betaald' : order.status}
+              </strong>
             </p>
             {order.event ? (
-              <p style={{ margin: '0 0 8px', color: '#191919', fontFamily: 'Georgia, serif', fontSize: 20 }}>
+              <p
+                style={{
+                  margin: '0 0 8px',
+                  color: '#f7f1e6',
+                  fontFamily: 'Georgia, serif',
+                  fontSize: 22,
+                }}
+              >
                 {order.event.title}
               </p>
             ) : null}
-            <p style={{ margin: '0 0 8px', color: '#525049' }}>
+            <p style={{ margin: '0 0 8px', color: 'rgba(243,234,216,0.78)' }}>
               {order.firstName} · {order.email}
             </p>
-            <p style={{ margin: '0 0 16px', color: '#525049' }}>
-              Totaal € {Number(order.totalAmount).toFixed(2).replace('.', ',')} · {order.tickets.length} ticket(s)
+            <p style={{ margin: '0 0 16px', color: 'rgba(243,234,216,0.78)' }}>
+              Totaal € {Number(order.totalAmount).toFixed(2).replace('.', ',')} · {order.tickets.length}{' '}
+              ticket(s)
             </p>
             {paid ? (
-              <p style={{ margin: 0, color: '#3f3c37', lineHeight: 1.6 }}>
-                Je tickets met QR-code zijn per e-mail verstuurd (controleer ook je spamfolder). Bewaar de PDF of toon
-                de QR aan de ingang.
+              <p style={{ margin: 0, color: 'rgba(243,234,216,0.88)', lineHeight: 1.65 }}>
+                Je tickets met QR-code zijn per e-mail verstuurd (controleer ook je spamfolder). Bewaar
+                de PDF of toon de QR aan de ingang.
               </p>
             ) : (
-              <p style={{ margin: 0, color: '#857f74' }}>
-                Als je net betaald hebt, kan de bevestiging even duren. Ververs deze pagina over een minuut.
+              <p style={{ margin: 0, color: 'rgba(243,234,216,0.65)' }}>
+                Als je net betaald hebt, kan de bevestiging even duren. Ververs deze pagina over een
+                minuut.
               </p>
             )}
             {order.tickets.length ? (
-              <ul style={{ marginTop: 18, paddingLeft: 18, color: '#525049' }}>
+              <ul
+                style={{
+                  marginTop: 18,
+                  paddingLeft: 18,
+                  color: 'rgba(243,234,216,0.78)',
+                }}
+              >
                 {order.tickets.map((t) => (
-                  <li key={t.code}>
-                    {t.label || t.ticketType}: <code>{t.code}</code>
+                  <li key={t.code} style={{ marginBottom: 6 }}>
+                    {t.label || t.ticketType}:{' '}
+                    <code
+                      style={{
+                        color: '#e6c98a',
+                        background: 'rgba(0,0,0,0.35)',
+                        padding: '2px 6px',
+                        borderRadius: 4,
+                      }}
+                    >
+                      {t.code}
+                    </code>
                   </li>
                 ))}
               </ul>
@@ -127,7 +202,7 @@ function BedanktInner() {
           </div>
         ) : null}
         <p style={{ marginTop: 28 }}>
-          <Link href="/tickets" style={{ color: '#856b3f', fontWeight: 700 }}>
+          <Link href="/tickets" style={{ color: '#d4af6a', fontWeight: 700 }}>
             ← Terug naar tickets
           </Link>
         </p>
@@ -138,7 +213,7 @@ function BedanktInner() {
 
 export default function TicketsBedanktPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 48, color: '#857f74' }}>Laden…</div>}>
+    <Suspense fallback={<div style={{ padding: 48, color: 'rgba(243,234,216,0.65)' }}>Laden…</div>}>
       <BedanktInner />
     </Suspense>
   );
