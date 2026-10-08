@@ -7,9 +7,21 @@ const MYZYNN_SHOP =
   process.env.NEXT_PUBLIC_MYZYNN_SHOP_URL?.trim() ||
   'https://myzynn.be/events-tickets/shop/class-models/modeshow';
 
-const MYZYNN_EMBED =
-  process.env.NEXT_PUBLIC_MYZYNN_SHOP_EMBED_URL?.trim() ||
-  `${MYZYNN_SHOP}?embed=1`;
+/** Na Mollie terug naar Class-Models (white-label), niet myzynn.be. */
+const RETURN_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_ORIGIN?.trim().replace(/\/$/, '') ||
+  'https://www.class-models.be';
+
+function buildMyzynnEmbed(shopUrl: string) {
+  const u = new URL(shopUrl);
+  u.searchParams.set('embed', '1');
+  u.searchParams.set('returnOrigin', RETURN_ORIGIN);
+  return u.toString();
+}
+
+const MYZYNN_EMBED = buildMyzynnEmbed(
+  process.env.NEXT_PUBLIC_MYZYNN_SHOP_EMBED_URL?.trim() || MYZYNN_SHOP,
+);
 
 const MIN_IFRAME_HEIGHT = 900;
 

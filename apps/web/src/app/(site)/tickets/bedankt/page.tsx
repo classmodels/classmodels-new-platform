@@ -12,8 +12,23 @@ type OrderStatus = {
   email: string;
   totalAmount: number;
   tickets: { code: string; ticketType: string; label?: string }[];
-  event: { title: string; eventDate?: string } | null;
+  event: { title: string; eventDate?: string | null } | null;
 };
+
+const MYZYNN_STATUS_BASE =
+  process.env.NEXT_PUBLIC_MYZYNN_ORIGIN?.trim().replace(/\/$/, '') || 'https://myzynn.be';
+
+async function fetchMyzynnOrder(orderKey: string): Promise<OrderStatus> {
+  const res = await fetch(
+    `${MYZYNN_STATUS_BASE}/api/events-tickets/orders/by-key/${encodeURIComponent(orderKey)}/status`,
+    { credentials: 'omit' },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || `Status ophalen mislukt (${res.status})`);
+  }
+  return res.json() as Promise<OrderStatus>;
+}
 
 function BedanktInner() {
   const sp = useSearchParams();
@@ -32,8 +47,13 @@ function BedanktInner() {
     let tries = 0;
     const poll = async () => {
       try {
-        const row = await apiFetch<OrderStatus>(`/modeshow-tickets/orders/${encodeURIComponent(orderKey)}`);
-        if (cancelled) return;
+        let row: OrderStatus | null = null;
+        try {
+          row = await apiFetch<OrderStatus>(`/modeshow-tickets/orders/${encodeURIComponent(orderKey)}`);
+        } catch {
+          row = await fetchMyzynnOrder(orderKey);
+        }
+        if (cancelled || !row) return;
         setOrder(row);
         if (
           (row.status === 'pending_payment' || row.status === 'pending') &&
