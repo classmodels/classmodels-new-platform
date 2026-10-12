@@ -1,3 +1,5 @@
+import { OPEN_MODELLENDAG_ENABLED } from '@/lib/open-modellendag';
+
 /** Icoon-id’s voor de sidebar (inline SVG in AdminSidebarNav). */
 export type AdminNavIconId =
   | 'home'
@@ -22,6 +24,12 @@ export type AdminNavSection = {
   label: string;
   icon: AdminNavIconId;
   items: AdminNavLeaf[];
+};
+
+const openModellendagNavItem: AdminNavLeaf = {
+  href: '/admin/open-modellendag',
+  label: OPEN_MODELLENDAG_ENABLED ? 'Open Modellendag' : 'Open Modellendag (geparkeerd)',
+  permission: 'admin.agenda.read',
 };
 
 /** Losse link bovenaan (zoals WP “Dashboard”). */
@@ -96,11 +104,7 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/agenda/open-dagen', label: 'Open dagen', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/planning', label: 'Planning', permission: 'admin.agenda.read' },
       { href: '/admin/agenda/mail-preview', label: 'Mail / SMS', permission: 'admin.agenda.read' },
-      {
-        href: '/admin/open-modellendag',
-        label: 'Open Modellendag',
-        permission: 'admin.agenda.read',
-      },
+      ...(OPEN_MODELLENDAG_ENABLED ? [openModellendagNavItem] : []),
     ],
   },
   {
@@ -126,6 +130,16 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
       { href: '/admin/snippets', label: 'Snippets / plugins', permission: 'admin.snippets.read' },
     ],
   },
+  ...(OPEN_MODELLENDAG_ENABLED
+    ? []
+    : [
+        {
+          id: 'geparkeerd',
+          label: 'Geparkeerd',
+          icon: 'calendar' as const,
+          items: [openModellendagNavItem],
+        },
+      ]),
 ];
 
 export function filterNavLeaves(items: AdminNavLeaf[], can: (permission: string) => boolean): AdminNavLeaf[] {

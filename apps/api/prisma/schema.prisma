@@ -1093,10 +1093,13 @@ model OpenModellendagRegistration {
   timeSlot  String   @db.VarChar(8)
   /// Afgeleid: 6-12 | 13-17 | 18-45 | 45-60+
   ageGroup  String   @db.VarChar(16)
+  /// Leeg = actieve actie. Gevulde sleutel = geparkeerde editie (bv. 2026-10-11).
+  parkKey   String   @default("") @db.VarChar(32)
   createdAt DateTime @default(now())
 
-  @@unique([email])
+  @@unique([email, parkKey])
   @@index([timeSlot])
   @@index([ageGroup])
+  @@index([parkKey])
   @@index([createdAt])
 }

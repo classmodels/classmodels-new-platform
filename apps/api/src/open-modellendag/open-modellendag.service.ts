@@ -7,6 +7,7 @@ import {
   ageGroupFromAge,
   isOpenModellendagSlotFull,
   OPEN_MODELLENDAG_DATE_LABEL,
+  OPEN_MODELLENDAG_ENABLED,
   OPEN_MODELLENDAG_VENUE,
 } from './open-modellendag.constants';
 
@@ -25,6 +26,9 @@ export class OpenModellendagService {
   constructor(private prisma: PrismaService) {}
 
   async register(dto: OpenModellendagRegisterDto) {
+    if (!OPEN_MODELLENDAG_ENABLED) {
+      throw new BadRequestException('De Open Modellendag is afgesloten.');
+    }
     const name = dto.name.trim().replace(/\s+/g, ' ');
     const email = dto.email.trim().toLowerCase();
     const phone = dto.phone.trim();

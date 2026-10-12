@@ -1,5 +1,9 @@
-/** Eenmalige homepage-actie Open Modellendag — zet op false na 11 oktober. */
-export const OPEN_MODELLENDAG_ENABLED = true;
+/**
+ * Open Modellendag op de site en in de agenda.
+ * false = geparkeerd (voorpagina, knop en agenda-menu weg; inschrijvingen blijven bewaard).
+ * Zet op true voor een volgende actie.
+ */
+export const OPEN_MODELLENDAG_ENABLED = false;
 
 export const OPEN_MODELLENDAG_SLOTS = ['11:00', '13:00', '15:00', '17:00'] as const;
 export type OpenModellendagSlot = (typeof OPEN_MODELLENDAG_SLOTS)[number];

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { OPEN_MODELLENDAG_ENABLED } from '@/lib/open-modellendag';
 
 type Row = {
   id: string;
@@ -12,6 +13,7 @@ type Row = {
   age: number;
   timeSlot: string;
   ageGroup: string;
+  parkKey?: string;
   createdAt: string;
 };
 
@@ -39,17 +41,22 @@ export default function AdminOpenModellendagPage() {
     void load();
   }, [load]);
 
+  const shown = useMemo(
+    () => (OPEN_MODELLENDAG_ENABLED ? rows.filter((r) => !r.parkKey) : rows),
+    [rows],
+  );
+
   const bySlot = useMemo(() => {
     const map = new Map<string, number>();
-    for (const r of rows) map.set(r.timeSlot, (map.get(r.timeSlot) || 0) + 1);
+    for (const r of shown) map.set(r.timeSlot, (map.get(r.timeSlot) || 0) + 1);
     return map;
-  }, [rows]);
+  }, [shown]);
 
   function exportCsv() {
     const header = ['Naam', 'E-mail', 'Telefoon', 'Leeftijd', 'Leeftijdsgroep', 'Startuur', 'Ingeschreven'];
     const lines = [
       header.join(';'),
-      ...rows.map((r) =>
+      ...shown.map((r) =>
         [
           r.name,
           r.email,
@@ -87,9 +94,13 @@ export default function AdminOpenModellendagPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-900">Open Modellendag</h1>
+          <h1 className="text-xl font-semibold text-zinc-900">
+            {OPEN_MODELLENDAG_ENABLED ? 'Open Modellendag' : 'Open Modellendag (geparkeerd)'}
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-zinc-600">
-            Inschrijvingen voor zondag 11 oktober — naam, mail, tel, leeftijd en startuur.
+            {OPEN_MODELLENDAG_ENABLED
+              ? 'Actieve inschrijvingen. Geparkeerde edities blijven bewaard en staan niet in deze lijst.'
+              : 'Editie van zondag 11 oktober staat geparkeerd: niet op de voorpagina en niet in de agenda. De afspraken blijven hier staan tot je een nieuwe actie start.'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -103,7 +114,7 @@ export default function AdminOpenModellendagPage() {
           <button
             type="button"
             onClick={exportCsv}
-            disabled={!rows.length}
+            disabled={!shown.length}
             className="rounded-lg bg-zinc-900 px-3 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
           >
             CSV downloaden
@@ -113,7 +124,7 @@ export default function AdminOpenModellendagPage() {
 
       <div className="flex flex-wrap gap-2 text-sm">
         <span className="rounded-full bg-zinc-100 px-3 py-1 font-medium text-zinc-800">
-          Totaal: {rows.length}
+          Totaal: {shown.length}
         </span>
         {['11:00', '13:00', '15:00', '17:00'].map((slot) => (
           <span key={slot} className="rounded-full bg-amber-50 px-3 py-1 text-amber-900">
@@ -139,7 +150,7 @@ export default function AdminOpenModellendagPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {rows.map((r) => (
+            {shown.map((r) => (
               <tr key={r.id} className="hover:bg-zinc-50/80">
                 <td className="px-4 py-3 font-medium text-zinc-900">{r.name}</td>
                 <td className="px-4 py-3 text-zinc-700">
@@ -160,10 +171,10 @@ export default function AdminOpenModellendagPage() {
                 </td>
               </tr>
             ))}
-            {!loading && rows.length === 0 ? (
+            {!loading && shown.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
-                  Nog geen inschrijvingen.
+                  {OPEN_MODELLENDAG_ENABLED ? 'Nog geen inschrijvingen.' : 'Geen geparkeerde inschrijvingen.'}
                 </td>
               </tr>
             ) : null}

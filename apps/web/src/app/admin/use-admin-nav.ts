@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useI18n } from '@/i18n/context';
 import type { AdminNavLeaf, AdminNavSection } from './admin-nav';
 import { filterNavLeaves, filterNavSections } from './admin-nav';
+import { OPEN_MODELLENDAG_ENABLED } from '@/lib/open-modellendag';
 
 export const ADMIN_DASHBOARD_ITEM_KEY = 'admin.dashboard';
 
@@ -74,11 +75,15 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/agenda/open-dagen', label: t('admin.agendaOpenDays'), permission: 'admin.agenda.read' },
           { href: '/admin/agenda/planning', label: t('admin.agendaPlanning'), permission: 'admin.agenda.read' },
           { href: '/admin/agenda/mail-preview', label: t('admin.agendaMail'), permission: 'admin.agenda.read' },
-          {
-            href: '/admin/open-modellendag',
-            label: 'Open Modellendag',
-            permission: 'admin.agenda.read',
-          },
+          ...(OPEN_MODELLENDAG_ENABLED
+            ? [
+                {
+                  href: '/admin/open-modellendag',
+                  label: 'Open Modellendag',
+                  permission: 'admin.agenda.read',
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -105,6 +110,22 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/snippets', label: t('admin.snippets'), permission: 'admin.snippets.read' },
         ],
       },
+      ...(OPEN_MODELLENDAG_ENABLED
+        ? []
+        : [
+            {
+              id: 'geparkeerd',
+              label: 'Geparkeerd',
+              icon: 'calendar' as const,
+              items: [
+                {
+                  href: '/admin/open-modellendag',
+                  label: 'Open Modellendag (geparkeerd)',
+                  permission: 'admin.agenda.read',
+                },
+              ],
+            },
+          ]),
     ];
 
     return {

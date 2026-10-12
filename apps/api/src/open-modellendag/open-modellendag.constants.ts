@@ -1,3 +1,9 @@
+/** Zelfde schakelaar als apps/web/src/lib/open-modellendag.ts — false = geen nieuwe inschrijvingen. */
+export const OPEN_MODELLENDAG_ENABLED = false;
+
+/** Sleutel van de geparkeerde editie (11 oktober 2026). Actieve inschrijvingen hebben een lege sleutel. */
+export const OPEN_MODELLENDAG_ARCHIVE_KEY = '2026-10-11';
+
 export const OPEN_MODELLENDAG_SLOTS = ['11:00', '13:00', '15:00', '17:00'] as const;
 export type OpenModellendagSlot = (typeof OPEN_MODELLENDAG_SLOTS)[number];
 
