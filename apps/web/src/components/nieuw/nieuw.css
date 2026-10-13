@@ -5380,6 +5380,15 @@
   color: var(--n-gold-2);
   background: rgba(212, 175, 106, 0.16);
 }
+.nieuw-signup-hour-check.is-taken,
+.nieuw-signup-hour-check.is-taken:hover,
+.nieuw-signup-hour-check.is-taken:disabled {
+  background: #c0392b;
+  border-color: #922b21;
+  color: #fff;
+  cursor: not-allowed;
+  font-weight: 800;
+}
 @media (max-width: 860px) {
   .nieuw-booking-lead-one-line {
     white-space: normal;

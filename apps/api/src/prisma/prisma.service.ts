@@ -11,6 +11,8 @@ import { PrismaClient } from '@prisma/client';
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   private readonly log = new Logger(PrismaService.name);
 
+  private agendaSchemaReady: Promise<void> | null = null;
+
   async onModuleInit() {
     try {
       await this.ensureTestshootFeedbackSchema();
@@ -18,6 +20,61 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       this.log.warn(
         `TestshootFeedback schema-ensure overgeslagen: ${e instanceof Error ? e.message : e}`,
       );
+    }
+    try {
+      await this.ensureAgendaAvailabilityColumns();
+    } catch (e) {
+      this.log.warn(
+        `Agenda schema-ensure overgeslagen: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+  }
+
+  /**
+   * Idempotent: kolommen voor volgeboekt en bezette uren.
+   * Een deploy zonder geslaagde migrate laat anders elke agenda-query 500-en.
+   */
+  ensureAgendaAvailabilityColumns(): Promise<void> {
+    if (!this.agendaSchemaReady) {
+      this.agendaSchemaReady = this.applyAgendaAvailabilityColumns().catch((e) => {
+        this.agendaSchemaReady = null;
+        throw e;
+      });
+    }
+    return this.agendaSchemaReady;
+  }
+
+  private async applyAgendaAvailabilityColumns() {
+    await this.ensureMissingColumns('AgendaOpenDay', [
+      ['fullyBooked', 'BOOLEAN NOT NULL DEFAULT false'],
+      ['fullyBookedTestshoot', 'BOOLEAN NOT NULL DEFAULT false'],
+      ['fullyBookedIntake', 'BOOLEAN NOT NULL DEFAULT false'],
+    ]);
+    await this.ensureMissingColumns('AgendaCalendar', [
+      ['showOccupiedHoursTestshoot', 'BOOLEAN NOT NULL DEFAULT false'],
+      ['showOccupiedHoursIntake', 'BOOLEAN NOT NULL DEFAULT false'],
+    ]);
+    await this.$executeRawUnsafe(
+      `UPDATE \`AgendaOpenDay\`
+       SET \`fullyBookedTestshoot\` = true, \`fullyBookedIntake\` = true
+       WHERE \`fullyBooked\` = true
+         AND \`fullyBookedTestshoot\` = false
+         AND \`fullyBookedIntake\` = false`,
+    );
+  }
+
+  private async ensureMissingColumns(table: string, columns: Array<[string, string]>) {
+    const colRows = await this.$queryRawUnsafe<Array<{ name: string }>>(
+      `SELECT COLUMN_NAME AS name
+       FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
+    );
+    if (!colRows.length) return;
+    const have = new Set(colRows.map((r) => String(r.name)));
+    for (const [name, ddl] of columns) {
+      if (have.has(name)) continue;
+      await this.$executeRawUnsafe(`ALTER TABLE \`${table}\` ADD COLUMN \`${name}\` ${ddl}`);
+      this.log.log(`${table}.${name} toegevoegd`);
     }
   }
 

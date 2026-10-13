@@ -45,7 +45,7 @@ export class AgendaPublicController {
 
   @Get('slots/:slug')
   slots(@Param('slug') slug: string, @Query() q: AgendaSlotsQueryDto) {
-    return this.agenda.getSlots(slug, q.from, q.to);
+    return this.agenda.getSlots(slug, q.from, q.to, q.pakket);
   }
 
   /** Agenda-uploads: mediatheek (R2 of schijf) + legacy `/uploads/agenda/{uuid}.jpg`. */

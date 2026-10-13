@@ -60,6 +60,11 @@ export class AgendaSlotsQueryDto {
   @IsString()
   @Matches(/^\d{4}-\d{2}-\d{2}$/)
   to?: string;
+
+  /** model-worden: testshoot_intake of intake_only. */
+  @IsOptional()
+  @IsString()
+  pakket?: string;
 }
 
 export class CreateAgendaSlotDto {
@@ -183,6 +188,18 @@ export class CreateAgendaCalendarDto {
   @IsBoolean()
   showEndTimeOnPublic?: boolean;
 
+  /** Model worden: bezet uur tonen in het rood met «bezet» (fotoshoot + intake). */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  showOccupiedHoursTestshoot?: boolean;
+
+  /** Model worden: bezet uur tonen in het rood met «bezet» (intake). */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  showOccupiedHoursIntake?: boolean;
+
   /** Bit 0=zo … 6=za; 0 = geen auto-sloten. */
   @IsOptional()
   @Type(() => Number)
@@ -285,6 +302,18 @@ export class UpdateAgendaCalendarDto {
   @Type(() => Boolean)
   @IsBoolean()
   showEndTimeOnPublic?: boolean;
+
+  /** Model worden: bezet uur tonen in het rood met «bezet» (fotoshoot + intake). */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  showOccupiedHoursTestshoot?: boolean;
+
+  /** Model worden: bezet uur tonen in het rood met «bezet» (intake). */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  showOccupiedHoursIntake?: boolean;
 
   @IsOptional()
   @Type(() => Number)
@@ -495,6 +524,18 @@ export class CreateOpenDayDto {
   @Type(() => Boolean)
   @IsBoolean()
   fullyBooked?: boolean;
+
+  /** Alleen gratis fotoshoot + intakegesprek volgeboekt. */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  fullyBookedTestshoot?: boolean;
+
+  /** Alleen intake-gesprek volgeboekt. */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  fullyBookedIntake?: boolean;
 }
 
 export class AdminOpenDaysQueryDto {

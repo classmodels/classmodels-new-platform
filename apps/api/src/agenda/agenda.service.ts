@@ -21,6 +21,7 @@ import {
   isLegacyGuestAgendaSlug,
   isModelWordenPackageTargetKey,
   resolveMailCalendarTitle,
+  type ModelWordenPackage,
 } from './model-worden-mail';
 import {
   AdminBookingsRangeQueryDto,
@@ -252,6 +253,7 @@ function parseOptionalSlotStartsLines(raw: string | null | undefined): number[] 
 }
 
 type CalSlotSchedule = {
+  slug?: string;
   durationMinutes: number;
   slotStepMinutes?: number | null;
   optionalSlotStarts?: string | null;
@@ -498,6 +500,59 @@ export class AgendaService implements OnModuleInit {
     return this.notifications.previewBookingConfirmationHtml();
   }
 
+  private normalizeModelWordenPakket(raw?: string | null): ModelWordenPackage | null {
+    const v = (raw ?? '').trim().toLowerCase();
+    if (!v) return null;
+    if (v === 'testshoot' || v === 'testshoot_intake' || v.includes('fotoshoot') || v.includes('testshoot')) {
+      return 'testshoot_intake';
+    }
+    if (v === 'intake' || v === 'intake_only' || v.includes('intake')) return 'intake_only';
+    return null;
+  }
+
+  private openDayFlags(row: {
+    fullyBooked: boolean;
+    fullyBookedTestshoot?: boolean;
+    fullyBookedIntake?: boolean;
+  }) {
+    const whole = row.fullyBooked === true;
+    return {
+      testshoot: whole || row.fullyBookedTestshoot === true,
+      intake: whole || row.fullyBookedIntake === true,
+    };
+  }
+
+  /** Dag is vol voor dit pakket. Zonder pakket: pas vol als beide (of de hele dag) vol zijn. */
+  private openDayIsFullForPackage(
+    row: {
+      fullyBooked: boolean;
+      fullyBookedTestshoot?: boolean;
+      fullyBookedIntake?: boolean;
+    },
+    slug: string,
+    pakket: ModelWordenPackage | null,
+  ): boolean {
+    if (slug !== 'model-worden') return row.fullyBooked === true;
+    const flags = this.openDayFlags(row);
+    if (pakket === 'testshoot_intake') return flags.testshoot;
+    if (pakket === 'intake_only') return flags.intake;
+    return flags.testshoot && flags.intake;
+  }
+
+  /** Nog minstens één pakket kan boeken, dus de sloten moeten blijven bestaan. */
+  private openDayStillOffersSlots(
+    row: {
+      fullyBooked: boolean;
+      fullyBookedTestshoot?: boolean;
+      fullyBookedIntake?: boolean;
+    },
+    slug: string,
+  ): boolean {
+    if (slug !== 'model-worden') return row.fullyBooked !== true;
+    const flags = this.openDayFlags(row);
+    return !(flags.testshoot && flags.intake);
+  }
+
   /** Agenda Pro: welke dagen in [from,to] staan open (incl. jaarlijks herhalend). */
   private openDayYmdSetInRange(
     from: Date,
@@ -545,21 +600,29 @@ export class AgendaService implements OnModuleInit {
   }
 
   private async openDayYmdSetForCalendarIfRestricted(
-    cal: { id: string; restrictToOpenDays: boolean | null },
+    cal: { id: string; restrictToOpenDays: boolean | null; slug?: string },
     from: Date,
     to: Date,
   ): Promise<Set<string> | null> {
     if (!usesOpenDayMode(cal.restrictToOpenDays)) return null;
     const openRows = await this.prisma.agendaOpenDay.findMany({
-      where: { calendarId: cal.id, fullyBooked: false },
-      select: { openDate: true, repeatYearly: true },
+      where: { calendarId: cal.id },
+      select: {
+        openDate: true,
+        repeatYearly: true,
+        fullyBooked: true,
+        fullyBookedTestshoot: true,
+        fullyBookedIntake: true,
+      },
     });
+    const bookable = openRows.filter((r) => this.openDayStillOffersSlots(r, cal.slug ?? ''));
     /**
      * Alleen dagen die de admin expliciet heeft opengezet. Sloten op andere dagen
      * NIET meetellen: boeken zou toch geweigerd worden ("Deze dag staat niet open"),
      * dus die dagen mogen publiek ook niet als beschikbaar getoond worden.
+     * Een dag die voor één model-worden-pakket vol is, blijft hier wel staan.
      */
-    return this.openDayYmdSetInRange(from, to, openRows);
+    return this.openDayYmdSetInRange(from, to, bookable);
   }
 
   private async materializeGuestSlotsInRange(
@@ -927,10 +990,18 @@ export class AgendaService implements OnModuleInit {
   /** Vernieuwt sloten voor open dagen (beperkt venster) na wijziging agenda-uren. */
   private async reconcileOpenDaySlotsAfterScheduleChange(calendarId: string, cal: CalSlotSchedule) {
     const todayYmd = ymdEuropeBrussels(new Date());
-    const openRows = await this.prisma.agendaOpenDay.findMany({
-      where: { calendarId, fullyBooked: false },
-      select: { openDate: true, repeatYearly: true },
-    });
+    const openRows = (
+      await this.prisma.agendaOpenDay.findMany({
+        where: { calendarId },
+        select: {
+          openDate: true,
+          repeatYearly: true,
+          fullyBooked: true,
+          fullyBookedTestshoot: true,
+          fullyBookedIntake: true,
+        },
+      })
+    ).filter((r) => this.openDayStillOffersSlots(r, cal.slug ?? ''));
     const from = parseYmd(todayYmd);
     const to = new Date(from.getTime() + 120 * 24 * 60 * 60 * 1000);
 
@@ -1036,7 +1107,7 @@ export class AgendaService implements OnModuleInit {
     };
   }
 
-  async getSlots(slug: string, fromStr?: string, toStr?: string) {
+  async getSlots(slug: string, fromStr?: string, toStr?: string, pakketRaw?: string) {
     const cal = await this.prisma.agendaCalendar.findFirst({
       where: { slug, active: true, publicBooking: true },
     });
@@ -1065,7 +1136,11 @@ export class AgendaService implements OnModuleInit {
     openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
 
     const now = new Date();
-    const includeOccupied = cal.slug === 'portfolio';
+    const pakket = cal.slug === 'model-worden' ? this.normalizeModelWordenPakket(pakketRaw) : null;
+    const includeOccupied =
+      cal.slug === 'portfolio' ||
+      (pakket === 'testshoot_intake' && cal.showOccupiedHoursTestshoot) ||
+      (pakket === 'intake_only' && cal.showOccupiedHoursIntake);
     const deduped = await this.collectGuestVisibleBookableSlotsDeduped(
       cal,
       from,
@@ -1085,10 +1160,17 @@ export class AgendaService implements OnModuleInit {
         : undefined;
 
     const fullRows = await this.prisma.agendaOpenDay.findMany({
-      where: { calendarId: cal.id, fullyBooked: true },
-      select: { openDate: true, repeatYearly: true },
+      where: { calendarId: cal.id },
+      select: {
+        openDate: true,
+        repeatYearly: true,
+        fullyBooked: true,
+        fullyBookedTestshoot: true,
+        fullyBookedIntake: true,
+      },
     });
-    const fullyBookedDates = [...this.openDayYmdSetInRange(from, to, fullRows)]
+    const packageFullRows = fullRows.filter((r) => this.openDayIsFullForPackage(r, cal.slug, pakket));
+    const fullyBookedDates = [...this.openDayYmdSetInRange(from, to, packageFullRows)]
       .filter((ymd) => !closedSet.has(ymd))
       .sort();
 
@@ -1112,6 +1194,7 @@ export class AgendaService implements OnModuleInit {
         capacity: s.capacity,
         booked: s.booked,
         remaining: s.remaining,
+        occupied: s.remaining <= 0,
       })),
     };
   }
@@ -1133,18 +1216,25 @@ export class AgendaService implements OnModuleInit {
     if (usesOpenDayMode(cal.restrictToOpenDays)) {
       const openRows = await this.prisma.agendaOpenDay.findMany({
         where: { calendarId: cal.id },
-        select: { openDate: true, repeatYearly: true, fullyBooked: true },
+        select: {
+          openDate: true,
+          repeatYearly: true,
+          fullyBooked: true,
+          fullyBookedTestshoot: true,
+          fullyBookedIntake: true,
+        },
       });
       const ymd = slotDateToYmd(slot.slotDate);
       const day = parseYmd(ymd);
-      const fullRows = openRows.filter((r) => r.fullyBooked);
+      const pakket = cal.slug === 'model-worden' ? detectModelWordenPackage(dto.fields) : null;
+      const fullRows = openRows.filter((r) => this.openDayIsFullForPackage(r, cal.slug, pakket));
       if (this.openDayYmdSetInRange(day, day, fullRows).has(ymd)) {
         throw new BadRequestException('Deze dag is volgeboekt.');
       }
       const allowed = this.openDayYmdSetInRange(
         day,
         day,
-        openRows.filter((r) => !r.fullyBooked),
+        openRows.filter((r) => !this.openDayIsFullForPackage(r, cal.slug, pakket)),
       );
       if (!allowed.has(ymd)) {
         throw new BadRequestException('Deze dag staat niet open voor online boekingen.');
@@ -1877,6 +1967,7 @@ export class AgendaService implements OnModuleInit {
   }
 
   async adminOverview() {
+    await this.prisma.ensureAgendaAvailabilityColumns();
     await ensureDefaultAgendaCalendars(this.prisma);
     const calendars = await this.prisma.agendaCalendar.findMany({
       orderBy: [{ sortOrder: 'asc' }, { title: 'asc' }],
@@ -2069,6 +2160,12 @@ export class AgendaService implements OnModuleInit {
     if (dto.weekdayOpenMask !== undefined) data.weekdayOpenMask = dto.weekdayOpenMask;
     if (dto.planningTextOnColor !== undefined) {
       data.planningTextOnColor = dto.planningTextOnColor === 'black' ? 'black' : 'white';
+    }
+    if (dto.showOccupiedHoursTestshoot !== undefined) {
+      data.showOccupiedHoursTestshoot = dto.showOccupiedHoursTestshoot;
+    }
+    if (dto.showOccupiedHoursIntake !== undefined) {
+      data.showOccupiedHoursIntake = dto.showOccupiedHoursIntake;
     }
 
     const updated = await this.prisma.agendaCalendar.update({ where: { id }, data });
@@ -2901,6 +2998,8 @@ export class AgendaService implements OnModuleInit {
       openDate: r.openDate.toISOString().slice(0, 10),
       repeatYearly: r.repeatYearly,
       fullyBooked: r.fullyBooked,
+      fullyBookedTestshoot: r.fullyBookedTestshoot,
+      fullyBookedIntake: r.fullyBookedIntake,
     }));
   }
 
@@ -2908,7 +3007,23 @@ export class AgendaService implements OnModuleInit {
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id: dto.calendarId } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     const openDate = parseYmd(dto.openDate);
-    const fullyBooked = dto.fullyBooked === true;
+    const existing = await this.prisma.agendaOpenDay.findUnique({
+      where: { calendarId_openDate: { calendarId: cal.id, openDate } },
+    });
+    let testshoot = existing?.fullyBookedTestshoot ?? false;
+    let intake = existing?.fullyBookedIntake ?? false;
+    let fullyBooked = dto.fullyBooked === true;
+    if (
+      cal.slug === 'model-worden' &&
+      (dto.fullyBookedTestshoot !== undefined || dto.fullyBookedIntake !== undefined)
+    ) {
+      if (dto.fullyBookedTestshoot !== undefined) testshoot = dto.fullyBookedTestshoot;
+      if (dto.fullyBookedIntake !== undefined) intake = dto.fullyBookedIntake;
+      fullyBooked = testshoot && intake;
+    } else if (cal.slug === 'model-worden') {
+      testshoot = fullyBooked;
+      intake = fullyBooked;
+    }
     const row = await this.prisma.agendaOpenDay.upsert({
       where: { calendarId_openDate: { calendarId: cal.id, openDate } },
       create: {
@@ -2916,13 +3031,17 @@ export class AgendaService implements OnModuleInit {
         openDate,
         repeatYearly: dto.repeatYearly ?? false,
         fullyBooked,
+        fullyBookedTestshoot: testshoot,
+        fullyBookedIntake: intake,
       },
       update: {
         repeatYearly: dto.repeatYearly ?? false,
         fullyBooked,
+        fullyBookedTestshoot: testshoot,
+        fullyBookedIntake: intake,
       },
     });
-    if (fullyBooked) {
+    if (!this.openDayStillOffersSlots(row, cal.slug)) {
       await this.clearEmptySlotsOnDay(cal.id, openDate);
     } else {
       await this.reconcileCalendarDaySlots(cal.id, openDate, cal);
@@ -2932,6 +3051,8 @@ export class AgendaService implements OnModuleInit {
       openDate: row.openDate.toISOString().slice(0, 10),
       repeatYearly: row.repeatYearly,
       fullyBooked: row.fullyBooked,
+      fullyBookedTestshoot: row.fullyBookedTestshoot,
+      fullyBookedIntake: row.fullyBookedIntake,
     };
   }
 

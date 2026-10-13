@@ -670,6 +670,10 @@ model AgendaCalendar {
   showEndTimeOnPublic Boolean        @default(false)
   /// Admin planning: tekst op gekleurde blokken (`white` of `black`).
   planningTextOnColor String         @default("white")
+  /// Model worden: bezet uur rood met «bezet» bij gratis fotoshoot + intake.
+  showOccupiedHoursTestshoot Boolean @default(false)
+  /// Model worden: bezet uur rood met «bezet» bij alleen intake.
+  showOccupiedHoursIntake Boolean    @default(false)
   /// Bit 0=zo … 6=za: op welke weekdagen ontbrekende sloten automatisch worden aangemaakt (lazy). 0 = uit.
   weekdayOpenMask Int              @default(0)
   sortOrder       Int              @default(100)
@@ -688,8 +692,12 @@ model AgendaOpenDay {
   calendar     AgendaCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
   openDate     DateTime       @db.Date
   repeatYearly Boolean        @default(false)
-  /// Dag is volgeboekt: zichtbaar, niet meer boekbaar.
+  /// Hele dag volgeboekt (andere agenda's, of beide model-worden-pakketten).
   fullyBooked  Boolean        @default(false)
+  /// Alleen «gratis fotoshoot + intakegesprek» is volgeboekt.
+  fullyBookedTestshoot Boolean @default(false)
+  /// Alleen «intake-gesprek» is volgeboekt.
+  fullyBookedIntake Boolean    @default(false)
   createdAt    DateTime       @default(now())
 
   @@unique([calendarId, openDate])

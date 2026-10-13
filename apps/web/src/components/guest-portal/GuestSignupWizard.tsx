@@ -12,6 +12,7 @@ type SlotDto = {
   startTime: string;
   endTime: string;
   remaining?: number;
+  occupied?: boolean;
 };
 
 type FieldDto = {
@@ -188,7 +189,7 @@ export function GuestSignupWizard() {
     setPhoto(file);
   };
 
-  const loadAgenda = useCallback(async (slug: string) => {
+  const loadAgenda = useCallback(async (slug: string, packageChoice: PackageChoice) => {
     setLoadingSlots(true);
     setLoadError(null);
     try {
@@ -198,7 +199,8 @@ export function GuestSignupWizard() {
       toD.setDate(toD.getDate() + 60);
       const from = ymdEuropeBrussels(fromD);
       const to = ymdEuropeBrussels(toD);
-      const q = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+      const pakketQ = packageChoice ? `&pakket=${encodeURIComponent(packageChoice)}` : '';
+      const q = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${pakketQ}`;
       const [fRes, sRes] = await Promise.all([
         fetch(`${base}/agenda/fields/${encodeURIComponent(slug)}`),
         fetch(`${base}/agenda/slots/${encodeURIComponent(slug)}?${q}`),
@@ -221,7 +223,7 @@ export function GuestSignupWizard() {
 
   useEffect(() => {
     if (step === 'day' && pkg) {
-      void loadAgenda(slugForPackage(pkg));
+      void loadAgenda(slugForPackage(pkg), pkg);
     }
   }, [step, pkg, loadAgenda]);
 
@@ -888,16 +890,20 @@ export function GuestSignupWizard() {
                               {daySlots.map((s) => {
                                 const on = slotId === s.id;
                                 const label = s.startTime.slice(0, 5);
+                                const taken = s.occupied === true || (s.remaining ?? 1) <= 0;
                                 return (
                                   <button
                                     key={s.id}
                                     type="button"
                                     role="listitem"
-                                    className={`nieuw-signup-hour-check${on ? ' is-on' : ''}`}
+                                    className={`nieuw-signup-hour-check${on ? ' is-on' : ''}${taken ? ' is-taken' : ''}`}
                                     aria-pressed={on}
-                                    onClick={() => pickHour(ymd, s.id)}
+                                    disabled={taken}
+                                    onClick={() => {
+                                      if (!taken) pickHour(ymd, s.id);
+                                    }}
                                   >
-                                    {label}
+                                    {taken ? `${label} bezet` : label}
                                   </button>
                                 );
                               })}

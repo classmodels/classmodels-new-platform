@@ -13,8 +13,23 @@ type Cal = {
   color: string;
   active?: boolean;
   restrictToOpenDays?: boolean;
+  showOccupiedHoursTestshoot?: boolean;
+  showOccupiedHoursIntake?: boolean;
 };
-type OpenRow = { id: string; openDate: string; repeatYearly: boolean; fullyBooked?: boolean };
+type OpenRow = {
+  id: string;
+  openDate: string;
+  repeatYearly: boolean;
+  fullyBooked?: boolean;
+  fullyBookedTestshoot?: boolean;
+  fullyBookedIntake?: boolean;
+};
+
+function packageFull(row: OpenRow | undefined, kind: 'testshoot' | 'intake'): boolean {
+  if (!row) return false;
+  if (kind === 'testshoot') return Boolean(row.fullyBookedTestshoot || row.fullyBooked);
+  return Boolean(row.fullyBookedIntake || row.fullyBooked);
+}
 
 function monthGrid(year: number, month: number) {
   const first = new Date(year, month - 1, 1);
@@ -40,6 +55,10 @@ export default function AdminAgendaOpenDagenPage() {
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [openRows, setOpenRows] = useState<OpenRow[]>([]);
   const [repeatNext, setRepeatNext] = useState(false);
+  const [applyTestshoot, setApplyTestshoot] = useState(true);
+  const [applyIntake, setApplyIntake] = useState(true);
+  const [showOccupiedTestshoot, setShowOccupiedTestshoot] = useState(false);
+  const [showOccupiedIntake, setShowOccupiedIntake] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedYmds, setSelectedYmds] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
@@ -81,15 +100,29 @@ export default function AdminAgendaOpenDagenPage() {
   }, [openRows]);
 
   const selectedCal = calendars.find((c) => c.id === calendarId);
+  const isModelWorden = selectedCal?.slug === 'model-worden';
+
+  useEffect(() => {
+    setShowOccupiedTestshoot(Boolean(selectedCal?.showOccupiedHoursTestshoot));
+    setShowOccupiedIntake(Boolean(selectedCal?.showOccupiedHoursIntake));
+  }, [selectedCal?.id, selectedCal?.showOccupiedHoursTestshoot, selectedCal?.showOccupiedHoursIntake]);
 
   const selectedList = useMemo(() => [...selectedYmds].sort(), [selectedYmds]);
-  const selectedClosedCount = selectedList.filter((ymd) => !byYmd.has(ymd)).length;
-  const selectedFullCount = selectedList.filter((ymd) => byYmd.get(ymd)?.fullyBooked).length;
-  const selectedOpenCount = selectedList.filter((ymd) => {
+  const selectedExistingCount = selectedList.filter((ymd) => byYmd.has(ymd)).length;
+  const canOpen = selectedList.some((ymd) => {
     const row = byYmd.get(ymd);
-    return Boolean(row) && !row?.fullyBooked;
-  }).length;
-  const canOpen = selectedClosedCount + selectedFullCount > 0;
+    if (!row) return true;
+    if (!isModelWorden) return Boolean(row.fullyBooked);
+    return (applyTestshoot && packageFull(row, 'testshoot')) || (applyIntake && packageFull(row, 'intake'));
+  });
+  const canMarkFull =
+    (!isModelWorden || applyTestshoot || applyIntake) &&
+    selectedList.some((ymd) => {
+      const row = byYmd.get(ymd);
+      if (!isModelWorden) return !row?.fullyBooked;
+      if (!row) return true;
+      return (applyTestshoot && !packageFull(row, 'testshoot')) || (applyIntake && !packageFull(row, 'intake'));
+    });
 
   const toggleSelectDay = (ymd: string) => {
     setSelectedYmds((prev) => {
@@ -109,16 +142,27 @@ export default function AdminAgendaOpenDagenPage() {
     try {
       const toOpen = selectedList.filter((ymd) => {
         const row = byYmd.get(ymd);
-        return !row || row.fullyBooked;
+        if (!row) return true;
+        if (!isModelWorden) return Boolean(row.fullyBooked);
+        const reopenTestshoot = applyTestshoot && packageFull(row, 'testshoot');
+        const reopenIntake = applyIntake && packageFull(row, 'intake');
+        return reopenTestshoot || reopenIntake;
       });
       for (const ymd of toOpen) {
+        const row = byYmd.get(ymd);
+        const body = isModelWorden
+          ? {
+              fullyBookedTestshoot: applyTestshoot ? false : packageFull(row, 'testshoot'),
+              fullyBookedIntake: applyIntake ? false : packageFull(row, 'intake'),
+            }
+          : { fullyBooked: false };
         await adminFetch('/admin/agenda/open-days', token, {
           method: 'POST',
           body: JSON.stringify({
             calendarId,
             openDate: ymd,
-            repeatYearly: byYmd.get(ymd)?.repeatYearly ?? repeatNext,
-            fullyBooked: false,
+            repeatYearly: row?.repeatYearly ?? repeatNext,
+            ...body,
           }),
         });
       }
@@ -139,19 +183,33 @@ export default function AdminAgendaOpenDagenPage() {
 
   const markFullSelected = async () => {
     if (!token || !calendarId) return;
-    const toFull = selectedList.filter((ymd) => !byYmd.get(ymd)?.fullyBooked);
+    if (isModelWorden && !applyTestshoot && !applyIntake) return;
+    const toFull = selectedList.filter((ymd) => {
+      const row = byYmd.get(ymd);
+      if (!isModelWorden) return !row?.fullyBooked;
+      const markTestshoot = applyTestshoot && !packageFull(row, 'testshoot');
+      const markIntake = applyIntake && !packageFull(row, 'intake');
+      return markTestshoot || markIntake || !row;
+    });
     if (toFull.length === 0) return;
     setBusy(true);
     setMsg(null);
     try {
       for (const ymd of toFull) {
+        const row = byYmd.get(ymd);
+        const body = isModelWorden
+          ? {
+              fullyBookedTestshoot: applyTestshoot ? true : packageFull(row, 'testshoot'),
+              fullyBookedIntake: applyIntake ? true : packageFull(row, 'intake'),
+            }
+          : { fullyBooked: true };
         await adminFetch('/admin/agenda/open-days', token, {
           method: 'POST',
           body: JSON.stringify({
             calendarId,
             openDate: ymd,
-            repeatYearly: byYmd.get(ymd)?.repeatYearly ?? repeatNext,
-            fullyBooked: true,
+            repeatYearly: row?.repeatYearly ?? repeatNext,
+            ...body,
           }),
         });
       }
@@ -171,7 +229,7 @@ export default function AdminAgendaOpenDagenPage() {
   };
 
   const closeSelected = async () => {
-    const existing = selectedOpenCount + selectedFullCount;
+    const existing = selectedExistingCount;
     if (!token || !calendarId || existing === 0) return;
     const ok = window.confirm(
       `${existing} dag(en) uitzetten?\n\n` +
@@ -203,6 +261,25 @@ export default function AdminAgendaOpenDagenPage() {
     }
   };
 
+  const saveOccupied = async (next: { testshoot?: boolean; intake?: boolean }) => {
+    if (!token || !calendarId || !isModelWorden) return;
+    const showOccupiedHoursTestshoot = next.testshoot ?? showOccupiedTestshoot;
+    const showOccupiedHoursIntake = next.intake ?? showOccupiedIntake;
+    setShowOccupiedTestshoot(showOccupiedHoursTestshoot);
+    setShowOccupiedIntake(showOccupiedHoursIntake);
+    setMsg(null);
+    try {
+      await adminFetch(`/admin/agenda/calendars/${calendarId}`, token, {
+        method: 'PATCH',
+        body: JSON.stringify({ showOccupiedHoursTestshoot, showOccupiedHoursIntake }),
+      });
+      setMsg('Instelling voor bezette uren opgeslagen.');
+      await loadCals();
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Opslaan mislukt');
+    }
+  };
+
   if (!token) return <p className="text-sm text-muted">Inloggen vereist.</p>;
 
   return (
@@ -216,7 +293,7 @@ export default function AdminAgendaOpenDagenPage() {
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Open dagen per agenda</h2>
         <p className="mt-1 text-xs text-muted">
-          Duid meerdere dagen aan. Oranje = open. Rood = volgeboekt. Dit geldt
+          Duid meerdere dagen aan. Oranje = open. Donkerrood = helemaal volgeboekt. Lichtrood = volgeboekt voor één afspraak. Dit geldt
           wanneer de agenda op <strong>alleen open dagen</strong> staat — de standaard; zie anders de melding
           hieronder.
           <br />
@@ -249,6 +326,47 @@ export default function AdminAgendaOpenDagenPage() {
           Open zetten met <strong>jaarlijks</strong> herhalen (zelfde kalenderdag elk jaar)
         </label>
 
+        {isModelWorden ? (
+          <div className="mt-3 space-y-2 rounded-md border border-line bg-zinc-50 px-3 py-2">
+            <p className="text-xs font-medium text-ink">Volgeboekt geldt voor</p>
+            <p className="text-[11px] text-muted">
+              Vink één of beide aan. Alleen die afspraak wordt volgeboekt. De andere blijft gewoon open.
+            </p>
+            <label className="flex items-center gap-2 text-xs text-ink">
+              <input
+                type="checkbox"
+                checked={applyTestshoot}
+                onChange={(e) => setApplyTestshoot(e.target.checked)}
+              />
+              Gratis fotoshoot + intakegesprek
+            </label>
+            <label className="flex items-center gap-2 text-xs text-ink">
+              <input type="checkbox" checked={applyIntake} onChange={(e) => setApplyIntake(e.target.checked)} />
+              Intake-gesprek
+            </label>
+            <p className="pt-1 text-xs font-medium text-ink">Bezette uren</p>
+            <p className="text-[11px] text-muted">
+              Aangevinkt: een bezet uur blijft staan, in het rood, met «bezet». Uitgevinkt: dat uur verdwijnt.
+            </p>
+            <label className="flex items-center gap-2 text-xs text-ink">
+              <input
+                type="checkbox"
+                checked={showOccupiedTestshoot}
+                onChange={(e) => void saveOccupied({ testshoot: e.target.checked })}
+              />
+              Gratis fotoshoot + intakegesprek: bezette uren rood met bezet
+            </label>
+            <label className="flex items-center gap-2 text-xs text-ink">
+              <input
+                type="checkbox"
+                checked={showOccupiedIntake}
+                onChange={(e) => void saveOccupied({ intake: e.target.checked })}
+              />
+              Intake-gesprek: bezette uren rood met bezet
+            </label>
+          </div>
+        ) : null}
+
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -256,11 +374,11 @@ export default function AdminAgendaOpenDagenPage() {
             onClick={() => void openSelected()}
             className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-40"
           >
-            Open zetten{canOpen ? ` (${selectedClosedCount + selectedFullCount})` : ''}
+            Open zetten
           </button>
           <button
             type="button"
-            disabled={busy || selectedList.filter((ymd) => !byYmd.get(ymd)?.fullyBooked).length === 0}
+            disabled={busy || !canMarkFull}
             onClick={() => void markFullSelected()}
             className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-40"
           >
@@ -268,11 +386,11 @@ export default function AdminAgendaOpenDagenPage() {
           </button>
           <button
             type="button"
-            disabled={busy || selectedOpenCount + selectedFullCount === 0}
+            disabled={busy || selectedExistingCount === 0}
             onClick={() => void closeSelected()}
             className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-medium text-ink hover:bg-zinc-100 disabled:opacity-40"
           >
-            Uitzetten{selectedOpenCount + selectedFullCount ? ` (${selectedOpenCount + selectedFullCount})` : ''}
+            Uitzetten{selectedExistingCount ? ` (${selectedExistingCount})` : ''}
           </button>
           <button
             type="button"
@@ -330,27 +448,38 @@ export default function AdminAgendaOpenDagenPage() {
                         type="button"
                         disabled={busy}
                         onClick={() => toggleSelectDay(cell.ymd)}
-                        title={
-                          [
-                            byYmd.get(cell.ymd)?.fullyBooked
-                              ? 'Volgeboekt'
-                              : byYmd.get(cell.ymd)?.repeatYearly
-                                ? 'Jaarlijks open'
-                                : byYmd.has(cell.ymd)
-                                  ? 'Open'
-                                  : 'Gesloten',
-                            selectedYmds.has(cell.ymd) ? 'geselecteerd' : '',
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')
-                        }
+                        title={(() => {
+                          const openRow = byYmd.get(cell.ymd);
+                          const testshoot = packageFull(openRow, 'testshoot');
+                          const intake = packageFull(openRow, 'intake');
+                          const label = !openRow
+                            ? 'Gesloten'
+                            : isModelWorden && testshoot && intake
+                              ? 'Volgeboekt voor beide'
+                              : isModelWorden && testshoot
+                                ? 'Volgeboekt: gratis fotoshoot + intake'
+                                : isModelWorden && intake
+                                  ? 'Volgeboekt: intake-gesprek'
+                                  : openRow.fullyBooked
+                                    ? 'Volgeboekt'
+                                    : openRow.repeatYearly
+                                      ? 'Jaarlijks open'
+                                      : 'Open';
+                          return [label, selectedYmds.has(cell.ymd) ? 'geselecteerd' : ''].filter(Boolean).join(' · ');
+                        })()}
                         className={[
                           'aspect-square max-h-7 rounded text-[10px] font-medium leading-none',
-                          byYmd.get(cell.ymd)?.fullyBooked
-                            ? 'bg-red-600 text-white ring-1 ring-red-800 hover:bg-red-700'
-                            : byYmd.has(cell.ymd)
-                              ? 'bg-amber-500 text-white ring-1 ring-amber-700 hover:bg-amber-600'
-                              : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200',
+                          (() => {
+                            const openRow = byYmd.get(cell.ymd);
+                            if (!openRow) return 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200';
+                            const testshoot = packageFull(openRow, 'testshoot');
+                            const intake = packageFull(openRow, 'intake');
+                            const both = isModelWorden ? testshoot && intake : Boolean(openRow.fullyBooked);
+                            const partial = isModelWorden && testshoot !== intake;
+                            if (both) return 'bg-red-600 text-white ring-1 ring-red-800 hover:bg-red-700';
+                            if (partial) return 'bg-red-400 text-white ring-1 ring-red-700 hover:bg-red-500';
+                            return 'bg-amber-500 text-white ring-1 ring-amber-700 hover:bg-amber-600';
+                          })(),
                           selectedYmds.has(cell.ymd)
                             ? 'outline outline-2 outline-offset-1 outline-zinc-900'
                             : '',
