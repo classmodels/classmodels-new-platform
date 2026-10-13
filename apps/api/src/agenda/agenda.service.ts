@@ -3196,12 +3196,17 @@ export class AgendaService implements OnModuleInit {
     }
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id: dto.calendarId } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
-    const openDate = parseYmd(dto.openDate);
-    const existing = await this.prisma.agendaOpenDay.findUnique({
-      where: { calendarId_openDate: { calendarId: cal.id, openDate } },
-    });
-    let testshoot = existing?.fullyBookedTestshoot ?? false;
-    let intake = existing?.fullyBookedIntake ?? false;
+    const ymd = dto.openDate;
+    const openDate = new Date(`${ymd}T00:00:00.000Z`);
+    const sameDay = await this.prisma.$queryRaw<Array<{ id: string; fullyBookedTestshoot: number | boolean; fullyBookedIntake: number | boolean }>>`
+      SELECT \`id\`, \`fullyBookedTestshoot\`, \`fullyBookedIntake\`
+      FROM \`AgendaOpenDay\`
+      WHERE \`calendarId\` = ${cal.id} AND DATE(\`openDate\`) = ${ymd}
+      LIMIT 1
+    `;
+    const existing = sameDay[0];
+    let testshoot = Boolean(existing?.fullyBookedTestshoot);
+    let intake = Boolean(existing?.fullyBookedIntake);
     let fullyBooked = dto.fullyBooked === true;
     if (
       cal.slug === 'model-worden' &&
@@ -3215,48 +3220,35 @@ export class AgendaService implements OnModuleInit {
       intake = fullyBooked;
     }
     const repeatYearly = dto.repeatYearly ?? false;
-    let row: { id: string };
-    try {
-      row = await this.prisma.agendaOpenDay.upsert({
-        where: { calendarId_openDate: { calendarId: cal.id, openDate } },
-        create: {
-          calendarId: cal.id,
-          openDate,
-          repeatYearly,
-          fullyBooked,
-          fullyBookedTestshoot: testshoot,
-          fullyBookedIntake: intake,
-        },
-        update: {
-          repeatYearly,
-          fullyBooked,
-          fullyBookedTestshoot: testshoot,
-          fullyBookedIntake: intake,
-        },
-      });
-    } catch (e) {
-      this.log.warn(`open-day upsert ${cal.slug} ${dto.openDate}: ${e instanceof Error ? e.message : e}`);
-      if (existing) {
-        await this.prisma.$executeRaw`
-          UPDATE \`AgendaOpenDay\`
-          SET \`repeatYearly\` = ${repeatYearly},
-              \`fullyBooked\` = ${fullyBooked},
-              \`fullyBookedTestshoot\` = ${testshoot},
-              \`fullyBookedIntake\` = ${intake}
-          WHERE \`id\` = ${existing.id}
+    const flags = {
+      repeatYearly,
+      fullyBooked,
+      fullyBookedTestshoot: testshoot,
+      fullyBookedIntake: intake,
+    };
+    let rowId = existing?.id;
+    if (rowId) {
+      await this.prisma.agendaOpenDay.update({ where: { id: rowId }, data: flags });
+    } else {
+      try {
+        const created = await this.prisma.agendaOpenDay.create({
+          data: { calendarId: cal.id, openDate, ...flags },
+        });
+        rowId = created.id;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!/duplicate|1062/i.test(msg)) throw e;
+        const again = await this.prisma.$queryRaw<Array<{ id: string }>>`
+          SELECT \`id\` FROM \`AgendaOpenDay\`
+          WHERE \`calendarId\` = ${cal.id} AND DATE(\`openDate\`) = ${ymd}
+          LIMIT 1
         `;
-        row = { id: existing.id };
-      } else {
-        const id = randomUUID();
-        await this.prisma.$executeRaw`
-          INSERT INTO \`AgendaOpenDay\`
-            (\`id\`, \`calendarId\`, \`openDate\`, \`repeatYearly\`, \`fullyBooked\`, \`fullyBookedTestshoot\`, \`fullyBookedIntake\`, \`createdAt\`)
-          VALUES
-            (${id}, ${cal.id}, ${openDate}, ${repeatYearly}, ${fullyBooked}, ${testshoot}, ${intake}, NOW())
-        `;
-        row = { id };
+        rowId = again[0]?.id;
+        if (!rowId) throw e;
+        await this.prisma.agendaOpenDay.update({ where: { id: rowId }, data: flags });
       }
     }
+    const row = { id: rowId };
     try {
       if (!this.openDayStillOffersSlots(
         { fullyBooked, fullyBookedTestshoot: testshoot, fullyBookedIntake: intake },
