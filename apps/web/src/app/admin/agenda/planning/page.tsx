@@ -183,7 +183,7 @@ export default function AdminAgendaPlanningPage() {
   const [selectedInitialized, setSelectedInitialized] = useState(false);
   const [anchor, setAnchor] = useState(() => new Date());
   const [view, setView] = useState<'month' | 'week' | 'day' | 'list'>('week');
-  /** Standaard alleen komende afspraken (alle agenda’s); verleden via «Toon verleden». */
+  /** Standaard alleen komende afspraken. «Toon verleden» toont alleen afspraken die al voorbij zijn. */
   const [showPastBookings, setShowPastBookings] = useState(false);
   const [rows, setRows] = useState<BookingRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -263,8 +263,7 @@ export default function AdminAgendaPlanningPage() {
   );
 
   const displayRows = useMemo(() => {
-    if (showPastBookings) return baseRows;
-    return baseRows.filter((b) => !isAgendaBookingPast(b));
+    return baseRows.filter((b) => (showPastBookings ? isAgendaBookingPast(b) : !isAgendaBookingPast(b)));
   }, [baseRows, showPastBookings]);
 
   const loadBookings = useCallback(async () => {
@@ -838,7 +837,7 @@ export default function AdminAgendaPlanningPage() {
                 }`}
                 onClick={() => setShowPastBookings((v) => !v)}
               >
-                {showPastBookings ? 'Verberg verleden' : 'Toon verleden'}
+                {showPastBookings ? 'Toon komende' : 'Toon verleden'}
               </button>
               <button
                 type="button"
@@ -978,6 +977,10 @@ export default function AdminAgendaPlanningPage() {
               {!showPastBookings && baseRows.length > displayRows.length ? (
                 <span className="ml-1">
                   ({baseRows.length - displayRows.length} uit het verleden verborgen — klik «Toon verleden»)
+                </span>
+              ) : showPastBookings && baseRows.length > displayRows.length ? (
+                <span className="ml-1">
+                  ({baseRows.length - displayRows.length} komende verborgen — klik «Toon komende»)
                 </span>
               ) : null}
             </p>

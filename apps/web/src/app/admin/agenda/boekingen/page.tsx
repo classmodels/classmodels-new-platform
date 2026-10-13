@@ -143,7 +143,7 @@ export default function AdminAgendaBoekingenPage() {
 
   const [statusSel, setStatusSel] = useState<Set<string>>(() => new Set(STATUS_OPTS.map((x) => x.v)));
 
-  /** Standaard alleen komende afspraken; verleden via «Toon verleden». */
+  /** Standaard alleen komende afspraken. «Toon verleden» toont alleen afspraken die al voorbij zijn. */
   const [showPastBookings, setShowPastBookings] = useState(false);
 
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -205,7 +205,7 @@ export default function AdminAgendaBoekingenPage() {
   }, [loadBookings]);
 
   const visibleBookings = useMemo(() => {
-    let rows = showPastBookings ? bookings : bookings.filter((b) => !isAgendaBookingPast(b));
+    let rows = bookings.filter((b) => (showPastBookings ? isAgendaBookingPast(b) : !isAgendaBookingPast(b)));
     const q = nameQuery.trim().toLowerCase();
     if (q) {
       const terms = q.split(/\s+/).filter(Boolean);
@@ -630,12 +630,17 @@ export default function AdminAgendaBoekingenPage() {
               }`}
               onClick={() => setShowPastBookings((v) => !v)}
             >
-              {showPastBookings ? 'Verberg verleden' : 'Toon verleden'}
+              {showPastBookings ? 'Toon komende' : 'Toon verleden'}
             </button>
             {!showPastBookings && bookings.length > visibleBookings.length ? (
               <span className="text-[11px] text-muted">
                 {bookings.length - visibleBookings.length} afspraak
                 {bookings.length - visibleBookings.length !== 1 ? 'en' : ''} uit het verleden verborgen
+              </span>
+            ) : showPastBookings && bookings.length > visibleBookings.length ? (
+              <span className="text-[11px] text-muted">
+                {bookings.length - visibleBookings.length} komende afspraak
+                {bookings.length - visibleBookings.length !== 1 ? 'en' : ''} verborgen
               </span>
             ) : null}
           </div>
@@ -817,7 +822,9 @@ export default function AdminAgendaBoekingenPage() {
           <p className="mt-4 text-xs text-muted">
             {bookings.length && !showPastBookings
               ? 'Geen komende afspraken in dit bereik. Klik op «Toon verleden» om eerdere afspraken te zien.'
-              : 'Geen boekingen in dit bereik.'}
+              : bookings.length && showPastBookings
+                ? 'Geen afspraken uit het verleden in dit bereik.'
+                : 'Geen boekingen in dit bereik.'}
           </p>
         ) : null}
       </section>
