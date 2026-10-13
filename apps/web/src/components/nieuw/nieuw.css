@@ -4963,6 +4963,21 @@
 .nieuw-signup-row .nieuw-signup-label {
   margin-bottom: 14px;
 }
+.nieuw-signup-note {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--n-ink);
+}
+.nieuw-signup-checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.nieuw-signup-checks .nieuw-signup-check {
+  margin-bottom: 0;
+}
 .nieuw-signup-check {
   display: flex;
   align-items: flex-start;
@@ -5320,6 +5335,10 @@
   text-align: right;
   white-space: normal;
   line-height: 1.25;
+}
+.nieuw-signup-day-full {
+  color: #e67e22;
+  font-weight: 800;
 }
 .nieuw-signup-day-frame.is-on .nieuw-signup-day-toggle .nieuw-signup-radio {
   border-color: var(--n-gold);

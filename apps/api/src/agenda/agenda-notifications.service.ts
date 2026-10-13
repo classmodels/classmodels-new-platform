@@ -9,6 +9,13 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import * as nodemailer from 'nodemailer';
 import { resolveSmtpConfig, smtpTransportOptions } from '../mail/mail-smtp-resolve';
 import { sendHtmlMailDetailed } from '../mail/send-html-mail';
+import {
+  MODEL_WORDEN_OFFICE_EMAIL,
+  buildModelWordenOfficeMail,
+  isModelWordenOfficeCalendar,
+  yn,
+  type OfficeMailKind,
+} from './model-worden-office-mail';
 import { PrismaService } from '../prisma/prisma.service';
 import { CLASS_MODELS_OFFICE, formatGuestAddressFromFields, googleMapsDirectionsUrl, officeOnlyStaticMapImageUrl } from './class-models-office';
 import { fetchTimeoutMs, withFetchTimeout } from './agenda-fetch-timeout';
@@ -1230,6 +1237,85 @@ export class AgendaNotificationService {
 
     const ctx = await this.buildDispatchCtxFromBooking(b, b.slot.calendar.slug);
     return this.dispatchBookingLifecycle('booking_cancelled', ctx, { channels });
+  }
+
+  /** Kopie naar inschrijving@class-models.be bij model-worden inschrijving of annulatie. */
+  async sendModelWordenOfficeCopy(bookingId: string, kind: OfficeMailKind): Promise<void> {
+    const b = await this.prisma.agendaBooking.findUnique({
+      where: { id: bookingId },
+      include: { slot: true, calendar: { select: { slug: true, title: true } } },
+    });
+    if (!b || !isModelWordenOfficeCalendar(b.calendar.slug)) return;
+
+    const fj =
+      b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
+        ? (b.fieldsJson as Record<string, unknown>)
+        : {};
+    const str = (key: string) => String(fj[key] ?? '').trim();
+    const pkg =
+      str('pakket') ||
+      (b.calendar.slug === 'gratis-fotoshoot'
+        ? 'Gratis testshoot + intake-gesprek'
+        : b.calendar.slug === 'intake-gesprek'
+          ? 'Alleen intake-gesprek'
+          : b.calendar.title);
+    const ymd = b.slot.slotDate.toISOString().slice(0, 10);
+    const appointmentLabel = new Intl.DateTimeFormat('nl-BE', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'Europe/Brussels',
+    }).format(new Date(`${ymd}T12:00:00`));
+    const stamp = (d: Date | null | undefined) =>
+      d
+        ? new Intl.DateTimeFormat('nl-BE', {
+            dateStyle: 'full',
+            timeStyle: 'short',
+            timeZone: 'Europe/Brussels',
+          }).format(d)
+        : '';
+    const birthYear = str('geboortejaar') || str('geboortedatum').slice(0, 4);
+    const birthNum = Number.parseInt(birthYear, 10);
+    const minor = Number.isFinite(birthNum) && new Date().getFullYear() - birthNum < 18;
+    const parentName =
+      str('ouder_naam') ||
+      [str('ouder_naam_vader'), str('ouder_naam_moeder')].filter(Boolean).join(' / ');
+    const parentPhone =
+      str('ouder_gsm') ||
+      [str('ouder_gsm_vader'), str('ouder_gsm_moeder')].filter(Boolean).join(' / ');
+
+    const { subject, html } = buildModelWordenOfficeMail({
+      kind,
+      packageLabel: pkg,
+      appointmentLabel,
+      timeLabel: `${b.slot.startTime.slice(0, 5)} – ${b.slot.endTime.slice(0, 5)}`,
+      registeredAtLabel: stamp(b.createdAt),
+      cancelledAtLabel: kind === 'cancelled' ? stamp(b.cancelledAt ?? new Date()) : null,
+      firstName: (b.firstname || str('voornaam')).trim(),
+      lastName: (b.lastname || str('achternaam') || str('familienaam')).trim(),
+      email: (b.email || str('email')).trim(),
+      phone: (b.phone || str('telefoon') || str('gsm')).trim(),
+      street: str('straat'),
+      number: str('nr'),
+      postcode: str('postcode'),
+      city: str('gemeente'),
+      birthYear,
+      student: yn(fj.student),
+      livesAtHome: yn(fj.thuiswonend),
+      minor,
+      parentName,
+      parentPhone,
+      cancelReason: str('annulatie_reden'),
+      wantsNewAppointment: yn(fj.annulatie_nieuwe_afspraak_gewenst),
+    });
+
+    const sent = await sendHtmlMailDetailed(this.prisma, MODEL_WORDEN_OFFICE_EMAIL, subject, html, {
+      fast: true,
+    });
+    if (!sent.ok) {
+      this.log.warn(`Kopie inschrijving niet verstuurd (${kind}, ${bookingId}): ${sent.error ?? 'onbekend'}`);
+    }
   }
 
   /** Admin: wijziging melden naar model/bezoeker (optioneel e-mail en/of SMS). */

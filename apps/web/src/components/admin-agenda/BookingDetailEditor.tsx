@@ -13,6 +13,11 @@ import { getApiBase } from '@/lib/api';
 import { BookingNotificationLogSection } from '@/components/admin-agenda/BookingNotificationLogSection';
 import { GUEST_MINOR_PARENT_FIELD_KEYS } from '@/lib/agenda-guest-intake';
 
+function ynField(fj: Record<string, unknown>, key: string): boolean {
+  const v = fjString(fj, key).toLowerCase();
+  return v === 'ja' || v === 'yes' || v === '1' || v === 'true';
+}
+
 export type BookingDetailEditorModel = {
   id: string;
   startAt: string;
@@ -363,13 +368,29 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
             </div>
           ) : null}
 
-          {minor ? (
-            <div className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-950">
-              <p className="font-semibold">U bent minderjarig</p>
-              <p>
-                U dient verplicht aanwezig te zijn met iemand van uw ouders. Geef hieronder aan met wie u komt en de
-                contactgegevens van die ouder.
-              </p>
+          {minor || ynField(fj, 'student') || ynField(fj, 'thuiswonend') || fjString(fj, 'ouder_naam') ? (
+            <div className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-950 sm:col-span-2">
+              <p className="font-semibold">Situatie</p>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={ynField(fj, 'student')}
+                  onChange={(e) => setFj(detail, onDetailChange, { student: e.target.checked ? 'ja' : 'nee' })}
+                />
+                Student
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={ynField(fj, 'thuiswonend')}
+                  onChange={(e) => setFj(detail, onDetailChange, { thuiswonend: e.target.checked ? 'ja' : 'nee' })}
+                />
+                Thuiswonend
+              </label>
+              {minor ? <p>Indien minderjarig dient er verplicht iemand van de ouders mee aanwezig te zijn.</p> : null}
+              {ynField(fj, 'student') || ynField(fj, 'thuiswonend') ? (
+                <p>Indien student of thuiswonend dient er verplicht iemand van de ouders mee aanwezig te zijn.</p>
+              ) : null}
               <label className="mt-1 block text-xs font-medium text-amber-950">
                 Ik kom met <span className="text-red-600">*</span>
                 <select
@@ -426,10 +447,10 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
                     />
                   </label>
                 </>
-              ) : minorWith ? (
+              ) : (
                 <>
                   <label className="block text-xs font-medium text-amber-950">
-                    Naam ouder <span className="text-red-600">*</span>
+                    Naam ouder
                     <input
                       className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-sm"
                       value={fjString(fj, 'ouder_naam')}
@@ -445,7 +466,7 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
                     />
                   </label>
                 </>
-              ) : null}
+              )}
             </div>
           ) : null}
 

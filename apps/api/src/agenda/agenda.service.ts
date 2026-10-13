@@ -551,7 +551,7 @@ export class AgendaService implements OnModuleInit {
   ): Promise<Set<string> | null> {
     if (!usesOpenDayMode(cal.restrictToOpenDays)) return null;
     const openRows = await this.prisma.agendaOpenDay.findMany({
-      where: { calendarId: cal.id },
+      where: { calendarId: cal.id, fullyBooked: false },
       select: { openDate: true, repeatYearly: true },
     });
     /**
@@ -928,7 +928,7 @@ export class AgendaService implements OnModuleInit {
   private async reconcileOpenDaySlotsAfterScheduleChange(calendarId: string, cal: CalSlotSchedule) {
     const todayYmd = ymdEuropeBrussels(new Date());
     const openRows = await this.prisma.agendaOpenDay.findMany({
-      where: { calendarId },
+      where: { calendarId, fullyBooked: false },
       select: { openDate: true, repeatYearly: true },
     });
     const from = parseYmd(todayYmd);
@@ -1084,6 +1084,14 @@ export class AgendaService implements OnModuleInit {
             .sort()
         : undefined;
 
+    const fullRows = await this.prisma.agendaOpenDay.findMany({
+      where: { calendarId: cal.id, fullyBooked: true },
+      select: { openDate: true, repeatYearly: true },
+    });
+    const fullyBookedDates = [...this.openDayYmdSetInRange(from, to, fullRows)]
+      .filter((ymd) => !closedSet.has(ymd))
+      .sort();
+
     return {
       calendar: {
         id: cal.id,
@@ -1095,6 +1103,7 @@ export class AgendaService implements OnModuleInit {
         showEndTimeOnPublic: cal.showEndTimeOnPublic,
       },
       openDates,
+      fullyBookedDates,
       slots: deduped.map((s) => ({
         id: s.id,
         slotDate: s.slotDate.toISOString().slice(0, 10),
@@ -1124,11 +1133,19 @@ export class AgendaService implements OnModuleInit {
     if (usesOpenDayMode(cal.restrictToOpenDays)) {
       const openRows = await this.prisma.agendaOpenDay.findMany({
         where: { calendarId: cal.id },
-        select: { openDate: true, repeatYearly: true },
+        select: { openDate: true, repeatYearly: true, fullyBooked: true },
       });
       const ymd = slotDateToYmd(slot.slotDate);
       const day = parseYmd(ymd);
-      const allowed = this.openDayYmdSetInRange(day, day, openRows);
+      const fullRows = openRows.filter((r) => r.fullyBooked);
+      if (this.openDayYmdSetInRange(day, day, fullRows).has(ymd)) {
+        throw new BadRequestException('Deze dag is volgeboekt.');
+      }
+      const allowed = this.openDayYmdSetInRange(
+        day,
+        day,
+        openRows.filter((r) => !r.fullyBooked),
+      );
       if (!allowed.has(ymd)) {
         throw new BadRequestException('Deze dag staat niet open voor online boekingen.');
       }
@@ -1229,6 +1246,18 @@ export class AgendaService implements OnModuleInit {
         if (isMinorFromIsoDateString(dob)) {
           const minorErr = validateGuestMinorParentFields(fieldsJson);
           if (minorErr) throw new BadRequestException(minorErr);
+        }
+        const needsParentAtHome =
+          (fieldsJson.student ?? '').trim().toLowerCase() === 'ja' ||
+          (fieldsJson.thuiswonend ?? '').trim().toLowerCase() === 'ja';
+        if (needsParentAtHome) {
+          const parentName = (fieldsJson.ouder_naam ?? '').trim();
+          const parentPhone = (fieldsJson.ouder_gsm ?? '').trim();
+          if (!parentName || !parentPhone) {
+            throw new BadRequestException(
+              'Indien student of thuiswonend dient er verplicht iemand van de ouders mee aanwezig te zijn. Vul naam en telefoonnummer van die ouder in.',
+            );
+          }
         }
       }
     }
@@ -1416,6 +1445,11 @@ export class AgendaService implements OnModuleInit {
       } = { emailSent: false, smsSent: false };
       try {
         notifications = await this.notifications.dispatchBookingLifecycle('booking_created', dispatchCtx);
+        void this.notifications.sendModelWordenOfficeCopy(booking.id, 'created').catch((err) => {
+          this.log.warn(
+            `office copy: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
       } catch (err) {
         this.log.error(
           `dispatchBookingLifecycle: ${err instanceof Error ? err.message : String(err)}`,
@@ -1537,6 +1571,9 @@ export class AgendaService implements OnModuleInit {
       cancelUrl,
       confirmUrl,
     });
+    void this.notifications.sendModelWordenOfficeCopy(booking.id, 'cancelled').catch((err) => {
+      this.log.warn(`office copy cancel: ${err instanceof Error ? err.message : String(err)}`);
+    });
     const ymd = booking.slot.slotDate.toISOString().slice(0, 10);
     void this.modelHistory.log(userId, 'agenda_cancelled', {
       calendarSlug: cal.slug,
@@ -1626,6 +1663,9 @@ export class AgendaService implements OnModuleInit {
       cancelUrl,
       confirmUrl,
       cancelReason: reason,
+    });
+    void this.notifications.sendModelWordenOfficeCopy(booking.id, 'cancelled').catch((err) => {
+      this.log.warn(`office copy cancel: ${err instanceof Error ? err.message : String(err)}`);
     });
 
     if (booking.userId && booking.slot) {
@@ -2643,6 +2683,13 @@ export class AgendaService implements OnModuleInit {
 
     const updated = await this.prisma.agendaBooking.update({ where: { id }, data });
 
+    const cancelledStatuses = ['cancelled', 'cancelled_cm', 'geannuleerd'];
+    if (dto.status !== undefined && cancelledStatuses.includes(dto.status) && !cancelledStatuses.includes(b.status)) {
+      void this.notifications.sendModelWordenOfficeCopy(id, 'cancelled').catch((err) => {
+        this.log.warn(`office copy cancel: ${err instanceof Error ? err.message : String(err)}`);
+      });
+    }
+
     if (dto.notifyCancelEmail || dto.notifyCancelSms) {
       if (isCancelledStatus(nextStatus)) {
         await this.notifications.notifyBookingCancelled(id, {
@@ -2853,6 +2900,7 @@ export class AgendaService implements OnModuleInit {
       id: r.id,
       openDate: r.openDate.toISOString().slice(0, 10),
       repeatYearly: r.repeatYearly,
+      fullyBooked: r.fullyBooked,
     }));
   }
 
@@ -2860,17 +2908,47 @@ export class AgendaService implements OnModuleInit {
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id: dto.calendarId } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     const openDate = parseYmd(dto.openDate);
+    const fullyBooked = dto.fullyBooked === true;
     const row = await this.prisma.agendaOpenDay.upsert({
       where: { calendarId_openDate: { calendarId: cal.id, openDate } },
       create: {
         calendarId: cal.id,
         openDate,
         repeatYearly: dto.repeatYearly ?? false,
+        fullyBooked,
       },
-      update: { repeatYearly: dto.repeatYearly ?? false },
+      update: {
+        repeatYearly: dto.repeatYearly ?? false,
+        fullyBooked,
+      },
     });
-    await this.reconcileCalendarDaySlots(cal.id, openDate, cal);
-    return row;
+    if (fullyBooked) {
+      await this.clearEmptySlotsOnDay(cal.id, openDate);
+    } else {
+      await this.reconcileCalendarDaySlots(cal.id, openDate, cal);
+    }
+    return {
+      id: row.id,
+      openDate: row.openDate.toISOString().slice(0, 10),
+      repeatYearly: row.repeatYearly,
+      fullyBooked: row.fullyBooked,
+    };
+  }
+
+  /** Lege slots van een volgeboekte dag weghalen. Slots met een afspraak blijven staan. */
+  private async clearEmptySlotsOnDay(calendarId: string, openDate: Date) {
+    const { gte: dayGte, lte: dayLte } = slotDateDayRange(openDate);
+    const slots = await this.prisma.agendaSlot.findMany({
+      where: { calendarId, slotDate: { gte: dayGte, lte: dayLte } },
+      select: { id: true },
+    });
+    for (const s of slots) {
+      const activeCount = await this.prisma.agendaBooking.count({
+        where: { slotId: s.id, ...activeBookingFilter },
+      });
+      if (activeCount > 0) continue;
+      await this.prisma.agendaSlot.delete({ where: { id: s.id } });
+    }
   }
 
   async adminRemoveOpenDay(id: string) {

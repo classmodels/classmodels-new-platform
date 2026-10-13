@@ -14,7 +14,7 @@ type Cal = {
   active?: boolean;
   restrictToOpenDays?: boolean;
 };
-type OpenRow = { id: string; openDate: string; repeatYearly: boolean };
+type OpenRow = { id: string; openDate: string; repeatYearly: boolean; fullyBooked?: boolean };
 
 function monthGrid(year: number, month: number) {
   const first = new Date(year, month - 1, 1);
@@ -84,7 +84,12 @@ export default function AdminAgendaOpenDagenPage() {
 
   const selectedList = useMemo(() => [...selectedYmds].sort(), [selectedYmds]);
   const selectedClosedCount = selectedList.filter((ymd) => !byYmd.has(ymd)).length;
-  const selectedOpenCount = selectedList.filter((ymd) => byYmd.has(ymd)).length;
+  const selectedFullCount = selectedList.filter((ymd) => byYmd.get(ymd)?.fullyBooked).length;
+  const selectedOpenCount = selectedList.filter((ymd) => {
+    const row = byYmd.get(ymd);
+    return Boolean(row) && !row?.fullyBooked;
+  }).length;
+  const canOpen = selectedClosedCount + selectedFullCount > 0;
 
   const toggleSelectDay = (ymd: string) => {
     setSelectedYmds((prev) => {
@@ -98,23 +103,62 @@ export default function AdminAgendaOpenDagenPage() {
   const clearSelection = () => setSelectedYmds(new Set());
 
   const openSelected = async () => {
-    if (!token || !calendarId || selectedClosedCount === 0) return;
+    if (!token || !calendarId || !canOpen) return;
     setBusy(true);
     setMsg(null);
     try {
-      const toOpen = selectedList.filter((ymd) => !byYmd.has(ymd));
+      const toOpen = selectedList.filter((ymd) => {
+        const row = byYmd.get(ymd);
+        return !row || row.fullyBooked;
+      });
       for (const ymd of toOpen) {
         await adminFetch('/admin/agenda/open-days', token, {
           method: 'POST',
-          body: JSON.stringify({ calendarId, openDate: ymd, repeatYearly: repeatNext }),
+          body: JSON.stringify({
+            calendarId,
+            openDate: ymd,
+            repeatYearly: byYmd.get(ymd)?.repeatYearly ?? repeatNext,
+            fullyBooked: false,
+          }),
         });
       }
       setMsg(
         toOpen.length === 1
-          ? repeatNext
-            ? '1 dag open gezet (jaarlijks).'
-            : '1 dag open gezet.'
-          : `${toOpen.length} dagen open gezet${repeatNext ? ' (jaarlijks)' : ''}.`,
+          ? '1 dag open gezet.'
+          : `${toOpen.length} dagen open gezet.`,
+      );
+      clearSelection();
+      await loadOpen();
+      router.refresh();
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? e.message : 'Mislukt');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markFullSelected = async () => {
+    if (!token || !calendarId) return;
+    const toFull = selectedList.filter((ymd) => !byYmd.get(ymd)?.fullyBooked);
+    if (toFull.length === 0) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      for (const ymd of toFull) {
+        await adminFetch('/admin/agenda/open-days', token, {
+          method: 'POST',
+          body: JSON.stringify({
+            calendarId,
+            openDate: ymd,
+            repeatYearly: byYmd.get(ymd)?.repeatYearly ?? repeatNext,
+            fullyBooked: true,
+          }),
+        });
+      }
+      setMsg(
+        toFull.length === 1
+          ? '1 dag volgeboekt gezet.'
+          : `${toFull.length} dagen volgeboekt gezet.`,
       );
       clearSelection();
       await loadOpen();
@@ -127,9 +171,10 @@ export default function AdminAgendaOpenDagenPage() {
   };
 
   const closeSelected = async () => {
-    if (!token || !calendarId || selectedOpenCount === 0) return;
+    const existing = selectedOpenCount + selectedFullCount;
+    if (!token || !calendarId || existing === 0) return;
     const ok = window.confirm(
-      `${selectedOpenCount} open dag(en) uitzetten?\n\n` +
+      `${existing} dag(en) uitzetten?\n\n` +
         'Bestaande afspraken blijven staan in de planning.\n' +
         'Alleen nieuwe online boekingen voor die dagen worden gestopt.',
     );
@@ -171,7 +216,7 @@ export default function AdminAgendaOpenDagenPage() {
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Open dagen per agenda</h2>
         <p className="mt-1 text-xs text-muted">
-          Duid meerdere dagen aan en klik daarna op <strong>Open zetten</strong>. Oranje = al open. Dit geldt
+          Duid meerdere dagen aan. Oranje = open. Rood = volgeboekt. Dit geldt
           wanneer de agenda op <strong>alleen open dagen</strong> staat — de standaard; zie anders de melding
           hieronder.
           <br />
@@ -207,19 +252,27 @@ export default function AdminAgendaOpenDagenPage() {
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
-            disabled={busy || selectedClosedCount === 0}
+            disabled={busy || !canOpen}
             onClick={() => void openSelected()}
             className="rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-40"
           >
-            Open zetten{selectedClosedCount ? ` (${selectedClosedCount})` : ''}
+            Open zetten{canOpen ? ` (${selectedClosedCount + selectedFullCount})` : ''}
           </button>
           <button
             type="button"
-            disabled={busy || selectedOpenCount === 0}
+            disabled={busy || selectedList.filter((ymd) => !byYmd.get(ymd)?.fullyBooked).length === 0}
+            onClick={() => void markFullSelected()}
+            className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-40"
+          >
+            Volgeboekt zetten
+          </button>
+          <button
+            type="button"
+            disabled={busy || selectedOpenCount + selectedFullCount === 0}
             onClick={() => void closeSelected()}
             className="rounded-md border border-line bg-panel px-3 py-1.5 text-xs font-medium text-ink hover:bg-zinc-100 disabled:opacity-40"
           >
-            Uitzetten{selectedOpenCount ? ` (${selectedOpenCount})` : ''}
+            Uitzetten{selectedOpenCount + selectedFullCount ? ` (${selectedOpenCount + selectedFullCount})` : ''}
           </button>
           <button
             type="button"
@@ -279,7 +332,13 @@ export default function AdminAgendaOpenDagenPage() {
                         onClick={() => toggleSelectDay(cell.ymd)}
                         title={
                           [
-                            byYmd.get(cell.ymd)?.repeatYearly ? 'Jaarlijks open' : byYmd.has(cell.ymd) ? 'Open' : 'Gesloten',
+                            byYmd.get(cell.ymd)?.fullyBooked
+                              ? 'Volgeboekt'
+                              : byYmd.get(cell.ymd)?.repeatYearly
+                                ? 'Jaarlijks open'
+                                : byYmd.has(cell.ymd)
+                                  ? 'Open'
+                                  : 'Gesloten',
                             selectedYmds.has(cell.ymd) ? 'geselecteerd' : '',
                           ]
                             .filter(Boolean)
@@ -287,9 +346,11 @@ export default function AdminAgendaOpenDagenPage() {
                         }
                         className={[
                           'aspect-square max-h-7 rounded text-[10px] font-medium leading-none',
-                          byYmd.has(cell.ymd)
-                            ? 'bg-amber-500 text-white ring-1 ring-amber-700 hover:bg-amber-600'
-                            : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200',
+                          byYmd.get(cell.ymd)?.fullyBooked
+                            ? 'bg-red-600 text-white ring-1 ring-red-800 hover:bg-red-700'
+                            : byYmd.has(cell.ymd)
+                              ? 'bg-amber-500 text-white ring-1 ring-amber-700 hover:bg-amber-600'
+                              : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200',
                           selectedYmds.has(cell.ymd)
                             ? 'outline outline-2 outline-offset-1 outline-zinc-900'
                             : '',

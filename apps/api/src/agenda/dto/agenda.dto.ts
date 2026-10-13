@@ -489,6 +489,12 @@ export class CreateOpenDayDto {
   @Type(() => Boolean)
   @IsBoolean()
   repeatYearly?: boolean;
+
+  /** true = volgeboekt (rood in admin, niet boekbaar). false = gewone open dag. */
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  fullyBooked?: boolean;
 }
 
 export class AdminOpenDaysQueryDto {

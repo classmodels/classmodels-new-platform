@@ -73,6 +73,8 @@ export const RESERVED_FIELDS_JSON_KEYS = new Set([
   'gsm_moeder',
   'gsm_vader',
   'land',
+  'student',
+  'thuiswonend',
 ]);
 
 export function isReservedFieldsJsonKey(key: string): boolean {

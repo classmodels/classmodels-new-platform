@@ -122,13 +122,19 @@ export function GuestSignupWizard() {
   const [postcode, setPostcode] = useState('');
   const [city, setCity] = useState('');
   const [birthYear, setBirthYear] = useState('');
-  const [parentPresent, setParentPresent] = useState(false);
+  const [street, setStreet] = useState('');
+  const [houseNr, setHouseNr] = useState('');
+  const [student, setStudent] = useState(false);
+  const [livesAtHome, setLivesAtHome] = useState(false);
+  const [parentName, setParentName] = useState('');
+  const [parentPhone, setParentPhone] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [pkg, setPkg] = useState<PackageChoice>(preset);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [slots, setSlots] = useState<SlotDto[]>([]);
+  const [fullyBookedDates, setFullyBookedDates] = useState<string[]>([]);
   const [fields, setFields] = useState<FieldDto[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
@@ -141,6 +147,7 @@ export function GuestSignupWizard() {
 
   const calendarSlug = slugForPackage(pkg);
   const isMinor = (ageFromBirthYear(birthYear) ?? 99) < 18;
+  const needsParent = isMinor || student || livesAtHome;
 
   useEffect(() => {
     if (!preset) return;
@@ -198,12 +205,14 @@ export function GuestSignupWizard() {
       ]);
       if (!fRes.ok || !sRes.ok) throw new Error('Kon agenda niet laden');
       const fJson = (await fRes.json()) as { fields?: FieldDto[] };
-      const sJson = (await sRes.json()) as { slots?: SlotDto[] };
+      const sJson = (await sRes.json()) as { slots?: SlotDto[]; fullyBookedDates?: string[] };
       setFields(fJson.fields ?? []);
       setSlots(sJson.slots ?? []);
+      setFullyBookedDates(sJson.fullyBookedDates ?? []);
     } catch {
       setFields([]);
       setSlots([]);
+      setFullyBookedDates([]);
       setLoadError('De agenda is even niet bereikbaar. Probeer het zo opnieuw.');
     } finally {
       setLoadingSlots(false);
@@ -243,12 +252,15 @@ export function GuestSignupWizard() {
     }
     if (!postcode.trim()) return 'Vul je postcode in.';
     if (!city.trim()) return 'Vul je gemeente in.';
+    if (!street.trim()) return 'Vul je straat in.';
+    if (!houseNr.trim()) return 'Vul je huisnummer in.';
     if (!lastName.trim()) return 'Vul je naam in.';
     if (!firstName.trim()) return 'Vul je voornaam in.';
     if (!phone.trim()) return 'Vul je gsm-nummer in.';
     if (ageFromBirthYear(birthYear) === null) return 'Vul een geldig geboortejaar in.';
-    if (isMinor && !parentPresent) {
-      return 'Bevestig de verplichte aanwezigheid van een ouder of voogd.';
+    if (needsParent) {
+      if (!parentName.trim()) return 'Vul de naam van de ouder in.';
+      if (!parentPhone.trim()) return 'Vul het telefoonnummer van de ouder in.';
     }
     return null;
   };
@@ -312,8 +324,12 @@ export function GuestSignupWizard() {
         telefoon: phone.trim(),
         postcode: postcode.trim(),
         gemeente: city.trim(),
+        straat: street.trim(),
+        nr: houseNr.trim(),
         geboortejaar: birthYear.trim(),
         geboortedatum: `${birthYear.trim()}-01-01`,
+        student: student ? 'ja' : 'nee',
+        thuiswonend: livesAtHome ? 'ja' : 'nee',
         pakket:
           pkg === 'testshoot_intake'
             ? 'Gratis testshoot + intake-gesprek'
@@ -322,8 +338,10 @@ export function GuestSignupWizard() {
       if (pkg === 'testshoot_intake') {
         fieldPayload.opmerkingen = 'Inclusief gratis testshoot';
       }
-      if (isMinor) {
-        fieldPayload.ouder_aanwezig = parentPresent ? 'ja' : 'nee';
+      if (needsParent) {
+        fieldPayload.ouder_aanwezig = 'ja';
+        fieldPayload.ouder_naam = parentName.trim();
+        fieldPayload.ouder_gsm = parentPhone.trim();
       }
 
       const known = new Set(fields.map((f) => f.fieldKey));
@@ -337,11 +355,17 @@ export function GuestSignupWizard() {
           k === 'telefoon' ||
           k === 'postcode' ||
           k === 'gemeente' ||
+          k === 'straat' ||
+          k === 'nr' ||
           k === 'geboortejaar' ||
           k === 'geboortedatum' ||
+          k === 'student' ||
+          k === 'thuiswonend' ||
           k === 'pakket' ||
           k === 'opmerkingen' ||
-          k === 'ouder_aanwezig'
+          k === 'ouder_aanwezig' ||
+          k === 'ouder_naam' ||
+          k === 'ouder_gsm'
         ) {
           mapped[k] = v;
         }
@@ -352,8 +376,12 @@ export function GuestSignupWizard() {
       mapped.telefoon = phone.trim();
       mapped.postcode = postcode.trim();
       mapped.gemeente = city.trim();
+      mapped.straat = street.trim();
+      mapped.nr = houseNr.trim();
       mapped.geboortejaar = birthYear.trim();
       mapped.geboortedatum = `${birthYear.trim()}-01-01`;
+      mapped.student = student ? 'ja' : 'nee';
+      mapped.thuiswonend = livesAtHome ? 'ja' : 'nee';
       mapped.pakket =
         pkg === 'testshoot_intake'
           ? 'Gratis testshoot + intake-gesprek'
@@ -361,7 +389,11 @@ export function GuestSignupWizard() {
       if (pkg === 'testshoot_intake') {
         mapped.opmerkingen = 'Inclusief gratis testshoot';
       }
-      if (isMinor) mapped.ouder_aanwezig = parentPresent ? 'ja' : 'nee';
+      if (needsParent) {
+        mapped.ouder_aanwezig = 'ja';
+        mapped.ouder_naam = parentName.trim();
+        mapped.ouder_gsm = parentPhone.trim();
+      }
 
       fd.append('fields', JSON.stringify(mapped));
       if (photo) {
@@ -407,7 +439,12 @@ export function GuestSignupWizard() {
     setPostcode('');
     setCity('');
     setBirthYear('');
-    setParentPresent(false);
+    setStreet('');
+    setHouseNr('');
+    setStudent(false);
+    setLivesAtHome(false);
+    setParentName('');
+    setParentPhone('');
     clearPhoto();
     setDayYmd(null);
     setSlotId(null);
@@ -515,6 +552,31 @@ export function GuestSignupWizard() {
                 autoComplete="email"
               />
             </label>
+
+            <div className="nieuw-signup-row">
+              <label className="nieuw-signup-label">
+                <span className="sr-only">Straat</span>
+                <input
+                  className="nieuw-signup-input"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  placeholder="Straat"
+                  aria-label="Straat"
+                  autoComplete="address-line1"
+                />
+              </label>
+              <label className="nieuw-signup-label">
+                <span className="sr-only">Nr</span>
+                <input
+                  className="nieuw-signup-input"
+                  value={houseNr}
+                  onChange={(e) => setHouseNr(e.target.value)}
+                  placeholder="Nr"
+                  aria-label="Nr"
+                  autoComplete="address-line2"
+                />
+              </label>
+            </div>
 
             <div className="nieuw-signup-row">
               <label className="nieuw-signup-label">
@@ -644,18 +706,61 @@ export function GuestSignupWizard() {
               )}
             </div>
 
-            {isMinor ? (
+            <div className="nieuw-signup-checks">
               <label className="nieuw-signup-check">
                 <input
                   type="checkbox"
-                  checked={parentPresent}
-                  onChange={(e) => setParentPresent(e.target.checked)}
+                  checked={student}
+                  onChange={(e) => setStudent(e.target.checked)}
                 />
-                <span>
-                  Verplicht: een ouder of voogd is aanwezig bij de afspraak
-                  <small>Omdat je minderjarig bent, is dit nodig.</small>
-                </span>
+                <span>Student</span>
               </label>
+              <label className="nieuw-signup-check">
+                <input
+                  type="checkbox"
+                  checked={livesAtHome}
+                  onChange={(e) => setLivesAtHome(e.target.checked)}
+                />
+                <span>Thuiswonend</span>
+              </label>
+            </div>
+
+            {isMinor ? (
+              <p className="nieuw-signup-note">
+                Indien minderjarig dient er verplicht iemand van de ouders mee aanwezig te zijn.
+              </p>
+            ) : null}
+            {student || livesAtHome ? (
+              <p className="nieuw-signup-note">
+                Indien student of thuiswonend dient er verplicht iemand van de ouders mee aanwezig te zijn.
+              </p>
+            ) : null}
+            {needsParent ? (
+              <div className="nieuw-signup-row">
+                <label className="nieuw-signup-label">
+                  <span className="sr-only">Naam ouder</span>
+                  <input
+                    className="nieuw-signup-input"
+                    value={parentName}
+                    onChange={(e) => setParentName(e.target.value)}
+                    placeholder="Naam ouder"
+                    aria-label="Naam ouder"
+                    autoComplete="name"
+                  />
+                </label>
+                <label className="nieuw-signup-label">
+                  <span className="sr-only">Telefoon ouder</span>
+                  <input
+                    className="nieuw-signup-input"
+                    type="tel"
+                    value={parentPhone}
+                    onChange={(e) => setParentPhone(e.target.value)}
+                    placeholder="Telefoon ouder"
+                    aria-label="Telefoon ouder"
+                    autoComplete="tel"
+                  />
+                </label>
+              </div>
             ) : null}
 
             <button
@@ -730,9 +835,10 @@ export function GuestSignupWizard() {
                     const parts = formatDayParts(ymd);
                     const daySlots = slotsByDay.get(ymd) ?? [];
                     const isPast = ymd < todayYmd;
-                    const hasHours = daySlots.length > 0;
-                    const isClosed = !isPast && !hasHours;
-                    const isUnavailable = isPast || isClosed;
+                    const isFull = !isPast && fullyBookedDates.includes(ymd);
+                    const hasHours = daySlots.length > 0 && !isFull;
+                    const isClosed = !isPast && !isFull && !hasHours;
+                    const isUnavailable = isPast || isClosed || isFull;
                     const isOpen = !isUnavailable && dayYmd === ymd;
                     const first = daySlots[0]?.startTime.slice(0, 5);
                     const last = daySlots[daySlots.length - 1]?.startTime.slice(0, 5);
@@ -769,6 +875,8 @@ export function GuestSignupWizard() {
                             </span>
                           ) : isPast ? (
                             <span className="nieuw-signup-day-range">Datum voorbij</span>
+                          ) : isFull ? (
+                            <span className="nieuw-signup-day-range nieuw-signup-day-full">volgeboekt</span>
                           ) : (
                             <span className="nieuw-signup-day-range">Geen afspraak mogelijk</span>
                           )}

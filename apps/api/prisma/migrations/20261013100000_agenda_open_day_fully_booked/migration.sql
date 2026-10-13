@@ -1,0 +1,1 @@
+ALTER TABLE `AgendaOpenDay` ADD COLUMN `fullyBooked` BOOLEAN NOT NULL DEFAULT false;
