@@ -68,27 +68,40 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       ['waveSlotPlan', 'JSON NULL'],
       ['splitOpenDaysSeeded', 'BOOLEAN NOT NULL DEFAULT false'],
     ]);
-    await this.$executeRawUnsafe(
-      `UPDATE \`AgendaOpenDay\`
-       SET \`fullyBookedTestshoot\` = true, \`fullyBookedIntake\` = true
-       WHERE \`fullyBooked\` = true
-         AND \`fullyBookedTestshoot\` = false
-         AND \`fullyBookedIntake\` = false`,
-    );
+    try {
+      await this.$executeRawUnsafe(
+        `UPDATE \`AgendaOpenDay\`
+         SET \`fullyBookedTestshoot\` = true, \`fullyBookedIntake\` = true
+         WHERE \`fullyBooked\` = true
+           AND \`fullyBookedTestshoot\` = false
+           AND \`fullyBookedIntake\` = false`,
+      );
+    } catch (e) {
+      this.log.warn(
+        `Agenda volzet-backfill overgeslagen: ${e instanceof Error ? e.message : e}`,
+      );
+    }
   }
 
   private async ensureMissingColumns(table: string, columns: Array<[string, string]>) {
-    const colRows = await this.$queryRawUnsafe<Array<{ name: string }>>(
+    const colRows = await this.$queryRawUnsafe<Array<Record<string, unknown>>>(
       `SELECT COLUMN_NAME AS name
        FROM information_schema.COLUMNS
        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '${table}'`,
     );
     if (!colRows.length) return;
-    const have = new Set(colRows.map((r) => String(r.name)));
+    const have = new Set(
+      colRows.map((r) => String(r.name ?? r.NAME ?? r.COLUMN_NAME ?? r.column_name ?? '')),
+    );
     for (const [name, ddl] of columns) {
       if (have.has(name)) continue;
-      await this.$executeRawUnsafe(`ALTER TABLE \`${table}\` ADD COLUMN \`${name}\` ${ddl}`);
-      this.log.log(`${table}.${name} toegevoegd`);
+      try {
+        await this.$executeRawUnsafe(`ALTER TABLE \`${table}\` ADD COLUMN \`${name}\` ${ddl}`);
+        this.log.log(`${table}.${name} toegevoegd`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (!/duplicate column/i.test(msg)) throw e;
+      }
     }
   }
 

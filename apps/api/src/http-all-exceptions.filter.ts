@@ -56,10 +56,13 @@ export class HttpAllExceptionsFilter implements ExceptionFilter {
     );
 
     const isZipPath = String(req.url ?? '').includes('/media/upload-zip');
+    const detail = rawMsg.replace(/\s+/g, ' ').slice(0, 180);
     return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       message: isZipPath
         ? 'ZIP-upload mislukt op de server. Probeer opnieuw; grote ZIP’s worden in delen geüpload. Controleer schijfruimte en serverlogs.'
-        : 'Er ging iets mis op de server. Probeer later opnieuw.',
+        : detail
+          ? `Er ging iets mis op de server. ${detail}`
+          : 'Er ging iets mis op de server. Probeer later opnieuw.',
     });
   }
 }

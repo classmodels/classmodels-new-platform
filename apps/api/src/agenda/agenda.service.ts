@@ -2269,7 +2269,29 @@ export class AgendaService implements OnModuleInit {
   }
 
   async adminUpdateCalendar(id: string, dto: UpdateAgendaCalendarDto) {
-    await this.prisma.ensureAgendaAvailabilityColumns();
+    try {
+      await this.prisma.ensureAgendaAvailabilityColumns();
+    } catch (e) {
+      this.log.warn(`agenda kolommen: ${e instanceof Error ? e.message : e}`);
+    }
+    const onlyKeys = (Object.keys(dto) as (keyof UpdateAgendaCalendarDto)[]).filter(
+      (k) => dto[k] !== undefined,
+    );
+    if (onlyKeys.length === 1 && onlyKeys[0] === 'showOccupiedHours') {
+      const on = dto.showOccupiedHours === true;
+      const write = () =>
+        this.prisma.$executeRaw`
+          UPDATE \`AgendaCalendar\` SET \`showOccupiedHours\` = ${on} WHERE \`id\` = ${id}
+        `;
+      try {
+        await write();
+      } catch (e) {
+        this.log.warn(`showOccupiedHours ${id}: ${e instanceof Error ? e.message : e}`);
+        await this.prisma.ensureAgendaAvailabilityColumns().catch(() => undefined);
+        await write();
+      }
+      return { id, showOccupiedHours: on };
+    }
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     if (dto.slug && dto.slug !== cal.slug) {
@@ -3167,7 +3189,11 @@ export class AgendaService implements OnModuleInit {
   }
 
   async adminAddOpenDay(dto: CreateOpenDayDto) {
-    await this.prisma.ensureAgendaAvailabilityColumns();
+    try {
+      await this.prisma.ensureAgendaAvailabilityColumns();
+    } catch (e) {
+      this.log.warn(`agenda kolommen: ${e instanceof Error ? e.message : e}`);
+    }
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id: dto.calendarId } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     const openDate = parseYmd(dto.openDate);
@@ -3188,25 +3214,54 @@ export class AgendaService implements OnModuleInit {
       testshoot = fullyBooked;
       intake = fullyBooked;
     }
-    const row = await this.prisma.agendaOpenDay.upsert({
-      where: { calendarId_openDate: { calendarId: cal.id, openDate } },
-      create: {
-        calendarId: cal.id,
-        openDate,
-        repeatYearly: dto.repeatYearly ?? false,
-        fullyBooked,
-        fullyBookedTestshoot: testshoot,
-        fullyBookedIntake: intake,
-      },
-      update: {
-        repeatYearly: dto.repeatYearly ?? false,
-        fullyBooked,
-        fullyBookedTestshoot: testshoot,
-        fullyBookedIntake: intake,
-      },
-    });
+    const repeatYearly = dto.repeatYearly ?? false;
+    let row: { id: string };
     try {
-      if (!this.openDayStillOffersSlots(row, cal.slug)) {
+      row = await this.prisma.agendaOpenDay.upsert({
+        where: { calendarId_openDate: { calendarId: cal.id, openDate } },
+        create: {
+          calendarId: cal.id,
+          openDate,
+          repeatYearly,
+          fullyBooked,
+          fullyBookedTestshoot: testshoot,
+          fullyBookedIntake: intake,
+        },
+        update: {
+          repeatYearly,
+          fullyBooked,
+          fullyBookedTestshoot: testshoot,
+          fullyBookedIntake: intake,
+        },
+      });
+    } catch (e) {
+      this.log.warn(`open-day upsert ${cal.slug} ${dto.openDate}: ${e instanceof Error ? e.message : e}`);
+      if (existing) {
+        await this.prisma.$executeRaw`
+          UPDATE \`AgendaOpenDay\`
+          SET \`repeatYearly\` = ${repeatYearly},
+              \`fullyBooked\` = ${fullyBooked},
+              \`fullyBookedTestshoot\` = ${testshoot},
+              \`fullyBookedIntake\` = ${intake}
+          WHERE \`id\` = ${existing.id}
+        `;
+        row = { id: existing.id };
+      } else {
+        const id = randomUUID();
+        await this.prisma.$executeRaw`
+          INSERT INTO \`AgendaOpenDay\`
+            (\`id\`, \`calendarId\`, \`openDate\`, \`repeatYearly\`, \`fullyBooked\`, \`fullyBookedTestshoot\`, \`fullyBookedIntake\`, \`createdAt\`)
+          VALUES
+            (${id}, ${cal.id}, ${openDate}, ${repeatYearly}, ${fullyBooked}, ${testshoot}, ${intake}, NOW())
+        `;
+        row = { id };
+      }
+    }
+    try {
+      if (!this.openDayStillOffersSlots(
+        { fullyBooked, fullyBookedTestshoot: testshoot, fullyBookedIntake: intake },
+        cal.slug,
+      )) {
         await this.clearEmptySlotsOnDay(cal.id, openDate);
       } else {
         await this.reconcileCalendarDaySlots(cal.id, openDate, cal);
@@ -3218,11 +3273,11 @@ export class AgendaService implements OnModuleInit {
     }
     return {
       id: row.id,
-      openDate: row.openDate.toISOString().slice(0, 10),
-      repeatYearly: row.repeatYearly,
-      fullyBooked: row.fullyBooked,
-      fullyBookedTestshoot: row.fullyBookedTestshoot,
-      fullyBookedIntake: row.fullyBookedIntake,
+      openDate: dto.openDate,
+      repeatYearly,
+      fullyBooked,
+      fullyBookedTestshoot: testshoot,
+      fullyBookedIntake: intake,
     };
   }
 

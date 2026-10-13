@@ -21,15 +21,19 @@ type OpenRow = {
   id: string;
   openDate: string;
   repeatYearly: boolean;
-  fullyBooked?: boolean;
-  fullyBookedTestshoot?: boolean;
-  fullyBookedIntake?: boolean;
+  fullyBooked?: boolean | number;
+  fullyBookedTestshoot?: boolean | number;
+  fullyBookedIntake?: boolean | number;
 };
+
+function isFlagOn(v: boolean | number | undefined): boolean {
+  return v === true || v === 1;
+}
 
 function packageFull(row: OpenRow | undefined, kind: 'testshoot' | 'intake'): boolean {
   if (!row) return false;
-  if (kind === 'testshoot') return Boolean(row.fullyBookedTestshoot || row.fullyBooked);
-  return Boolean(row.fullyBookedIntake || row.fullyBooked);
+  if (kind === 'testshoot') return isFlagOn(row.fullyBookedTestshoot) || isFlagOn(row.fullyBooked);
+  return isFlagOn(row.fullyBookedIntake) || isFlagOn(row.fullyBooked);
 }
 
 function monthGrid(year: number, month: number) {
@@ -517,25 +521,26 @@ export default function AdminAgendaOpenDagenPage() {
                         })()}
                         className={[
                           'aspect-square max-h-7 rounded text-[10px] font-medium leading-none',
-                          (() => {
-                            const openRow = byYmd.get(cell.ymd);
-                            if (!openRow) return 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200';
-                            const testshoot = packageFull(openRow, 'testshoot');
-                            const intake = packageFull(openRow, 'intake');
-                            const marked =
-                              Boolean(openRow.fullyBooked) ||
-                              Boolean(openRow.fullyBookedTestshoot) ||
-                              Boolean(openRow.fullyBookedIntake);
-                            const both = isModelWorden ? testshoot && intake : marked;
-                            const partial = isModelWorden && testshoot !== intake;
-                            if (both) return 'bg-red-600 text-white ring-1 ring-red-800 hover:bg-red-700';
-                            if (partial) return 'bg-red-400 text-white ring-1 ring-red-700 hover:bg-red-500';
-                            return 'bg-amber-500 text-white ring-1 ring-amber-700 hover:bg-amber-600';
-                          })(),
+                          !byYmd.get(cell.ymd) ? 'bg-zinc-100 text-zinc-500' : 'text-white',
                           selectedYmds.has(cell.ymd)
                             ? 'outline outline-2 outline-offset-1 outline-zinc-900'
                             : '',
                         ].join(' ')}
+                        style={(() => {
+                          const openRow = byYmd.get(cell.ymd);
+                          if (!openRow) return undefined;
+                          const testshoot = packageFull(openRow, 'testshoot');
+                          const intake = packageFull(openRow, 'intake');
+                          const marked =
+                            isFlagOn(openRow.fullyBooked) ||
+                            isFlagOn(openRow.fullyBookedTestshoot) ||
+                            isFlagOn(openRow.fullyBookedIntake) ||
+                            (isModelWorden && (testshoot || intake));
+                          if (marked) {
+                            return { backgroundColor: '#dc2626', boxShadow: 'inset 0 0 0 2px #7f1d1d', color: '#fff' };
+                          }
+                          return { backgroundColor: '#f59e0b', boxShadow: 'inset 0 0 0 2px #b45309', color: '#fff' };
+                        })()}
                       >
                         {cell.d}
                       </button>
