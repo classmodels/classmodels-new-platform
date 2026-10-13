@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { getApiBase } from '@/lib/api';
 import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
 import { resolveAgendaBookPath } from '@/lib/agenda-phone';
@@ -29,6 +30,16 @@ type WizardStep =
   | 'done_book';
 
 type PackageChoice = 'testshoot_intake' | 'intake_only' | null;
+
+/** ?pakket=testshoot opent meteen de agenda van gratis testshoot + intake. */
+function presetPackage(raw: string | null): PackageChoice {
+  const v = (raw ?? '').trim().toLowerCase();
+  if (v === 'testshoot' || v === 'testshoot_intake' || v === 'gratis-fotoshoot') {
+    return 'testshoot_intake';
+  }
+  if (v === 'intake' || v === 'intake_only') return 'intake_only';
+  return null;
+}
 
 function slugForPackage(_pkg: PackageChoice): string {
   return 'model-worden';
@@ -101,7 +112,9 @@ function ageFromBirthYear(yearStr: string): number | null {
 }
 
 export function GuestSignupWizard() {
-  const [step, setStep] = useState<WizardStep>('package');
+  const searchParams = useSearchParams();
+  const preset = presetPackage(searchParams.get('pakket'));
+  const [step, setStep] = useState<WizardStep>(preset ? 'day' : 'package');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -112,7 +125,7 @@ export function GuestSignupWizard() {
   const [parentPresent, setParentPresent] = useState(false);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [pkg, setPkg] = useState<PackageChoice>(null);
+  const [pkg, setPkg] = useState<PackageChoice>(preset);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [slots, setSlots] = useState<SlotDto[]>([]);
@@ -128,6 +141,16 @@ export function GuestSignupWizard() {
 
   const calendarSlug = slugForPackage(pkg);
   const isMinor = (ageFromBirthYear(birthYear) ?? 99) < 18;
+
+  useEffect(() => {
+    if (!preset) return;
+    setPkg((current) => current ?? preset);
+    setStep((current) => (current === 'package' ? 'day' : current));
+    const scroll = () => document.getElementById('inschrijven')?.scrollIntoView({ block: 'start' });
+    scroll();
+    const t = window.setTimeout(scroll, 80);
+    return () => window.clearTimeout(t);
+  }, [preset]);
 
   useEffect(() => {
     if (!photo) {
@@ -648,7 +671,13 @@ export function GuestSignupWizard() {
 
         {step === 'day' ? (
           <>
-            <h3 className="nieuw-signup-title">Maak uw afspraak</h3>
+            <h3 className="nieuw-signup-title">
+              {pkg === 'testshoot_intake'
+                ? 'Gratis testshoot + intakegesprek'
+                : pkg === 'intake_only'
+                  ? 'Intake-gesprek'
+                  : 'Maak uw afspraak'}
+            </h3>
             <p className="nieuw-signup-sub">
               Kies een dag, daarna kan je een uur kiezen.
             </p>

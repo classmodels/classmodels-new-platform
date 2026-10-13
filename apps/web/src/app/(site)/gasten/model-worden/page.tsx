@@ -226,6 +226,7 @@ export default function ModelWordenPage() {
         id="inschrijven"
         className="nieuw-sectie"
         style={{
+          scrollMarginTop: 12,
           background: 'var(--n-bg-2)',
           borderTop: '1px solid var(--n-hair)',
           borderBottom: '1px solid var(--n-hair)',

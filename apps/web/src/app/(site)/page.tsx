@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { GratisTestshootHomeGate } from '@/components/GratisTestshootHomeGate';
 import { MobileHomeGate } from '@/components/MobileHomeGate';
 import { OpenModellendagHomeGate } from '@/components/OpenModellendagHomeGate';
 import { OpenModellendagSiteCta } from '@/components/OpenModellendagSiteCta';
@@ -24,17 +25,18 @@ export const metadata: Metadata = OPEN_MODELLENDAG_ENABLED
       },
     }
   : {
-      title: 'Modellenbureau België | Model worden & casting',
+      title: 'Gratis testshoot en intakegesprek',
       description:
-        'Class-Models is een modellenbureau in België. Word model via een gratis testshoot, casting of intake-gesprek. Bedrijven boeken modellen voor campagnes, events en fotoshoots.',
+        'Modellenwerk? Ontdek het bij Class-Models met een gratis testshoot en een persoonlijk intakegesprek. Iedereen is welkom — ervaring is niet nodig.',
       alternates: { canonical: '/' },
       openGraph: {
-        title: 'Class-Models | Modellenbureau België',
+        title: 'Gratis testshoot en intakegesprek | Class-Models',
         description:
-          'Model worden of modellen boeken? Class-Models begeleidt nieuwe gezichten en levert professionele casting voor merken.',
+          'Gewone mensen. Bijzondere uitstraling. Kennismaken met een gratis testshoot en een persoonlijk intakegesprek, zonder verplichtingen.',
         url: 'https://www.class-models.be',
         locale: 'nl_BE',
         type: 'website',
+        images: [{ url: 'https://www.class-models.be/nieuw/gratis-testshoot-intake.jpg' }],
       },
     };
 
@@ -94,6 +96,7 @@ export default function NieuwHomePage() {
   return (
     <Suspense fallback={<div className="min-h-[100dvh]" style={{ background: '#0a0908' }} />}>
       <OpenModellendagHomeGate>
+        <GratisTestshootHomeGate>
         <MobileHomeGate>
           <NieuwShell portal="home">
             <script
@@ -249,6 +252,7 @@ Diversiteit, flexibiliteit en persoonlijke begeleiding staan centraal.`}
       </section>
           </NieuwShell>
         </MobileHomeGate>
+        </GratisTestshootHomeGate>
       </OpenModellendagHomeGate>
     </Suspense>
   );
