@@ -119,7 +119,7 @@ function ageFromBirthYear(yearStr: string): number | null {
 export function GuestSignupWizard() {
   const searchParams = useSearchParams();
   const preset = presetPackage(searchParams.get('pakket'));
-  const [step, setStep] = useState<WizardStep>(preset ? 'day' : 'package');
+  const [step, setStep] = useState<WizardStep>(preset && preset !== 'modellendag' ? 'day' : 'package');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -135,7 +135,7 @@ export function GuestSignupWizard() {
   const [parentPhone, setParentPhone] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [pkg, setPkg] = useState<PackageChoice>(preset);
+  const [pkg, setPkg] = useState<PackageChoice>(preset === 'modellendag' ? null : preset);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const [slots, setSlots] = useState<SlotDto[]>([]);
@@ -160,24 +160,36 @@ export function GuestSignupWizard() {
     fetch(`${base}/agenda/guest-menu`)
       .then((r) => (r.ok ? r.json() : []))
       .then((rows: Array<{ slug?: string }>) => {
-        if (Array.isArray(rows) && rows.length) {
+        if (Array.isArray(rows)) {
           setMenuSlugs(rows.map((x) => String(x.slug)));
         }
       })
-      .catch(() => {});
+      .catch(() => setMenuSlugs([]));
   }, []);
 
-  const showChoice = (slug: string) => !menuSlugs || menuSlugs.includes(slug);
+  /** Modellendag alleen als die agenda in de backoffice op zichtbaar staat. */
+  const showChoice = (slug: string) => {
+    if (slug === 'modellendag') return Boolean(menuSlugs?.includes('modellendag'));
+    return !menuSlugs || menuSlugs.includes(slug);
+  };
+
+  useEffect(() => {
+    if (!menuSlugs || pkg !== 'modellendag') return;
+    if (menuSlugs.includes('modellendag')) return;
+    setPkg(null);
+    setStep('package');
+  }, [menuSlugs, pkg]);
 
   useEffect(() => {
     if (!preset) return;
+    if (preset === 'modellendag' && !menuSlugs?.includes('modellendag')) return;
     setPkg((current) => current ?? preset);
     setStep((current) => (current === 'package' ? 'day' : current));
     const scroll = () => document.getElementById('inschrijven')?.scrollIntoView({ block: 'start' });
     scroll();
     const t = window.setTimeout(scroll, 80);
     return () => window.clearTimeout(t);
-  }, [preset]);
+  }, [preset, menuSlugs]);
 
   useEffect(() => {
     if (!photo) {

@@ -219,7 +219,7 @@ export async function ensureSplitGuestAgendas(prisma: PrismaClient) {
         weekdayOpenMask: 0,
         defaultDayStartTime: '10:00:00',
         defaultDayEndTime: '18:00:00',
-        agendaVisible: true,
+        agendaVisible: false,
         homePublished: false,
         waveBooking: true,
         waveSlotPlan: [{ start: '11:00', capacity: 4 }],
@@ -269,7 +269,7 @@ export async function ensureSplitGuestAgendas(prisma: PrismaClient) {
 
   await seedHomeOnce(prisma, 'modellendag', {
     homePublished: false,
-    agendaVisible: true,
+    agendaVisible: false,
     homeKicker: 'Class-Models',
     homeTitle: 'Modellendag · Gratis initiatieles',
     homeLead: 'Kom kennismaken tijdens de modellendag.',
