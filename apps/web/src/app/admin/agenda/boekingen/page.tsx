@@ -8,13 +8,7 @@ import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEdit
 import { normalizeHm } from '@/components/admin-agenda/normalize-hm';
 import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
 import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
-import {
-  bookingAgendaDisplayLabel,
-  bookingPackageBadge,
-  expandAgendaCalendarIdsForQuery,
-  isLegacyGuestAgendaSlug,
-  MODEL_WORDEN_FAMILY_SLUGS,
-} from '@/lib/model-worden-agenda';
+import { bookingAgendaDisplayLabel, detectModelWordenPackage } from '@/lib/model-worden-agenda';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 import { printAttendanceList } from '@/lib/agenda-print-attendance';
@@ -61,6 +55,21 @@ type BookingDetail = {
 };
 
 const STATUS_OPTS = AGENDA_BOOKING_STATUS_OPTS;
+
+/** Zwarte agenda-knoppen. Model worden hoort hier niet bij; oude afspraken vallen onder intake of fotoshoot. */
+const BOOKING_GROUPS = [
+  { slug: 'opleiding', label: 'Opleiding afspraak' },
+  { slug: 'portfolio', label: 'Aanmaak portfolio' },
+  { slug: 'intake-gesprek', label: 'Intake-gesprek' },
+  { slug: 'gratis-fotoshoot', label: 'Gratis testshoot + intake' },
+  { slug: 'modellendag', label: 'Modellendag' },
+] as const;
+
+function groupSlugForBooking(b: { calendar: { slug: string }; fieldsJson?: Record<string, unknown> }): string | null {
+  if (BOOKING_GROUPS.some((g) => g.slug === b.calendar.slug)) return b.calendar.slug;
+  if (b.calendar.slug !== 'model-worden' && b.calendar.slug !== 'casting') return null;
+  return detectModelWordenPackage(b.fieldsJson) === 'testshoot_intake' ? 'gratis-fotoshoot' : 'intake-gesprek';
+}
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -131,7 +140,9 @@ export default function AdminAgendaBoekingenPage() {
   const { token } = useAuth();
   const router = useRouter();
   const [calendars, setCalendars] = useState<Cal[]>([]);
-  const [selectedCalIds, setSelectedCalIds] = useState<Set<string>>(() => new Set());
+  const [selectedSlugs, setSelectedSlugs] = useState<Set<string>>(
+    () => new Set(BOOKING_GROUPS.map((g) => g.slug)),
+  );
   const [calsReady, setCalsReady] = useState(false);
 
   const [refYmd, setRefYmd] = useState(() => ymd(new Date()));
@@ -171,20 +182,30 @@ export default function AdminAgendaBoekingenPage() {
     if (!token) return;
     const rows = await adminFetch<Cal[]>('/admin/agenda/calendars', token);
     setCalendars(rows);
-    // Alle agenda's selecteren (incl. legacy intake/casting/fotoshoot) zodat historische
-    // boekingen zichtbaar blijven. Knoppen tonen we apart zonder legacy-labels.
-    setSelectedCalIds(new Set(rows.map((c) => c.id)));
     setCalsReady(true);
   }, [token]);
 
   const loadBookings = useCallback(async () => {
-    if (!token || !calsReady || selectedCalIds.size === 0) {
+    if (!token || !calsReady || selectedSlugs.size === 0) {
       setBookings([]);
       return;
     }
     setLoading(true);
     try {
-      const ids = expandAgendaCalendarIdsForQuery(selectedCalIds, calendars).join(',');
+      const wanted = new Set<string>(selectedSlugs);
+      if (wanted.has('intake-gesprek') || wanted.has('gratis-fotoshoot')) {
+        wanted.add('model-worden');
+        wanted.add('casting');
+      }
+      const ids = calendars
+        .filter((c) => wanted.has(c.slug))
+        .map((c) => c.id)
+        .join(',');
+      if (!ids) {
+        setBookings([]);
+        setLoading(false);
+        return;
+      }
       const q = `/admin/agenda/bookings-range?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}&calendarIds=${encodeURIComponent(ids)}&statuses=${encodeURIComponent(statusesParam)}`;
       const rows = await adminFetch<BookingRow[]>(q, token);
       setBookings(rows);
@@ -194,7 +215,7 @@ export default function AdminAgendaBoekingenPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, calsReady, selectedCalIds, calendars, range.from, range.to, statusesParam]);
+  }, [token, calsReady, selectedSlugs, calendars, range.from, range.to, statusesParam]);
 
   useEffect(() => {
     loadCals().catch(() => {});
@@ -214,16 +235,28 @@ export default function AdminAgendaBoekingenPage() {
         return terms.every((t) => hay.includes(t));
       });
     }
-    return rows;
-  }, [bookings, showPastBookings, nameQuery]);
+    return rows.filter((b) => {
+      const group = groupSlugForBooking(b);
+      return group != null && selectedSlugs.has(group);
+    });
+  }, [bookings, showPastBookings, nameQuery, selectedSlugs]);
+
+  const bookingGroups = useMemo(
+    () =>
+      BOOKING_GROUPS.filter((g) => selectedSlugs.has(g.slug)).map((g) => ({
+        ...g,
+        rows: visibleBookings.filter((b) => groupSlugForBooking(b) === g.slug),
+      })),
+    [selectedSlugs, visibleBookings],
+  );
 
   const df = useMemo(() => new Intl.DateTimeFormat('nl-BE', { dateStyle: 'medium', timeStyle: 'short' }), []);
 
-  const toggleCal = (id: string) => {
-    setSelectedCalIds((prev) => {
+  const toggleSlug = (slug: string) => {
+    setSelectedSlugs((prev) => {
       const n = new Set(prev);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
+      if (n.has(slug)) n.delete(slug);
+      else n.add(slug);
       return n;
     });
   };
@@ -249,34 +282,6 @@ export default function AdminAgendaBoekingenPage() {
   const toggleAllVisible = () => {
     if (selectedIds.size === visibleBookings.length) setSelectedIds(new Set());
     else setSelectedIds(new Set(visibleBookings.map((b) => b.id)));
-  };
-
-  const selectCalendarsBySlug = (slugs: string[]) => {
-    const expanded = slugs.includes('model-worden')
-      ? [...new Set([...slugs, ...MODEL_WORDEN_FAMILY_SLUGS])]
-      : slugs;
-    const ids = calendars.filter((c) => expanded.includes(c.slug)).map((c) => c.id);
-    if (!ids.length) return;
-    setSelectedCalIds(new Set(ids));
-  };
-
-  /** Filterknoppen: legacy intake/casting/fotoshoot verbergen, data blijft wel in de query. */
-  const filterCalendars = calendars.filter((c) => !isLegacyGuestAgendaSlug(c.slug));
-
-  const toggleModelWordenFamily = () => {
-    const familyIds = calendars
-      .filter((c) =>
-        MODEL_WORDEN_FAMILY_SLUGS.includes(c.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number]),
-      )
-      .map((c) => c.id);
-    if (!familyIds.length) return;
-    setSelectedCalIds((prev) => {
-      const n = new Set(prev);
-      const anyOn = familyIds.some((id) => n.has(id));
-      if (anyOn) familyIds.forEach((id) => n.delete(id));
-      else familyIds.forEach((id) => n.add(id));
-      return n;
-    });
   };
 
   const printSelected = () => {
@@ -563,59 +568,18 @@ export default function AdminAgendaBoekingenPage() {
         <div className="mt-4 border-t border-line pt-3">
           <p className="text-xs font-medium text-ink">Agenda&apos;s</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => setSelectedCalIds(new Set(calendars.map((c) => c.id)))}
-              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
-            >
-              Alle
-            </button>
-            <button
-              type="button"
-              onClick={() => selectCalendarsBySlug(['opleiding'])}
-              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
-            >
-              Alleen opleiding
-            </button>
-            <button
-              type="button"
-              onClick={() => selectCalendarsBySlug(['portfolio'])}
-              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
-            >
-              Alleen portfolio
-            </button>
-            <button
-              type="button"
-              onClick={() => selectCalendarsBySlug(['opleiding', 'portfolio'])}
-              className="rounded-lg border border-line bg-panel px-2 py-1 text-[11px] font-medium text-ink hover:bg-zinc-100"
-            >
-              Opleiding + portfolio
-            </button>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {filterCalendars.map((c) => (
+            {BOOKING_GROUPS.map((g) => (
               <button
-                key={c.id}
+                key={g.slug}
                 type="button"
-                onClick={() => {
-                  if (c.slug === 'model-worden') toggleModelWordenFamily();
-                  else toggleCal(c.id);
-                }}
+                onClick={() => toggleSlug(g.slug)}
                 className={`rounded-lg border px-2 py-1 text-[11px] font-medium ${
-                  selectedCalIds.has(c.id) ||
-                  (c.slug === 'model-worden' &&
-                    calendars
-                      .filter((x) =>
-                        MODEL_WORDEN_FAMILY_SLUGS.includes(
-                          x.slug as (typeof MODEL_WORDEN_FAMILY_SLUGS)[number],
-                        ),
-                      )
-                      .some((x) => selectedCalIds.has(x.id)))
+                  selectedSlugs.has(g.slug)
                     ? 'border-zinc-900 bg-zinc-900 text-white'
                     : 'border-line bg-white text-ink'
                 }`}
               >
-                {c.title}
+                {g.label}
               </button>
             ))}
           </div>
@@ -714,18 +678,29 @@ export default function AdminAgendaBoekingenPage() {
                 <th className="py-2 font-medium">Actie</th>
               </tr>
             </thead>
-            <tbody>
-              {visibleBookings.map((b) => {
+            {bookingGroups.map((group) => (
+            <tbody key={group.slug}>
+              <tr>
+                <td colSpan={7} className="bg-zinc-900 px-2 py-2 text-[12px] font-semibold text-white">
+                  {group.label}
+                  <span className="ml-2 font-normal text-zinc-300">
+                    {group.rows.length} boeking{group.rows.length === 1 ? '' : 'en'}
+                  </span>
+                </td>
+              </tr>
+              {group.rows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-2 text-[11px] text-muted">
+                    Geen boekingen in deze agenda.
+                  </td>
+                </tr>
+              ) : null}
+              {group.rows.map((b) => {
                 const slotD = b.slot?.slotDate?.slice(0, 10);
                 const nm =
                   b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
                 const cancelled = isCancelledAgendaStatus(b.status);
                 const acknowledged = b.status === 'acknowledged';
-                const fj =
-                  b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
-                    ? (b.fieldsJson as Record<string, unknown>)
-                    : null;
-                const packageBadge = bookingPackageBadge(b.calendar.slug, fj);
                 return (
                   <tr key={b.id} className="border-b border-line/80">
                     <td className="py-2 pr-2 align-top">
@@ -748,16 +723,7 @@ export default function AdminAgendaBoekingenPage() {
                       ) : null}
                     </td>
                     <td className="py-2 pr-3 align-top">
-                      <div className="text-muted">
-                        {b.calendar.title}
-                      </div>
-                      {packageBadge ? (
-                        <div className="mt-0.5 inline-block rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                          {packageBadge}
-                        </div>
-                      ) : b.calendar.slug === 'model-worden' ? (
-                        <div className="mt-0.5 text-[10px] font-medium text-amber-800">Pakket niet ingevuld</div>
-                      ) : null}
+                      <div className="text-muted">{group.label}</div>
                     </td>
                     <td className="py-2 pr-3 align-top">{nm}</td>
                     <td className="py-2 pr-3 align-top text-muted">
@@ -814,6 +780,7 @@ export default function AdminAgendaBoekingenPage() {
                 );
               })}
             </tbody>
+            ))}
           </table>
         </div>
         {!visibleBookings.length && !loading ? (
@@ -838,11 +805,12 @@ export default function AdminAgendaBoekingenPage() {
                   <div>
                     <h3 className="text-lg font-bold text-ink">Bewerk reserveringsdetails</h3>
                     <span className="mt-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-muted">
-                      {bookingAgendaDisplayLabel(
-                        detail.calendar.slug,
-                        detail.calendar.title,
-                        detail.fieldsJson,
-                      )}
+                      {BOOKING_GROUPS.find((g) => g.slug === groupSlugForBooking(detail))?.label ??
+                        bookingAgendaDisplayLabel(
+                          detail.calendar.slug,
+                          detail.calendar.title,
+                          detail.fieldsJson,
+                        )}
                     </span>
                   </div>
                   <button type="button" className="text-2xl leading-none text-zinc-400 hover:text-ink" onClick={closeDetail}>
@@ -860,7 +828,12 @@ export default function AdminAgendaBoekingenPage() {
                   setSchedStart={setSchedStart}
                   schedEnd={schedEnd}
                   setSchedEnd={setSchedEnd}
-                  calendars={calendars.map((c) => ({ id: c.id, title: c.title }))}
+                  calendars={calendars
+                    .filter((c) => BOOKING_GROUPS.some((g) => g.slug === c.slug))
+                    .map((c) => ({
+                      id: c.id,
+                      title: BOOKING_GROUPS.find((g) => g.slug === c.slug)?.label ?? c.title,
+                    }))}
                   statusOpts={STATUS_OPTS}
                   adminToken={token}
                 />
