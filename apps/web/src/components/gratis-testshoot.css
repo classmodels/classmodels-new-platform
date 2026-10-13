@@ -7,7 +7,7 @@
     linear-gradient(180deg, #0a0908 0%, #12100e 45%, #0a0908 100%);
   color: var(--gts-ink);
   min-height: 100dvh;
-  padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 36px;
 }
 .gts-hero {
   padding: 20px 0 28px;
@@ -22,6 +22,14 @@
   gap: 28px 36px;
   align-items: start;
 }
+.gts-side {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 18px;
+  position: sticky;
+  top: 16px;
+}
 .gts-poster {
   margin: 0;
   padding: 0;
@@ -31,8 +39,6 @@
   background: #1a1612;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
   cursor: pointer;
-  position: sticky;
-  top: 16px;
   display: block;
   width: 100%;
   text-align: left;
@@ -62,7 +68,7 @@
   line-height: 1.12;
   color: #fff;
 }
-.gts-lead {
+.gts-copy p.gts-lead {
   margin: 12px 0 0;
   font-size: 1.05rem;
   line-height: 1.45;
@@ -92,14 +98,14 @@
 .gts-questions li + li {
   margin-top: 4px;
 }
-.gts-pull {
+.gts-copy p.gts-pull {
   margin: 18px 0 0;
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: clamp(1.45rem, 2.4vw, 1.85rem);
   line-height: 1.2;
   color: #fff;
 }
-.gts-highlight {
+.gts-copy p.gts-highlight {
   margin: 18px 0 0;
   padding: 14px 16px;
   border-radius: 12px;
@@ -109,26 +115,15 @@
   line-height: 1.55;
   font-weight: 700;
 }
-.gts-close {
+.gts-copy p.gts-close {
   margin: 16px 0 0;
   font-size: 1.02rem;
   line-height: 1.5;
   color: #fff;
   font-weight: 650;
 }
-.gts-dock {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 40;
-  display: flex;
-  justify-content: center;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(180deg, rgba(10, 9, 8, 0), #0a0908 42%);
-}
 .gts-go {
-  width: min(420px, 100%);
+  width: 100%;
   min-height: 52px;
   border: 0;
   border-radius: 12px;
@@ -152,10 +147,14 @@
     grid-template-columns: 1fr;
     gap: 18px;
   }
-  .gts-poster {
+  .gts-side {
     position: static;
-    max-width: 440px;
+    width: min(440px, 100%);
     margin: 0 auto;
+  }
+  .gts-poster {
+    max-width: none;
+    margin: 0;
   }
   .gts-hero {
     padding: 12px 0 8px;

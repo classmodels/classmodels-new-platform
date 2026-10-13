@@ -24,23 +24,28 @@ export function GratisTestshootLanding() {
       <section className="gts-hero" aria-labelledby="gts-title">
         <div className="gts-wrap">
           <div className="gts-grid">
-            <button
-              type="button"
-              className="gts-poster"
-              onClick={go}
-              aria-label="Ga verder naar de agenda voor een gratis testshoot en intakegesprek"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={POSTER}
-                alt="Gratis testshoot en intakegesprek bij Class-Models. Iedereen is welkom, ervaring is niet nodig."
-                width={1024}
-                height={1536}
-                loading="eager"
-                decoding="async"
-                fetchPriority="high"
-              />
-            </button>
+            <div className="gts-side">
+              <button
+                type="button"
+                className="gts-poster"
+                onClick={go}
+                aria-label="Ga verder naar de agenda voor een gratis testshoot en intakegesprek"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={POSTER}
+                  alt="Gratis testshoot en intakegesprek bij Class-Models. Iedereen is welkom, ervaring is niet nodig."
+                  width={1024}
+                  height={1536}
+                  loading="eager"
+                  decoding="async"
+                  fetchPriority="high"
+                />
+              </button>
+              <button type="button" className="gts-go" onClick={go}>
+                Ga verder
+              </button>
+            </div>
 
             <div className="gts-copy">
               <p className="gts-kicker">Class-Models</p>
@@ -122,11 +127,6 @@ export function GratisTestshootLanding() {
           </div>
         </div>
       </section>
-      <div className="gts-dock">
-        <button type="button" className="gts-go" onClick={go}>
-          Ga verder
-        </button>
-      </div>
     </div>
   );
 }
