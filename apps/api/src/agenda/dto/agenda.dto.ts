@@ -14,6 +14,7 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -215,6 +216,18 @@ export class CreateAgendaCalendarDto {
   planningTextOnColor?: 'white' | 'black';
 }
 
+export class WaveSlotPlanItemDto {
+  @IsString()
+  @Matches(/^([01]?\d|2[0-3]):[0-5]\d$/)
+  start!: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  capacity!: number;
+}
+
 export class UpdateAgendaCalendarDto {
   @IsOptional()
   @IsString()
@@ -314,6 +327,64 @@ export class UpdateAgendaCalendarDto {
   @Type(() => Boolean)
   @IsBoolean()
   showOccupiedHoursIntake?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  showOccupiedHours?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  agendaVisible?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  homePublished?: boolean;
+
+  @IsOptional()
+  @IsString()
+  homeKicker?: string;
+
+  @IsOptional()
+  @IsString()
+  homeTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  homeLead?: string;
+
+  @IsOptional()
+  @IsString()
+  homeBody?: string;
+
+  @IsOptional()
+  @IsString()
+  homeHighlight?: string;
+
+  @IsOptional()
+  @IsString()
+  homeClose?: string;
+
+  @IsOptional()
+  @IsString()
+  homeButtonLabel?: string;
+
+  @IsOptional()
+  @IsString()
+  homeImageUrl?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  waveBooking?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WaveSlotPlanItemDto)
+  waveSlotPlan?: WaveSlotPlanItemDto[];
 
   @IsOptional()
   @Type(() => Number)

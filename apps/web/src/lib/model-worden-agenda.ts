@@ -1,10 +1,7 @@
 /** Spiegel van API model-worden-mail helpers (admin UI). */
 
-export const LEGACY_GUEST_AGENDA_SLUGS = [
-  'intake-gesprek',
-  'casting',
-  'gratis-fotoshoot',
-] as const;
+/** Alleen casting blijft verborgen. Fotoshoot, intake en modellendag zijn aparte agenda's. */
+export const LEGACY_GUEST_AGENDA_SLUGS = ['casting'] as const;
 
 export const MODEL_WORDEN_FAMILY_SLUGS = [
   'model-worden',
@@ -128,9 +125,7 @@ export function normalizeTemplateSlugPick(slugs: Iterable<string>): Set<string> 
   for (const raw of slugs) {
     const s = String(raw).trim();
     if (!s) continue;
-    if (s === 'intake-gesprek') n.add(MODEL_WORDEN_PKG_TARGET_INTAKE);
-    else if (s === 'gratis-fotoshoot') n.add(MODEL_WORDEN_PKG_TARGET_TESTSHOOT);
-    else if (s === 'casting') {
+    if (s === 'casting') {
       n.add(MODEL_WORDEN_PKG_TARGET_INTAKE);
       n.add(MODEL_WORDEN_PKG_TARGET_TESTSHOOT);
     } else if (s === 'model-worden') {
@@ -191,8 +186,6 @@ export function bookingAgendaDisplayLabel(
     if (pkg === 'intake_only') return 'Model worden · Alleen intake';
     return 'Model worden';
   }
-  if (calendarSlug === 'gratis-fotoshoot') return 'Model worden · Intake + fotoshoot';
-  if (calendarSlug === 'intake-gesprek') return 'Model worden · Alleen intake';
   if (calendarSlug === 'casting') return 'Model worden · Casting';
   return calendarTitle;
 }
@@ -202,18 +195,10 @@ export function bookingPackageBadge(
   calendarSlug: string,
   fields: Record<string, unknown> | null | undefined,
 ): string | null {
-  if (
-    calendarSlug === 'model-worden' ||
-    calendarSlug === 'gratis-fotoshoot' ||
-    calendarSlug === 'intake-gesprek'
-  ) {
+  if (calendarSlug === 'model-worden') {
     const pkg = detectModelWordenPackage(fields);
-    if (pkg === 'testshoot_intake' || calendarSlug === 'gratis-fotoshoot') {
-      return 'Intake + fotoshoot';
-    }
-    if (pkg === 'intake_only' || calendarSlug === 'intake-gesprek') {
-      return 'Alleen intake';
-    }
+    if (pkg === 'testshoot_intake') return 'Intake + fotoshoot';
+    if (pkg === 'intake_only') return 'Alleen intake';
   }
   return null;
 }

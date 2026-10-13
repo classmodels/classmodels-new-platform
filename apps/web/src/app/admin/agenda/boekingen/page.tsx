@@ -749,9 +749,7 @@ export default function AdminAgendaBoekingenPage() {
                     </td>
                     <td className="py-2 pr-3 align-top">
                       <div className="text-muted">
-                        {b.calendar.slug === 'model-worden' || isLegacyGuestAgendaSlug(b.calendar.slug)
-                          ? 'Model worden'
-                          : b.calendar.title}
+                        {b.calendar.title}
                       </div>
                       {packageBadge ? (
                         <div className="mt-0.5 inline-block rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-semibold text-white">

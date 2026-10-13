@@ -13,6 +13,7 @@ type SlotDto = {
   endTime: string;
   remaining?: number;
   occupied?: boolean;
+  waveFull?: boolean;
 };
 
 type FieldDto = {
@@ -30,7 +31,7 @@ type WizardStep =
   | 'day'
   | 'done_book';
 
-type PackageChoice = 'testshoot_intake' | 'intake_only' | null;
+type PackageChoice = 'testshoot_intake' | 'intake_only' | 'modellendag' | null;
 
 /** ?pakket=testshoot opent meteen de agenda van gratis testshoot + intake. */
 function presetPackage(raw: string | null): PackageChoice {
@@ -39,11 +40,14 @@ function presetPackage(raw: string | null): PackageChoice {
     return 'testshoot_intake';
   }
   if (v === 'intake' || v === 'intake_only') return 'intake_only';
+  if (v === 'modellendag' || v === 'initiatieles') return 'modellendag';
   return null;
 }
 
-function slugForPackage(_pkg: PackageChoice): string {
-  return 'model-worden';
+function slugForPackage(pkg: PackageChoice): string {
+  if (pkg === 'intake_only') return 'intake-gesprek';
+  if (pkg === 'modellendag') return 'modellendag';
+  return 'gratis-fotoshoot';
 }
 
 function formatDayLabel(ymd: string): string {
@@ -145,10 +149,25 @@ export function GuestSignupWizard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cancelUrl, setCancelUrl] = useState<string | null>(null);
+  const [menuSlugs, setMenuSlugs] = useState<string[] | null>(null);
 
   const calendarSlug = slugForPackage(pkg);
   const isMinor = (ageFromBirthYear(birthYear) ?? 99) < 18;
   const needsParent = isMinor || student || livesAtHome;
+
+  useEffect(() => {
+    const base = getApiBase();
+    fetch(`${base}/agenda/guest-menu`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: Array<{ slug?: string }>) => {
+        if (Array.isArray(rows) && rows.length) {
+          setMenuSlugs(rows.map((x) => String(x.slug)));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const showChoice = (slug: string) => !menuSlugs || menuSlugs.includes(slug);
 
   useEffect(() => {
     if (!preset) return;
@@ -201,16 +220,21 @@ export function GuestSignupWizard() {
       const to = ymdEuropeBrussels(toD);
       const pakketQ = packageChoice ? `&pakket=${encodeURIComponent(packageChoice)}` : '';
       const q = `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${pakketQ}`;
-      const [fRes, sRes] = await Promise.all([
-        fetch(`${base}/agenda/fields/${encodeURIComponent(slug)}`),
-        fetch(`${base}/agenda/slots/${encodeURIComponent(slug)}?${q}`),
-      ]);
-      if (!fRes.ok || !sRes.ok) throw new Error('Kon agenda niet laden');
-      const fJson = (await fRes.json()) as { fields?: FieldDto[] };
-      const sJson = (await sRes.json()) as { slots?: SlotDto[]; fullyBookedDates?: string[] };
-      setFields(fJson.fields ?? []);
-      setSlots(sJson.slots ?? []);
-      setFullyBookedDates(sJson.fullyBookedDates ?? []);
+      const loadOne = async (calendarSlug: string) => {
+        const [fRes, sRes] = await Promise.all([
+          fetch(`${base}/agenda/fields/${encodeURIComponent(calendarSlug)}`),
+          fetch(`${base}/agenda/slots/${encodeURIComponent(calendarSlug)}?${q}`),
+        ]);
+        if (!fRes.ok || !sRes.ok) return null;
+        const fJson = (await fRes.json()) as { fields?: FieldDto[] };
+        const sJson = (await sRes.json()) as { slots?: SlotDto[]; fullyBookedDates?: string[] };
+        return { fields: fJson.fields ?? [], slots: sJson.slots ?? [], fullyBookedDates: sJson.fullyBookedDates ?? [] };
+      };
+      const loaded = (await loadOne(slug)) ?? (slug === 'model-worden' ? null : await loadOne('model-worden'));
+      if (!loaded) throw new Error('Kon agenda niet laden');
+      setFields(loaded.fields);
+      setSlots(loaded.slots);
+      setFullyBookedDates(loaded.fullyBookedDates);
     } catch {
       setFields([]);
       setSlots([]);
@@ -335,7 +359,9 @@ export function GuestSignupWizard() {
         pakket:
           pkg === 'testshoot_intake'
             ? 'Gratis testshoot + intake-gesprek'
-            : 'Alleen intake-gesprek',
+            : pkg === 'modellendag'
+              ? 'Modellendag · Gratis initiatieles'
+              : 'Alleen intake-gesprek',
       };
       if (pkg === 'testshoot_intake') {
         fieldPayload.opmerkingen = 'Inclusief gratis testshoot';
@@ -387,7 +413,9 @@ export function GuestSignupWizard() {
       mapped.pakket =
         pkg === 'testshoot_intake'
           ? 'Gratis testshoot + intake-gesprek'
-          : 'Alleen intake-gesprek';
+          : pkg === 'modellendag'
+            ? 'Modellendag · Gratis initiatieles'
+            : 'Alleen intake-gesprek';
       if (pkg === 'testshoot_intake') {
         mapped.opmerkingen = 'Inclusief gratis testshoot';
       }
@@ -506,6 +534,7 @@ export function GuestSignupWizard() {
           <>
             <h3 className="nieuw-signup-title">Maak een afspraak</h3>
             <p className="nieuw-signup-sub">Maak uw keuze — afspraak op Provinciebaan 3, 2235 Hulshout</p>
+            {showChoice('gratis-fotoshoot') ? (
             <button
               type="button"
               className={`nieuw-signup-choice${pkg === 'testshoot_intake' ? ' is-on' : ''}`}
@@ -517,6 +546,8 @@ export function GuestSignupWizard() {
                 <small>Eerst voor de camera, daarna vrijblijvend advies over jouw kansen.</small>
               </span>
             </button>
+            ) : null}
+            {showChoice('intake-gesprek') ? (
             <button
               type="button"
               className={`nieuw-signup-choice${pkg === 'intake_only' ? ' is-on' : ''}`}
@@ -528,6 +559,20 @@ export function GuestSignupWizard() {
                 <small>Persoonlijk kennismaken in Hulshout — zonder fotoshoot.</small>
               </span>
             </button>
+            ) : null}
+            {showChoice('modellendag') ? (
+            <button
+              type="button"
+              className={`nieuw-signup-choice${pkg === 'modellendag' ? ' is-on' : ''}`}
+              onClick={() => setPkg('modellendag')}
+            >
+              <span className="nieuw-signup-radio" aria-hidden />
+              <span>
+                <strong>Modellendag · Gratis initiatieles</strong>
+                <small>Een gratis initiatieles. Het volgende uur opent als het vorige volzet is.</small>
+              </span>
+            </button>
+            ) : null}
             <button type="button" className="nieuw-btn nieuw-signup-cta" onClick={goFromPackage}>
               Volgende stap →
             </button>
@@ -783,7 +828,9 @@ export function GuestSignupWizard() {
                 ? 'Gratis testshoot + intakegesprek'
                 : pkg === 'intake_only'
                   ? 'Intake-gesprek'
-                  : 'Maak uw afspraak'}
+                  : pkg === 'modellendag'
+                    ? 'Modellendag · Gratis initiatieles'
+                    : 'Maak uw afspraak'}
             </h3>
             <p className="nieuw-signup-sub">
               Kies een dag, daarna kan je een uur kiezen.
@@ -890,7 +937,8 @@ export function GuestSignupWizard() {
                               {daySlots.map((s) => {
                                 const on = slotId === s.id;
                                 const label = s.startTime.slice(0, 5);
-                                const taken = s.occupied === true || (s.remaining ?? 1) <= 0;
+                                const taken = s.waveFull === true || s.occupied === true || (s.remaining ?? 1) <= 0;
+                                const takenLabel = s.waveFull ? 'volzet' : 'bezet';
                                 return (
                                   <button
                                     key={s.id}
@@ -903,7 +951,7 @@ export function GuestSignupWizard() {
                                       if (!taken) pickHour(ymd, s.id);
                                     }}
                                   >
-                                    {taken ? `${label} bezet` : label}
+                                    {taken ? `${label} ${takenLabel}` : label}
                                   </button>
                                 );
                               })}

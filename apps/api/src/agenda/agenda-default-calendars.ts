@@ -1,4 +1,5 @@
 import type { PrismaClient } from '@prisma/client';
+import { ensureSplitGuestAgendas } from './guest-agenda-setup';
 
 /** Standaard Class-Models agenda's (zelfde als prisma/seed). */
 export const DEFAULT_AGENDA_CALENDAR_DEFS = [
@@ -27,7 +28,7 @@ export const DEFAULT_AGENDA_CALENDAR_DEFS = [
   },
   {
     slug: 'intake-gesprek',
-    title: 'Intake-Gesprek',
+    title: 'Intake-gesprek',
     color: '#2f6f55',
     durationMinutes: 60,
     capacity: 1,
@@ -58,7 +59,7 @@ export const DEFAULT_AGENDA_CALENDAR_DEFS = [
   },
   {
     slug: 'gratis-fotoshoot',
-    title: 'Gratis Fotoshoot',
+    title: 'Gratis fotoshoot + intakegesprek',
     color: '#b7cae8',
     durationMinutes: 90,
     capacity: 1,
@@ -284,7 +285,11 @@ export async function ensureDefaultAgendaCalendars(
   }
 
   await bootstrapModelWordenAvailability(prisma);
-  await retireLegacyGuestCalendars(prisma);
+  await prisma.agendaCalendar.updateMany({
+    where: { slug: 'casting' },
+    data: { active: false, publicBooking: false },
+  });
+  await ensureSplitGuestAgendas(prisma);
 
   return { created, total, portfolioScheduleUpgraded };
 }

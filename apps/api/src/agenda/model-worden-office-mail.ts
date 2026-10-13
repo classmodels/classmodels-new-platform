@@ -3,7 +3,12 @@
 export const MODEL_WORDEN_OFFICE_EMAIL = 'inschrijving@class-models.be';
 
 export function isModelWordenOfficeCalendar(slug: string): boolean {
-  return slug === 'model-worden' || slug === 'gratis-fotoshoot' || slug === 'intake-gesprek';
+  return (
+    slug === 'model-worden' ||
+    slug === 'gratis-fotoshoot' ||
+    slug === 'intake-gesprek' ||
+    slug === 'modellendag'
+  );
 }
 
 export type OfficeMailKind = 'created' | 'cancelled';

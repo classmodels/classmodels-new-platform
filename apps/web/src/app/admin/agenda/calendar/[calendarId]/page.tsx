@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
+import { GuestAgendaExtras } from '@/components/admin-agenda/GuestAgendaExtras';
 
 type Cal = {
   id: string;
@@ -350,6 +351,8 @@ export default function AdminAgendaCalendarDetailPage() {
           {msg}
         </p>
       ) : null}
+
+      {token ? <GuestAgendaExtras cal={cal} token={token} /> : null}
 
       <form
         id={settingsFormId}

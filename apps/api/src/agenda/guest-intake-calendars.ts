@@ -4,6 +4,7 @@ export const GUEST_INTAKE_CALENDAR_SLUGS = new Set([
   'casting',
   'gratis-fotoshoot',
   'model-worden',
+  'modellendag',
 ]);
 
 export const GUEST_INTAKE_OPTIONAL_FIELD_KEYS = new Set(['foto', 'bericht', 'hoe_terecht']);

@@ -32,6 +32,18 @@ export class AgendaPublicController {
     return this.agenda.listActiveCalendars();
   }
 
+  /** Zichtbare keuzes op de inschrijfpagina. */
+  @Get('guest-menu')
+  guestMenu() {
+    return this.agenda.guestMenu();
+  }
+
+  /** Beginpagina-campagne, of geen als er niets gepubliceerd is. */
+  @Get('home-campaign')
+  homeCampaign() {
+    return this.agenda.homeCampaign();
+  }
+
   @Get('fields/:slug')
   fields(@Param('slug') slug: string) {
     return this.agenda.getFieldsForSlug(slug);

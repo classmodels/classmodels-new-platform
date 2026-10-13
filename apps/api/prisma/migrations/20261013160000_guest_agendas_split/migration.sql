@@ -1,0 +1,14 @@
+ALTER TABLE `AgendaCalendar` ADD COLUMN `showOccupiedHours` BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `agendaVisible` BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homePublished` BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeKicker` VARCHAR(191) NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeTitle` TEXT NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeLead` TEXT NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeBody` TEXT NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeHighlight` TEXT NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeClose` TEXT NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeButtonLabel` VARCHAR(80) NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `homeImageUrl` TEXT NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `waveBooking` BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `waveSlotPlan` JSON NULL;
+ALTER TABLE `AgendaCalendar` ADD COLUMN `splitOpenDaysSeeded` BOOLEAN NOT NULL DEFAULT false;

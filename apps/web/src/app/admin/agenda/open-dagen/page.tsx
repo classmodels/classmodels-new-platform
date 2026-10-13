@@ -15,6 +15,7 @@ type Cal = {
   restrictToOpenDays?: boolean;
   showOccupiedHoursTestshoot?: boolean;
   showOccupiedHoursIntake?: boolean;
+  showOccupiedHours?: boolean;
 };
 type OpenRow = {
   id: string;
@@ -59,6 +60,7 @@ export default function AdminAgendaOpenDagenPage() {
   const [applyIntake, setApplyIntake] = useState(true);
   const [showOccupiedTestshoot, setShowOccupiedTestshoot] = useState(false);
   const [showOccupiedIntake, setShowOccupiedIntake] = useState(false);
+  const [showOccupiedHours, setShowOccupiedHours] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [selectedYmds, setSelectedYmds] = useState<Set<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
@@ -105,7 +107,13 @@ export default function AdminAgendaOpenDagenPage() {
   useEffect(() => {
     setShowOccupiedTestshoot(Boolean(selectedCal?.showOccupiedHoursTestshoot));
     setShowOccupiedIntake(Boolean(selectedCal?.showOccupiedHoursIntake));
-  }, [selectedCal?.id, selectedCal?.showOccupiedHoursTestshoot, selectedCal?.showOccupiedHoursIntake]);
+    setShowOccupiedHours(Boolean(selectedCal?.showOccupiedHours));
+  }, [
+    selectedCal?.id,
+    selectedCal?.showOccupiedHoursTestshoot,
+    selectedCal?.showOccupiedHoursIntake,
+    selectedCal?.showOccupiedHours,
+  ]);
 
   const selectedList = useMemo(() => [...selectedYmds].sort(), [selectedYmds]);
   const selectedExistingCount = selectedList.filter((ymd) => byYmd.has(ymd)).length;
@@ -293,7 +301,7 @@ export default function AdminAgendaOpenDagenPage() {
       <section className="rounded-md border border-line bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-ink">Open dagen per agenda</h2>
         <p className="mt-1 text-xs text-muted">
-          Duid meerdere dagen aan. Oranje = open. Donkerrood = helemaal volgeboekt. Lichtrood = volgeboekt voor één afspraak. Dit geldt
+          Duid meerdere dagen aan. Oranje = open. Rood = volzet. Dit geldt
           wanneer de agenda op <strong>alleen open dagen</strong> staat — de standaard; zie anders de melding
           hieronder.
           <br />
@@ -324,6 +332,27 @@ export default function AdminAgendaOpenDagenPage() {
         <label className="mt-3 flex items-center gap-2 text-xs text-ink">
           <input type="checkbox" checked={repeatNext} onChange={(e) => setRepeatNext(e.target.checked)} />
           Open zetten met <strong>jaarlijks</strong> herhalen (zelfde kalenderdag elk jaar)
+        </label>
+        <label className="mt-2 flex items-center gap-2 text-xs text-ink">
+          <input
+            type="checkbox"
+            checked={showOccupiedHours}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setShowOccupiedHours(on);
+              if (!token || !calendarId) return;
+              void adminFetch(`/admin/agenda/calendars/${calendarId}`, token, {
+                method: 'PATCH',
+                body: JSON.stringify({ showOccupiedHours: on }),
+              })
+                .then(() => {
+                  setMsg(on ? 'Bezette uren worden rood getoond met «bezet».' : 'Bezette uren worden verborgen.');
+                  return loadCals();
+                })
+                .catch((err: unknown) => setMsg(err instanceof Error ? err.message : 'Opslaan mislukt'));
+            }}
+          />
+          Bezette uren in het rood met «bezet»
         </label>
 
         {isModelWorden ? (
@@ -382,7 +411,7 @@ export default function AdminAgendaOpenDagenPage() {
             onClick={() => void markFullSelected()}
             className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-40"
           >
-            Volgeboekt zetten
+            Volzet zetten
           </button>
           <button
             type="button"
@@ -425,6 +454,15 @@ export default function AdminAgendaOpenDagenPage() {
             ›
           </button>
         </div>
+        {openRows.some((r) => r.fullyBooked || r.fullyBookedTestshoot || r.fullyBookedIntake) ? (
+          <p className="mt-3 text-xs font-semibold text-red-800">
+            Volzet:{' '}
+            {openRows
+              .filter((r) => r.fullyBooked || r.fullyBookedTestshoot || r.fullyBookedIntake)
+              .map((r) => r.openDate.split('-').reverse().join('/'))
+              .join(', ')}
+          </p>
+        ) : null}
       </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -47,6 +47,11 @@ import {
 } from './agenda-default-calendars';
 import { restyleAgendaNotificationEmailTemplates } from './agenda-notification-template-restyle';
 import {
+  normalizeWavePlan,
+  revealWaveSlots,
+  waveCapacityForStart,
+} from './guest-agenda-setup';
+import {
   isGuestBookingOptionalFieldKey,
   isGuestIntakeCalendarSlug,
   isMinorFromIsoDateString,
@@ -1063,6 +1068,58 @@ export class AgendaService implements OnModuleInit {
     await this.ensureSlotsForCalendarDate(calendarId, dateOnly, cal);
   }
 
+  async guestMenu() {
+    await this.prisma.ensureAgendaAvailabilityColumns();
+    const order = ['gratis-fotoshoot', 'intake-gesprek', 'modellendag'] as const;
+    const copy: Record<(typeof order)[number], { title: string; subtitle: string }> = {
+      'gratis-fotoshoot': {
+        title: 'Gratis testshoot + intake-gesprek',
+        subtitle: 'Eerst voor de camera, daarna vrijblijvend advies over jouw kansen.',
+      },
+      'intake-gesprek': {
+        title: 'Alleen intake-gesprek',
+        subtitle: 'Persoonlijk kennismaken in Hulshout — zonder fotoshoot.',
+      },
+      modellendag: {
+        title: 'Modellendag · Gratis initiatieles',
+        subtitle: 'Een gratis initiatieles. Uren komen één voor één open.',
+      },
+    };
+    const rows = await this.prisma.agendaCalendar.findMany({
+      where: { slug: { in: [...order] }, active: true, publicBooking: true, agendaVisible: true },
+      select: { slug: true, title: true },
+    });
+    const have = new Set(rows.map((r) => r.slug));
+    return order
+      .filter((slug) => have.has(slug))
+      .map((slug) => ({ slug, ...copy[slug] }));
+  }
+
+  async homeCampaign() {
+    await this.prisma.ensureAgendaAvailabilityColumns();
+    const order = ['gratis-fotoshoot', 'modellendag'] as const;
+    const rows = await this.prisma.agendaCalendar.findMany({
+      where: { slug: { in: [...order] }, active: true, homePublished: true },
+    });
+    const by = new Map(rows.map((r) => [r.slug, r]));
+    const slug = order.find((s) => by.has(s));
+    if (!slug) return { campaign: null };
+    const r = by.get(slug)!;
+    return {
+      campaign: {
+        slug: r.slug,
+        kicker: r.homeKicker || 'Class-Models',
+        title: r.homeTitle || r.title,
+        lead: r.homeLead || '',
+        body: r.homeBody || '',
+        highlight: r.homeHighlight || '',
+        close: r.homeClose || '',
+        button: r.homeButtonLabel || 'Ga verder',
+        image: r.homeImageUrl || '/nieuw/gratis-testshoot-intake.jpg',
+      },
+    };
+  }
+
   async listActiveCalendars() {
     return this.prisma.agendaCalendar.findMany({
       where: { active: true, publicBooking: true },
@@ -1124,8 +1181,9 @@ export class AgendaService implements OnModuleInit {
     const closedSet = await this.closedDayYmdSet(cal.id, from, to);
     let openYmdSet = await this.openDayYmdSetForCalendarIfRestricted(cal, from, to);
 
+    const slotCal = this.calendarForSlotMaterialize(cal);
     try {
-      await this.materializeGuestSlotsInRange(cal, from, to, closedSet, openYmdSet);
+      await this.materializeGuestSlotsInRange(slotCal, from, to, closedSet, openYmdSet);
     } catch (e) {
       this.log.warn(
         `getSlots materialize ${slug}: ${e instanceof Error ? e.message : String(e)}`,
@@ -1138,6 +1196,8 @@ export class AgendaService implements OnModuleInit {
     const now = new Date();
     const pakket = cal.slug === 'model-worden' ? this.normalizeModelWordenPakket(pakketRaw) : null;
     const includeOccupied =
+      cal.waveBooking === true ||
+      cal.showOccupiedHours === true ||
       cal.slug === 'portfolio' ||
       (pakket === 'testshoot_intake' && cal.showOccupiedHoursTestshoot) ||
       (pakket === 'intake_only' && cal.showOccupiedHoursIntake);
@@ -1186,17 +1246,63 @@ export class AgendaService implements OnModuleInit {
       },
       openDates,
       fullyBookedDates,
-      slots: deduped.map((s) => ({
+      slots: this.publicSlotsForCalendar(cal, deduped),
+    };
+  }
+
+  private publicSlotsForCalendar(
+    cal: { waveBooking?: boolean; waveSlotPlan?: unknown },
+    deduped: Array<{
+      id: string;
+      slotDate: Date;
+      startTime: string;
+      endTime: string;
+      capacity: number;
+      booked: number;
+      remaining: number;
+    }>,
+  ) {
+    let slots = deduped.map((s) => {
+      const startTime = s.startTime.slice(0, 5);
+      let capacity = s.capacity;
+      let remaining = s.remaining;
+      if (cal.waveBooking) {
+        const planned = waveCapacityForStart(normalizeWavePlan(cal.waveSlotPlan), startTime);
+        if (planned != null) {
+          capacity = planned;
+          remaining = Math.max(0, planned - s.booked);
+        }
+      }
+      return {
         id: s.id,
         slotDate: s.slotDate.toISOString().slice(0, 10),
-        startTime: s.startTime.slice(0, 5),
+        startTime,
         endTime: s.endTime.slice(0, 5),
-        capacity: s.capacity,
+        capacity,
         booked: s.booked,
-        remaining: s.remaining,
-        occupied: s.remaining <= 0,
-      })),
-    };
+        remaining,
+        occupied: remaining <= 0,
+        waveFull: false,
+      };
+    });
+    if (cal.waveBooking) {
+      const allowed = new Set(normalizeWavePlan(cal.waveSlotPlan).map((p) => p.start));
+      slots = revealWaveSlots(slots.filter((s) => allowed.has(s.startTime))).map((s) => ({
+        ...s,
+        occupied: s.waveFull || s.remaining <= 0,
+      }));
+    }
+    return slots;
+  }
+
+  /** Bij een modellendag bepalen de ingestelde uren welke starttijden bestaan. */
+  private calendarForSlotMaterialize<T extends { waveBooking?: boolean; waveSlotPlan?: unknown; optionalSlotStarts?: string | null }>(
+    cal: T,
+  ): T {
+    if (!cal.waveBooking) return cal;
+    const plan = normalizeWavePlan(cal.waveSlotPlan);
+    if (!plan.length) return cal;
+    return { ...cal, optionalSlotStarts: plan.map((p) => p.start).join('\n') };
   }
 
   async book(dto: BookAgendaDto, userId: string | null, uploadedFieldUrls: Record<string, string> = {}) {
@@ -1251,7 +1357,39 @@ export class AgendaService implements OnModuleInit {
     const booked = await this.prisma.agendaBooking.count({
       where: { slotId: slot.id, ...activeBookingFilter },
     });
-    const cap = effectiveSlotCapacity(slot.capacity, cal.capacity);
+    const wavePlan = cal.waveBooking ? normalizeWavePlan(cal.waveSlotPlan) : [];
+    const plannedCap = cal.waveBooking ? waveCapacityForStart(wavePlan, slot.startTime) : null;
+    const cap = plannedCap ?? effectiveSlotCapacity(slot.capacity, cal.capacity);
+    if (cal.waveBooking) {
+      if (plannedCap == null) {
+        throw new BadRequestException('Dit uur staat niet open.');
+      }
+      const sameDay = await this.prisma.agendaSlot.findMany({
+        where: { calendarId: cal.id, slotDate: slot.slotDate, status: 'open' },
+        select: { id: true, startTime: true },
+      });
+      const counts = new Map<string, number>();
+      if (sameDay.length) {
+        const grouped = await this.prisma.agendaBooking.groupBy({
+          by: ['slotId'],
+          where: { slotId: { in: sameDay.map((s) => s.id) }, ...activeBookingFilter },
+          _count: { _all: true },
+        });
+        for (const g of grouped) counts.set(g.slotId, g._count._all);
+      }
+      const earlierOpen = sameDay
+        .filter((s) => {
+          const hh = s.startTime.slice(0, 5);
+          return hh < slot.startTime.slice(0, 5) && waveCapacityForStart(wavePlan, hh) != null;
+        })
+        .some((s) => {
+          const c = waveCapacityForStart(wavePlan, s.startTime) ?? 1;
+          return (counts.get(s.id) ?? 0) < c;
+        });
+      if (earlierOpen) {
+        throw new BadRequestException('Dit uur is nog niet open. Kies het eerstvolgende vrije uur.');
+      }
+    }
     const room = cap - booked + mineOnThisSlot;
     if (room <= 0) throw new ConflictException('Dit moment is niet meer beschikbaar');
 
@@ -2167,6 +2305,28 @@ export class AgendaService implements OnModuleInit {
     if (dto.showOccupiedHoursIntake !== undefined) {
       data.showOccupiedHoursIntake = dto.showOccupiedHoursIntake;
     }
+    if (dto.showOccupiedHours !== undefined) data.showOccupiedHours = dto.showOccupiedHours;
+    if (dto.agendaVisible !== undefined) data.agendaVisible = dto.agendaVisible;
+    if (dto.homePublished !== undefined) data.homePublished = dto.homePublished;
+    if (dto.homeKicker !== undefined) data.homeKicker = dto.homeKicker.trim() || null;
+    if (dto.homeTitle !== undefined) data.homeTitle = dto.homeTitle.trim() || null;
+    if (dto.homeLead !== undefined) data.homeLead = dto.homeLead.trim() || null;
+    if (dto.homeBody !== undefined) data.homeBody = dto.homeBody.trim() || null;
+    if (dto.homeHighlight !== undefined) data.homeHighlight = dto.homeHighlight.trim() || null;
+    if (dto.homeClose !== undefined) data.homeClose = dto.homeClose.trim() || null;
+    if (dto.homeButtonLabel !== undefined) data.homeButtonLabel = dto.homeButtonLabel.trim() || null;
+    if (dto.homeImageUrl !== undefined) data.homeImageUrl = dto.homeImageUrl.trim() || null;
+    if (dto.waveBooking !== undefined) data.waveBooking = dto.waveBooking;
+    if (dto.waveSlotPlan !== undefined) {
+      const plan = normalizeWavePlan(dto.waveSlotPlan);
+      data.waveSlotPlan = plan as unknown as Prisma.InputJsonValue;
+    }
+    const effectiveWave = dto.waveBooking !== undefined ? dto.waveBooking : cal.waveBooking;
+    const effectivePlan =
+      dto.waveSlotPlan !== undefined ? normalizeWavePlan(dto.waveSlotPlan) : normalizeWavePlan(cal.waveSlotPlan);
+    if (effectiveWave && effectivePlan.length) {
+      data.optionalSlotStarts = effectivePlan.map((p) => p.start).join('\n');
+    }
 
     const updated = await this.prisma.agendaCalendar.update({ where: { id }, data });
 
@@ -2190,6 +2350,7 @@ export class AgendaService implements OnModuleInit {
       dto.breakEnd !== undefined ||
       dto.slotStepMinutes !== undefined ||
       dto.optionalSlotStarts !== undefined ||
+      dto.waveSlotPlan !== undefined ||
       dto.durationMinutes !== undefined;
 
     if (scheduleChanged) {

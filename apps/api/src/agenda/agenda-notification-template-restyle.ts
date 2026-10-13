@@ -126,6 +126,7 @@ function subjectForTrigger(trigger: string, existing: string | null): string {
 
 function renameTemplate(name: string): string {
   let n = name.trim();
+  if (/^(Bevestiging —|Herinnering 12 uur —)/.test(n)) return n;
   n = n.replace(/casting\s*&\s*intake-gesprek/gi, 'Model worden');
   n = n.replace(/intake-gesprek/gi, 'Alleen intake');
   n = n.replace(/gratis\s*fotoshoot/gi, 'Intake + fotoshoot');
@@ -157,13 +158,7 @@ function migrateCalendarSlugs(raw: unknown): string[] | null {
   for (const s of list) {
     const slug = s.trim();
     if (!slug) continue;
-    if (slug === 'intake-gesprek') {
-      next.add(MODEL_WORDEN_PKG_TARGET_INTAKE);
-      changed = true;
-    } else if (slug === 'gratis-fotoshoot') {
-      next.add(MODEL_WORDEN_PKG_TARGET_TESTSHOOT);
-      changed = true;
-    } else if (slug === 'casting' || slug === 'model-worden') {
+    if (slug === 'casting') {
       next.add(MODEL_WORDEN_PKG_TARGET_INTAKE);
       next.add(MODEL_WORDEN_PKG_TARGET_TESTSHOOT);
       changed = true;

@@ -27,11 +27,8 @@ export function packageLabelFromFields(
 }
 
 /** Admin-lijst / filters: oude gastenagenda’s vallen onder Model worden. */
-export const LEGACY_GUEST_AGENDA_SLUGS = [
-  'intake-gesprek',
-  'casting',
-  'gratis-fotoshoot',
-] as const;
+/** Alleen casting blijft een oude, verborgen agenda. */
+export const LEGACY_GUEST_AGENDA_SLUGS = ['casting'] as const;
 
 export const MODEL_WORDEN_FAMILY_SLUGS = [
   'model-worden',
@@ -150,8 +147,6 @@ export function bookingAgendaDisplayLabel(
     if (pkg === 'intake_only') return 'Model worden · Alleen intake';
     return 'Model worden';
   }
-  if (calendarSlug === 'gratis-fotoshoot') return 'Model worden · Testshoot + intake';
-  if (calendarSlug === 'intake-gesprek') return 'Model worden · Alleen intake';
   if (calendarSlug === 'casting') return 'Model worden · Casting';
   return calendarTitle;
 }

@@ -53,6 +53,20 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     await this.ensureMissingColumns('AgendaCalendar', [
       ['showOccupiedHoursTestshoot', 'BOOLEAN NOT NULL DEFAULT false'],
       ['showOccupiedHoursIntake', 'BOOLEAN NOT NULL DEFAULT false'],
+      ['showOccupiedHours', 'BOOLEAN NOT NULL DEFAULT false'],
+      ['agendaVisible', 'BOOLEAN NOT NULL DEFAULT true'],
+      ['homePublished', 'BOOLEAN NOT NULL DEFAULT false'],
+      ['homeKicker', 'VARCHAR(191) NULL'],
+      ['homeTitle', 'TEXT NULL'],
+      ['homeLead', 'TEXT NULL'],
+      ['homeBody', 'TEXT NULL'],
+      ['homeHighlight', 'TEXT NULL'],
+      ['homeClose', 'TEXT NULL'],
+      ['homeButtonLabel', 'VARCHAR(80) NULL'],
+      ['homeImageUrl', 'TEXT NULL'],
+      ['waveBooking', 'BOOLEAN NOT NULL DEFAULT false'],
+      ['waveSlotPlan', 'JSON NULL'],
+      ['splitOpenDaysSeeded', 'BOOLEAN NOT NULL DEFAULT false'],
     ]);
     await this.$executeRawUnsafe(
       `UPDATE \`AgendaOpenDay\`

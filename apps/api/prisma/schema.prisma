@@ -674,6 +674,25 @@ model AgendaCalendar {
   showOccupiedHoursTestshoot Boolean @default(false)
   /// Model worden: bezet uur rood met «bezet» bij alleen intake.
   showOccupiedHoursIntake Boolean    @default(false)
+  /// Elke agenda: bezet uur rood met «bezet» op de publieke pagina.
+  showOccupiedHours Boolean          @default(false)
+  /// Keuze zichtbaar in het inschrijfformulier. Los van de beginpagina.
+  agendaVisible Boolean              @default(true)
+  /// Beginpagina voor bezoekers die niet ingelogd zijn.
+  homePublished Boolean              @default(false)
+  homeKicker String?                 @db.VarChar(191)
+  homeTitle String?                  @db.Text
+  homeLead String?                   @db.Text
+  homeBody String?                   @db.Text
+  homeHighlight String?              @db.Text
+  homeClose String?                  @db.Text
+  homeButtonLabel String?            @db.VarChar(80)
+  homeImageUrl String?               @db.Text
+  /// Uren één voor één tonen: het volgende uur pas als het vorige volzet is.
+  waveBooking Boolean                @default(false)
+  waveSlotPlan Json?
+  /// Open dagen eenmalig overgenomen van model-worden.
+  splitOpenDaysSeeded Boolean        @default(false)
   /// Bit 0=zo … 6=za: op welke weekdagen ontbrekende sloten automatisch worden aangemaakt (lazy). 0 = uit.
   weekdayOpenMask Int              @default(0)
   sortOrder       Int              @default(100)

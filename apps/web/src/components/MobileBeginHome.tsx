@@ -65,6 +65,7 @@ const BOOK_SIGNUP_KEYS = new Set([
   'gratis-fotoshoot',
   'intake',
   'intake-gesprek',
+  'modellendag',
 ]);
 
 const GUEST_MENU_LINKS: { label: string; href: string }[] = [
