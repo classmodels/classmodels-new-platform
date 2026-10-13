@@ -3041,10 +3041,16 @@ export class AgendaService implements OnModuleInit {
         fullyBookedIntake: intake,
       },
     });
-    if (!this.openDayStillOffersSlots(row, cal.slug)) {
-      await this.clearEmptySlotsOnDay(cal.id, openDate);
-    } else {
-      await this.reconcileCalendarDaySlots(cal.id, openDate, cal);
+    try {
+      if (!this.openDayStillOffersSlots(row, cal.slug)) {
+        await this.clearEmptySlotsOnDay(cal.id, openDate);
+      } else {
+        await this.reconcileCalendarDaySlots(cal.id, openDate, cal);
+      }
+    } catch (e) {
+      this.log.warn(
+        `open-day slots ${cal.slug} ${dto.openDate}: ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
     return {
       id: row.id,
@@ -3064,10 +3070,10 @@ export class AgendaService implements OnModuleInit {
       select: { id: true },
     });
     for (const s of slots) {
-      const activeCount = await this.prisma.agendaBooking.count({
-        where: { slotId: s.id, ...activeBookingFilter },
+      const bookingCount = await this.prisma.agendaBooking.count({
+        where: { slotId: s.id },
       });
-      if (activeCount > 0) continue;
+      if (bookingCount > 0) continue;
       await this.prisma.agendaSlot.delete({ where: { id: s.id } });
     }
   }
@@ -3088,16 +3094,15 @@ export class AgendaService implements OnModuleInit {
       let keptSlots = 0;
 
       for (const s of slots) {
-        const activeCount = await tx.agendaBooking.count({
-          where: { slotId: s.id, ...activeBookingFilter },
+        const bookingCount = await tx.agendaBooking.count({
+          where: { slotId: s.id },
         });
-        if (activeCount > 0) {
-          preservedBookings += activeCount;
+        if (bookingCount > 0) {
+          preservedBookings += bookingCount;
           keptSlots += 1;
-          // Slots met afspraken behouden — anders verdwijnen boekingen uit de planning.
+          // Ook geannuleerde afspraken houden het uur vast (database weigert anders het wissen).
           continue;
         }
-        // Geen actieve boekingen: lege slots mogen weg (geen nieuwe online slots zonder open dag).
         await tx.agendaSlot.delete({ where: { id: s.id } });
         deletedEmptySlots += 1;
       }
