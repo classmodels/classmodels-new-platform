@@ -8,7 +8,7 @@ import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEdit
 import { normalizeHm } from '@/components/admin-agenda/normalize-hm';
 import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
 import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
-import { bookingAgendaDisplayLabel, detectModelWordenPackage } from '@/lib/model-worden-agenda';
+import { bookingAgendaDisplayLabel } from '@/lib/model-worden-agenda';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
 import { formatSlotDateTimeNl } from '@/lib/agenda-brussels';
 import { printAttendanceList } from '@/lib/agenda-print-attendance';
@@ -56,7 +56,7 @@ type BookingDetail = {
 
 const STATUS_OPTS = AGENDA_BOOKING_STATUS_OPTS;
 
-/** Zwarte agenda-knoppen. Model worden hoort hier niet bij; oude afspraken vallen onder intake of fotoshoot. */
+/** Zwarte agenda-knoppen. Oude Model worden-afspraken horen bij intake. */
 const BOOKING_GROUPS = [
   { slug: 'opleiding', label: 'Opleiding afspraak' },
   { slug: 'portfolio', label: 'Aanmaak portfolio' },
@@ -67,8 +67,8 @@ const BOOKING_GROUPS = [
 
 function groupSlugForBooking(b: { calendar: { slug: string }; fieldsJson?: Record<string, unknown> }): string | null {
   if (BOOKING_GROUPS.some((g) => g.slug === b.calendar.slug)) return b.calendar.slug;
-  if (b.calendar.slug !== 'model-worden' && b.calendar.slug !== 'casting') return null;
-  return detectModelWordenPackage(b.fieldsJson) === 'testshoot_intake' ? 'gratis-fotoshoot' : 'intake-gesprek';
+  if (b.calendar.slug === 'model-worden' || b.calendar.slug === 'casting') return 'intake-gesprek';
+  return null;
 }
 
 function pad2(n: number) {
@@ -193,7 +193,7 @@ export default function AdminAgendaBoekingenPage() {
     setLoading(true);
     try {
       const wanted = new Set<string>(selectedSlugs);
-      if (wanted.has('intake-gesprek') || wanted.has('gratis-fotoshoot')) {
+      if (wanted.has('intake-gesprek')) {
         wanted.add('model-worden');
         wanted.add('casting');
       }

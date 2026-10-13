@@ -751,13 +751,11 @@ export default function AdminAgendaMailSmsPage() {
             </div>
             {!sendBookingId ? (
               <p className="mt-2 text-[11px] text-muted">
-                Kies eerst een afspraak: dan ziet u alleen sjablonen die bij die agenda/pakket horen (o.a. Model
-                worden · Intake + fotoshoot of Alleen intake).
+                Kies eerst een afspraak: dan ziet u alleen sjablonen die bij die agenda horen.
               </p>
             ) : sendableTemplates.length === 0 ? (
               <p className="mt-2 text-[11px] text-amber-900">
-                Geen passend sjabloon voor deze afspraak. Bewerk een sjabloon en vink &quot;Model worden · Intake +
-                fotoshoot&quot; of &quot;Alleen intake&quot; aan.
+                Geen passend sjabloon voor deze afspraak. Bewerk een sjabloon en vink de juiste agenda aan.
               </p>
             ) : null}
             <div className="mt-3">
@@ -933,8 +931,7 @@ export default function AdminAgendaMailSmsPage() {
               <div>
                 <p className="text-xs font-medium text-ink">Geldt voor agenda&apos;s</p>
                 <p className="mb-2 text-[11px] text-muted">
-                  Alleen wat effectief in de agenda staat: Portfolio, Opleiding, en Model worden (intake + fotoshoot
-                  of alleen intake). Bij een <strong>nieuw</strong> sjabloon staan die standaard aan.
+                  Alleen wat effectief in de agenda staat. Bij een <strong>nieuw</strong> sjabloon staan die standaard aan.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {agendaTargets.map((t) => (

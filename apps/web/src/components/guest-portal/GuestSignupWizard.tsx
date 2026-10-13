@@ -242,7 +242,7 @@ export function GuestSignupWizard() {
         const sJson = (await sRes.json()) as { slots?: SlotDto[]; fullyBookedDates?: string[] };
         return { fields: fJson.fields ?? [], slots: sJson.slots ?? [], fullyBookedDates: sJson.fullyBookedDates ?? [] };
       };
-      const loaded = (await loadOne(slug)) ?? (slug === 'model-worden' ? null : await loadOne('model-worden'));
+      const loaded = await loadOne(slug);
       if (!loaded) throw new Error('Kon agenda niet laden');
       setFields(loaded.fields);
       setSlots(loaded.slots);
@@ -581,7 +581,6 @@ export function GuestSignupWizard() {
               <span className="nieuw-signup-radio" aria-hidden />
               <span>
                 <strong>Modellendag · Gratis initiatieles</strong>
-                <small>Een gratis initiatieles. Het volgende uur opent als het vorige volzet is.</small>
               </span>
             </button>
             ) : null}

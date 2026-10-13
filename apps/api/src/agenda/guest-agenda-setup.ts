@@ -140,7 +140,10 @@ async function copyOpenDaysOnce(prisma: PrismaClient, targetSlug: string) {
               calendarId: target.id,
               openDate: row.openDate,
               repeatYearly: row.repeatYearly,
-              fullyBooked: row.fullyBooked,
+              fullyBooked:
+                row.fullyBooked ||
+                (targetSlug === 'gratis-fotoshoot' && row.fullyBookedTestshoot) ||
+                (targetSlug === 'intake-gesprek' && row.fullyBookedIntake),
               fullyBookedTestshoot: false,
               fullyBookedIntake: false,
             },
@@ -198,6 +201,75 @@ async function ensureMail(
     },
   });
   void title;
+}
+
+/** Oude Model worden-afspraken horen bij het intake-gesprek. */
+async function moveModelWordenBookingsToIntake(prisma: PrismaClient) {
+  const source = await prisma.agendaCalendar.findUnique({ where: { slug: 'model-worden' } });
+  const target = await prisma.agendaCalendar.findUnique({ where: { slug: 'intake-gesprek' } });
+  if (!source || !target) return;
+  const bookings = await prisma.agendaBooking.findMany({
+    where: { calendarId: source.id },
+    include: { slot: true },
+  });
+  for (const booking of bookings) {
+    const slot = booking.slot;
+    let dest = await prisma.agendaSlot.findFirst({
+      where: {
+        calendarId: target.id,
+        slotDate: slot.slotDate,
+        startTime: slot.startTime,
+      },
+    });
+    if (!dest) {
+      dest = await prisma.agendaSlot.create({
+        data: {
+          calendarId: target.id,
+          slotDate: slot.slotDate,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          capacity: Math.max(1, slot.capacity),
+          status: 'open',
+        },
+      });
+    }
+    await prisma.agendaBooking.update({
+      where: { id: booking.id },
+      data: { calendarId: target.id, slotId: dest.id },
+    });
+  }
+}
+
+/** Volzet van de oude gecombineerde agenda overzetten, daarna die vlaggen leegmaken. */
+async function copyVolzetFlagsOnce(prisma: PrismaClient) {
+  const source = await prisma.agendaCalendar.findUnique({ where: { slug: 'model-worden' } });
+  if (!source) return;
+  const days = await prisma.agendaOpenDay.findMany({ where: { calendarId: source.id } });
+  const foto = days.filter((d) => d.fullyBooked || d.fullyBookedTestshoot);
+  const intake = days.filter((d) => d.fullyBooked || d.fullyBookedIntake);
+  if (!foto.length && !intake.length) return;
+
+  const paint = async (slug: string, rows: typeof days) => {
+    const cal = await prisma.agendaCalendar.findUnique({ where: { slug } });
+    if (!cal) return;
+    const existing = await prisma.agendaOpenDay.findMany({ where: { calendarId: cal.id } });
+    const byYmd = new Map(existing.map((row) => [row.openDate.toISOString().slice(0, 10), row]));
+    for (const day of rows) {
+      const row = byYmd.get(day.openDate.toISOString().slice(0, 10));
+      if (!row || row.fullyBooked) continue;
+      await prisma.agendaOpenDay.update({
+        where: { id: row.id },
+        data: { fullyBooked: true },
+      });
+    }
+  };
+
+  await paint('gratis-fotoshoot', foto);
+  await paint('intake-gesprek', intake);
+  await prisma.agendaOpenDay.updateMany({
+    where: { calendarId: source.id },
+    data: { fullyBooked: false, fullyBookedTestshoot: false, fullyBookedIntake: false },
+  });
 }
 
 /** Aparte gastenagenda's, beginpagina, mails en open dagen. Idempotent. */
@@ -307,9 +379,17 @@ export async function ensureSplitGuestAgendas(prisma: PrismaClient) {
     );
   }
 
+  try {
+    await moveModelWordenBookingsToIntake(prisma);
+    await copyVolzetFlagsOnce(prisma);
+  } catch (e) {
+    console.error(
+      `model-worden overzet mislukt: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
   await prisma.agendaCalendar.updateMany({
     where: { slug: 'model-worden' },
-    data: { publicBooking: false },
+    data: { active: false, publicBooking: false },
   });
   await prisma.agendaCalendar.updateMany({
     where: { slug: 'casting' },

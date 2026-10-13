@@ -69,7 +69,7 @@ export default function AdminAgendaOpenDagenPage() {
     if (!token) return;
     const list = await adminFetch<Cal[]>('/admin/agenda/calendars', token);
     const active = list.filter(
-      (c) => c.active !== false && !isLegacyGuestAgendaSlug(c.slug),
+      (c) => c.active !== false && !isLegacyGuestAgendaSlug(c.slug) && c.slug !== 'model-worden',
     );
     setCalendars(active);
     setCalendarId((prev) =>
@@ -211,7 +211,7 @@ export default function AdminAgendaOpenDagenPage() {
               fullyBookedIntake: applyIntake ? true : packageFull(row, 'intake'),
             }
           : { fullyBooked: true };
-        await adminFetch('/admin/agenda/open-days', token, {
+        const saved = await adminFetch<OpenRow>('/admin/agenda/open-days', token, {
           method: 'POST',
           body: JSON.stringify({
             calendarId,
@@ -220,6 +220,7 @@ export default function AdminAgendaOpenDagenPage() {
             ...body,
           }),
         });
+        setOpenRows((prev) => [...prev.filter((r) => r.openDate !== saved.openDate), saved]);
       }
       setMsg(
         toFull.length === 1
@@ -293,7 +294,13 @@ export default function AdminAgendaOpenDagenPage() {
   return (
     <div className="space-y-6 print:hidden">
       {msg ? (
-        <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900">
+        <p
+          className={
+            /mis op de server|mislukt|fout|niet/i.test(msg)
+              ? 'rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-900'
+              : 'rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900'
+          }
+        >
           {msg}
         </p>
       ) : null}
@@ -349,7 +356,10 @@ export default function AdminAgendaOpenDagenPage() {
                   setMsg(on ? 'Bezette uren worden rood getoond met «bezet».' : 'Bezette uren worden verborgen.');
                   return loadCals();
                 })
-                .catch((err: unknown) => setMsg(err instanceof Error ? err.message : 'Opslaan mislukt'));
+                .catch((err: unknown) => {
+                  setShowOccupiedHours(!on);
+                  setMsg(err instanceof Error ? err.message : 'Opslaan mislukt');
+                });
             }}
           />
           Bezette uren in het rood met «bezet»
@@ -498,7 +508,7 @@ export default function AdminAgendaOpenDagenPage() {
                                 ? 'Volgeboekt: gratis fotoshoot + intake'
                                 : isModelWorden && intake
                                   ? 'Volgeboekt: intake-gesprek'
-                                  : openRow.fullyBooked
+                                  : openRow.fullyBooked || openRow.fullyBookedTestshoot || openRow.fullyBookedIntake
                                     ? 'Volgeboekt'
                                     : openRow.repeatYearly
                                       ? 'Jaarlijks open'
@@ -512,7 +522,11 @@ export default function AdminAgendaOpenDagenPage() {
                             if (!openRow) return 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200';
                             const testshoot = packageFull(openRow, 'testshoot');
                             const intake = packageFull(openRow, 'intake');
-                            const both = isModelWorden ? testshoot && intake : Boolean(openRow.fullyBooked);
+                            const marked =
+                              Boolean(openRow.fullyBooked) ||
+                              Boolean(openRow.fullyBookedTestshoot) ||
+                              Boolean(openRow.fullyBookedIntake);
+                            const both = isModelWorden ? testshoot && intake : marked;
                             const partial = isModelWorden && testshoot !== intake;
                             if (both) return 'bg-red-600 text-white ring-1 ring-red-800 hover:bg-red-700';
                             if (partial) return 'bg-red-400 text-white ring-1 ring-red-700 hover:bg-red-500';

@@ -793,8 +793,9 @@ export class AgendaService implements OnModuleInit {
       const dOld = slotDurationMin(prev);
       const newMatch = wantDur > 0 && dNew === wantDur;
       const oldMatch = wantDur > 0 && dOld === wantDur;
-      if (newMatch && !oldMatch) bestByKey.set(k, s);
-      else if (newMatch === oldMatch && dNew > dOld) bestByKey.set(k, s);
+      if (s.booked > prev.booked) bestByKey.set(k, s);
+      else if (s.booked === prev.booked && newMatch && !oldMatch) bestByKey.set(k, s);
+      else if (s.booked === prev.booked && newMatch === oldMatch && dNew > dOld) bestByKey.set(k, s);
     }
 
     return [...bestByKey.values()]
@@ -1082,7 +1083,7 @@ export class AgendaService implements OnModuleInit {
       },
       modellendag: {
         title: 'Modellendag · Gratis initiatieles',
-        subtitle: 'Een gratis initiatieles. Uren komen één voor één open.',
+        subtitle: 'Gratis initiatieles.',
       },
     };
     const rows = await this.prisma.agendaCalendar.findMany({
@@ -2268,6 +2269,7 @@ export class AgendaService implements OnModuleInit {
   }
 
   async adminUpdateCalendar(id: string, dto: UpdateAgendaCalendarDto) {
+    await this.prisma.ensureAgendaAvailabilityColumns();
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     if (dto.slug && dto.slug !== cal.slug) {
@@ -2324,7 +2326,7 @@ export class AgendaService implements OnModuleInit {
     const effectiveWave = dto.waveBooking !== undefined ? dto.waveBooking : cal.waveBooking;
     const effectivePlan =
       dto.waveSlotPlan !== undefined ? normalizeWavePlan(dto.waveSlotPlan) : normalizeWavePlan(cal.waveSlotPlan);
-    if (effectiveWave && effectivePlan.length) {
+    if ((dto.waveBooking !== undefined || dto.waveSlotPlan !== undefined) && effectiveWave && effectivePlan.length) {
       data.optionalSlotStarts = effectivePlan.map((p) => p.start).join('\n');
     }
 
@@ -3165,6 +3167,7 @@ export class AgendaService implements OnModuleInit {
   }
 
   async adminAddOpenDay(dto: CreateOpenDayDto) {
+    await this.prisma.ensureAgendaAvailabilityColumns();
     const cal = await this.prisma.agendaCalendar.findUnique({ where: { id: dto.calendarId } });
     if (!cal) throw new NotFoundException('Agenda niet gevonden');
     const openDate = parseYmd(dto.openDate);

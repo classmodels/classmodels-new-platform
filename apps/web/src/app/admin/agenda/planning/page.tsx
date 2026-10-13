@@ -722,7 +722,7 @@ export default function AdminAgendaPlanningPage() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {calendars
-            .filter((c) => !isLegacyGuestAgendaSlug(c.slug))
+            .filter((c) => !isLegacyGuestAgendaSlug(c.slug) && c.slug !== 'model-worden')
             .map((c) => {
             const familyIds = calendars
               .filter((x) =>

@@ -112,10 +112,6 @@ export function adminTemplateAgendaTargets(
     if (c.slug === 'model-worden') continue;
     out.push({ key: c.slug, label: c.title });
   }
-  out.push(
-    { key: MODEL_WORDEN_PKG_TARGET_TESTSHOOT, label: 'Model worden · Intake + fotoshoot' },
-    { key: MODEL_WORDEN_PKG_TARGET_INTAKE, label: 'Model worden · Alleen intake' },
-  );
   return out;
 }
 
@@ -145,8 +141,6 @@ export function defaultTemplateSlugPick(
     if (isLegacyGuestAgendaSlug(c.slug) || c.slug === 'model-worden') continue;
     n.add(c.slug);
   }
-  n.add(MODEL_WORDEN_PKG_TARGET_TESTSHOOT);
-  n.add(MODEL_WORDEN_PKG_TARGET_INTAKE);
   return n;
 }
 

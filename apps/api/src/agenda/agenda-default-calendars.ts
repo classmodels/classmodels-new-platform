@@ -161,14 +161,15 @@ export async function ensureDefaultAgendaCalendars(
     const existing = await prisma.agendaCalendar.findUnique({ where: { slug: d.slug } });
     if (existing) {
       // Alleen metadata die geen boekingscapaciteit/uren wijzigt.
+      const retired = d.slug === 'model-worden' || d.slug === 'casting';
       await prisma.agendaCalendar.update({
         where: { slug: d.slug },
         data: {
           title: d.title,
           color: d.color,
           sortOrder: d.sortOrder,
-          active: true,
-          publicBooking: true,
+          active: !retired,
+          publicBooking: !retired,
         },
       });
     } else {
@@ -313,108 +314,7 @@ async function retireLegacyGuestCalendars(prisma: PrismaClient): Promise<void> {
  * Eenmalig (zolang er geen toekomstige open dagen of weekmasker is): neem openingsuren over
  * van intake-gesprek / gratis-fotoshoot, anders standaard ma–vr 08–18.
  */
-async function bootstrapModelWordenAvailability(prisma: PrismaClient): Promise<void> {
-  const target = await prisma.agendaCalendar.findUnique({ where: { slug: 'model-worden' } });
-  if (!target) return;
-
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-
-  const futureOpenCount = await prisma.agendaOpenDay.count({
-    where: { calendarId: target.id, openDate: { gte: today } },
-  });
-  const hasWeekdayMask = !target.restrictToOpenDays && (target.weekdayOpenMask ?? 0) !== 0;
-  if (futureOpenCount > 0 || hasWeekdayMask) return;
-
-  const sources = await prisma.agendaCalendar.findMany({
-    where: { slug: { in: ['intake-gesprek', 'gratis-fotoshoot'] } },
-  });
-  const preferred =
-    sources.find((s) => s.slug === 'intake-gesprek') ??
-    sources.find((s) => s.slug === 'gratis-fotoshoot') ??
-    null;
-
-  if (preferred) {
-    await prisma.agendaCalendar.update({
-      where: { id: target.id },
-      data: {
-        restrictToOpenDays: preferred.restrictToOpenDays,
-        weekdayOpenMask: preferred.weekdayOpenMask,
-        defaultDayStartTime: preferred.defaultDayStartTime,
-        defaultDayEndTime: preferred.defaultDayEndTime,
-        breakStart: preferred.breakStart,
-        breakEnd: preferred.breakEnd,
-        durationMinutes: Math.max(1, preferred.durationMinutes || target.durationMinutes || 60),
-        capacity: Math.max(1, preferred.capacity || target.capacity || 1),
-        optionalSlotStarts: preferred.optionalSlotStarts,
-        slotStepMinutes: preferred.slotStepMinutes,
-        publicBooking: true,
-        active: true,
-      },
-    });
-
-    const sourceIds = sources.map((s) => s.id);
-    const openDays = await prisma.agendaOpenDay.findMany({
-      where: { calendarId: { in: sourceIds }, openDate: { gte: today } },
-    });
-    const seenOpen = new Set<string>();
-    for (const od of openDays) {
-      const key = od.openDate.toISOString().slice(0, 10);
-      if (seenOpen.has(key)) continue;
-      seenOpen.add(key);
-      try {
-        await prisma.agendaOpenDay.create({
-          data: {
-            calendarId: target.id,
-            openDate: od.openDate,
-            repeatYearly: od.repeatYearly,
-          },
-        });
-      } catch {
-        /* unique: al aanwezig */
-      }
-    }
-
-    const closedDays = await prisma.agendaClosedDay.findMany({
-      where: { calendarId: { in: sourceIds }, closedDate: { gte: today } },
-    });
-    const seenClosed = new Set<string>();
-    for (const cd of closedDays) {
-      const key = cd.closedDate.toISOString().slice(0, 10);
-      if (seenClosed.has(key)) continue;
-      seenClosed.add(key);
-      try {
-        await prisma.agendaClosedDay.create({
-          data: {
-            calendarId: target.id,
-            closedDate: cd.closedDate,
-            reason: cd.reason,
-          },
-        });
-      } catch {
-        /* unique: al aanwezig */
-      }
-    }
-
-    const afterOpen = await prisma.agendaOpenDay.count({
-      where: { calendarId: target.id, openDate: { gte: today } },
-    });
-    const refreshed = await prisma.agendaCalendar.findUnique({ where: { id: target.id } });
-    if (afterOpen > 0 || (!refreshed?.restrictToOpenDays && (refreshed?.weekdayOpenMask ?? 0) !== 0)) {
-      return;
-    }
-  }
-
-  /** Geen bron-openingen: laat ma–vr 08–18 boeken zodat de funnel live werkt. */
-  await prisma.agendaCalendar.update({
-    where: { id: target.id },
-    data: {
-      restrictToOpenDays: false,
-      weekdayOpenMask: 62, // ma–vr
-      defaultDayStartTime: target.defaultDayStartTime || '08:00:00',
-      defaultDayEndTime: target.defaultDayEndTime || '18:00:00',
-      publicBooking: true,
-      active: true,
-    },
-  });
+async function bootstrapModelWordenAvailability(_prisma: PrismaClient): Promise<void> {
+  /** Model worden is intake. Niet opnieuw actief zetten. */
+  void _prisma;
 }

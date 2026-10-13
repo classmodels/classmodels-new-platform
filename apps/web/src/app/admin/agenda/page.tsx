@@ -260,12 +260,12 @@ export default function AdminAgendaOverviewPage() {
 
       <p className="text-xs text-muted">
         Per agenda: <strong>CSV afspraken</strong> = unieke mails van bezoekers met een (niet-geannuleerde) boeking;
-        <strong> CSV geannuleerd</strong> = mails van geannuleerde boekingen. Gastboekingen lopen via <strong>Model worden</strong>.
+        <strong> CSV geannuleerd</strong> = mails van geannuleerde boekingen.
       </p>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {calendars
-          .filter((c) => !isLegacyGuestAgendaSlug(c.slug))
+          .filter((c) => !isLegacyGuestAgendaSlug(c.slug) && c.slug !== 'model-worden')
           .map((c) => (
           <div key={c.id} className="flex flex-col rounded-md border border-line bg-white p-4 shadow-sm">
             <div className="flex items-start justify-between gap-2">

@@ -5336,8 +5336,9 @@
   white-space: normal;
   line-height: 1.25;
 }
-.nieuw-signup-day-full {
-  color: #e67e22;
+.nieuw-signup-day-full,
+.nieuw-signup-day-frame.is-past .nieuw-signup-day-range.nieuw-signup-day-full {
+  color: #c0392b;
   font-weight: 800;
 }
 .nieuw-signup-day-frame.is-on .nieuw-signup-day-toggle .nieuw-signup-radio {
