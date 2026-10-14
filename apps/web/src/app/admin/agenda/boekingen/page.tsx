@@ -6,7 +6,7 @@ import { useAuth } from '@/context/auth-context';
 import { adminFetch } from '@/lib/admin-api';
 import { BookingDetailEditor } from '@/components/admin-agenda/BookingDetailEditor';
 import { normalizeHm } from '@/components/admin-agenda/normalize-hm';
-import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
+import { isCancelledAgendaStatus, isAgendaBookingPast, prepareFieldsJsonForSave, validateBookingDetailForSave, adminBookingDetailSnapshot, adminBookingDetailHasChanges, promptAdminBookingSaveNotifications, hydrateBookingIdentity, collapseRepeatedName, type AdminBookingDetailSnapshot } from '@/lib/agenda-booking-detail';
 import { normalizeAgendaMobileNational } from '@/lib/agenda-phone';
 import { bookingAgendaDisplayLabel } from '@/lib/model-worden-agenda';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
@@ -347,7 +347,8 @@ export default function AdminAgendaBoekingenPage() {
         b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
           ? (b.fieldsJson as Record<string, unknown>)
           : {};
-      setDetail({ ...b, fieldsJson: fj });
+      const hydrated = hydrateBookingIdentity({ ...b, fieldsJson: fj });
+      setDetail(hydrated);
       const calId = b.calendar.id;
       const ymd = b.slot.slotDate.slice(0, 10);
       const start = b.slot.startTime.slice(0, 5);
@@ -358,13 +359,13 @@ export default function AdminAgendaBoekingenPage() {
       setSchedEnd(end);
       setDetailInitialSnapshot(
         adminBookingDetailSnapshot({
-          status: b.status,
-          name: b.name,
-          firstname: b.firstname,
-          lastname: b.lastname,
-          email: b.email,
-          phone: b.phone,
-          fieldsJson: fj,
+          status: hydrated.status,
+          name: hydrated.name,
+          firstname: hydrated.firstname,
+          lastname: hydrated.lastname,
+          email: hydrated.email,
+          phone: hydrated.phone,
+          fieldsJson: hydrated.fieldsJson,
           schedCalId: calId,
           schedYmd: ymd,
           schedStart: start,
@@ -714,7 +715,7 @@ export default function AdminAgendaBoekingenPage() {
               {group.rows.map((b) => {
                 const slotD = b.slot?.slotDate?.slice(0, 10);
                 const nm =
-                  b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
+                  collapseRepeatedName(b.name || [b.firstname, b.lastname].filter(Boolean).join(' ')) || '—';
                 const cancelled = isCancelledAgendaStatus(b.status);
                 const acknowledged = b.status === 'acknowledged';
                 return (

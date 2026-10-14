@@ -303,6 +303,8 @@ export function GuestBookingPanel({
       ...Object.keys(extraFields ?? {}),
       ...(calendarSlug === 'model-worden' ? ['pakket'] : []),
     ]);
+    const keys = new Set(fields.map((f) => f.fieldKey));
+    if (keys.has('achternaam') && keys.has('familienaam')) hide.add('familienaam');
     return fields.filter((f) => !hide.has(f.fieldKey));
   }, [fields, extraFields, calendarSlug]);
 
@@ -556,6 +558,14 @@ export function GuestBookingPanel({
     try {
       const fileKeys = displayFields.filter((x) => x.type === 'file').map((x) => x.fieldKey);
       const textPayload = { ...form, ...(extraFields ?? {}) };
+      const lastNameValue = (textPayload.familienaam || textPayload.achternaam || textPayload.lastname || '').trim();
+      if (lastNameValue) {
+        if (!(textPayload.familienaam ?? '').trim()) textPayload.familienaam = lastNameValue;
+        if (!(textPayload.achternaam ?? '').trim()) textPayload.achternaam = lastNameValue;
+      }
+      if (!(textPayload.land ?? '').trim() && (textPayload.postcode || textPayload.gemeente || textPayload.straat)) {
+        textPayload.land = 'België';
+      }
       for (const k of fileKeys) delete textPayload[k];
       const phoneKeySubmit =
         displayFields.find((f) => ['telefoon', 'phone', 'gsm'].includes(f.fieldKey))?.fieldKey ??

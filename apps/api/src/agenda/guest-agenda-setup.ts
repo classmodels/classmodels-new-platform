@@ -123,6 +123,11 @@ async function ensureWizardFields(prisma: PrismaClient, calendarId: string) {
     },
     data: { required: false },
   });
+  /** Oude agenda's hebben familienaam én achternaam. Eén veld, anders blokkeert de boeking. */
+  await prisma.agendaField.updateMany({
+    where: { calendarId, fieldKey: 'familienaam' },
+    data: { active: false, required: false },
+  });
 }
 
 async function copyOpenDaysOnce(prisma: PrismaClient, targetSlug: string) {

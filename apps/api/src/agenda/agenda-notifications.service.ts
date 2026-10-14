@@ -1252,6 +1252,13 @@ export class AgendaNotificationService {
         ? (b.fieldsJson as Record<string, unknown>)
         : {};
     const str = (key: string) => String(fj[key] ?? '').trim();
+    const strAny = (...keys: string[]) => {
+      for (const key of keys) {
+        const v = str(key);
+        if (v) return v;
+      }
+      return '';
+    };
     const pkg =
       str('pakket') ||
       (b.calendar.slug === 'gratis-fotoshoot'
@@ -1296,10 +1303,10 @@ export class AgendaNotificationService {
       lastName: (b.lastname || str('achternaam') || str('familienaam')).trim(),
       email: (b.email || str('email')).trim(),
       phone: (b.phone || str('telefoon') || str('gsm')).trim(),
-      street: str('straat'),
-      number: str('nr'),
-      postcode: str('postcode'),
-      city: str('gemeente'),
+      street: strAny('straat', 'adres', 'address', 'straatnaam', 'street'),
+      number: strAny('nr', 'huisnummer', 'huisnr', 'number'),
+      postcode: strAny('postcode', 'zip', 'post_code'),
+      city: strAny('gemeente', 'plaats', 'woonplaats', 'city'),
       birthYear,
       student: yn(fj.student),
       livesAtHome: yn(fj.thuiswonend),

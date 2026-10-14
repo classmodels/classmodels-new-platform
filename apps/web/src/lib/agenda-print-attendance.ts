@@ -25,7 +25,10 @@ export function bookingAgeLabel(fieldsJson?: Record<string, unknown> | null): st
   const leeftijdDirect = String(fj.leeftijd ?? '').trim();
   if (/^\d{1,3}$/.test(leeftijdDirect)) return leeftijdDirect;
 
-  const gebRaw = String(fj.geboortedatum ?? fj.birthdate ?? fj.birth_date ?? '').trim();
+  const yearOnly = String(fj.geboortejaar ?? '').trim();
+  const gebRaw =
+    String(fj.geboortedatum ?? fj.birthdate ?? fj.birth_date ?? '').trim() ||
+    (/^\d{4}$/.test(yearOnly) ? `${yearOnly}-01-01` : '');
   if (!gebRaw) return '—';
   const iso =
     normalizeIsoBirthDateClient(gebRaw) ?? (/^\d{4}-\d{2}-\d{2}$/.test(gebRaw) ? gebRaw : null);

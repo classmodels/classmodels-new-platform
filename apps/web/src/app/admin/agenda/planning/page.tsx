@@ -16,6 +16,8 @@ import {
   adminBookingDetailSnapshot,
   adminBookingDetailHasChanges,
   promptAdminBookingSaveNotifications,
+  hydrateBookingIdentity,
+  collapseRepeatedName,
   type AdminBookingDetailSnapshot,
 } from '@/lib/agenda-booking-detail';
 import { AGENDA_BOOKING_STATUS_OPTS, agendaBookingStatusLabel } from '@/lib/agenda-booking-status';
@@ -461,7 +463,8 @@ export default function AdminAgendaPlanningPage() {
         b.fieldsJson && typeof b.fieldsJson === 'object' && !Array.isArray(b.fieldsJson)
           ? (b.fieldsJson as Record<string, unknown>)
           : {};
-      setDetail({ ...b, fieldsJson: fj });
+      const hydrated = hydrateBookingIdentity({ ...b, fieldsJson: fj });
+      setDetail(hydrated);
       const calId = b.calendar.id;
       const ymd = b.slot.slotDate.slice(0, 10);
       const start = b.slot.startTime.slice(0, 5);
@@ -472,13 +475,13 @@ export default function AdminAgendaPlanningPage() {
       setSchedEnd(end);
       setDetailInitialSnapshot(
         adminBookingDetailSnapshot({
-          status: b.status,
-          name: b.name,
-          firstname: b.firstname,
-          lastname: b.lastname,
-          email: b.email,
-          phone: b.phone,
-          fieldsJson: fj,
+          status: hydrated.status,
+          name: hydrated.name,
+          firstname: hydrated.firstname,
+          lastname: hydrated.lastname,
+          email: hydrated.email,
+          phone: hydrated.phone,
+          fieldsJson: hydrated.fieldsJson,
           schedCalId: calId,
           schedYmd: ymd,
           schedStart: start,
@@ -1011,7 +1014,7 @@ export default function AdminAgendaPlanningPage() {
                             <div className="font-semibold text-ink">{parseInt(cell.ymd.slice(8), 10)}</div>
                             <div className="mt-1 max-h-[200px] space-y-0.5 overflow-y-auto pr-0.5">
                               {list.map((b) => {
-                                const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
+                                const nm = collapseRepeatedName(b.name || [b.firstname, b.lastname].filter(Boolean).join(' ')) || '—';
                                 const cancelled = isCancelledAgendaStatus(b.status);
                                 const grey = !cancelled && b.status === 'no_show';
                                 return (
@@ -1094,7 +1097,7 @@ export default function AdminAgendaPlanningPage() {
                                     style={{ top: `${st.top}%`, height: `${st.height}%` }}
                                   >
                                     {cluster.map((b) => {
-                                      const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
+                                      const nm = collapseRepeatedName(b.name || [b.firstname, b.lastname].filter(Boolean).join(' ')) || '—';
                                       const cancelled = isCancelledAgendaStatus(b.status);
                                       const grey = !cancelled && b.status === 'no_show';
                                       return (
@@ -1147,7 +1150,7 @@ export default function AdminAgendaPlanningPage() {
                         </p>
                         <div className="mt-2 space-y-2">
                           {(byDay.get(dayKey) ?? []).map((b) => {
-                            const nm = b.name || [b.firstname, b.lastname].filter(Boolean).join(' ') || '—';
+                            const nm = collapseRepeatedName(b.name || [b.firstname, b.lastname].filter(Boolean).join(' ')) || '—';
                             const cancelled = isCancelledAgendaStatus(b.status);
                             const grey = !cancelled && b.status === 'no_show';
                             const textCls = cancelled ? 'text-white' : 'text-ink';

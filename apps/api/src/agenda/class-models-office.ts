@@ -26,11 +26,19 @@ export function officeOnlyStaticMapImageUrl(): string {
   return `https://staticmap.openstreetmap.de/staticmap.php?${params.toString()}`;
 }
 
+function firstAddressPart(fields: Record<string, string>, keys: string[]): string {
+  for (const k of keys) {
+    const v = (fields[k] ?? '').trim();
+    if (v) return v;
+  }
+  return '';
+}
+
 export function formatGuestAddressFromFields(fields: Record<string, string>): string {
-  const straat = (fields.straat ?? '').trim();
-  const nr = (fields.nr ?? '').trim();
-  const postcode = (fields.postcode ?? '').trim();
-  const gemeente = (fields.gemeente ?? '').trim();
+  const straat = firstAddressPart(fields, ['straat', 'adres', 'address', 'straatnaam', 'street']);
+  const nr = firstAddressPart(fields, ['nr', 'huisnummer', 'huisnr', 'number']);
+  const postcode = firstAddressPart(fields, ['postcode', 'zip', 'post_code']);
+  const gemeente = firstAddressPart(fields, ['gemeente', 'plaats', 'woonplaats', 'city']);
   const line1 = [straat, nr].filter(Boolean).join(' ');
   const line2 = [postcode, gemeente].filter(Boolean).join(' ');
   return [line1, line2].filter(Boolean).join(', ');

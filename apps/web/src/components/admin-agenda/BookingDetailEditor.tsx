@@ -271,9 +271,27 @@ export function BookingDetailEditor<T extends BookingDetailEditorModel>({
         <div className="grid gap-2 text-sm">
           {(
             [
-              ['name', 'Naam', detail.name],
               ['firstname', 'Voornaam', detail.firstname],
               ['lastname', 'Familienaam', detail.lastname],
+            ] as const
+          ).map(([key, lab, val]) => (
+            <label key={key} className="text-xs text-muted">
+              {lab} <span className="text-red-600">*</span>
+              <input
+                className="mt-0.5 w-full rounded-lg border border-zinc-200 px-2 py-2 text-sm text-ink"
+                value={val ?? ''}
+                onChange={(e) => {
+                  const next = e.target.value || null;
+                  const firstname = key === 'firstname' ? next : detail.firstname;
+                  const lastname = key === 'lastname' ? next : detail.lastname;
+                  const name = [firstname, lastname].filter(Boolean).join(' ').trim() || null;
+                  onDetailChange({ ...detail, firstname, lastname, name });
+                }}
+              />
+            </label>
+          ))}
+          {(
+            [
               ['email', 'E-mail', detail.email],
               ['phone', 'GSM', detail.phone],
             ] as const

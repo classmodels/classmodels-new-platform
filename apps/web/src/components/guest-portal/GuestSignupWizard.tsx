@@ -357,6 +357,7 @@ export function GuestSignupWizard() {
       fd.append('slotId', slotId);
       const fieldPayload: Record<string, string> = {
         voornaam: firstName.trim(),
+        familienaam: lastName.trim(),
         achternaam: lastName.trim(),
         email: email.trim(),
         telefoon: phone.trim(),
@@ -390,6 +391,7 @@ export function GuestSignupWizard() {
         if (
           known.has(k) ||
           k === 'voornaam' ||
+          k === 'familienaam' ||
           k === 'achternaam' ||
           k === 'email' ||
           k === 'telefoon' ||
@@ -411,7 +413,9 @@ export function GuestSignupWizard() {
         }
       }
       mapped.voornaam = firstName.trim();
+      mapped.familienaam = lastName.trim();
       mapped.achternaam = lastName.trim();
+      mapped.land = 'België';
       mapped.email = email.trim();
       mapped.telefoon = phone.trim();
       mapped.postcode = postcode.trim();
@@ -664,17 +668,6 @@ export function GuestSignupWizard() {
 
             <div className="nieuw-signup-row">
               <label className="nieuw-signup-label">
-                <span className="sr-only">Naam</span>
-                <input
-                  className="nieuw-signup-input"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Naam"
-                  aria-label="Naam"
-                  autoComplete="family-name"
-                />
-              </label>
-              <label className="nieuw-signup-label">
                 <span className="sr-only">Voornaam</span>
                 <input
                   className="nieuw-signup-input"
@@ -683,6 +676,17 @@ export function GuestSignupWizard() {
                   placeholder="Voornaam"
                   aria-label="Voornaam"
                   autoComplete="given-name"
+                />
+              </label>
+              <label className="nieuw-signup-label">
+                <span className="sr-only">Familienaam</span>
+                <input
+                  className="nieuw-signup-input"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Familienaam"
+                  aria-label="Familienaam"
+                  autoComplete="family-name"
                 />
               </label>
             </div>

@@ -67,6 +67,7 @@ import {
   formatBookingChangesHtml,
   formatBookingChangesPlain,
 } from './agenda-booking-changes';
+import { firstFilledBookingField, syncBookingFieldAliases } from './booking-field-aliases';
 import { bookingFieldsFromModelAccount, normalizeIsoBirthDate } from './model-booking-prefill';
 import { agendaBookingPhotoStorageKey } from './agenda-booking-photo';
 import {
@@ -1436,14 +1437,28 @@ export class AgendaService implements OnModuleInit {
     let lastname = '';
     let email = '';
     let phone = '';
-    let nameParts: string[] = [];
 
     const webGuest = !userId;
 
+    /** familienaam en achternaam zijn hetzelfde gegeven; straat/adres ook. */
+    syncBookingFieldAliases(fieldsJson, [
+      ...fieldsDef.map((f) => f.fieldKey),
+      'voornaam',
+      'familienaam',
+      'achternaam',
+      'email',
+      'telefoon',
+      'straat',
+      'nr',
+      'postcode',
+      'gemeente',
+      'geboortedatum',
+    ]);
+
     for (const f of fieldsDef) {
-      const val = fieldsJson[f.fieldKey] ?? '';
+      const val = (fieldsJson[f.fieldKey] ?? '').trim();
       if (f.type === 'file') {
-        if (!webGuest && f.required && (!val || val.trim() === '')) {
+        if (!webGuest && f.required && !val) {
           throw new BadRequestException(`Verplicht veld ontbreekt: ${f.label}`);
         }
         continue;
@@ -1451,15 +1466,21 @@ export class AgendaService implements OnModuleInit {
       const required = webGuest
         ? !isGuestBookingOptionalFieldKey(f.fieldKey, f.type)
         : f.required;
-      if (required && (!val || val.trim() === '')) {
+      if (required && !val) {
         throw new BadRequestException(`Verplicht veld ontbreekt: ${f.label}`);
       }
-      if (f.fieldKey === 'voornaam') firstname = val;
-      if (f.fieldKey === 'familienaam' || f.fieldKey === 'achternaam') lastname = val;
-      if (f.fieldKey === 'email') email = val;
-      if (f.fieldKey === 'telefoon' || f.fieldKey === 'phone' || f.fieldKey === 'gsm') phone = val;
-      if (['voornaam', 'familienaam', 'achternaam', 'naam'].includes(f.fieldKey) && val) nameParts.push(val);
+      if (f.fieldKey === 'voornaam' || f.fieldKey === 'firstname') firstname = val || firstname;
+      if (f.fieldKey === 'familienaam' || f.fieldKey === 'achternaam' || f.fieldKey === 'lastname') {
+        lastname = val || lastname;
+      }
+      if (f.fieldKey === 'email' || f.fieldKey === 'e-mail') email = val || email;
+      if (f.fieldKey === 'telefoon' || f.fieldKey === 'phone' || f.fieldKey === 'gsm') phone = val || phone;
     }
+
+    if (!firstname) firstname = firstFilledBookingField(fieldsJson, ['voornaam', 'firstname']);
+    if (!lastname) lastname = firstFilledBookingField(fieldsJson, ['familienaam', 'achternaam', 'lastname']);
+    if (!email) email = firstFilledBookingField(fieldsJson, ['email', 'e-mail']);
+    if (!phone) phone = firstFilledBookingField(fieldsJson, ['telefoon', 'gsm', 'phone']);
 
     if (webGuest) {
       const dobRaw = (fieldsJson.geboortedatum ?? '').trim();
@@ -1491,7 +1512,8 @@ export class AgendaService implements OnModuleInit {
       }
     }
 
-    let name = nameParts.filter(Boolean).join(' ').trim();
+    const naamVeld = (fieldsJson.naam ?? '').trim();
+    let name = [firstname, lastname].filter(Boolean).join(' ').trim() || naamVeld;
 
     if (userId && (!firstname || !lastname || !email || !phone || !name)) {
       const u = await this.prisma.user.findUnique({

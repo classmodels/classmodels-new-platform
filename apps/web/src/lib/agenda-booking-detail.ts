@@ -49,18 +49,32 @@ export const RESERVED_FIELDS_JSON_KEYS = new Set([
   'voornaam',
   'firstname',
   'familienaam',
+  'achternaam',
   'lastname',
+  'geboortejaar',
+  'ouder_aanwezig',
   'telefoon',
   'phone',
   'gsm',
   'adres',
   'address',
   'straat',
+  'straatnaam',
+  'street',
   'nr',
+  'huisnummer',
+  'huisnr',
+  'number',
   'postcode',
+  'zip',
+  'post_code',
   'gemeente',
+  'plaats',
+  'woonplaats',
+  'city',
   'geboortedatum',
   'birthdate',
+  'birth_date',
   'annulatie_reden',
   'annulatie_nieuwe_afspraak_gewenst',
   'ouder_met',
@@ -85,6 +99,86 @@ export function fjString(fj: Record<string, unknown>, key: string): string {
   const v = fj[key];
   if (v == null) return '';
   return String(v).trim();
+}
+
+function fjFirst(fj: Record<string, unknown>, keys: readonly string[]): string {
+  for (const k of keys) {
+    const v = fjString(fj, k);
+    if (v) return v;
+  }
+  return '';
+}
+
+/** "Karin Valkenborgh Valkenborgh" of dezelfde naam twee keer achter elkaar → één keer. */
+export function collapseRepeatedName(name: string): string {
+  const parts = name.trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+  while (parts.length >= 2 && parts[parts.length - 1].toLowerCase() === parts[parts.length - 2].toLowerCase()) {
+    parts.pop();
+  }
+  if (parts.length >= 4 && parts.length % 2 === 0) {
+    const half = parts.length / 2;
+    const a = parts.slice(0, half).join(' ');
+    const b = parts.slice(half).join(' ');
+    if (a.toLowerCase() === b.toLowerCase()) return a;
+  }
+  return parts.join(' ');
+}
+
+/**
+ * Zet naam, leeftijdsdatum en adres klaar voor de backoffice.
+ * Leest aliassen (achternaam, adres, huisnummer, …) naar de vaste velden.
+ */
+export function hydrateBookingIdentity<
+  T extends {
+    name: string | null;
+    firstname: string | null;
+    lastname: string | null;
+    fieldsJson: Record<string, unknown>;
+  },
+>(row: T): T {
+  const fj: Record<string, unknown> = { ...row.fieldsJson };
+  const writeIfEmpty = (canonical: string, keys: readonly string[]) => {
+    if (fjString(fj, canonical)) return;
+    const v = fjFirst(fj, keys);
+    if (v) fj[canonical] = v;
+  };
+  writeIfEmpty('straat', ['straat', 'adres', 'address', 'straatnaam', 'street']);
+  writeIfEmpty('nr', ['nr', 'huisnummer', 'huisnr', 'number']);
+  writeIfEmpty('postcode', ['postcode', 'zip', 'post_code']);
+  writeIfEmpty('gemeente', ['gemeente', 'plaats', 'woonplaats', 'city']);
+  writeIfEmpty('land', ['land', 'country']);
+  if (!fjString(fj, 'land') && /^\d{4}$/.test(fjString(fj, 'postcode'))) {
+    fj.land = 'België';
+  }
+  if (!fjString(fj, 'geboortedatum')) {
+    const year = fjString(fj, 'geboortejaar');
+    if (/^\d{4}$/.test(year)) fj.geboortedatum = `${year}-01-01`;
+  }
+
+  let first = (row.firstname ?? '').trim() || fjFirst(fj, ['voornaam', 'firstname']);
+  let last =
+    (row.lastname ?? '').trim() || fjFirst(fj, ['familienaam', 'achternaam', 'lastname']);
+  let name = collapseRepeatedName((row.name ?? '').trim());
+  if (!first && !last && name) {
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      first = parts[0];
+      last = parts.slice(1).join(' ');
+    }
+  }
+  if (first && last) {
+    const once = `${first} ${last}`;
+    if (!name || name.toLowerCase() === `${once} ${last}`.toLowerCase()) name = once;
+  }
+  if (!name) name = [first, last].filter(Boolean).join(' ');
+
+  return {
+    ...row,
+    fieldsJson: fj,
+    firstname: first || null,
+    lastname: last || null,
+    name: name || null,
+  };
 }
 
 /** Normaliseert opmerkingen en verwijdert legacy `bericht` bij opslag. */
