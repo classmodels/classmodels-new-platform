@@ -56,7 +56,7 @@ type BookingDetail = {
 
 const STATUS_OPTS = AGENDA_BOOKING_STATUS_OPTS;
 
-/** Zwarte agenda-knoppen. Oude Model worden-afspraken horen bij intake. */
+/** Zwarte agenda-knoppen. */
 const BOOKING_GROUPS = [
   { slug: 'opleiding', label: 'Opleiding afspraak' },
   { slug: 'portfolio', label: 'Aanmaak portfolio' },
@@ -65,9 +65,23 @@ const BOOKING_GROUPS = [
   { slug: 'modellendag', label: 'Modellendag' },
 ] as const;
 
+function isGratisFotoshootBooking(fields: Record<string, unknown> | null | undefined): boolean {
+  if (!fields) return false;
+  const pakket = String(fields.pakket ?? fields.package ?? '').trim().toLowerCase();
+  if (pakket.includes('modellendag')) return false;
+  if (pakket.includes('testshoot') || pakket.includes('fotoshoot')) return true;
+  if (pakket.includes('alleen intake') || pakket.includes('intake_only')) return false;
+  const note = String(fields.opmerkingen ?? '').trim().toLowerCase();
+  return note.includes('testshoot') || note.includes('fotoshoot');
+}
+
 function groupSlugForBooking(b: { calendar: { slug: string }; fieldsJson?: Record<string, unknown> }): string | null {
-  if (BOOKING_GROUPS.some((g) => g.slug === b.calendar.slug)) return b.calendar.slug;
-  if (b.calendar.slug === 'model-worden' || b.calendar.slug === 'casting') return 'intake-gesprek';
+  const slug = b.calendar.slug;
+  if (slug === 'gratis-fotoshoot') return 'gratis-fotoshoot';
+  if (slug === 'intake-gesprek' || slug === 'model-worden' || slug === 'casting') {
+    return isGratisFotoshootBooking(b.fieldsJson) ? 'gratis-fotoshoot' : 'intake-gesprek';
+  }
+  if (BOOKING_GROUPS.some((g) => g.slug === slug)) return slug;
   return null;
 }
 
@@ -193,7 +207,9 @@ export default function AdminAgendaBoekingenPage() {
     setLoading(true);
     try {
       const wanted = new Set<string>(selectedSlugs);
-      if (wanted.has('intake-gesprek')) {
+      if (wanted.has('intake-gesprek') || wanted.has('gratis-fotoshoot')) {
+        wanted.add('intake-gesprek');
+        wanted.add('gratis-fotoshoot');
         wanted.add('model-worden');
         wanted.add('casting');
       }

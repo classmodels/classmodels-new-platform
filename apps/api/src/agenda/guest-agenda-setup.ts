@@ -203,40 +203,81 @@ async function ensureMail(
   void title;
 }
 
-/** Oude Model worden-afspraken horen bij het intake-gesprek. */
-async function moveModelWordenBookingsToIntake(prisma: PrismaClient) {
-  const source = await prisma.agendaCalendar.findUnique({ where: { slug: 'model-worden' } });
-  const target = await prisma.agendaCalendar.findUnique({ where: { slug: 'intake-gesprek' } });
-  if (!source || !target) return;
-  const bookings = await prisma.agendaBooking.findMany({
-    where: { calendarId: source.id },
-    include: { slot: true },
+function bookingFields(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+}
+
+/** Gratis testshoot + intake, niet een gewoon intakegesprek. */
+function isGratisFotoshootBooking(raw: unknown): boolean {
+  const fields = bookingFields(raw);
+  const pakket = String(fields.pakket ?? fields.package ?? '').trim().toLowerCase();
+  if (pakket.includes('modellendag')) return false;
+  if (pakket.includes('testshoot') || pakket.includes('fotoshoot')) return true;
+  if (pakket.includes('alleen intake') || pakket.includes('intake_only')) return false;
+  const note = String(fields.opmerkingen ?? '').trim().toLowerCase();
+  return note.includes('testshoot') || note.includes('fotoshoot');
+}
+
+async function moveBookingToCalendar(
+  prisma: PrismaClient,
+  booking: { id: string; slot: { slotDate: Date; startTime: string; endTime: string; capacity: number } },
+  targetId: string,
+) {
+  const slot = booking.slot;
+  let dest = await prisma.agendaSlot.findFirst({
+    where: { calendarId: targetId, slotDate: slot.slotDate, startTime: slot.startTime },
   });
-  for (const booking of bookings) {
-    const slot = booking.slot;
-    let dest = await prisma.agendaSlot.findFirst({
-      where: {
-        calendarId: target.id,
+  if (!dest) {
+    dest = await prisma.agendaSlot.create({
+      data: {
+        calendarId: targetId,
         slotDate: slot.slotDate,
         startTime: slot.startTime,
+        endTime: slot.endTime,
+        capacity: Math.max(1, slot.capacity),
+        status: 'open',
       },
     });
-    if (!dest) {
-      dest = await prisma.agendaSlot.create({
-        data: {
-          calendarId: target.id,
-          slotDate: slot.slotDate,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          capacity: Math.max(1, slot.capacity),
-          status: 'open',
-        },
-      });
-    }
-    await prisma.agendaBooking.update({
-      where: { id: booking.id },
-      data: { calendarId: target.id, slotId: dest.id },
+  }
+  await prisma.agendaBooking.update({
+    where: { id: booking.id },
+    data: { calendarId: targetId, slotId: dest.id },
+  });
+}
+
+/**
+ * Gratis fotoshoot-klanten horen op die agenda.
+ * Alleen-intake en oude Model worden zonder fotoshoot blijven bij intake.
+ * Idempotent: een afspraak die al goed staat, wordt niet opnieuw verzet.
+ */
+async function placeGuestBookings(prisma: PrismaClient) {
+  const foto = await prisma.agendaCalendar.findUnique({ where: { slug: 'gratis-fotoshoot' } });
+  const intake = await prisma.agendaCalendar.findUnique({ where: { slug: 'intake-gesprek' } });
+  const legacy = await prisma.agendaCalendar.findUnique({ where: { slug: 'model-worden' } });
+  if (!foto || !intake) return;
+
+  const sources = [intake, legacy].filter((c): c is NonNullable<typeof c> => Boolean(c));
+  for (const source of sources) {
+    const bookings = await prisma.agendaBooking.findMany({
+      where: { calendarId: source.id },
+      include: { slot: true },
     });
+    for (const booking of bookings) {
+      if (!booking.slot) continue;
+      const fotoshoot = isGratisFotoshootBooking(booking.fieldsJson);
+      const targetId = fotoshoot ? foto.id : source.slug === 'model-worden' ? intake.id : null;
+      if (!targetId || targetId === source.id) continue;
+      await moveBookingToCalendar(prisma, booking, targetId);
+    }
   }
 }
 
@@ -380,7 +421,7 @@ export async function ensureSplitGuestAgendas(prisma: PrismaClient) {
   }
 
   try {
-    await moveModelWordenBookingsToIntake(prisma);
+    await placeGuestBookings(prisma);
     await copyVolzetFlagsOnce(prisma);
   } catch (e) {
     console.error(
