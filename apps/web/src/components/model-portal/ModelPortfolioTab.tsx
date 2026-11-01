@@ -10,6 +10,18 @@ import { downloadWithProgress, downloadProgressSublabel, type DownloadProgressUp
 import { PortfolioInfoContent } from '@/components/model-portal/portfolio-info-content';
 
 const PORTFOLIO_ADDRESS = 'Class-Models, Provinciebaan 3, 2235 Hulshout';
+const GSM_DOWNLOAD_MSG =
+  'Downloaden is niet mogelijk via gsm. Deze knop werkt alleen op een computer.';
+
+/** Telefoon, ook als de browser een desktop-site toont. Een smal venster op een pc telt niet. */
+function isGsmDevice(): boolean {
+  if (typeof navigator === 'undefined' || typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/iPhone|iPod|Windows Phone|IEMobile|BlackBerry|Opera Mini|webOS/i.test(ua)) return true;
+  if (/Android/i.test(ua) && /Mobile/i.test(ua)) return true;
+  const shortSide = Math.min(window.screen.width, window.screen.height);
+  return shortSide > 0 && shortSide <= 520 && navigator.maxTouchPoints > 0;
+}
 
 type BookingRow = {
   id: string;
@@ -86,6 +98,10 @@ export function ModelPortfolioTab({
 
   const downloadPortfolioZip = useCallback(async () => {
     if (!token) return;
+    if (isGsmDevice()) {
+      window.alert(GSM_DOWNLOAD_MSG);
+      return;
+    }
     setDeliveryBusy(true);
     setDownloadProgress({ percent: null, loaded: 0, total: null, indeterminate: true, phase: 'connecting' });
     try {
@@ -222,9 +238,10 @@ export function ModelPortfolioTab({
           <p className="text-[11px] font-bold uppercase tracking-wide text-burgundy">Portfolio van je shoot</p>
           <p className="mt-1.5">
             Je foto&apos;s staan klaar om te downloaden als ZIP in hoge kwaliteit
-            {delivery.fileCount > 1 ? ` (${delivery.fileCount} bestanden)` : ''}. Na download verdwijnt deze knop; bij
-            vragen contacteer Class-Models.
+            {delivery.fileCount > 1 ? ` (${delivery.fileCount} bestanden)` : ''}. Na download op een computer verdwijnt
+            deze knop; bij vragen contacteer Class-Models.
           </p>
+          <p className="mt-1.5 font-semibold">Deze downloadknop werkt alleen op een computer, niet op een gsm.</p>
           <button
             type="button"
             disabled={deliveryBusy}

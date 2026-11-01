@@ -24,6 +24,15 @@ import { DownloadAckDto } from '../media/dto/media-admin.dto';
 import { MediaService } from '../media/media.service';
 import { PortfolioDeliveryService } from './portfolio-delivery.service';
 
+const GSM_DOWNLOAD_MSG =
+  'Downloaden is niet mogelijk via gsm. Deze knop werkt alleen op een computer.';
+
+function isGsmUserAgent(ua: string | undefined): boolean {
+  const s = ua ?? '';
+  if (/iPhone|iPod|Windows Phone|IEMobile|BlackBerry|Opera Mini|webOS/i.test(s)) return true;
+  return /Android/i.test(s) && /Mobile/i.test(s);
+}
+
 @Controller('portal/model/media')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PortalModelMediaController {
@@ -59,7 +68,14 @@ export class PortalModelMediaController {
 
   @Get('portfolio-delivery/zip')
   @Permissions('portal.model.media.read')
-  async portfolioDeliveryZip(@Req() req: { user: JwtPayload }, @Res({ passthrough: false }) res: Response) {
+  async portfolioDeliveryZip(
+    @Req() req: { user: JwtPayload; headers: { 'user-agent'?: string } },
+    @Res({ passthrough: false }) res: Response,
+  ) {
+    if (isGsmUserAgent(req.headers['user-agent'])) {
+      res.status(400).json({ statusCode: 400, message: GSM_DOWNLOAD_MSG });
+      return;
+    }
     await this.portfolioDelivery.streamZip(req.user.sub, res, { consume: true });
   }
 
