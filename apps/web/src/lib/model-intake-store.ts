@@ -49,16 +49,48 @@ function orderDir(id: string) {
   return path.join(root, 'orders', id);
 }
 
-export async function readSettings(): Promise<IntakeSettings> {
+const RUNTIME_TOKEN = 'cm-model-intake-runtime-v1';
+
+async function remoteSettings(): Promise<IntakeSettings | null> {
+  const api = (process.env.NEXT_PUBLIC_API_URL || 'https://api.class-models.be').replace(/\/$/, '');
   try {
-    const raw = JSON.parse(await readFile(path.join(root, 'settings.json'), 'utf8')) as Partial<IntakeSettings>;
+    const res = await fetch(`${api}/model-intake-settings/runtime`, {
+      headers: { 'x-cm-model-intake': RUNTIME_TOKEN },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Partial<IntakeSettings>;
     return {
       ...EMPTY,
       ...raw,
       smtpPort: Number(raw.smtpPort) || 587,
     };
   } catch {
-    return { ...EMPTY };
+    return null;
+  }
+}
+
+export async function readSettings(): Promise<IntakeSettings> {
+  const remote = await remoteSettings();
+  try {
+    const raw = JSON.parse(await readFile(path.join(root, 'settings.json'), 'utf8')) as Partial<IntakeSettings>;
+    const local = {
+      ...EMPTY,
+      ...raw,
+      smtpPort: Number(raw.smtpPort) || 587,
+    };
+    if (!remote) return local;
+    return {
+      openaiKey: local.openaiKey || remote.openaiKey,
+      mollieKey: local.mollieKey || remote.mollieKey,
+      smtpHost: local.smtpHost || remote.smtpHost,
+      smtpPort: local.smtpHost ? local.smtpPort : remote.smtpPort,
+      smtpUser: local.smtpUser || remote.smtpUser,
+      smtpPass: local.smtpPass || remote.smtpPass,
+      smtpFrom: local.smtpFrom || remote.smtpFrom,
+    };
+  } catch {
+    return remote || { ...EMPTY };
   }
 }
 

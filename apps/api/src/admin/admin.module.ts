@@ -20,6 +20,7 @@ import { AdminTryoutModeshowController } from './admin-tryout-modeshow.controlle
 import { AdminModelSetCardController } from './admin-model-set-card.controller';
 import { AdminTryoutModeshowService } from './admin-tryout-modeshow.service';
 import { AdminSiteSmtpController } from './admin-site-smtp.controller';
+import { AdminModelIntakeSettingsController } from './admin-model-intake-settings.controller';
 import { PaymentsModule } from '../payments/payments.module';
 import { CatalogModule } from '../catalog/catalog.module';
 
@@ -40,6 +41,7 @@ import { CatalogModule } from '../catalog/catalog.module';
     AdminReviewsController,
     AdminMollieController,
     AdminSiteSmtpController,
+    AdminModelIntakeSettingsController,
     AdminAuditController,
     AdminSubscriptionsController,
     AdminPremiumController,

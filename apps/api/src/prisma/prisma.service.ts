@@ -28,6 +28,31 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         `Agenda schema-ensure overgeslagen: ${e instanceof Error ? e.message : e}`,
       );
     }
+    try {
+      await this.ensureModelIntakeSettings();
+    } catch (e) {
+      this.log.warn(
+        `ModelIntakeSettings overgeslagen: ${e instanceof Error ? e.message : e}`,
+      );
+    }
+  }
+
+  /** Sleutels voor de modelanalyse. De website op Vercel kan niet op schijf schrijven. */
+  async ensureModelIntakeSettings() {
+    await this.$executeRawUnsafe(
+      `CREATE TABLE IF NOT EXISTS \`ModelIntakeSettings\` (
+        \`id\` INT NOT NULL,
+        \`openaiKey\` TEXT NULL,
+        \`mollieKey\` TEXT NULL,
+        \`smtpHost\` VARCHAR(191) NULL,
+        \`smtpPort\` INT NULL,
+        \`smtpUser\` VARCHAR(191) NULL,
+        \`smtpPass\` TEXT NULL,
+        \`smtpFrom\` VARCHAR(191) NULL,
+        \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`id\`)
+      )`,
+    );
   }
 
   /**
