@@ -156,6 +156,16 @@ export function GuestSignupWizard() {
   const needsParent = isMinor || student || livesAtHome;
 
   useEffect(() => {
+    if (window.location.hash !== '#afspraak' && window.location.hash !== '#inschrijven') return;
+    const el = document.getElementById('afspraak');
+    if (!el) return;
+    const go = () => el.scrollIntoView({ block: 'start' });
+    go();
+    const timer = window.setTimeout(go, 400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     const base = getApiBase();
     fetch(`${base}/agenda/guest-menu`)
       .then((r) => (r.ok ? r.json() : []))
@@ -526,7 +536,7 @@ export function GuestSignupWizard() {
         </ul>
       </div>
 
-      <div className="nieuw-signup-panel">
+      <div id="afspraak" className="nieuw-signup-panel" style={{ scrollMarginTop: 96 }}>
         <div className="nieuw-signup-panel-head">
           <p className="nieuw-signup-step">{stepLabel(step)}</p>
           {step === 'day' || step === 'contact' ? (

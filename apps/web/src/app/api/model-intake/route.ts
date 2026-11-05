@@ -109,7 +109,7 @@ function reportMail(record: IntakeRecord, report: ModelReport, origin: string) {
   const name = `${record.firstName} ${record.lastName}`.trim();
   const when = new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
   const score = report.overall === null ? 'voorlopig' : `${report.overall}%`;
-  const book = `${origin.replace(/\/$/, '')}/gasten/model-worden#inschrijven`;
+  const book = `${origin.replace(/\/$/, '')}/gasten/model-worden#afspraak`;
   const measures = report.measures
     .map(
       (row) => `<tr>
@@ -140,7 +140,7 @@ function reportMail(record: IntakeRecord, report: ModelReport, origin: string) {
   const body = `
     <p style="margin:0 0 6px;color:#8a7340;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.8px;text-transform:uppercase;">Modelanalyse · dossier</p>
     <h1 style="margin:0 0 8px;color:#191919;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:36px;font-weight:normal;">Voorlopige bevindingen</h1>
-    <p style="margin:0 0 18px;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;">${esc(name)} · ${esc(when)}${record.heightCm ? ` · ${esc(String(record.heightCm))} cm` : ''}</p>
+    <p style="margin:0 0 18px;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;">${esc(name)} · ${esc(when)}</p>
     ${mailParagraph(`Geachte ${name},`)}
     ${mailParagraph('De eerste resultaten van deze analyse zijn gunstig. De aangeleverde beelden laten een leesbaar morfologisch profiel zien dat in aanmerking komt voor een persoonlijke bespreking bij Class-Models.')}
     ${mailParagraph('Onderstaand dossier bundelt de proportionele lezing, de gelaatsmorfologie en de indicatie per opdrachtgebied. Het betreft een voorlopige, gestandaardiseerde beoordeling op basis van drie stilstaande opnamen. Tijdens uw afspraak worden deze bevindingen met u doorgenomen.')}
@@ -165,7 +165,7 @@ function reportMail(record: IntakeRecord, report: ModelReport, origin: string) {
     ${report.extra ? mailParagraph(report.extra) : ''}
     ${mailRule()}
     ${mailHeading('Vervolg en vergoeding')}
-    ${mailParagraph(`Het voorschot voor deze analyse bedraagt € ${PRICE_LABEL}. Bij het nakomen van uw afspraak wordt dit bedrag terugbetaald tijdens uw afspraak bij Class-Models. Het voorschot vermijdt dat wij tijd vrijmaken en u niet komt opdagen.`)}
+    ${mailParagraph(`U betaalde voor deze analyse een bedrag van € ${PRICE_LABEL}. Bij het nakomen van uw afspraak wordt dit bedrag integraal terugbetaald tijdens uw afspraak bij Class-Models. Dit bedrag vermijdt dat wij tijd vrijmaken en u niet komt opdagen. De afspraak is volledig gratis en vrijblijvend, en verplicht u tot niets.`)}
     ${mailParagraph('Class-Models heeft een kopie van deze mail ontvangen. Dit dossier wordt bij het maken en tijdens het verloop van uw afspraak besproken.')}
     <p style="margin:18px 0 0;">
       <a href="${esc(book)}" style="display:inline-block;background:#191919;color:#f7f4ed;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;text-decoration:none;padding:14px 22px;">Maak uw afspraak</a>
@@ -196,7 +196,7 @@ function reportMail(record: IntakeRecord, report: ModelReport, origin: string) {
     report.forCandidate,
     report.extra,
     '',
-    `Het voorschot bedraagt € ${PRICE_LABEL} en wordt terugbetaald wanneer u op uw afspraak aanwezig bent.`,
+    `U betaalde voor deze analyse een bedrag van € ${PRICE_LABEL}. Bij het nakomen van uw afspraak wordt dit bedrag integraal terugbetaald. De afspraak is volledig gratis en vrijblijvend, en verplicht u tot niets.`,
     'Class-Models heeft een kopie van deze mail ontvangen. Het dossier wordt bij uw afspraak besproken.',
     '',
     book,
