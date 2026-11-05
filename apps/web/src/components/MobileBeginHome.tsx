@@ -7,6 +7,7 @@ import { useAuth } from '@/context/auth-context';
 import { applyPostLoginRedirect } from '@/lib/redirect-after-auth';
 import { apiFetch } from '@/lib/api';
 import { GuestSignupWizard } from '@/components/guest-portal/GuestSignupWizard';
+import { ModelIntakeSection } from '@/components/guest-portal/ModelIntakeSection';
 import {
   GUEST_SIMPLE_FUNNEL,
 } from '@/components/guest-portal/guest-portal-data';
@@ -850,6 +851,10 @@ function GuestView() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="nieuw-root nieuw-root--app-mobile-page mt-8" style={{ minHeight: 0, background: 'transparent' }}>
+          <ModelIntakeSection />
         </div>
 
         <div className="mt-8">
