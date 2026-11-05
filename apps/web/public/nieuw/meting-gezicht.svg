@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="128 24 194 392" role="img">
+  <title>Opnamegids gezicht</title>
+  <rect x="128" y="24" width="194" height="392" fill="#101010"/>
+  <g fill="none" stroke="#d4af6a" stroke-width="1.6">
+    <path d="M150 168C150 78 188 42 225 42C262 42 300 78 300 168C300 248 268 318 225 392C182 318 150 248 150 168Z" fill="#1a1a1a"/>
+    <path d="M168 150H282"/>
+    <path d="M168 150L150 248L225 392"/>
+    <path d="M282 150L300 248L225 392"/>
+    <path d="M150 248H300"/>
+    <path d="M168 150L214 196L196 236"/>
+    <path d="M282 150L236 196L254 236"/>
+    <path d="M196 236L225 292L254 236"/>
+    <path d="M214 196H236"/>
+    <path d="M178 318H272"/>
+    <path d="M150 248L225 392L300 248"/>
+  </g>
+  <g fill="#e23d3d">
+    <circle cx="168" cy="150" r="5"/>
+    <circle cx="282" cy="150" r="5"/>
+    <circle cx="150" cy="248" r="5"/>
+    <circle cx="300" cy="248" r="5"/>
+    <circle cx="196" cy="236" r="4.5"/>
+    <circle cx="254" cy="236" r="4.5"/>
+    <circle cx="225" cy="392" r="5"/>
+  </g>
+</svg>

@@ -16,6 +16,7 @@ export type NieuwPortal = 'home' | 'gasten' | 'modellen' | 'klanten';
 /** Korte nav: één inschrijfpad voorop; rest als diepere info. */
 const GASTEN_NAV = [
   { href: '/gasten/model-worden', label: 'Model worden' },
+  { href: '/gasten/model-worden#profiel', label: 'Profiel & afspraak' },
   { href: '/gasten/model-worden#inschrijven', label: 'Inschrijven' },
   { href: '/gasten/model-worden#hoe-werkt-het', label: 'Hoe werkt het?' },
   { href: '/gasten/modellen', label: 'Modellen' },

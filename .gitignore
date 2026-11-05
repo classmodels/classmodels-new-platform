@@ -13,6 +13,7 @@ coverage
 .DS_Store
 apps/api/uploads
 apps/api/data
+apps/web/data
 apps/api/.deploy-media-bundle
 .tmp-sparse-media
 backups/

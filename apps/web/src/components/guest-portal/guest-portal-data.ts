@@ -55,18 +55,18 @@ export const GUEST_SIMPLE_FUNNEL = {
   steps: [
     {
       n: '01',
-      title: 'Laat van je horen',
-      body: 'Vertel ons kort wie je bent. Je hoeft nog geen professionele foto’s of portfolio te hebben.',
+      title: 'Maak eerst een analyse',
+      body: 'Begin met een analyse van jezelf als model. Drie foto’s zijn genoeg.',
     },
     {
       n: '02',
-      title: 'Maak kennis met ons',
-      body: 'Kies een kennismaking in Hulshout. Je krijgt uitleg en ruimte om rustig te ontdekken.',
+      title: 'Bekijk jouw mogelijkheden',
+      body: 'Je krijgt een uitgebreide analyse van de modelrichtingen waarvoor je in aanmerking komt.',
     },
     {
       n: '03',
-      title: 'Bekijk jouw mogelijkheden',
-      body: 'We bespreken je profiel en de eventuele vervolgstappen — volledig vrijblijvend.',
+      title: 'Maak een afspraak',
+      body: 'Kies zelf een moment in onze online agenda. De afspraak gaat door op Provinciebaan 3, 2235 Hulshout.',
     },
   ],
   calmKicker: 'NOG EEN BEETJE ZENUWACHTIG?',

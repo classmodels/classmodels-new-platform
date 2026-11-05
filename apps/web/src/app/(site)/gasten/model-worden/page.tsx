@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { GuestSignupWizard } from '@/components/guest-portal/GuestSignupWizard';
+import { ModelIntakeSection } from '@/components/guest-portal/ModelIntakeSection';
 import {
   GUEST_SIMPLE_FUNNEL,
 } from '@/components/guest-portal/guest-portal-data';
@@ -47,6 +48,9 @@ export default function ModelWordenPage() {
               <div className="nieuw-hero-actions" style={{ marginTop: 22 }}>
                 <a className="nieuw-btn" href="#inschrijven">
                   {F.primaryCta} →
+                </a>
+                <a className="nieuw-btn nieuw-btn-ghost" href="#profiel">
+                  Profiel & afspraak
                 </a>
                 <a className="nieuw-btn nieuw-btn-ghost" href="#hoe-werkt-het">
                   {F.secondaryCta}
@@ -145,10 +149,10 @@ export default function ModelWordenPage() {
       </section>
 
       {/* 3 stappen — geen 3 parallelle producten */}
-      <section id="hoe-werkt-het" className="nieuw-sectie">
+      <section id="hoe-werkt-het" className="nieuw-sectie" style={{ paddingTop: 28, paddingBottom: 28 }}>
         <div className="nieuw-wrap">
           <span className="nieuw-label">{F.stepsKicker}</span>
-          <h2 className="nieuw-display nieuw-display-md" style={{ marginTop: 14 }}>
+          <h2 className="nieuw-display nieuw-display-md" style={{ marginTop: 8 }}>
             {F.stepsTitle}
           </h2>
           <div
@@ -181,45 +185,10 @@ export default function ModelWordenPage() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop: 28 }}>
-            <a className="nieuw-btn" href="#inschrijven">
-              Ontdek jouw mogelijkheden →
-            </a>
-          </div>
         </div>
       </section>
 
-      {/* Kalmerende CTA */}
-      <section style={{ paddingBottom: 48 }}>
-        <div className="nieuw-wrap">
-          <div
-            className="nieuw-panel"
-            style={{
-              padding: '32px 28px',
-              textAlign: 'center',
-              borderColor: 'rgba(212,175,106,0.22)',
-            }}
-          >
-            <span className="nieuw-label">{F.calmKicker}</span>
-            <h2 className="nieuw-display nieuw-display-md" style={{ marginTop: 12 }}>
-              {F.calmTitle[0]} <em>{F.calmTitle[1]}</em>
-            </h2>
-            <p className="nieuw-lead" style={{ margin: '14px auto 0', maxWidth: 52 * 8 }}>
-              {F.calmBody}
-            </p>
-            <p
-              className="nieuw-lead"
-              style={{ margin: '18px auto 0', maxWidth: 52 * 8, fontSize: 14, color: 'var(--n-mut)' }}
-            >
-              De afspraak gaat door op{' '}
-              <strong style={{ color: 'var(--n-ink)' }}>Provinciebaan 3, 2235 Hulshout</strong>.
-            </p>
-            <a className="nieuw-btn" href="#inschrijven" style={{ marginTop: 22 }}>
-              {F.calmCta} →
-            </a>
-          </div>
-        </div>
-      </section>
+      <ModelIntakeSection />
 
       {/* Enige inschrijf-actie — twee kolommen + stapsgewijze wizard */}
       <section
