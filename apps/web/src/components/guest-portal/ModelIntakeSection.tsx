@@ -7,6 +7,8 @@ import { useAuth } from '@/context/auth-context';
 
 type Kind = 'full' | 'face' | 'side';
 
+type Mark = { x: number; y: number; z?: number; visibility?: number };
+
 type Shot = {
   url: string;
   width: number;
@@ -14,9 +16,11 @@ type Shot = {
   ok: boolean;
   fit: number;
   message: string;
-  points: Array<{ x: number; y: number; visibility?: number }> | null;
+  points: Mark[] | null;
   eyeLine: Array<{ x: number; y: number }> | null;
   lines: string[];
+  score: number | null;
+  tips: string[];
 };
 
 const EMPTY: Record<Kind, Shot | null> = { full: null, face: null, side: null };
@@ -227,6 +231,255 @@ function eyeToEar(points: NonNullable<Shot['points']>) {
   return leftDist > rightDist ? [leftEye, leftEar] : [rightEye, rightEar];
 }
 
+type Ycc = { y: number; cb: number; cr: number; tex: number };
+type HairHit = { covered: boolean; forehead: boolean; cheeks: boolean };
+
+function clamp(v: number, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function imageMetrics(img: HTMLImageElement) {
+  const c = document.createElement('canvas');
+  const scale = Math.min(1, 320 / Math.max(img.naturalWidth, img.naturalHeight));
+  c.width = Math.max(3, Math.round(img.naturalWidth * scale));
+  c.height = Math.max(3, Math.round(img.naturalHeight * scale));
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return { resolution: 0, sharpness: 0, exposure: 0 };
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  const data = ctx.getImageData(0, 0, c.width, c.height).data;
+  const gray = new Float32Array(c.width * c.height);
+  let sum = 0;
+  let clipped = 0;
+  for (let i = 0; i < gray.length; i += 1) {
+    const j = i * 4;
+    const g = 0.2126 * data[j] + 0.7152 * data[j + 1] + 0.0722 * data[j + 2];
+    gray[i] = g;
+    sum += g;
+    if (g < 10 || g > 247) clipped += 1;
+  }
+  let variance = 0;
+  let n = 0;
+  for (let y = 1; y < c.height - 1; y += 1) {
+    for (let x = 1; x < c.width - 1; x += 1) {
+      const p = y * c.width + x;
+      const lap = 4 * gray[p] - gray[p - 1] - gray[p + 1] - gray[p - c.width] - gray[p + c.width];
+      variance += lap * lap;
+      n += 1;
+    }
+  }
+  const mean = sum / gray.length;
+  return {
+    resolution: Math.round(clamp((Math.min(img.naturalWidth, img.naturalHeight) / 1000) * 100)),
+    sharpness: Math.round(clamp((Math.sqrt(variance / Math.max(1, n)) / 14) * 100)),
+    exposure: Math.round(clamp(100 - (clipped / gray.length) * 100 - Math.max(0, 65 - mean) * 0.75 - Math.max(0, mean - 210) * 0.75)),
+  };
+}
+
+function qualityScore(m: { resolution: number; sharpness: number; exposure: number }, framing: number) {
+  const present = { ...m, framing };
+  const weights = { resolution: 0.3, sharpness: 0.3, exposure: 0.25, framing: 0.15 };
+  let sum = 0;
+  let w = 0;
+  for (const [key, value] of Object.entries(present)) {
+    const weight = weights[key as keyof typeof weights];
+    sum += value * weight;
+    w += weight;
+  }
+  return Math.round(sum / w);
+}
+
+function poseFails(kind: Kind, points: Mark[] | null, width: number, height: number) {
+  if (!points) return [] as string[];
+  const p = points.map((v) => ({ x: v.x * width, y: v.y * height, z: v.z, visibility: v.visibility ?? 1 }));
+  const visible = (i: number) => p[i] && p[i].visibility >= 0.65;
+  const fails: string[] = [];
+  const angle = (a: number, b: number, c: number) => {
+    const x = p[a].x - p[b].x;
+    const y = p[a].y - p[b].y;
+    const u = p[c].x - p[b].x;
+    const v = p[c].y - p[b].y;
+    const d = Math.hypot(x, y) * Math.hypot(u, v);
+    return d ? (Math.acos(Math.max(-1, Math.min(1, (x * u + y * v) / d))) * 180) / Math.PI : 0;
+  };
+  if (kind === 'full') {
+    if ([11, 12, 23, 24].every(visible)) {
+      const sw = Math.hypot(p[11].x - p[12].x, p[11].y - p[12].y);
+      const torso = Math.hypot((p[11].x + p[12].x - p[23].x - p[24].x) / 2, (p[11].y + p[12].y - p[23].y - p[24].y) / 2);
+      if (torso > 0) {
+        const depth = Number.isFinite(p[11].z) && Number.isFinite(p[12].z) ? Math.abs((p[11].z ?? 0) - (p[12].z ?? 0)) * width : 0;
+        if (!(depth < sw * 0.35 && Math.abs(p[11].y - p[12].y) < sw * 0.12)) fails.push('frontal');
+        if (!(Math.abs((p[11].x + p[12].x - p[23].x - p[24].x) / 2) < torso * 0.09)) fails.push('upright');
+      }
+    }
+    if ([11, 13, 15, 12, 14, 16, 23, 24].every(visible)) {
+      const hip = Math.abs(p[23].x - p[24].x);
+      const left = Math.min(p[11].x, p[12].x, p[23].x, p[24].x);
+      const right = Math.max(p[11].x, p[12].x, p[23].x, p[24].x);
+      if (!(angle(11, 13, 15) >= 165 && angle(12, 14, 16) >= 165 && Math.min(p[15].x, p[16].x) < left - hip * 0.03 && Math.max(p[15].x, p[16].x) > right + hip * 0.03)) fails.push('arms');
+    }
+    if ([23, 25, 27, 24, 26, 28].every(visible) && !(angle(23, 25, 27) >= 170 && angle(24, 26, 28) >= 170 && Math.abs(p[27].y - p[28].y) < height * 0.025)) fails.push('legs');
+  } else if (p.length > 454 && p[33] && p[263] && p[152] && p[10]) {
+    const span = Math.hypot(p[33].x - p[263].x, p[33].y - p[263].y);
+    if (!(Math.abs(p[33].y - p[263].y) < span * 0.1 && Math.abs(p[152].x - p[10].x) < Math.abs(p[152].y - p[10].y) * 0.16)) fails.push('level');
+  }
+  return fails;
+}
+
+function detectHair(img: HTMLImageElement, points: Mark[], kind: 'face' | 'side'): HairHit | null {
+  if (points.length < 400) return null;
+  try {
+    const c = document.createElement('canvas');
+    const scale = Math.min(1, 520 / Math.max(img.naturalWidth, img.naturalHeight));
+    c.width = Math.max(8, Math.round(img.naturalWidth * scale));
+    c.height = Math.max(8, Math.round(img.naturalHeight * scale));
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    const data = ctx.getImageData(0, 0, c.width, c.height).data;
+    const ycc = (r: number, g: number, b: number) => ({ y: 0.299 * r + 0.587 * g + 0.114 * b, cb: 128 - 0.168736 * r - 0.331264 * g + 0.5 * b, cr: 128 + 0.5 * r - 0.418688 * g - 0.081312 * b });
+    const patch = (nx: number, ny: number): Ycc | null => {
+      const cx = Math.round(Math.max(0, Math.min(1, nx)) * (c.width - 1));
+      const cy = Math.round(Math.max(0, Math.min(1, ny)) * (c.height - 1));
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let n = 0;
+      const ys: number[] = [];
+      for (let y = cy - 2; y <= cy + 2; y += 1) {
+        for (let x = cx - 2; x <= cx + 2; x += 1) {
+          if (x < 0 || y < 0 || x >= c.width || y >= c.height) continue;
+          const i = (y * c.width + x) * 4;
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          n += 1;
+          ys.push(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+        }
+      }
+      if (n < 4) return null;
+      const color = ycc(r / n, g / n, b / n);
+      const mean = ys.reduce((a, v) => a + v, 0) / ys.length;
+      return { ...color, tex: Math.sqrt(ys.reduce((a, v) => a + (v - mean) ** 2, 0) / ys.length) };
+    };
+    const dist = (a: Ycc, b: { y: number; cb: number; cr: number }) => Math.hypot((a.y - b.y) * 0.55, a.cb - b.cb, a.cr - b.cr);
+    const chroma = (a: { cb: number; cr: number }, b: { cb: number; cr: number }) => Math.hypot(a.cb - b.cb, a.cr - b.cr);
+    const median = (list: number[]) => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)];
+    const roughSamples = [6, 197, 195, 5, 4, 1, 2].map((i) => (points[i] ? patch(points[i].x, points[i].y) : null)).filter((s): s is Ycc => !!s);
+    if (roughSamples.length < 4) return null;
+    const rough = { y: median(roughSamples.map((s) => s.y)), cb: median(roughSamples.map((s) => s.cb)), cr: median(roughSamples.map((s) => s.cr)) };
+    const kept = roughSamples.filter((s) => dist(s, rough) < 16);
+    const used = kept.length >= 3 ? kept : roughSamples;
+    const skin = { y: median(used.map((s) => s.y)), cb: median(used.map((s) => s.cb)), cr: median(used.map((s) => s.cr)), tex: median(used.map((s) => s.tex)) };
+    const bgSamples = [[2, 2], [c.width - 3, 2], [2, c.height - 3], [c.width - 3, c.height - 3]].map(([x, y]) => patch(x / c.width, y / c.height)).filter((s): s is Ycc => !!s);
+    const bg = bgSamples.length ? { y: median(bgSamples.map((s) => s.y)), cb: median(bgSamples.map((s) => s.cb)), cr: median(bgSamples.map((s) => s.cr)) } : null;
+    const nose = points[1];
+    const left = points[234];
+    const right = points[454];
+    const top = points[10];
+    const chin = points[152];
+    const brow = points[9] || points[8] || points[151];
+    if (!nose || !left || !right || !top || !chin || !brow) return null;
+    const faceW = Math.abs(right.x - left.x) || 0.01;
+    const faceH = Math.abs(chin.y - top.y) || 0.01;
+    const front = nose.x >= (left.x + right.x) / 2 ? 1 : -1;
+    const mix = (a: Mark, b: Mark, t: number) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    const hairSpots = kind === 'side'
+      ? [{ x: nose.x - front * faceW * 1.35, y: top.y + faceH * 0.18 }, { x: nose.x - front * faceW * 1.45, y: brow.y }]
+      : [{ x: left.x - faceW * 0.22, y: (brow.y + left.y) / 2 }, { x: right.x + faceW * 0.22, y: (brow.y + right.y) / 2 }, { x: top.x - faceW * 0.35, y: top.y + faceH * 0.08 }, { x: top.x + faceW * 0.35, y: top.y + faceH * 0.08 }];
+    const hairSamples = hairSpots.map((p) => patch(p.x, p.y)).filter((s): s is Ycc => !!s && dist(s, skin) > 14 && (!bg || dist(s, bg) > 12));
+    const hair = hairSamples.length ? { y: median(hairSamples.map((s) => s.y)), cb: median(hairSamples.map((s) => s.cb)), cr: median(hairSamples.map((s) => s.cr)) } : null;
+    const occlusion = (s: Ycc | null, zone: string) => {
+      if (!s) return false;
+      if (bg && dist(s, bg) < 12) return false;
+      const dy = skin.y - s.y;
+      const dc = chroma(s, skin);
+      if (hair && dist(s, hair) + 5 < dist(s, skin) && dc > 7) return true;
+      if (zone === 'voorhoofd') return (dc > 11 && (Math.abs(dy) > 7 || s.tex > skin.tex * 1.35)) || dy > 15;
+      return (dy > 14 && dc > 5) || (dc > 16 && Math.abs(dy) > 7);
+    };
+    const probes: Array<{ zone: string; p: { x: number; y: number } }> = [];
+    const add = (zone: string, p?: { x: number; y: number } | null) => {
+      if (p && p.x > 0.02 && p.x < 0.98 && p.y > 0.02 && p.y < 0.98) probes.push({ zone, p });
+    };
+    if (kind === 'side') {
+      for (const i of [10, 151, 8, 9, 168, 6, 197, 4, 1, 164, 175, 152]) add('voorhoofd', points[i]);
+      const visible = (points[50]?.z ?? 0) <= (points[280]?.z ?? 0) ? points[50] : points[280];
+      if (visible) {
+        add('wangen', visible);
+        add('wangen', mix(nose, visible, 0.7));
+      }
+    } else {
+      const lB = points[103] || points[67] || points[54] || left;
+      const rB = points[332] || points[297] || points[284] || right;
+      for (let row = 0; row < 5; row += 1) {
+        const y = brow.y + (top.y - brow.y) * ((row + 0.35) / 5);
+        for (let col = 0; col < 6; col += 1) {
+          const x = lB.x + (rB.x - lB.x) * (0.1 + col * 0.16);
+          add('voorhoofd', { x: x * 0.75 + top.x * 0.25, y });
+        }
+      }
+      for (const edge of [left, right]) {
+        for (const t of [0.62, 0.78, 0.92, 1]) {
+          for (const yk of [0.28, 0.4, 0.52]) {
+            const y = top.y + faceH * yk;
+            add(yk < 0.34 ? 'voorhoofd' : 'wangen', mix({ x: nose.x, y }, { x: edge.x, y }, t));
+          }
+        }
+      }
+      for (const i of [127, 356, 93, 323, 132, 361, 58, 288, 234, 454, 21, 251, 54, 284]) add('wangen', points[i]);
+    }
+    const hits = (zone: string) => probes.filter((item) => item.zone === zone && occlusion(patch(item.p.x, item.p.y), zone)).length;
+    const total = (zone: string) => probes.filter((item) => item.zone === zone).length;
+    const on = (zone: string) => total(zone) >= 3 && hits(zone) >= 3 && hits(zone) / total(zone) >= 0.22;
+    const forehead = on('voorhoofd');
+    const cheeks = on('wangen');
+    return { covered: forehead || cheeks, forehead, cheeks };
+  } catch {
+    return null;
+  }
+}
+
+function photoGuide(kind: Kind, img: HTMLImageElement, points: Mark[] | null, facePoints: Mark[] | null, judged: { ok: boolean; fit: number }) {
+  const metrics = imageMetrics(img);
+  const state = judged.ok ? 'pass' : judged.fit < 40 ? 'reject' : 'review';
+  const framing = state === 'pass' ? 100 : state === 'review' ? 60 : Math.min(40, judged.fit);
+  let score: number | null = qualityScore(metrics, framing);
+  const fails = poseFails(kind, kind === 'full' ? points : facePoints || points, img.naturalWidth, img.naturalHeight);
+  if (fails.length) score = Math.max(0, Math.round(score - fails.length * 10));
+  if (state === 'reject') score = Math.min(score ?? 30, 40);
+  const hairPoints = kind === 'full' ? facePoints : points;
+  const hair = hairPoints && hairPoints.length > 400 ? detectHair(img, hairPoints, kind === 'side' ? 'side' : 'face') : null;
+  if (hair?.covered && score != null) score = Math.max(0, score - 12);
+  const tips: string[] = [];
+  const add = (tip: string) => {
+    if (!tips.includes(tip)) tips.push(tip);
+  };
+  if (state === 'reject') {
+    if (kind === 'full') add('Zet het hele lichaam in beeld, van kruin tot beide voeten.');
+    else if (kind === 'face') add('Kijk recht naar de camera, met het hele gezicht in beeld.');
+    else add('Draai verder opzij, tot een echt zijaanzicht.');
+  } else if (state === 'review') {
+    if (kind === 'full') add('Kruin of voeten vallen nog deels buiten beeld.');
+    else if (kind === 'face') add('Kijk rechter naar de camera.');
+    else add('Draai iets verder opzij. Dit is nog geen echt zijaanzicht.');
+  }
+  if (fails.includes('frontal')) add('Sta rechter, met de schouders naar de camera.');
+  if (fails.includes('level')) add(kind === 'side' ? 'Houd het hoofd recht.' : 'Houd het hoofd recht, zonder kanteling.');
+  if (fails.includes('upright')) add('Sta rechterop.');
+  if (fails.includes('arms')) add('Houd de armen los van het lichaam.');
+  if (fails.includes('legs')) add('Strek de benen en zet de voeten naast elkaar.');
+  if (hair?.covered) {
+    if (kind === 'side') add('Haren naar achteren, zodat voorhoofd, neus, lippen en kin vrij zijn.');
+    else if (hair.forehead && hair.cheeks) add('Haal de haren van het voorhoofd en uit het gezicht.');
+    else if (hair.forehead) add('Haal de haren van het voorhoofd.');
+    else add('Haal de haren uit het gezicht.');
+  }
+  if (metrics.sharpness < 55) add('De foto is niet scherp genoeg.');
+  if (metrics.exposure < 55) add('De belichting is te donker of te licht.');
+  if (metrics.resolution < 40) add('Kom dichterbij. De foto is te klein.');
+  return { score, tips };
+}
+
 async function inspect(kind: Kind, img: HTMLImageElement, heightCm: number): Promise<Omit<Shot, 'url' | 'width' | 'height'>> {
   const small = document.createElement('canvas');
   const scale = Math.min(1, 1400 / Math.max(img.naturalWidth, img.naturalHeight));
@@ -237,25 +490,27 @@ async function inspect(kind: Kind, img: HTMLImageElement, heightCm: number): Pro
     const pose = (await detector('pose')) as { detect: (c: HTMLCanvasElement) => { landmarks?: Shot['points'][] } };
     const found = pose.detect(small).landmarks?.[0] ?? null;
     if (!found) {
-      return { ok: false, fit: 0, message: 'Geen volledig lichaam gevonden. Sta recht, armen licht los, van hoofd tot voeten.', points: null, eyeLine: null, lines: [] };
+      return { ok: false, fit: 0, message: 'Geen volledig lichaam gevonden. Sta recht, armen licht los, van hoofd tot voeten.', points: null, eyeLine: null, lines: [], score: 20, tips: ['Zet het hele lichaam in beeld, van kruin tot beide voeten.'] };
     }
     let eyeLine: Shot['eyeLine'] = null;
+    let facePoints: Mark[] | null = null;
     try {
-      const face = (await detector('face')) as { detect: (c: HTMLCanvasElement) => { faceLandmarks?: Shot['points'][] } };
-      eyeLine = betweenEyes(face.detect(small).faceLandmarks?.[0] ?? []);
+      const face = (await detector('face')) as { detect: (c: HTMLCanvasElement) => { faceLandmarks?: Mark[][] } };
+      facePoints = face.detect(small).faceLandmarks?.[0] ?? null;
+      eyeLine = betweenEyes(facePoints ?? []);
     } catch {
       eyeLine = null;
     }
     const judged = assessFull(found, heightCm, img.naturalWidth, img.naturalHeight);
-    return { ...judged, points: found, eyeLine };
+    return { ...judged, points: found, eyeLine, ...photoGuide(kind, img, found, facePoints, judged) };
   }
   const face = (await detector('face')) as { detect: (c: HTMLCanvasElement) => { faceLandmarks?: Shot['points'][] } };
   const found = face.detect(small).faceLandmarks?.[0] ?? null;
   if (!found) {
-    return { ok: false, fit: 0, message: 'Geen gezicht gevonden. Gebruik een close-up zonder zonnebril of filter.', points: null, eyeLine: null, lines: [] };
+    return { ok: false, fit: 0, message: 'Geen gezicht gevonden. Gebruik een close-up zonder zonnebril of filter.', points: null, eyeLine: null, lines: [], score: 20, tips: [kind === 'side' ? 'Draai verder opzij, tot een echt zijaanzicht.' : 'Kijk recht naar de camera, met het hele gezicht in beeld.'] };
   }
   const judged = kind === 'face' ? assessFace(found, img.naturalWidth, img.naturalHeight) : assessSide(found);
-  return { ...judged, points: found, eyeLine: kind === 'side' ? eyeToEar(found) : betweenEyes(found) };
+  return { ...judged, points: found, eyeLine: kind === 'side' ? eyeToEar(found) : betweenEyes(found), ...photoGuide(kind, img, found, found, judged) };
 }
 
 function draw(canvas: HTMLCanvasElement, img: HTMLImageElement, kind: Kind, points: Shot['points'], eyeLine: Shot['eyeLine']) {
@@ -446,7 +701,7 @@ function Frame({ kind, shot }: { kind: Kind; shot: Shot | null }) {
     };
   }, [kind, shot]);
   return (
-    <div className="mp-frame">
+    <div className={`mp-frame${shot ? ' has-shot' : ''}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img ref={imgRef} src={shot?.url || COPY[kind].guide} alt={shot ? '' : `Voorbeeld ${COPY[kind].title}`} />
       <canvas ref={canvasRef} />
@@ -864,16 +1119,13 @@ export function ModelIntakeSection() {
                   <strong>{COPY[kind].title}</strong>
                   <span>{approved[kind] ? 'Goedgekeurd' : shot ? 'Foto' : 'Voorbeeld foto'}</span>
                 </div>
-                {shot ? (
-                  <div className="mp-fit">
-                    <div>
-                      <span>In aanmerking voor analyse</span>
-                      <b><i style={{ width: `${shot.fit}%` }} /></b>
-                    </div>
-                    <strong>{shot.fit}%</strong>
-                  </div>
-                ) : null}
                 <Frame kind={kind} shot={shot} />
+                {shot ? (
+                  <>
+                    <p className="mp-score">Uw opgeladen foto heeft een score van <strong>{shot.score == null ? '—' : `${shot.score}%`}</strong> voor correcte weergave.</p>
+                    <p className="mp-score-note">Dit gaat over de kwaliteit en de pose van de foto, niet over de modelanalyse.</p>
+                  </>
+                ) : null}
                 {shot ? (
                   <div className="mp-choice">
                     <label className="mp-no">
@@ -906,7 +1158,24 @@ export function ModelIntakeSection() {
                     <small>{COPY[kind].hint}</small>
                   </div>
                 )}
-                {shot && !shot.ok ? <p className="mp-wait">{shot.message}</p> : null}
+                {shot ? (
+                  <details className="mp-fold" open>
+                    <summary>Controleer houding en opname</summary>
+                    <div className="mp-fold-head">
+                      <strong>Aandachtspunten foto</strong>
+                      <span>Aandachtspunten om een nauwkeurigere meting te krijgen.</span>
+                    </div>
+                    {shot.tips.length ? (
+                      <>
+                        <p>De score is {shot.score == null ? 'lager' : `${shot.score}%`} omdat dit nog beter kan:</p>
+                        {shot.tips.map((tip) => <p key={tip}>{tip}</p>)}
+                        <p>U kunt doorgaan met deze foto. De analyse is dan minder nauwkeurig.</p>
+                      </>
+                    ) : (
+                      <p>De houding en de opname zijn in orde. Daarom is de score hoog.</p>
+                    )}
+                  </details>
+                ) : null}
               </article>
             );
           })}
@@ -987,8 +1256,20 @@ export function ModelIntakeSection() {
         .mp-fit strong{font-family:Georgia,serif;font-size:28px;font-weight:400;color:#d4af6a;line-height:1}
         .mp-frame{position:relative;height:420px;background:#101010;border:1px solid var(--n-hair);display:flex;align-items:center;justify-content:center;overflow:hidden}
         .mp-frame img{width:100%;height:100%;object-fit:contain;display:block}
+        .mp-frame.has-shot::before{content:'';position:absolute;inset:0;z-index:1;pointer-events:none;background-image:linear-gradient(rgba(255,255,255,.28) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.28) 1px,transparent 1px);background-size:24px 24px}
         .mp-frame canvas,.mp-scan{position:absolute;left:0;right:0;pointer-events:none}
-        .mp-frame canvas{inset:0;width:100%;height:100%}
+        .mp-score{margin:12px 0 4px;font-size:13px;line-height:1.45;color:var(--n-ink)}
+        .mp-score strong{font:400 28px Georgia,serif;color:#d4af6a}
+        .mp-score-note{margin:0 0 8px;font-size:12px;line-height:1.45;color:#b7ad96}
+        .mp-fold{margin-top:10px;border:1px solid #2f303c;background:#14151c}
+        .mp-fold summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:13px;font-weight:600;color:#f0f1f6}
+        .mp-fold summary::-webkit-details-marker{display:none}
+        .mp-fold-head{margin:0 10px 8px;padding:10px 12px;background:rgba(212,175,106,.14)}
+        .mp-fold-head strong{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#d4af6a}
+        .mp-fold-head span{display:block;margin-top:3px;font-size:12px;line-height:1.4;color:#cfd1da;font-weight:400;text-transform:none;letter-spacing:0}
+        .mp-fold p{margin:0;padding:0 14px 12px;font-size:13px;line-height:1.5;color:#cfd1da}
+        .mp-frame canvas{inset:0;z-index:2;width:100%;height:100%}
+        .mp-scan{z-index:3}
         .mp-scan{top:0;height:2px;opacity:0;background:linear-gradient(90deg,transparent,#d4af6a 20%,#fff6df 50%,#d4af6a 80%,transparent);box-shadow:0 0 16px #d4af6a}
         .mp-grid.is-scanning .mp-scan{opacity:1;animation:mp-scan 3.2s linear 2}
         @keyframes mp-scan{from{top:4%}to{top:96%}}
