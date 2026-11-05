@@ -326,11 +326,14 @@
 }
 .nieuw-kop-inner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  /* Rechterkolom minstens zo breed als Inloggen + Back. Safari liet die kolom
+     anders naar 0 krimpen zodra logo en pijlers op één regel nowrap bleven. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(max-content, 1fr);
   align-items: center;
   gap: 16px;
   width: 100%;
-  max-width: none;
+  max-width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 14px clamp(16px, 3vw, 40px);
   box-sizing: border-box;
@@ -455,10 +458,10 @@
   display: flex;
   align-items: center;
   justify-self: start;
-  flex: none;
   z-index: 1;
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
 }
 .nieuw-merk-logo {
   display: block;
@@ -547,6 +550,8 @@
 .cm-logo--header {
   font-size: clamp(15px, 1.55vw, 20px);
   max-width: min(520px, 62vw);
+  min-width: 0;
+  overflow: hidden;
 }
 .cm-logo--footer {
   font-size: clamp(14px, 1.4vw, 18px);
@@ -592,6 +597,9 @@
   justify-self: center;
   gap: 12px;
   z-index: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 .nieuw-pillar {
   position: relative;
@@ -668,11 +676,11 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   justify-self: end;
-  flex: none;
-  z-index: 1;
+  min-width: max-content;
+  z-index: 2;
 }
 .nieuw-kop-actions a,
 .nieuw-kop-actions .nieuw-back-btn {
@@ -682,6 +690,8 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
   padding: 8px 12px;
   background: transparent;
   border: none;
