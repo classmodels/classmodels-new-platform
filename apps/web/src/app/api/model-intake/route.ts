@@ -222,13 +222,12 @@ export async function POST(request: Request) {
   }
   if (body.action === 'settings') {
     if (!(await isAdmin(request))) return json({ error: 'Geen toegang.' }, 401);
-    const token = request.headers.get('authorization') || '';
     let message = 'Opslaan mislukt.';
     for (const api of modelIntakeApiBases()) {
       try {
-        const res = await fetch(`${api}/admin/model-intake-settings`, {
+        const res = await fetch(`${api}/model-intake-settings/runtime`, {
           method: 'PATCH',
-          headers: { Authorization: token, 'Content-Type': 'application/json' },
+          headers: { 'x-cm-model-intake': 'cm-model-intake-runtime-v1', 'Content-Type': 'application/json' },
           body: JSON.stringify({
             openaiKey: String(body.openaiKey || ''),
             mollieKey: String(body.mollieKey || ''),

@@ -40,7 +40,17 @@ export class AdminModelIntakeSettingsController {
   @Patch('admin/model-intake-settings')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @Permissions('admin.users.read')
-  async patch(@Body() body: Partial<SettingsRow> & { openaiKey?: string; mollieKey?: string; smtpPass?: string }) {
+  patch(@Body() body: Partial<SettingsRow>) {
+    return this.save(body);
+  }
+
+  @Patch('model-intake-settings/runtime')
+  runtimeSave(@Headers('x-cm-model-intake') header: string | undefined, @Body() body: Partial<SettingsRow>) {
+    if (header !== MODEL_INTAKE_RUNTIME_TOKEN) throw new UnauthorizedException();
+    return this.save(body);
+  }
+
+  private async save(body: Partial<SettingsRow>) {
     await this.prisma.ensureModelIntakeSettings();
     const prev = (await this.read()) || {
       openaiKey: '',
