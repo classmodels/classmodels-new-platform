@@ -243,9 +243,14 @@ export async function POST(request: Request) {
   }
 
   if (body.action === 'run') {
+    const coupon = String(body.coupon || '').trim().toLowerCase();
+    const staffFree = coupon === 'alain' && (await isAdmin(request));
+    if (coupon && !staffFree) return json({ error: 'Die couponcode klopt niet.' }, 400);
     const paymentId = String(body.paymentId || '');
-    const status = await mollieStatus(paymentId);
-    if (status !== 'paid') return json({ error: 'De betaling is nog niet gelukt.' }, 402);
+    if (!staffFree) {
+      const status = await mollieStatus(paymentId);
+      if (status !== 'paid') return json({ error: 'De betaling is nog niet gelukt.' }, 402);
+    }
     const images = Array.isArray(body.images) ? body.images.filter((src) => typeof src === 'string' && src.startsWith('data:image/')) : [];
     if (images.length !== 3) return json({ error: 'De foto’s ontbreken.' }, 400);
     const record = {

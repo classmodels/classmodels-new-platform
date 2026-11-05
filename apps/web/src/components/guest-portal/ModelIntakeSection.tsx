@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { MeasureRow, ModelReport } from '@/lib/model-analyse';
 import { NieuwAlertDialog } from '@/components/nieuw/NieuwAlertDialog';
+import { useAuth } from '@/context/auth-context';
 
 type Kind = 'full' | 'face' | 'side';
 
@@ -565,6 +566,8 @@ function measureRows(shots: Record<Kind, Shot | null>, heightCm: number | null):
 }
 
 export function ModelIntakeSection() {
+  const { token, isAdmin } = useAuth();
+  const [coupon, setCoupon] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -642,6 +645,46 @@ export function ModelIntakeSection() {
     setError('');
     setReport(null);
     setPay(null);
+    const code = coupon.trim().toLowerCase();
+    if (isAdmin && code) {
+      if (code !== 'alain') {
+        setError('Die couponcode klopt niet.');
+        return;
+      }
+      setBusy('run');
+      try {
+        const images = await Promise.all((['full', 'face', 'side'] as Kind[]).map((kind) => dataUrl(shots[kind]!.url)));
+        const res = await fetch('/api/model-intake', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token || ''}` },
+          body: JSON.stringify({
+            action: 'run',
+            coupon: 'alain',
+            firstName,
+            lastName,
+            email,
+            ageGroup,
+            gender,
+            heightCm: heightValue(),
+            childAge: ageGroup === 'child' ? Number(childAge) : null,
+            images,
+            measures: measureRows(shots, heightValue()),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.report) {
+          setError(data.error || 'De analyse kon niet starten.');
+          setBusy(null);
+          return;
+        }
+        setPay({ id: 'alain', qr: '', checkout: '', emailSent: data.emailSent });
+        show(data.report);
+      } catch {
+        setError('De analyse kon niet starten.');
+        setBusy(null);
+      }
+      return;
+    }
     setBusy('save');
     try {
       const images = await Promise.all((['full', 'face', 'side'] as Kind[]).map((kind) => dataUrl(shots[kind]!.url)));
@@ -857,6 +900,12 @@ export function ModelIntakeSection() {
           })}
         </div>
         {error ? <p className="mp-err">{error}</p> : null}
+        {isAdmin ? (
+          <label className="mp-coupon">
+            Couponcode
+            <input value={coupon} onChange={(e) => setCoupon(e.target.value)} autoComplete="off" placeholder="alain" />
+          </label>
+        ) : null}
         <div className="mp-actions">
           <button className="nieuw-btn mp-start" type="button" onClick={startReal} disabled={busy === 'run' || busy === 'save'}>
             {busy === 'save' ? 'Bezig…' : busy === 'run' ? 'Analyse loopt…' : 'Maak de analyse'}
@@ -901,6 +950,8 @@ export function ModelIntakeSection() {
         .mp-fields label{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--n-dim);min-width:0}
         .mp-fields input,.mp-fields select{box-sizing:border-box;display:block;margin-top:6px;width:100%;min-width:0;height:36px;background:#101010;color:var(--n-ink);border:1px solid var(--n-hair);padding:0 8px;font:inherit;font-size:13px;line-height:34px}
         .mp-fields select{appearance:none;padding-right:26px;background-image:linear-gradient(45deg,transparent 50%,#cfd1da 50%),linear-gradient(135deg,#cfd1da 50%,transparent 50%);background-position:calc(100% - 16px) 15px,calc(100% - 11px) 15px;background-size:5px 5px,5px 5px;background-repeat:no-repeat}
+        .mp-coupon{display:block;margin-top:16px;max-width:240px;color:var(--n-mut);font-size:12px}
+        .mp-coupon input{box-sizing:border-box;display:block;margin-top:6px;width:100%;height:36px;background:#101010;color:var(--n-ink);border:1px solid var(--n-hair);padding:0 8px;font:inherit;font-size:13px}
         .mp-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:22px}
         .mp-pay{margin-top:22px;background:#14151c;border:1px solid #2f303c;color:#f0f1f6;padding:22px;box-shadow:0 18px 50px #000a}
         .mp-pay h3{margin:0 0 8px;font-size:22px;font-weight:500}
