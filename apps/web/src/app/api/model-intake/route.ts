@@ -8,9 +8,9 @@ import {
   listIntakes,
   mollieKey,
   readIntake,
-  modelIntakeApiBases,
   readSettings,
   saveIntake,
+  saveLiveSettings,
   type IntakeRecord,
 } from '@/lib/model-intake-store';
 
@@ -222,31 +222,20 @@ export async function POST(request: Request) {
   }
   if (body.action === 'settings') {
     if (!(await isAdmin(request))) return json({ error: 'Geen toegang.' }, 401);
-    let message = 'Opslaan mislukt.';
-    for (const api of modelIntakeApiBases()) {
-      try {
-        const res = await fetch(`${api}/model-intake-settings/runtime`, {
-          method: 'PATCH',
-          headers: { 'x-cm-model-intake': 'cm-model-intake-runtime-v1', 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            openaiKey: String(body.openaiKey || ''),
-            mollieKey: String(body.mollieKey || ''),
-            smtpHost: String(body.smtpHost || ''),
-            smtpPort: Number(body.smtpPort) || 587,
-            smtpUser: String(body.smtpUser || ''),
-            smtpPass: String(body.smtpPass || ''),
-            smtpFrom: String(body.smtpFrom || ''),
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok) return json({ ok: true });
-        message = data.message || data.error || message;
-        if (res.status !== 404) return json({ error: message }, res.status);
-      } catch {
-        message = 'De server voor de sleutel antwoordt niet.';
-      }
+    try {
+      await saveLiveSettings(request.headers.get('authorization') || '', {
+        openaiKey: String(body.openaiKey || ''),
+        mollieKey: String(body.mollieKey || ''),
+        smtpHost: String(body.smtpHost || ''),
+        smtpPort: Number(body.smtpPort) || 587,
+        smtpUser: String(body.smtpUser || ''),
+        smtpPass: String(body.smtpPass || ''),
+        smtpFrom: String(body.smtpFrom || ''),
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Opslaan mislukt.' }, 502);
     }
-    return json({ error: message }, 502);
+    return json({ ok: true });
   }
 
   const firstName = String(body.firstName || '').trim();

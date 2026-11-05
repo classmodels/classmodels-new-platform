@@ -1,3 +1,4 @@
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
 import { randomUUID } from 'crypto';
 import { mkdir, readFile, readdir, writeFile } from 'fs/promises';
 import path from 'path';
@@ -49,35 +50,72 @@ function orderDir(id: string) {
   return path.join(root, 'orders', id);
 }
 
-const RUNTIME_TOKEN = 'cm-model-intake-runtime-v1';
+const SETTINGS_KEY = 'cm.internal.model-intake';
+const SETTINGS_SECRET = scryptSync('cm-model-intake-runtime-v1', 'class-models-intake', 32);
+const LIVE_API = (process.env.NEXT_PUBLIC_API_URL || 'https://api.class-models.be').replace(/\/$/, '');
 
-/** api.class-models.be wijst nog naar de oude server. De nieuwe route staat op Railway. */
-export function modelIntakeApiBases() {
-  return [
-    'https://cmapi-production-ef6c.up.railway.app',
-    (process.env.NEXT_PUBLIC_API_URL || 'https://api.class-models.be').replace(/\/$/, ''),
-  ].filter((value, index, all) => value && all.indexOf(value) === index);
+function seal(value: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', SETTINGS_SECRET, iv);
+  const enc = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
+  return `enc:v1:${iv.toString('base64')}:${cipher.getAuthTag().toString('base64')}:${enc.toString('base64')}`;
+}
+
+function open(payload: string) {
+  const parts = payload.split(':');
+  if (parts.length !== 5 || parts[0] !== 'enc' || parts[1] !== 'v1') throw new Error('seal');
+  const decipher = createDecipheriv('aes-256-gcm', SETTINGS_SECRET, Buffer.from(parts[2], 'base64'));
+  decipher.setAuthTag(Buffer.from(parts[3], 'base64'));
+  return Buffer.concat([decipher.update(Buffer.from(parts[4], 'base64')), decipher.final()]).toString('utf8');
 }
 
 async function remoteSettings(): Promise<IntakeSettings | null> {
-  for (const api of modelIntakeApiBases()) {
-    try {
-      const res = await fetch(`${api}/model-intake-settings/runtime`, {
-        headers: { 'x-cm-model-intake': RUNTIME_TOKEN },
-        cache: 'no-store',
-      });
-      if (!res.ok) continue;
-      const raw = (await res.json()) as Partial<IntakeSettings>;
-      return {
-        ...EMPTY,
-        ...raw,
-        smtpPort: Number(raw.smtpPort) || 587,
-      };
-    } catch {
-      /* volgende server */
-    }
+  try {
+    const res = await fetch(`${LIVE_API}/content/strings?locale=nl`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as Array<{ key?: string; value?: string }>;
+    const row = rows.find((item) => item.key === SETTINGS_KEY);
+    if (!row?.value) return null;
+    const raw = JSON.parse(open(row.value)) as Partial<IntakeSettings>;
+    return { ...EMPTY, ...raw, smtpPort: Number(raw.smtpPort) || 587 };
+  } catch {
+    return null;
   }
-  return null;
+}
+
+export async function saveLiveSettings(token: string, patch: Partial<IntakeSettings>) {
+  const prev = (await remoteSettings()) || { ...EMPTY };
+  const keep = (next: unknown, previous: string) => {
+    const value = String(next ?? '').trim();
+    return value || previous;
+  };
+  const next: IntakeSettings = {
+    openaiKey: keep(patch.openaiKey, prev.openaiKey),
+    mollieKey: keep(patch.mollieKey, prev.mollieKey),
+    smtpPass: keep(patch.smtpPass, prev.smtpPass),
+    smtpHost: patch.smtpHost == null ? prev.smtpHost : String(patch.smtpHost).trim(),
+    smtpUser: patch.smtpUser == null ? prev.smtpUser : String(patch.smtpUser).trim(),
+    smtpFrom: patch.smtpFrom == null ? prev.smtpFrom : String(patch.smtpFrom).trim(),
+    smtpPort: Number(patch.smtpPort) || prev.smtpPort || 587,
+  };
+  const headers = { Authorization: token, 'Content-Type': 'application/json' };
+  const value = seal(JSON.stringify(next));
+  let res = await fetch(`${LIVE_API}/content/strings`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ key: SETTINGS_KEY, value, locale: 'nl' }),
+  });
+  if (res.status === 404) {
+    res = await fetch(`${LIVE_API}/content/strings`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ key: SETTINGS_KEY, value, locale: 'nl' }),
+    });
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Opslaan mislukt.');
+  }
 }
 
 export async function readSettings(): Promise<IntakeSettings> {
