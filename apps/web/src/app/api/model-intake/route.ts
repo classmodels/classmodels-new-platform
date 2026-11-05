@@ -1,8 +1,8 @@
+import { randomUUID } from 'crypto';
 import QRCode from 'qrcode';
 import type { MeasureRow, ModelReport } from '@/lib/model-analyse';
 import { runModelAnalysis } from '@/lib/model-analyse-run';
 import {
-  createIntake,
   intakeImages,
   intakePhoto,
   listIntakes,
@@ -169,6 +169,10 @@ export async function GET(request: Request) {
     });
   }
   const id = url.searchParams.get('id') || '';
+  if (id.startsWith('tr_')) {
+    const status = await mollieStatus(id);
+    return json({ id, status: status || 'open' });
+  }
   let record: IntakeRecord;
   try {
     record = await readIntake(id);
@@ -238,6 +242,49 @@ export async function POST(request: Request) {
     return json({ ok: true });
   }
 
+  if (body.action === 'run') {
+    const paymentId = String(body.paymentId || '');
+    const status = await mollieStatus(paymentId);
+    if (status !== 'paid') return json({ error: 'De betaling is nog niet gelukt.' }, 402);
+    const images = Array.isArray(body.images) ? body.images.filter((src) => typeof src === 'string' && src.startsWith('data:image/')) : [];
+    if (images.length !== 3) return json({ error: 'De foto’s ontbreken.' }, 400);
+    const record = {
+      id: paymentId,
+      createdAt: new Date().toISOString(),
+      firstName: String(body.firstName || '').trim(),
+      lastName: String(body.lastName || '').trim(),
+      email: String(body.email || '').trim(),
+      gender: String(body.gender || ''),
+      ageGroup: body.ageGroup === 'child' ? 'child' as const : 'adult' as const,
+      heightCm: body.heightCm == null ? null : Number(body.heightCm),
+      childAge: body.childAge == null ? null : Number(body.childAge),
+      paymentId,
+      paymentStatus: 'paid',
+      checkout: '',
+      emailSent: false,
+      measures: Array.isArray(body.measures) ? body.measures : [],
+      report: null,
+    };
+    try {
+      const report = await runModelAnalysis({
+        ageGroup: record.ageGroup,
+        gender: record.gender,
+        heightCm: Number.isFinite(record.heightCm) ? record.heightCm : null,
+        childAge: Number.isFinite(record.childAge) ? record.childAge : null,
+        images,
+        measures: record.measures as MeasureRow[],
+      });
+      try {
+        record.emailSent = await sendReport(record, report, originOf(request));
+      } catch {
+        record.emailSent = false;
+      }
+      return json({ status: 'paid', report, emailSent: record.emailSent });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'De analyse is niet gelukt.' }, 502);
+    }
+  }
+
   const firstName = String(body.firstName || '').trim();
   const lastName = String(body.lastName || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
@@ -259,31 +306,30 @@ export async function POST(request: Request) {
     return json({ error: 'Drie foto’s zijn nodig.' }, 400);
   }
 
-  const record = await createIntake(
-    {
-      firstName,
-      lastName,
-      email,
-      gender,
-      ageGroup,
-      heightCm: Number.isFinite(heightCm) ? heightCm : null,
-      childAge: Number.isFinite(childAge) ? childAge : null,
-    },
-    images,
-  );
-  record.measures = Array.isArray(body.measures) ? body.measures : [];
-  await saveIntake(record);
-  const payment = await mollieCreate(record, originOf(request));
-  if (payment && 'error' in payment) return json({ error: payment.error, id: record.id }, 502);
-  if (!payment) {
-    return json({
-      error: 'De betaling van € 3,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in. Je gegevens zijn wel bewaard.',
-      id: record.id,
-    }, 503);
+  if (!(await mollieKey())) {
+    return json({ error: 'De betaling van € 3,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
   }
-  record.paymentId = payment.id;
-  record.checkout = payment.checkout;
-  record.paymentStatus = 'open';
-  await saveIntake(record);
-  return json({ id: record.id, qr: payment.qr, checkout: payment.checkout, status: 'open', price: PRICE });
+  const record: IntakeRecord = {
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+    firstName,
+    lastName,
+    email,
+    gender,
+    ageGroup,
+    heightCm: Number.isFinite(heightCm) ? heightCm : null,
+    childAge: Number.isFinite(childAge) ? childAge : null,
+    paymentId: '',
+    paymentStatus: 'open',
+    checkout: '',
+    emailSent: false,
+    measures: Array.isArray(body.measures) ? body.measures : [],
+    report: null,
+  };
+  const payment = await mollieCreate(record, originOf(request));
+  if (payment && 'error' in payment) return json({ error: payment.error }, 502);
+  if (!payment) {
+    return json({ error: 'De betaling van € 3,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
+  }
+  return json({ id: payment.id, qr: payment.qr, checkout: payment.checkout, status: 'open', price: PRICE });
 }
