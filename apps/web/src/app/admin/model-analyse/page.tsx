@@ -117,7 +117,7 @@ export default function AdminModelAnalysePage() {
         {msg ? <p>{msg}</p> : null}
         {err ? <p className="text-red-700">{err}</p> : null}
         <label className="block">
-          <span className="text-xs text-muted">Mollie-sleutel voor € 3,99 {settings?.hasMollie ? '(ingesteld — leeg laten om te behouden)' : ''}</span>
+          <span className="text-xs text-muted">Mollie-sleutel voor € 4,99 {settings?.hasMollie ? '(ingesteld — leeg laten om te behouden)' : ''}</span>
           <input className="mt-1 w-full border border-line px-2 py-2" type="password" autoComplete="off" value={form.mollieKey} onChange={(e) => setForm({ ...form, mollieKey: e.target.value })} />
         </label>
         <label className="block">

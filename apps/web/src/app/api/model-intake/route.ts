@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import QRCode from 'qrcode';
+import { buildClassModelsEmailDocument } from '@cm/shared';
 import type { MeasureRow, ModelReport } from '@/lib/model-analyse';
 import { runModelAnalysis } from '@/lib/model-analyse-run';
 import {
@@ -16,7 +17,9 @@ import {
 
 export const runtime = 'nodejs';
 
-const PRICE = '3.99';
+const PRICE = '4.99';
+const PRICE_LABEL = '4,99';
+const OFFICE_COPY = 'inschrijving@class-models.be';
 const running = new Set<string>();
 
 function json(data: unknown, status = 200) {
@@ -39,29 +42,36 @@ async function qrDataUrl(text: string) {
   return QRCode.toDataURL(text, { margin: 1, width: 280, color: { dark: '#14120e', light: '#ffffff' } });
 }
 
-async function mollieCreate(record: IntakeRecord, origin: string) {
-  const key = await mollieKey();
-  if (!key) return null;
+async function molliePost(key: string, body: Record<string, unknown>) {
   const created = await fetch('https://api.mollie.com/v2/payments', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      amount: { currency: 'EUR', value: PRICE },
-      description: `Class-Models modelanalyse — ${record.firstName} ${record.lastName}`,
-      redirectUrl: `${origin}/gasten/model-worden?intake=${record.id}#profiel`,
-      metadata: { intakeId: record.id, email: record.email },
-    }),
+    body: JSON.stringify(body),
   });
   const payment = await created.json();
-  if (!created.ok) return { error: payment?.detail || payment?.title || 'Mollie weigerde de betaling.' };
-  let qr = '';
+  return { ok: created.ok, payment };
+}
+
+async function mollieCreate(record: IntakeRecord, origin: string) {
+  const key = await mollieKey();
+  if (!key) return null;
+  const base = {
+    amount: { currency: 'EUR', value: PRICE },
+    description: `Class-Models modelanalyse € ${PRICE_LABEL} — ${record.firstName} ${record.lastName}`.slice(0, 255),
+    redirectUrl: `${origin}/gasten/model-worden?intake=${record.id}#profiel`,
+    locale: 'nl_BE',
+    metadata: { intakeId: record.id, email: record.email },
+  };
+  let made = await molliePost(key, { ...base, method: 'bancontact' });
+  if (!made.ok) made = await molliePost(key, base);
+  if (!made.ok) return { error: made.payment?.detail || made.payment?.title || 'Mollie weigerde de betaling.' };
+  const payment = made.payment;
   const details = await fetch(`https://api.mollie.com/v2/payments/${payment.id}?include=details.qrCode`, {
     headers: { Authorization: `Bearer ${key}` },
   });
   const full = await details.json();
-  qr = full?.details?.qrCode?.src || '';
-  const checkout = payment?._links?.checkout?.href || '';
-  if (!qr && checkout) qr = await qrDataUrl(checkout);
+  const checkout = payment?._links?.checkout?.href || full?._links?.checkout?.href || '';
+  const qr = full?.details?.qrCode?.src || (checkout ? await qrDataUrl(checkout) : '');
   return { id: payment.id as string, checkout, qr };
 }
 
@@ -75,36 +85,134 @@ async function mollieStatus(paymentId: string) {
   return String(payment?.status || '');
 }
 
-function mailText(record: IntakeRecord, report: ModelReport, origin: string) {
-  const lines = [
-    `Dag ${record.firstName} ${record.lastName},`,
+function esc(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function mailRule() {
+  return '<div style="border-top:1px solid #e3d9c8;margin:26px 0 18px;line-height:0;font-size:0;">&nbsp;</div>';
+}
+
+function mailHeading(title: string) {
+  return `<p style="margin:0 0 10px;color:#8a7340;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:16px;letter-spacing:1.8px;text-transform:uppercase;">${esc(title)}</p>`;
+}
+
+function mailParagraph(text: string) {
+  return `<p style="margin:0 0 12px;color:#262420;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:25px;">${esc(text)}</p>`;
+}
+
+function reportMail(record: IntakeRecord, report: ModelReport, origin: string) {
+  const name = `${record.firstName} ${record.lastName}`.trim();
+  const when = new Date().toLocaleDateString('nl-BE', { day: 'numeric', month: 'long', year: 'numeric' });
+  const score = report.overall === null ? 'voorlopig' : `${report.overall}%`;
+  const book = `${origin.replace(/\/$/, '')}/gasten/model-worden#inschrijven`;
+  const measures = report.measures
+    .map(
+      (row) => `<tr>
+        <td style="padding:9px 0;border-bottom:1px solid #efe8dc;color:#262420;font-family:Arial,Helvetica,sans-serif;font-size:14px;">${esc(row.part)}</td>
+        <td style="padding:9px 0;border-bottom:1px solid #efe8dc;color:#262420;font-family:Georgia,'Times New Roman',serif;font-size:15px;text-align:right;">${esc(row.value)} ${esc(row.unit)}</td>
+      </tr>
+      <tr><td colspan="2" style="padding:0 0 10px;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;">${esc(row.meaning)}</td></tr>`,
+    )
+    .join('');
+  const points = (items: ModelReport['strengths']) =>
+    items
+      .map(
+        (item) => `<p style="margin:0 0 4px;color:#262420;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:22px;"><strong>${esc(item.title)}</strong></p>
+        <p style="margin:0 0 14px;color:#4a463f;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;">${esc(item.observation)} ${esc(item.meaning)}</p>`,
+      )
+      .join('');
+  const directions = report.directions
+    .map((item) => {
+      const value = item.score === null ? 'nader te bepalen' : `${item.score}%`;
+      const note = [item.qualification, item.why, item.limit, item.unknown].filter(Boolean).join(' ');
+      return `<tr>
+        <td style="padding:11px 0;border-bottom:1px solid #efe8dc;color:#262420;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;">${esc(item.label)}<br><span style="color:#6f6a62;font-size:12px;line-height:18px;">${esc(note)}</span></td>
+        <td style="padding:11px 0 11px 12px;border-bottom:1px solid #efe8dc;color:#8a7340;font-family:Georgia,'Times New Roman',serif;font-size:18px;text-align:right;white-space:nowrap;vertical-align:top;">${esc(value)}</td>
+      </tr>`;
+    })
+    .join('');
+
+  const body = `
+    <p style="margin:0 0 6px;color:#8a7340;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.8px;text-transform:uppercase;">Modelanalyse · dossier</p>
+    <h1 style="margin:0 0 8px;color:#191919;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:36px;font-weight:normal;">Voorlopige bevindingen</h1>
+    <p style="margin:0 0 18px;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;">${esc(name)} · ${esc(when)}${record.heightCm ? ` · ${esc(String(record.heightCm))} cm` : ''}</p>
+    ${mailParagraph(`Geachte ${name},`)}
+    ${mailParagraph('De eerste resultaten van deze analyse zijn gunstig. De aangeleverde beelden laten een leesbaar morfologisch profiel zien dat in aanmerking komt voor een persoonlijke bespreking bij Class-Models.')}
+    ${mailParagraph('Onderstaand dossier bundelt de proportionele lezing, de gelaatsmorfologie en de indicatie per opdrachtgebied. Het betreft een voorlopige, gestandaardiseerde beoordeling op basis van drie stilstaande opnamen. Tijdens uw afspraak worden deze bevindingen met u doorgenomen.')}
+    ${report.summary ? mailParagraph(report.summary) : ''}
+    ${mailRule()}
+    ${mailHeading('Algemene profielindex')}
+    <p style="margin:0;color:#8a7340;font-family:Georgia,'Times New Roman',serif;font-size:42px;line-height:46px;">${esc(score)}</p>
+    <p style="margin:8px 0 0;color:#4a463f;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;">${esc(report.overallNote || 'Gemiddelde aansluiting over de beoordeelde opdrachtgebieden.')}</p>
+    ${mailRule()}
+    ${mailHeading('Antropometrische maten')}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${measures}</table>
+    ${mailRule()}
+    ${mailHeading('Gunstige bevindingen')}
+    ${points(report.strengths) || mailParagraph('De beelden ondersteunen een evenwichtige eerste indruk. De nuance wordt tijdens de afspraak verder geduid.')}
+    ${mailRule()}
+    ${mailHeading('Aandachtspunten')}
+    ${points(report.weaker) || mailParagraph('Er zijn geen uitgesproken beperkingen vastgesteld die een gesprek in de weg staan.')}
+    ${mailRule()}
+    ${mailHeading('Indicatie per opdrachtgebied')}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${directions}</table>
+    ${report.forCandidate ? `${mailRule()}${mailHeading('Toelichting bij het dossier')}${mailParagraph(report.forCandidate)}` : ''}
+    ${report.extra ? mailParagraph(report.extra) : ''}
+    ${mailRule()}
+    ${mailHeading('Vervolg en vergoeding')}
+    ${mailParagraph(`Het voorschot voor deze analyse bedraagt € ${PRICE_LABEL}. Bij het nakomen van uw afspraak wordt dit bedrag terugbetaald tijdens uw afspraak bij Class-Models. Het voorschot vermijdt dat wij tijd vrijmaken en u niet komt opdagen.`)}
+    ${mailParagraph('Class-Models heeft een kopie van deze mail ontvangen. Dit dossier wordt bij het maken en tijdens het verloop van uw afspraak besproken.')}
+    <p style="margin:18px 0 0;">
+      <a href="${esc(book)}" style="display:inline-block;background:#191919;color:#f7f4ed;font-family:Arial,Helvetica,sans-serif;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;text-decoration:none;padding:14px 22px;">Maak uw afspraak</a>
+    </p>
+  `;
+
+  const text = [
+    `Geachte ${name},`,
     '',
-    'Je uitgebreide modelanalyse bij Class-Models staat klaar.',
-    '',
+    'De eerste resultaten van deze analyse zijn gunstig.',
     report.summary,
     '',
-    `Algemene profielmatch: ${report.overall === null ? 'nog niet vast te stellen' : `${report.overall}%`}`,
+    `Algemene profielindex: ${score}`,
+    report.overallNote,
     '',
-    'Sterke punten',
+    'Antropometrische maten',
+    ...report.measures.map((row) => `- ${row.part}: ${row.value} ${row.unit}. ${row.meaning}`),
+    '',
+    'Gunstige bevindingen',
     ...report.strengths.map((item) => `- ${item.title}: ${item.observation} ${item.meaning}`),
     '',
-    'Minder sterke punten',
+    'Aandachtspunten',
     ...report.weaker.map((item) => `- ${item.title}: ${item.observation} ${item.meaning}`),
     '',
-    'Waarvoor je geschikt bent',
-    ...report.directions.map((item) => `- ${item.label}: ${item.score === null ? 'aanvullende beoordeling nodig' : `${item.score}%`} — ${item.qualification}`),
-    '',
-    'Maten',
-    ...report.measures.map((row) => `- ${row.part}: ${row.value} ${row.unit} (${row.status})`),
+    'Indicatie per opdrachtgebied',
+    ...report.directions.map((item) => `- ${item.label}: ${item.score === null ? 'nader te bepalen' : `${item.score}%`} — ${item.qualification}`),
     '',
     report.forCandidate,
+    report.extra,
     '',
-    `Maak hier direct een afspraak: ${origin}/gasten/model-worden#inschrijven`,
+    `Het voorschot bedraagt € ${PRICE_LABEL} en wordt terugbetaald wanneer u op uw afspraak aanwezig bent.`,
+    'Class-Models heeft een kopie van deze mail ontvangen. Het dossier wordt bij uw afspraak besproken.',
+    '',
+    book,
     '',
     'Class-Models',
     'Provinciebaan 3, 2235 Hulshout',
-  ];
-  return lines.join('\n');
+    'info@class-models.be',
+    '+32 485 32 23 07',
+  ]
+    .filter((line) => line !== undefined)
+    .join('\n');
+
+  return {
+    html: buildClassModelsEmailDocument(body, { title: 'Uw modelanalyse bij Class-Models' }),
+    text,
+  };
 }
 
 async function sendReport(record: IntakeRecord, report: ModelReport, origin: string) {
@@ -117,11 +225,15 @@ async function sendReport(record: IntakeRecord, report: ModelReport, origin: str
     secure: settings.smtpPort === 465,
     auth: settings.smtpUser ? { user: settings.smtpUser, pass: settings.smtpPass } : undefined,
   });
+  const mail = reportMail(record, report, origin);
+  const subject = 'Uw modelanalyse bij Class-Models';
   await transport.sendMail({
     from: settings.smtpFrom,
     to: record.email,
-    subject: 'Je modelanalyse bij Class-Models',
-    text: mailText(record, report, origin),
+    bcc: OFFICE_COPY,
+    subject,
+    text: mail.text,
+    html: mail.html,
   });
   return true;
 }
@@ -312,7 +424,7 @@ export async function POST(request: Request) {
   }
 
   if (!(await mollieKey())) {
-    return json({ error: 'De betaling van € 3,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
+    return json({ error: 'De betaling van € 4,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
   }
   const record: IntakeRecord = {
     id: randomUUID(),
@@ -334,7 +446,7 @@ export async function POST(request: Request) {
   const payment = await mollieCreate(record, originOf(request));
   if (payment && 'error' in payment) return json({ error: payment.error }, 502);
   if (!payment) {
-    return json({ error: 'De betaling van € 3,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
+    return json({ error: 'De betaling van € 4,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
   }
   return json({ id: payment.id, qr: payment.qr, checkout: payment.checkout, status: 'open', price: PRICE });
 }

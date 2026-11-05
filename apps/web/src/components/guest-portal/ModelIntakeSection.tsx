@@ -23,19 +23,19 @@ const EMPTY: Record<Kind, Shot | null> = { full: null, face: null, side: null };
 
 const COPY: Record<Kind, { title: string; hint: string; guide: string }> = {
   full: {
-    title: 'Ten voeten uit',
+    title: 'Volledig lichaam',
     hint: 'Recht van voren, armen licht los. Kruin en beide voeten volledig in beeld.',
-    guide: '/nieuw/meting-lichaam.svg',
+    guide: '/nieuw/analyse-voorbeeld-lichaam.jpg',
   },
   face: {
-    title: 'Gezicht',
+    title: 'Vooraanzicht',
     hint: 'Recht van voren, blik horizontaal. Voorhoofd, oren en kin vrij, zonder filter.',
-    guide: '/nieuw/meting-gezicht.svg',
+    guide: '/nieuw/analyse-voorbeeld-voor.jpg',
   },
   side: {
     title: 'Zijaanzicht',
     hint: 'Hoofd recht, haren naar achteren. Voorhoofd, neus, lippen en kin vrij.',
-    guide: '/nieuw/meting-zij.svg',
+    guide: '/nieuw/analyse-voorbeeld-zij.jpg',
   },
 };
 
@@ -448,7 +448,8 @@ function Frame({ kind, shot }: { kind: Kind; shot: Shot | null }) {
   return (
     <div className="mp-frame">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img ref={imgRef} src={shot?.url || COPY[kind].guide} alt="" />
+      <img ref={imgRef} src={shot?.url || COPY[kind].guide} alt={shot ? '' : `Voorbeeld ${COPY[kind].title}`} />
+      {shot ? null : <span className="mp-example">Voorbeeld</span>}
       <canvas ref={canvasRef} />
       <i className="mp-scan" />
     </div>
@@ -876,7 +877,19 @@ export function ModelIntakeSection() {
                 <Frame kind={kind} shot={shot} />
                 {shot ? (
                   <div className="mp-choice">
-                    <button className="mp-no" type="button" onClick={() => document.getElementById(`mp-file-${kind}`)?.click()}>Vervangen</button>
+                    <label className="mp-no">
+                      Vervangen
+                      <input
+                        className="mp-file"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          void onFile(kind, file);
+                        }}
+                      />
+                    </label>
                     <button className={`mp-yes${approved[kind] ? ' on' : ''}`} type="button" onClick={() => setApproved((prev) => ({ ...prev, [kind]: true }))}>
                       {approved[kind] ? 'Goedgekeurd' : 'Goedkeuren'}
                     </button>
@@ -913,14 +926,16 @@ export function ModelIntakeSection() {
         </div>
         {pay && !report ? (
           <div className="mp-pay" id="mp-pay">
-            <h3>Volledige analyse · € 3,99</h3>
+            <h3>Volledige analyse · € 4,99</h3>
             <p>
-              Voor de volledige analyse betaal je € 3,99. Zo weten we dat je een afspraak maakt en ook komt.
-              Daarmee weren we aanvragen die niet ernstig zijn. Na betaling zie je de analyse hier, en sturen we ze ook per e-mail door.
+              Scan de QR-code met uw bankapp. U betaalt meteen € 4,99.
+              Bij het nakomen van uw afspraak wordt dit bedrag terugbetaald tijdens uw afspraak bij Class-Models.
+              Zo vermijden we dat we tijd vrijmaken en u niet komt opdagen.
+              Na betaling ziet u de analyse hier, en sturen we ze ook per e-mail door.
             </p>
-            {pay.qr ? <img src={pay.qr} alt="QR-code om € 3,99 te betalen" /> : null}
+            {pay.qr ? <img src={pay.qr} alt="QR-code om € 4,99 te betalen" /> : null}
             <div className="mp-pay-actions">
-              {pay.checkout ? <a className="nieuw-btn" href={pay.checkout}>Betaal € 3,99</a> : null}
+              {pay.checkout ? <a className="nieuw-btn" href={pay.checkout}>Betaal € 4,99</a> : null}
             </div>
           </div>
         ) : null}
@@ -985,7 +1000,8 @@ export function ModelIntakeSection() {
         .mp-file{position:absolute;width:1px;height:1px;opacity:0}
         .mp-choice{display:grid;grid-template-columns:1fr 1fr;margin-top:8px}
         .mp-no,.mp-yes{min-height:46px;border:0;font:inherit;font-size:13px;cursor:pointer;color:#fff}
-        .mp-no{background:#8e2f2f}
+        .mp-no{position:relative;display:flex;align-items:center;justify-content:center;background:#8e2f2f}
+        .mp-example{position:absolute;left:10px;top:10px;z-index:2;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#d4af6a;border:1px solid rgba(212,175,106,.5);padding:3px 7px;background:rgba(10,10,10,.62)}
         .mp-yes{background:#2f6b45}
         .mp-yes.on{background:#3d8f5a}
         .mp-wait,.mp-err{color:var(--n-dim);font-size:13px}
