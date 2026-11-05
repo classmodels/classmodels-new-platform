@@ -8,9 +8,9 @@ import {
   listIntakes,
   mollieKey,
   readIntake,
+  modelIntakeApiBases,
   readSettings,
   saveIntake,
-  writeSettings,
   type IntakeRecord,
 } from '@/lib/model-intake-store';
 
@@ -222,16 +222,32 @@ export async function POST(request: Request) {
   }
   if (body.action === 'settings') {
     if (!(await isAdmin(request))) return json({ error: 'Geen toegang.' }, 401);
-    await writeSettings({
-      openaiKey: String(body.openaiKey || ''),
-      mollieKey: String(body.mollieKey || ''),
-      smtpHost: String(body.smtpHost || ''),
-      smtpPort: Number(body.smtpPort) || 587,
-      smtpUser: String(body.smtpUser || ''),
-      smtpPass: String(body.smtpPass || ''),
-      smtpFrom: String(body.smtpFrom || ''),
-    });
-    return json({ ok: true });
+    const token = request.headers.get('authorization') || '';
+    let message = 'Opslaan mislukt.';
+    for (const api of modelIntakeApiBases()) {
+      try {
+        const res = await fetch(`${api}/admin/model-intake-settings`, {
+          method: 'PATCH',
+          headers: { Authorization: token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            openaiKey: String(body.openaiKey || ''),
+            mollieKey: String(body.mollieKey || ''),
+            smtpHost: String(body.smtpHost || ''),
+            smtpPort: Number(body.smtpPort) || 587,
+            smtpUser: String(body.smtpUser || ''),
+            smtpPass: String(body.smtpPass || ''),
+            smtpFrom: String(body.smtpFrom || ''),
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) return json({ ok: true });
+        message = data.message || data.error || message;
+        if (res.status !== 404) return json({ error: message }, res.status);
+      } catch {
+        message = 'De server voor de sleutel antwoordt niet.';
+      }
+    }
+    return json({ error: message }, 502);
   }
 
   const firstName = String(body.firstName || '').trim();

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { getApiBase } from '@/lib/api';
 
 type Settings = {
   hasOpenai: boolean;
@@ -38,21 +37,18 @@ export default function AdminModelAnalysePage() {
 
   const load = useCallback(async () => {
     if (!token) return;
-    const api = getApiBase();
-    const settingsRes = await fetch(`${api}/admin/model-intake-settings`, { headers: { Authorization: `Bearer ${token}` } });
-    const settingsData = await settingsRes.json().catch(() => ({}));
-    if (!settingsRes.ok) throw new Error(settingsData.message || settingsData.error || 'De sleutels konden niet geladen worden.');
-    setSettings(settingsData);
-    setForm((prev) => ({
-      ...prev,
-      smtpHost: settingsData.smtpHost || '',
-      smtpPort: String(settingsData.smtpPort || 587),
-      smtpUser: settingsData.smtpUser || '',
-      smtpFrom: settingsData.smtpFrom || '',
-    }));
     const res = await fetch('/api/model-intake?admin=1', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
-    if (res.ok) setRows(data.intakes || []);
+    if (!res.ok) throw new Error(data.error || data.message || 'Laden mislukt');
+    setSettings(data.settings);
+    setRows(data.intakes || []);
+    setForm((prev) => ({
+      ...prev,
+      smtpHost: data.settings?.smtpHost || '',
+      smtpPort: String(data.settings?.smtpPort || 587),
+      smtpUser: data.settings?.smtpUser || '',
+      smtpFrom: data.settings?.smtpFrom || '',
+    }));
   }, [token]);
 
   useEffect(() => {
@@ -91,10 +87,10 @@ export default function AdminModelAnalysePage() {
     setMsg('');
     setErr('');
     try {
-      const res = await fetch(`${getApiBase()}/admin/model-intake-settings`, {
-        method: 'PATCH',
+      const res = await fetch('/api/model-intake', {
+        method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, smtpPort: Number(form.smtpPort) || 587 }),
+        body: JSON.stringify({ action: 'settings', ...form, smtpPort: Number(form.smtpPort) || 587 }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

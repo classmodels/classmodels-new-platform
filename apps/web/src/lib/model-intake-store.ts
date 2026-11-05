@@ -51,23 +51,33 @@ function orderDir(id: string) {
 
 const RUNTIME_TOKEN = 'cm-model-intake-runtime-v1';
 
+/** api.class-models.be wijst nog naar de oude server. De nieuwe route staat op Railway. */
+export function modelIntakeApiBases() {
+  return [
+    'https://cmapi-production-ef6c.up.railway.app',
+    (process.env.NEXT_PUBLIC_API_URL || 'https://api.class-models.be').replace(/\/$/, ''),
+  ].filter((value, index, all) => value && all.indexOf(value) === index);
+}
+
 async function remoteSettings(): Promise<IntakeSettings | null> {
-  const api = (process.env.NEXT_PUBLIC_API_URL || 'https://api.class-models.be').replace(/\/$/, '');
-  try {
-    const res = await fetch(`${api}/model-intake-settings/runtime`, {
-      headers: { 'x-cm-model-intake': RUNTIME_TOKEN },
-      cache: 'no-store',
-    });
-    if (!res.ok) return null;
-    const raw = (await res.json()) as Partial<IntakeSettings>;
-    return {
-      ...EMPTY,
-      ...raw,
-      smtpPort: Number(raw.smtpPort) || 587,
-    };
-  } catch {
-    return null;
+  for (const api of modelIntakeApiBases()) {
+    try {
+      const res = await fetch(`${api}/model-intake-settings/runtime`, {
+        headers: { 'x-cm-model-intake': RUNTIME_TOKEN },
+        cache: 'no-store',
+      });
+      if (!res.ok) continue;
+      const raw = (await res.json()) as Partial<IntakeSettings>;
+      return {
+        ...EMPTY,
+        ...raw,
+        smtpPort: Number(raw.smtpPort) || 587,
+      };
+    } catch {
+      /* volgende server */
+    }
   }
+  return null;
 }
 
 export async function readSettings(): Promise<IntakeSettings> {
