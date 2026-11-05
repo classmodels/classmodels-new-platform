@@ -1,4 +1,4 @@
-import { createRequire } from 'module';
+import QRCode from 'qrcode';
 import type { MeasureRow, ModelReport } from '@/lib/model-analyse';
 import { runModelAnalysis } from '@/lib/model-analyse-run';
 import {
@@ -18,7 +18,6 @@ export const runtime = 'nodejs';
 
 const PRICE = '3.99';
 const running = new Set<string>();
-const require = createRequire(import.meta.url);
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { 'cache-control': 'no-store' } });
@@ -37,8 +36,7 @@ async function isAdmin(request: Request) {
 }
 
 async function qrDataUrl(text: string) {
-  const QR = require('qrcode') as { toDataURL: (value: string, opts: object) => Promise<string> };
-  return QR.toDataURL(text, { margin: 1, width: 280, color: { dark: '#14120e', light: '#ffffff' } });
+  return QRCode.toDataURL(text, { margin: 1, width: 280, color: { dark: '#14120e', light: '#ffffff' } });
 }
 
 async function mollieCreate(record: IntakeRecord, origin: string) {
