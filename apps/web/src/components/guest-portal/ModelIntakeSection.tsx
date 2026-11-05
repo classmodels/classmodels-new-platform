@@ -42,7 +42,12 @@ let faceModel: Promise<unknown> | null = null;
 let poseModel: Promise<unknown> | null = null;
 
 async function vision() {
-  return import(/* webpackIgnore: true */ 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/+esm');
+  const load = new Function('u', 'return import(u)') as (url: string) => Promise<{
+    FaceLandmarker: { createFromOptions: (files: unknown, options: unknown) => Promise<unknown> };
+    PoseLandmarker: { createFromOptions: (files: unknown, options: unknown) => Promise<unknown> };
+    FilesetResolver: { forVisionTasks: (url: string) => Promise<unknown> };
+  }>;
+  return load('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/+esm');
 }
 
 async function detector(kind: 'face' | 'pose') {
