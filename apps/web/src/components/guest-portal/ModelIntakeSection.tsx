@@ -449,7 +449,6 @@ function Frame({ kind, shot }: { kind: Kind; shot: Shot | null }) {
     <div className="mp-frame">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img ref={imgRef} src={shot?.url || COPY[kind].guide} alt={shot ? '' : `Voorbeeld ${COPY[kind].title}`} />
-      {shot ? null : <span className="mp-example">Voorbeeld</span>}
       <canvas ref={canvasRef} />
       <i className="mp-scan" />
     </div>
@@ -863,7 +862,7 @@ export function ModelIntakeSection() {
               <article key={kind} className="nieuw-panel mp-card">
                 <div className="mp-card-top">
                   <strong>{COPY[kind].title}</strong>
-                  <span>{approved[kind] ? 'Goedgekeurd' : 'Foto'}</span>
+                  <span>{approved[kind] ? 'Goedgekeurd' : shot ? 'Foto' : 'Voorbeeld foto'}</span>
                 </div>
                 {shot ? (
                   <div className="mp-fit">
@@ -1001,7 +1000,6 @@ export function ModelIntakeSection() {
         .mp-choice{display:grid;grid-template-columns:1fr 1fr;margin-top:8px}
         .mp-no,.mp-yes{min-height:46px;border:0;font:inherit;font-size:13px;cursor:pointer;color:#fff}
         .mp-no{position:relative;display:flex;align-items:center;justify-content:center;background:#8e2f2f}
-        .mp-example{position:absolute;left:10px;top:10px;z-index:2;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#d4af6a;border:1px solid rgba(212,175,106,.5);padding:3px 7px;background:rgba(10,10,10,.62)}
         .mp-yes{background:#2f6b45}
         .mp-yes.on{background:#3d8f5a}
         .mp-wait,.mp-err{color:var(--n-dim);font-size:13px}
