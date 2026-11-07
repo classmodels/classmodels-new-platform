@@ -711,8 +711,6 @@ function Frame({ kind, shot }: { kind: Kind; shot: Shot | null }) {
 }
 
 
-const NONE: Record<Kind, boolean> = { full: false, face: false, side: false };
-
 function dataUrl(url: string) {
   return new Promise<string>((resolve, reject) => {
     const img = new Image();
@@ -832,7 +830,6 @@ export function ModelIntakeSection() {
   const [ageGroup, setAgeGroup] = useState('');
   const [childAge, setChildAge] = useState('');
   const [shots, setShots] = useState(EMPTY);
-  const [approved, setApproved] = useState(NONE);
   const [busy, setBusy] = useState<Kind | 'run' | 'save' | null>(null);
   const [error, setError] = useState('');
   const [report, setReport] = useState<ModelReport | null>(null);
@@ -855,7 +852,6 @@ export function ModelIntakeSection() {
     if (photos) {
       for (const kind of Object.keys(COPY) as Kind[]) {
         if (!shots[kind]) list.push(`${COPY[kind].title}: foto opladen`);
-        else if (!approved[kind]) list.push(`${COPY[kind].title}: foto goedkeuren`);
       }
     }
     return list;
@@ -869,7 +865,6 @@ export function ModelIntakeSection() {
   async function onFile(kind: Kind, file?: File) {
     if (!file) return;
     setError('');
-    setApproved((prev) => ({ ...prev, [kind]: false }));
     setBusy(kind);
     try {
       const img = await loadImage(file);
@@ -1096,7 +1091,7 @@ export function ModelIntakeSection() {
               <article key={kind} className="nieuw-panel mp-card">
                 <div className="mp-card-top">
                   <strong>{COPY[kind].title}</strong>
-                  <span>{approved[kind] ? 'Goedgekeurd' : shot ? 'Foto' : 'Voorbeeld foto'}</span>
+                  <span>{shot ? 'Foto' : 'Voorbeeld foto'}</span>
                 </div>
                 <Frame kind={kind} shot={shot} />
                 {shot ? (
@@ -1106,24 +1101,19 @@ export function ModelIntakeSection() {
                   </>
                 ) : null}
                 {shot ? (
-                  <div className="mp-choice">
-                    <label className="mp-no">
-                      Vervangen
-                      <input
-                        className="mp-file"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          e.target.value = '';
-                          void onFile(kind, file);
-                        }}
-                      />
-                    </label>
-                    <button className={`mp-yes${approved[kind] ? ' on' : ''}`} type="button" onClick={() => setApproved((prev) => ({ ...prev, [kind]: true }))}>
-                      {approved[kind] ? 'Goedgekeurd' : 'Goedkeuren'}
-                    </button>
-                  </div>
+                  <label className="mp-keep">
+                    Foto vervangen of doorgaan met deze foto
+                    <input
+                      className="mp-file"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        void onFile(kind, file);
+                      }}
+                    />
+                  </label>
                 ) : (
                   <div className="mp-upload-row">
                     <label className="mp-shot">
@@ -1257,11 +1247,7 @@ export function ModelIntakeSection() {
         .mp-upload strong{display:block;font-size:13px;font-weight:600;color:var(--n-ink)}
         .mp-upload small{display:block;margin-top:3px;font-size:12px;line-height:1.45;color:#b7ad96}
         .mp-file{position:absolute;width:1px;height:1px;opacity:0}
-        .mp-choice{display:grid;grid-template-columns:1fr 1fr;margin-top:8px}
-        .mp-no,.mp-yes{min-height:46px;border:0;font:inherit;font-size:13px;cursor:pointer;color:#fff}
-        .mp-no{position:relative;display:flex;align-items:center;justify-content:center;background:#8e2f2f}
-        .mp-yes{background:#2f6b45}
-        .mp-yes.on{background:#3d8f5a}
+        .mp-keep{position:relative;display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:100%;min-height:48px;margin-top:8px;padding:12px 14px;border:0;background:#d4af6a;color:#120f0a;font:inherit;font-size:13px;font-weight:700;line-height:1.35;text-align:center;cursor:pointer}
         .mp-wait,.mp-err{color:var(--n-dim);font-size:13px}
         .mp-err{color:#e7b2a4;margin-top:12px}
         .mp-report{margin-top:36px;padding-top:28px;border-top:1px solid var(--n-hair)}
@@ -1289,7 +1275,7 @@ export function ModelIntakeSection() {
         .mp-report th{color:#b7ad96;font-weight:500}
         .mp-end{margin-top:8px}
         .mp-report .nieuw-btn{margin:8px 8px 0 0}
-        @media(max-width:800px){.mp-grid,.mp-dir,.mp-cols,.mp-overall,.mp-measures ul{grid-template-columns:1fr;display:grid}.mp-measures{grid-column:auto}.mp-frame{height:420px}.mp-overall{align-items:flex-start}.mp-fields,.mp-fields:has(label:nth-child(7)){grid-template-columns:1fr 1fr}.mp-title{white-space:normal}.mp-upload-row,.mp-choice,.mp-actions,.mp-pay-actions,.mp-end{display:flex;flex-direction:column;align-items:stretch}.mp-shot,.mp-choice .mp-no,.mp-choice .mp-yes,.mp-actions .nieuw-btn,.mp-pay-actions .nieuw-btn,.mp-end .nieuw-btn{width:100%;box-sizing:border-box;margin-left:0;margin-right:0}}
+        @media(max-width:800px){.mp-grid,.mp-dir,.mp-cols,.mp-overall,.mp-measures ul{grid-template-columns:1fr;display:grid}.mp-measures{grid-column:auto}.mp-frame{height:420px}.mp-overall{align-items:flex-start}.mp-fields,.mp-fields:has(label:nth-child(7)){grid-template-columns:1fr 1fr}.mp-title{white-space:normal}.mp-upload-row,.mp-actions,.mp-pay-actions,.mp-end{display:flex;flex-direction:column;align-items:stretch}.mp-shot,.mp-keep,.mp-actions .nieuw-btn,.mp-pay-actions .nieuw-btn,.mp-end .nieuw-btn{width:100%;box-sizing:border-box;margin-left:0;margin-right:0}}
         @media print{
           body[data-print='profiel'] *{visibility:hidden}
           body[data-print='profiel'] #mp-analyse,body[data-print='profiel'] #mp-analyse *{visibility:visible}
