@@ -6,6 +6,7 @@ import type { ModelReport } from '@/lib/model-analyse';
 
 type Intake = {
   id: string;
+  paymentId?: string;
   createdAt: string;
   firstName: string;
   lastName: string;
@@ -17,6 +18,7 @@ type Intake = {
   paymentStatus: string;
   emailSent: boolean;
   report: ModelReport | null;
+  archived?: boolean;
 };
 
 const PHOTO = [
@@ -42,13 +44,16 @@ function person(row: Intake) {
   return [who, age, row.heightCm ? `${row.heightCm} cm` : ''].filter(Boolean).join(' · ');
 }
 
-export function IntakeBoard({ mode }: { mode: 'open' | 'paid' }) {
+export function IntakeBoard({ mode }: { mode: 'open' | 'paid' | 'archive' }) {
   const { token } = useAuth();
   const [rows, setRows] = useState<Intake[]>([]);
   const [photos, setPhotos] = useState<Record<string, Record<string, string>>>({});
   const [openId, setOpenId] = useState('');
   const [err, setErr] = useState('');
   const [busyId, setBusyId] = useState('');
+  const [picked, setPicked] = useState<string[]>([]);
+  const [busyOp, setBusyOp] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -56,7 +61,13 @@ export function IntakeBoard({ mode }: { mode: 'open' | 'paid' }) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || data.message || 'Laden mislukt');
     const all = (data.intakes || []) as Intake[];
-    setRows(all.filter((row) => (mode === 'paid' ? paid(row) : !paid(row))));
+    setRows(all.filter((row) => {
+      if (mode === 'archive') return Boolean(row.archived);
+      if (row.archived) return false;
+      return mode === 'paid' ? paid(row) : !paid(row);
+    }));
+    setPicked([]);
+    setConfirmDelete(false);
   }, [token, mode]);
 
   useEffect(() => {
@@ -108,31 +119,81 @@ export function IntakeBoard({ mode }: { mode: 'open' | 'paid' }) {
     }
   }
 
+  function keysOf(list: Intake[]) {
+    return [...new Set(list.flatMap((row) => [row.id, row.paymentId || ''].filter(Boolean)))];
+  }
+
+  async function apply(op: 'archive' | 'delete' | 'restore', list: Intake[]) {
+    if (!token || !list.length) return;
+    setBusyOp(op);
+    setErr('');
+    try {
+      const res = await fetch('/api/model-intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'dossiers', op, ids: keysOf(list) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Bijwerken mislukt');
+      await load();
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : 'Bijwerken mislukt');
+    } finally {
+      setBusyOp('');
+    }
+  }
+
+  const selected = rows.filter((row) => picked.includes(row.id));
+  const allPicked = rows.length > 0 && selected.length === rows.length;
+  const showDossier = mode !== 'open';
+
   return (
     <div className="text-sm">
-      <p className="mb-3 text-muted">{rows.length} {mode === 'open' ? 'niet afgewerkt' : 'afgewerkt'}</p>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <p className="text-muted">{rows.length} {mode === 'archive' ? 'gearchiveerd' : mode === 'open' ? 'niet afgewerkt' : 'afgewerkt'}</p>
+        {selected.length ? (
+          <>
+            <span className="text-xs text-muted">{selected.length} gekozen</span>
+            {mode === 'archive' ? (
+              <button className="rounded border border-line px-2 py-1 text-xs" type="button" disabled={Boolean(busyOp)} onClick={() => void apply('restore', selected)}>Terugzetten</button>
+            ) : (
+              <button className="rounded border border-line px-2 py-1 text-xs" type="button" disabled={Boolean(busyOp)} onClick={() => void apply('archive', selected)}>Archiveren</button>
+            )}
+            <button className="rounded border border-red-300 px-2 py-1 text-xs text-red-800" type="button" disabled={Boolean(busyOp)} onClick={() => confirmDelete ? void apply('delete', selected) : setConfirmDelete(true)}>
+              {confirmDelete ? 'Bevestig verwijderen' : 'Verwijderen'}
+            </button>
+          </>
+        ) : null}
+      </div>
       {err ? <p className="mb-3 text-red-700">{err}</p> : null}
       <div className="overflow-x-auto rounded-md border border-line bg-white">
         <table className="w-full min-w-[720px] border-collapse text-left">
           <thead>
             <tr className="border-b border-line bg-zinc-50 text-[11px] uppercase tracking-wide text-muted">
+              <th className="px-3 py-2 font-medium">
+                <input type="checkbox" checked={allPicked} onChange={() => setPicked(allPicked ? [] : rows.map((row) => row.id))} aria-label="Alles kiezen" />
+              </th>
               <th className="px-3 py-2 font-medium">Datum</th>
               <th className="px-3 py-2 font-medium">Naam</th>
               <th className="px-3 py-2 font-medium">E-mail</th>
               <th className="px-3 py-2 font-medium">Profiel</th>
               <th className="px-3 py-2 font-medium">Status</th>
               <th className="px-3 py-2 font-medium">Foto’s</th>
-              {mode === 'paid' ? <th className="px-3 py-2 font-medium">Dossier</th> : null}
+              {showDossier ? <th className="px-3 py-2 font-medium">Dossier</th> : null}
+              <th className="px-3 py-2 font-medium">Actie</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((row) => {
               const label = statusLabel(row);
               const shots = photos[row.id] || {};
-              const show = mode === 'paid' && openId === row.id;
+              const show = showDossier && openId === row.id;
               return (
                 <Fragment key={row.id}>
                   <tr className="border-b border-line align-middle">
+                    <td className="px-3 py-2">
+                      <input type="checkbox" checked={picked.includes(row.id)} onChange={() => setPicked((prev) => prev.includes(row.id) ? prev.filter((id) => id !== row.id) : [...prev, row.id])} aria-label={`Kies ${row.firstName} ${row.lastName}`} />
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2 text-xs text-muted">{new Date(row.createdAt).toLocaleString('nl-BE')}</td>
                     <td className="px-3 py-2 font-medium">{row.firstName} {row.lastName}</td>
                     <td className="px-3 py-2"><a className="text-ink underline" href={`mailto:${row.email}`}>{row.email}</a></td>
@@ -152,24 +213,34 @@ export function IntakeBoard({ mode }: { mode: 'open' | 'paid' }) {
                         )}
                       </div>
                     </td>
-                    {mode === 'paid' ? (
+                    {showDossier ? (
                       <td className="px-3 py-2">
                         {row.report ? (
                           <button className="text-xs font-medium underline" type="button" onClick={() => setOpenId(show ? '' : row.id)}>
                             {show ? 'Sluiten' : 'Openen'}
                           </button>
-                        ) : (
+                        ) : paid(row) ? (
                           <button className="text-xs font-medium underline disabled:opacity-60" type="button" disabled={busyId === row.id} onClick={() => void fetchReport(row)}>
                             {busyId === row.id ? 'Bezig…' : 'Ophalen'}
                           </button>
-                        )}
-                        <span className="mt-1 block text-[11px] text-muted">Mail {row.emailSent ? 'verstuurd' : 'niet verstuurd'}</span>
+                        ) : null}
+                        {paid(row) ? <span className="mt-1 block text-[11px] text-muted">Mail {row.emailSent ? 'verstuurd' : 'niet verstuurd'}</span> : null}
                       </td>
                     ) : null}
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col items-start gap-1">
+                        {mode === 'archive' ? (
+                          <button className="text-xs font-medium underline" type="button" disabled={Boolean(busyOp)} onClick={() => void apply('restore', [row])}>Terugzetten</button>
+                        ) : (
+                          <button className="text-xs font-medium underline" type="button" disabled={Boolean(busyOp)} onClick={() => void apply('archive', [row])}>Archiveren</button>
+                        )}
+                        <button className="text-xs font-medium text-red-800 underline" type="button" disabled={Boolean(busyOp)} onClick={() => void apply('delete', [row])}>Verwijderen</button>
+                      </div>
+                    </td>
                   </tr>
                   {show && row.report ? (
                     <tr className="border-b border-line bg-zinc-50">
-                      <td className="px-3 py-4" colSpan={7}>
+                      <td className="px-3 py-4" colSpan={9}>
                         <Report report={row.report} />
                       </td>
                     </tr>

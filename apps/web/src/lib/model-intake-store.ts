@@ -15,6 +15,7 @@ export type IntakeSettings = {
   smtpFrom: string;
   archiveToken: string;
   remindedPaymentIds: string[];
+  dossierFlags: Record<string, 'archived' | 'deleted'>;
 };
 
 export type IntakeRecord = {
@@ -47,6 +48,7 @@ const EMPTY: IntakeSettings = {
   smtpFrom: '',
   archiveToken: '',
   remindedPaymentIds: [],
+  dossierFlags: {},
 };
 
 const SLOTS = ['full', 'face', 'side'] as const;
@@ -73,6 +75,17 @@ function pickText(primary: string, secondary: string, third: string) {
 
 function idList(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => String(item || '').trim()).filter(Boolean) : [];
+}
+
+function flagMap(value: unknown): Record<string, 'archived' | 'deleted'> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, 'archived' | 'deleted'> = {};
+  for (const [key, flag] of Object.entries(value as Record<string, unknown>)) {
+    const id = key.trim();
+    if (!id) continue;
+    if (flag === 'archived' || flag === 'deleted') out[id] = flag;
+  }
+  return out;
 }
 
 function seal(value: string) {
@@ -146,6 +159,7 @@ export async function saveLiveSettings(token: string, patch: Partial<IntakeSetti
     smtpPort: Number(patch.smtpPort) || prev.smtpPort || 587,
     archiveToken: prev.archiveToken,
     remindedPaymentIds: prev.remindedPaymentIds,
+    dossierFlags: prev.dossierFlags,
   };
   await saveSettingsEverywhere(token, next);
 }
@@ -219,7 +233,24 @@ export async function readSettings(): Promise<IntakeSettings> {
     remindedPaymentIds: [idList(a.remindedPaymentIds), idList(b.remindedPaymentIds), idList(local.remindedPaymentIds)].sort(
       (left, right) => right.length - left.length,
     )[0] || [],
+    dossierFlags: { ...flagMap(local.dossierFlags), ...flagMap(a.dossierFlags), ...flagMap(b.dossierFlags) },
   };
+}
+
+export async function setDossierFlags(token: string, keys: string[], op: 'archive' | 'delete' | 'restore') {
+  const remote = await remoteSettings();
+  if (!remote) throw new Error('De dossiers konden niet worden bijgewerkt.');
+  const flags = flagMap(remote.dossierFlags);
+  for (const key of keys) {
+    const id = key.trim();
+    if (!id) continue;
+    if (op === 'restore') delete flags[id];
+    else flags[id] = op === 'delete' ? 'deleted' : 'archived';
+  }
+  await saveContentSettings(token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`, {
+    ...remote,
+    dossierFlags: flags,
+  });
 }
 
 export async function writeSettings(patch: Partial<IntakeSettings>) {

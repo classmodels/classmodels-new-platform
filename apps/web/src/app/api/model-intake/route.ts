@@ -14,6 +14,7 @@ import {
   rememberPaymentReminder,
   saveIntake,
   saveLiveSettings,
+  setDossierFlags,
   type IntakeRecord,
 } from '@/lib/model-intake-store';
 
@@ -550,21 +551,27 @@ export async function GET(request: Request) {
         mollieBalance: money.balance,
         mollieBalanceError: money.error,
       },
-      intakes: rows.map((row) => ({
-        id: row.id,
-        createdAt: row.createdAt,
-        firstName: row.firstName,
-        lastName: row.lastName,
-        email: row.email,
-        gender: row.gender,
-        ageGroup: row.ageGroup,
-        heightCm: row.heightCm,
-        childAge: row.childAge,
-        paymentStatus: row.paymentStatus,
-        emailSent: row.emailSent,
-        measures: row.measures,
-        report: row.report,
-      })),
+      intakes: rows.flatMap((row) => {
+        const flag = settings.dossierFlags[row.id] || (row.paymentId ? settings.dossierFlags[row.paymentId] : '') || '';
+        if (flag === 'deleted') return [];
+        return [{
+          id: row.id,
+          paymentId: row.paymentId,
+          createdAt: row.createdAt,
+          firstName: row.firstName,
+          lastName: row.lastName,
+          email: row.email,
+          gender: row.gender,
+          ageGroup: row.ageGroup,
+          heightCm: row.heightCm,
+          childAge: row.childAge,
+          paymentStatus: row.paymentStatus,
+          emailSent: row.emailSent,
+          measures: row.measures,
+          report: row.report,
+          archived: flag === 'archived',
+        }];
+      }),
     });
   }
   const id = url.searchParams.get('id') || '';
@@ -662,6 +669,19 @@ export async function POST(request: Request) {
       });
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'Opslaan mislukt.' }, 502);
+    }
+    return json({ ok: true });
+  }
+
+  if (body.action === 'dossiers') {
+    if (!(await isAdmin(request))) return json({ error: 'Geen toegang.' }, 401);
+    const ids = Array.isArray(body.ids) ? body.ids.map((item) => String(item || '').trim()).filter(Boolean) : [];
+    const op = body.op === 'delete' || body.op === 'restore' ? body.op : 'archive';
+    if (!ids.length) return json({ error: 'Kies minstens één dossier.' }, 400);
+    try {
+      await setDossierFlags(request.headers.get('authorization') || '', ids, op);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : 'Bijwerken mislukt.' }, 502);
     }
     return json({ ok: true });
   }

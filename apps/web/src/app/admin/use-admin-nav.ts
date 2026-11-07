@@ -64,6 +64,7 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/model-analyse', label: 'Instellingen', permission: 'admin.users.read' },
           { href: '/admin/model-analyse/open', label: 'Niet afgewerkt', permission: 'admin.users.read' },
           { href: '/admin/model-analyse/betaald', label: 'Afgewerkt', permission: 'admin.users.read' },
+          { href: '/admin/model-analyse/archief', label: 'Archief', permission: 'admin.users.read' },
         ],
       },
       {
