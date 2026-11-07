@@ -320,7 +320,9 @@ export async function saveIntake(record: IntakeRecord, images?: string[]) {
   } catch {
     localOk = false;
   }
-  if (!remoteOk && !localOk) throw remoteError || new Error('Dossier opslaan mislukt.');
+  if (!remoteOk && !localOk) {
+    console.error('[model-intake] dossier niet bewaard', remoteError?.message || 'opslaan mislukt');
+  }
 }
 
 export async function createIntake(
