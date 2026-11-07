@@ -35,6 +35,13 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         `ModelIntakeSettings overgeslagen: ${e instanceof Error ? e.message : e}`,
       );
     }
+    try {
+      await this.ensureModelIntake();
+    } catch (e) {
+      this.log.warn(
+        `ModelIntake overgeslagen: ${e instanceof Error ? e.message : e}`,
+      );
+    }
   }
 
   /** Sleutels voor de modelanalyse. De website op Vercel kan niet op schijf schrijven. */
@@ -51,6 +58,42 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         \`smtpFrom\` VARCHAR(191) NULL,
         \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (\`id\`)
+      )`,
+    );
+  }
+
+  /** Modelanalyses. De website op Vercel kan dossiers en foto's niet op schijf bewaren. */
+  async ensureModelIntake() {
+    await this.$executeRawUnsafe(
+      `CREATE TABLE IF NOT EXISTS \`ModelIntake\` (
+        \`id\` VARCHAR(36) NOT NULL,
+        \`createdAt\` VARCHAR(40) NOT NULL,
+        \`firstName\` VARCHAR(191) NOT NULL,
+        \`lastName\` VARCHAR(191) NOT NULL,
+        \`email\` VARCHAR(191) NOT NULL,
+        \`gender\` VARCHAR(32) NOT NULL,
+        \`ageGroup\` VARCHAR(16) NOT NULL,
+        \`heightCm\` INT NULL,
+        \`childAge\` INT NULL,
+        \`paymentId\` VARCHAR(64) NOT NULL DEFAULT '',
+        \`paymentStatus\` VARCHAR(32) NOT NULL DEFAULT 'open',
+        \`checkout\` TEXT NULL,
+        \`emailSent\` TINYINT(1) NOT NULL DEFAULT 0,
+        \`measures\` LONGTEXT NULL,
+        \`report\` LONGTEXT NULL,
+        \`updatedAt\` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (\`id\`),
+        KEY \`ModelIntake_payment\` (\`paymentId\`),
+        KEY \`ModelIntake_status\` (\`paymentStatus\`)
+      )`,
+    );
+    await this.$executeRawUnsafe(
+      `CREATE TABLE IF NOT EXISTS \`ModelIntakePhoto\` (
+        \`intakeId\` VARCHAR(36) NOT NULL,
+        \`slot\` VARCHAR(16) NOT NULL,
+        \`mime\` VARCHAR(80) NOT NULL,
+        \`data\` LONGTEXT NOT NULL,
+        PRIMARY KEY (\`intakeId\`, \`slot\`)
       )`,
     );
   }

@@ -1005,37 +1005,9 @@ export function ModelIntakeSection() {
           setPay((prev) => (prev ? { ...prev, qr: data.qr || prev.qr, checkout: data.checkout || prev.checkout, emailSent: data.emailSent } : prev));
         }
         if (data.error) setError(data.error);
-        if (data.status === 'paid' && !shown) {
+        if ((data.status === 'paid' || data.pending) && !data.report) {
           if (!paidAt) paidAt = Date.now();
           setBusy('run');
-          shown = true;
-          const images = await Promise.all((['full', 'face', 'side'] as Kind[]).map((kind) => dataUrl(shots[kind]!.url)));
-          const run = await fetch('/api/model-intake', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'run',
-              paymentId: pay.id,
-              firstName,
-              lastName,
-              email,
-              ageGroup,
-              gender,
-              heightCm: heightValue(),
-              childAge: ageGroup === 'child' ? Number(childAge) : null,
-              images,
-              measures: measureRows(shots, heightValue()),
-            }),
-          });
-          const done = await run.json().catch(() => ({}));
-          if (!run.ok || !done.report) {
-            shown = false;
-            setError(done.error || 'De analyse is niet gelukt.');
-            setBusy(null);
-            return;
-          }
-          data.report = done.report;
-          data.emailSent = done.emailSent;
         }
         if (data.report) {
           shown = true;

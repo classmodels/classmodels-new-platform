@@ -52,7 +52,18 @@ function orderDir(id: string) {
 
 const SETTINGS_KEY = 'cm.internal.model-intake';
 const SETTINGS_SECRET = scryptSync('cm-model-intake-runtime-v1', 'class-models-intake', 32);
+const RUNTIME_TOKEN = 'cm-model-intake-runtime-v1';
 const LIVE_API = (process.env.NEXT_PUBLIC_API_URL || 'https://api.class-models.be').replace(/\/$/, '');
+
+function runtimeHeaders(json = false): Record<string, string> {
+  return json
+    ? { 'x-cm-model-intake': RUNTIME_TOKEN, 'Content-Type': 'application/json' }
+    : { 'x-cm-model-intake': RUNTIME_TOKEN };
+}
+
+function pickText(primary: string, secondary: string, third: string) {
+  return primary.trim() || secondary.trim() || third.trim();
+}
 
 function seal(value: string) {
   const iv = randomBytes(12);
@@ -83,8 +94,34 @@ async function remoteSettings(): Promise<IntakeSettings | null> {
   }
 }
 
+async function dbSettings(): Promise<IntakeSettings | null> {
+  try {
+    const res = await fetch(`${LIVE_API}/model-intake-settings/runtime`, {
+      headers: runtimeHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const raw = (await res.json()) as Partial<IntakeSettings>;
+    return { ...EMPTY, ...raw, smtpPort: Number(raw.smtpPort) || 587 };
+  } catch {
+    return null;
+  }
+}
+
+async function saveDbSettings(next: IntakeSettings) {
+  const res = await fetch(`${LIVE_API}/model-intake-settings/runtime`, {
+    method: 'PATCH',
+    headers: runtimeHeaders(true),
+    body: JSON.stringify(next),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Opslaan mislukt.');
+  }
+}
+
 export async function saveLiveSettings(token: string, patch: Partial<IntakeSettings>) {
-  const prev = (await remoteSettings()) || { ...EMPTY };
+  const prev = await readSettings();
   const keep = (next: unknown, previous: string) => {
     const value = String(next ?? '').trim();
     return value || previous;
@@ -98,6 +135,10 @@ export async function saveLiveSettings(token: string, patch: Partial<IntakeSetti
     smtpFrom: patch.smtpFrom == null ? prev.smtpFrom : String(patch.smtpFrom).trim(),
     smtpPort: Number(patch.smtpPort) || prev.smtpPort || 587,
   };
+  await saveSettingsEverywhere(token, next);
+}
+
+async function saveContentSettings(token: string, next: IntakeSettings) {
   const headers = { Authorization: token, 'Content-Type': 'application/json' };
   const value = seal(JSON.stringify(next));
   let res = await fetch(`${LIVE_API}/content/strings`, {
@@ -118,28 +159,51 @@ export async function saveLiveSettings(token: string, patch: Partial<IntakeSetti
   }
 }
 
+async function saveSettingsEverywhere(token: string, next: IntakeSettings) {
+  let dbOk = false;
+  let contentOk = false;
+  let dbError: Error | null = null;
+  try {
+    await saveDbSettings(next);
+    dbOk = true;
+  } catch (error) {
+    dbError = error instanceof Error ? error : new Error('Opslaan mislukt.');
+  }
+  try {
+    await saveContentSettings(token, next);
+    contentOk = true;
+  } catch {
+    contentOk = false;
+  }
+  try {
+    await mkdir(root, { recursive: true });
+    await writeFile(path.join(root, 'settings.json'), JSON.stringify(next), { mode: 0o600 });
+  } catch {
+    /* Vercel schrijft niet op schijf. */
+  }
+  if (!dbOk && !contentOk) throw dbError || new Error('Opslaan mislukt.');
+}
+
 export async function readSettings(): Promise<IntakeSettings> {
-  const remote = await remoteSettings();
+  const [db, remote] = await Promise.all([dbSettings(), remoteSettings()]);
+  let local = { ...EMPTY };
   try {
     const raw = JSON.parse(await readFile(path.join(root, 'settings.json'), 'utf8')) as Partial<IntakeSettings>;
-    const local = {
-      ...EMPTY,
-      ...raw,
-      smtpPort: Number(raw.smtpPort) || 587,
-    };
-    if (!remote) return local;
-    return {
-      openaiKey: local.openaiKey || remote.openaiKey,
-      mollieKey: local.mollieKey || remote.mollieKey,
-      smtpHost: local.smtpHost || remote.smtpHost,
-      smtpPort: local.smtpHost ? local.smtpPort : remote.smtpPort,
-      smtpUser: local.smtpUser || remote.smtpUser,
-      smtpPass: local.smtpPass || remote.smtpPass,
-      smtpFrom: local.smtpFrom || remote.smtpFrom,
-    };
+    local = { ...EMPTY, ...raw, smtpPort: Number(raw.smtpPort) || 587 };
   } catch {
-    return remote || { ...EMPTY };
+    local = { ...EMPTY };
   }
+  const a = db || EMPTY;
+  const b = remote || EMPTY;
+  return {
+    openaiKey: pickText(a.openaiKey, b.openaiKey, local.openaiKey),
+    mollieKey: pickText(a.mollieKey, b.mollieKey, local.mollieKey),
+    smtpPass: pickText(a.smtpPass, b.smtpPass, local.smtpPass),
+    smtpHost: pickText(a.smtpHost, b.smtpHost, local.smtpHost),
+    smtpUser: pickText(a.smtpUser, b.smtpUser, local.smtpUser),
+    smtpFrom: pickText(a.smtpFrom, b.smtpFrom, local.smtpFrom),
+    smtpPort: Number(a.smtpHost ? a.smtpPort : b.smtpHost ? b.smtpPort : local.smtpPort) || 587,
+  };
 }
 
 export async function writeSettings(patch: Partial<IntakeSettings>) {
@@ -169,86 +233,201 @@ export async function mollieKey() {
   return key.startsWith('test_') || key.startsWith('live_') ? key : '';
 }
 
+function asRecord(raw: Partial<IntakeRecord> | null | undefined): IntakeRecord | null {
+  if (!raw?.id) return null;
+  return {
+    id: String(raw.id),
+    createdAt: String(raw.createdAt || new Date().toISOString()),
+    firstName: String(raw.firstName || ''),
+    lastName: String(raw.lastName || ''),
+    email: String(raw.email || ''),
+    gender: String(raw.gender || ''),
+    ageGroup: raw.ageGroup === 'child' ? 'child' : 'adult',
+    heightCm: raw.heightCm == null || !Number.isFinite(Number(raw.heightCm)) ? null : Number(raw.heightCm),
+    childAge: raw.childAge == null || !Number.isFinite(Number(raw.childAge)) ? null : Number(raw.childAge),
+    paymentId: String(raw.paymentId || ''),
+    paymentStatus: String(raw.paymentStatus || 'open'),
+    checkout: String(raw.checkout || ''),
+    emailSent: Boolean(raw.emailSent),
+    measures: Array.isArray(raw.measures) ? raw.measures : [],
+    report: raw.report ?? null,
+  };
+}
+
+async function remoteJson<T>(pathName: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${LIVE_API}${pathName}`, { headers: runtimeHeaders(), cache: 'no-store' });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function remoteUpsert(record: IntakeRecord, images?: string[]) {
+  const form = new FormData();
+  form.set('meta', JSON.stringify(record));
+  if (images?.length) {
+    for (let i = 0; i < SLOTS.length; i += 1) {
+      const src = images[i];
+      if (!src) continue;
+      const match = src.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+      if (!match) continue;
+      const bytes = Buffer.from(match[2], 'base64');
+      form.append(SLOTS[i], new Blob([new Uint8Array(bytes)], { type: match[1] }), `${SLOTS[i]}.jpg`);
+    }
+  }
+  const res = await fetch(`${LIVE_API}/model-intake/runtime`, {
+    method: 'POST',
+    headers: runtimeHeaders(),
+    body: form,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Dossier opslaan mislukt.');
+  }
+}
+
+async function writeLocal(record: IntakeRecord, images?: string[]) {
+  const folder = orderDir(record.id);
+  await mkdir(folder, { recursive: true });
+  if (images?.length) {
+    for (let i = 0; i < SLOTS.length; i += 1) {
+      const src = images[i];
+      if (!src) continue;
+      const match = src.match(/^data:image\/(png|webp|jpeg|jpg);base64,([A-Za-z0-9+/=]+)$/);
+      if (!match) throw new Error('foto');
+      const ext = match[1] === 'png' ? 'png' : match[1] === 'webp' ? 'webp' : 'jpg';
+      await writeFile(path.join(folder, `${SLOTS[i]}.${ext}`), Buffer.from(match[2], 'base64'));
+    }
+  }
+  await writeFile(path.join(folder, 'intake.json'), JSON.stringify(record));
+}
+
+export async function saveIntake(record: IntakeRecord, images?: string[]) {
+  let remoteOk = false;
+  let localOk = false;
+  let remoteError: Error | null = null;
+  try {
+    await remoteUpsert(record, images);
+    remoteOk = true;
+  } catch (error) {
+    remoteError = error instanceof Error ? error : new Error('Dossier opslaan mislukt.');
+  }
+  try {
+    await writeLocal(record, images);
+    localOk = true;
+  } catch {
+    localOk = false;
+  }
+  if (!remoteOk && !localOk) throw remoteError || new Error('Dossier opslaan mislukt.');
+}
+
 export async function createIntake(
   meta: Omit<IntakeRecord, 'id' | 'createdAt' | 'paymentId' | 'paymentStatus' | 'checkout' | 'emailSent' | 'measures' | 'report'>,
   images: string[],
+  measures: unknown[] = [],
 ) {
-  const id = randomUUID();
-  const folder = orderDir(id);
-  await mkdir(folder, { recursive: true });
-  for (let i = 0; i < SLOTS.length; i += 1) {
-    const match = images[i].match(/^data:image\/(png|webp|jpeg|jpg);base64,([A-Za-z0-9+/=]+)$/);
-    if (!match) throw new Error('foto');
-    const ext = match[1] === 'png' ? 'png' : match[1] === 'webp' ? 'webp' : 'jpg';
-    await writeFile(path.join(folder, `${SLOTS[i]}.${ext}`), Buffer.from(match[2], 'base64'));
-  }
   const record: IntakeRecord = {
     ...meta,
-    id,
+    id: randomUUID(),
     createdAt: new Date().toISOString(),
     paymentId: '',
     paymentStatus: 'open',
     checkout: '',
     emailSent: false,
-    measures: [],
+    measures,
     report: null,
   };
-  await writeFile(path.join(folder, 'intake.json'), JSON.stringify(record));
+  await saveIntake(record, images);
   return record;
 }
 
-export async function readIntake(id: string) {
-  const raw = await readFile(path.join(orderDir(id), 'intake.json'), 'utf8');
-  return JSON.parse(raw) as IntakeRecord;
+async function readLocal(id: string) {
+  const raw = JSON.parse(await readFile(path.join(orderDir(id), 'intake.json'), 'utf8')) as IntakeRecord;
+  return asRecord(raw);
 }
 
-export async function saveIntake(record: IntakeRecord) {
-  await writeFile(path.join(orderDir(record.id), 'intake.json'), JSON.stringify(record));
+export async function readIntake(id: string) {
+  if (id.startsWith('tr_')) {
+    const row = asRecord(await remoteJson<IntakeRecord>(`/model-intake/runtime/by-payment/${encodeURIComponent(id)}`));
+    if (row) return row;
+    throw new Error('niet gevonden');
+  }
+  const remote = asRecord(await remoteJson<IntakeRecord>(`/model-intake/runtime/${encodeURIComponent(id)}`));
+  if (remote) return remote;
+  const local = await readLocal(id).catch(() => null);
+  if (local) return local;
+  throw new Error('niet gevonden');
 }
 
 export async function intakeImages(id: string) {
-  const folder = orderDir(id);
-  const files = await readdir(folder);
-  const images: string[] = [];
-  for (const slot of SLOTS) {
-    const name = files.find((file) => file.startsWith(`${slot}.`));
-    if (!name) throw new Error('foto');
-    const ext = name.split('.').pop();
-    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-    const buf = await readFile(path.join(folder, name));
-    images.push(`data:${mime};base64,${buf.toString('base64')}`);
+  try {
+    const folder = orderDir(id);
+    const files = await readdir(folder);
+    const images: string[] = [];
+    for (const slot of SLOTS) {
+      const name = files.find((file) => file.startsWith(`${slot}.`));
+      if (!name) throw new Error('foto');
+      const ext = name.split('.').pop();
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const buf = await readFile(path.join(folder, name));
+      images.push(`data:${mime};base64,${buf.toString('base64')}`);
+    }
+    return images;
+  } catch {
+    const images: string[] = [];
+    for (const slot of SLOTS) {
+      const photo = await intakePhoto(id, slot);
+      if (!photo) throw new Error('foto');
+      images.push(`data:${photo.mime};base64,${photo.buf.toString('base64')}`);
+    }
+    return images;
   }
-  return images;
 }
 
 export async function intakePhoto(id: string, slot: string) {
   if (!SLOTS.includes(slot as (typeof SLOTS)[number])) throw new Error('foto');
-  const folder = orderDir(id);
-  const files = await readdir(folder);
-  const name = files.find((file) => file.startsWith(`${slot}.`));
-  if (!name) return null;
-  const ext = name.split('.').pop();
-  const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-  return { mime, buf: await readFile(path.join(folder, name)) };
+  try {
+    const res = await fetch(`${LIVE_API}/model-intake/runtime/${encodeURIComponent(id)}/photo/${slot}`, {
+      headers: runtimeHeaders(),
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length) return { mime: res.headers.get('content-type') || 'image/jpeg', buf };
+    }
+  } catch {
+    /* lokale foto hieronder */
+  }
+  try {
+    const folder = orderDir(id);
+    const files = await readdir(folder);
+    const name = files.find((file) => file.startsWith(`${slot}.`));
+    if (!name) return null;
+    const ext = name.split('.').pop();
+    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+    return { mime, buf: await readFile(path.join(folder, name)) };
+  } catch {
+    return null;
+  }
 }
 
-export async function listIntakes() {
+async function listLocal(): Promise<IntakeRecord[]> {
   try {
     const orders = path.join(root, 'orders');
     const ids = await readdir(orders);
-    const rows = await Promise.all(
-      ids.map(async (id) => {
-        try {
-          return await readIntake(id);
-        } catch {
-          return null;
-        }
-      }),
-    );
-    return rows
-      .filter((row): row is IntakeRecord => Boolean(row))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const rows = await Promise.all(ids.map((id) => readLocal(id).catch(() => null)));
+    return rows.filter((row): row is IntakeRecord => Boolean(row));
   } catch {
     return [];
   }
+}
+
+export async function listIntakes() {
+  const remoteRaw = await remoteJson<IntakeRecord[]>('/model-intake/runtime');
+  const remote = (remoteRaw || []).map((row) => asRecord(row)).filter((row): row is IntakeRecord => Boolean(row));
+  const local = await listLocal();
+  const seen = new Set(remote.map((row) => row.id));
+  return [...remote, ...local.filter((row) => !seen.has(row.id))].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

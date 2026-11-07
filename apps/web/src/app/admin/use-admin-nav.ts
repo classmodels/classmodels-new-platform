@@ -51,8 +51,17 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
           { href: '/admin/modeshow-tickets', label: 'Tickets modeshow', permission: 'admin.billing.read' },
           { href: '/admin/setkaart', label: 'Setkaarten gratis', permission: 'admin.users.write' },
           { href: '/admin/mollie', label: t('admin.mollie'), permission: 'admin.billing.read' },
-          { href: '/admin/model-analyse', label: 'Modelanalyse', permission: 'admin.users.read' },
           { href: '/admin/mail-instellingen', label: t('admin.mailSmtp'), permission: 'admin.agenda.read' },
+        ],
+      },
+      {
+        id: 'model-analyse',
+        label: 'Modellenanalyses',
+        icon: 'clipboard',
+        items: [
+          { href: '/admin/model-analyse', label: 'Sleutels', permission: 'admin.users.read' },
+          { href: '/admin/model-analyse/open', label: 'Begonnen, niet betaald', permission: 'admin.users.read' },
+          { href: '/admin/model-analyse/betaald', label: 'Afgewerkte analyses', permission: 'admin.users.read' },
         ],
       },
       {

@@ -85,6 +85,31 @@ async function mollieStatus(paymentId: string) {
   return String(payment?.status || '');
 }
 
+async function mollieBalance() {
+  const key = await mollieKey();
+  if (!key) return { balance: null as null, error: '' };
+  try {
+    const res = await fetch('https://api.mollie.com/v2/balances/primary', {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: 'no-store',
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.availableAmount?.value) {
+      return { balance: null, error: 'Saldo niet opvraagbaar' };
+    }
+    return {
+      balance: {
+        available: String(data.availableAmount.value),
+        pending: String(data.pendingAmount?.value || '0.00'),
+        currency: String(data.availableAmount.currency || 'EUR'),
+      },
+      error: '',
+    };
+  } catch {
+    return { balance: null, error: 'Saldo niet opvraagbaar' };
+  }
+}
+
 function esc(value: string) {
   return value
     .replace(/&/g, '&amp;')
@@ -256,6 +281,18 @@ export async function GET(request: Request) {
     if (!(await isAdmin(request))) return json({ error: 'Geen toegang.' }, 401);
     const settings = await readSettings();
     const rows = await listIntakes();
+    await Promise.all(
+      rows
+        .filter((row) => row.paymentId && row.paymentStatus !== 'paid' && row.paymentStatus !== 'analyzing')
+        .slice(0, 25)
+        .map(async (row) => {
+          const status = await mollieStatus(row.paymentId);
+          if (!status || status === row.paymentStatus) return;
+          row.paymentStatus = status;
+          await saveIntake(row).catch(() => undefined);
+        }),
+    );
+    const money = await mollieBalance();
     return json({
       settings: {
         hasOpenai: Boolean(settings.openaiKey || process.env.CLASS_MODELS_AI_KEY || process.env.OPENAI_API_KEY),
@@ -265,6 +302,8 @@ export async function GET(request: Request) {
         smtpUser: settings.smtpUser,
         smtpFrom: settings.smtpFrom,
         hasSmtpPass: Boolean(settings.smtpPass),
+        mollieBalance: money.balance,
+        mollieBalanceError: money.error,
       },
       intakes: rows.map((row) => ({
         id: row.id,
@@ -275,15 +314,32 @@ export async function GET(request: Request) {
         gender: row.gender,
         ageGroup: row.ageGroup,
         heightCm: row.heightCm,
+        childAge: row.childAge,
         paymentStatus: row.paymentStatus,
         emailSent: row.emailSent,
+        measures: row.measures,
+        report: row.report,
       })),
     });
   }
   const id = url.searchParams.get('id') || '';
   if (id.startsWith('tr_')) {
-    const status = await mollieStatus(id);
-    return json({ id, status: status || 'open' });
+    try {
+      const linked = await readIntake(id);
+      if (linked.paymentId && linked.paymentStatus !== 'paid' && linked.paymentStatus !== 'analyzing') {
+        const status = await mollieStatus(linked.paymentId);
+        if (status) linked.paymentStatus = status;
+        await saveIntake(linked);
+      }
+      if (linked.paymentStatus !== 'paid' && linked.paymentStatus !== 'analyzing') {
+        const qr = linked.checkout ? await qrDataUrl(linked.checkout) : '';
+        return json({ id: linked.id, status: linked.paymentStatus || 'open', qr, checkout: linked.checkout });
+      }
+      return finishPaid(request, linked);
+    } catch {
+      const status = await mollieStatus(id);
+      return json({ id, status: status || 'open' });
+    }
   }
   let record: IntakeRecord;
   try {
@@ -291,17 +347,23 @@ export async function GET(request: Request) {
   } catch {
     return json({ error: 'Deze analyse is niet gevonden.' }, 404);
   }
-  if (record.paymentId && record.paymentStatus !== 'paid') {
+  if (record.paymentId && record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing') {
     const status = await mollieStatus(record.paymentId);
     if (status) record.paymentStatus = status;
     await saveIntake(record);
   }
-  if (record.paymentStatus !== 'paid') {
+  if (record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing') {
     const qr = record.checkout ? await qrDataUrl(record.checkout) : '';
     return json({ id: record.id, status: record.paymentStatus || 'open', qr, checkout: record.checkout });
   }
+  return finishPaid(request, record);
+}
+
+async function finishPaid(request: Request, record: IntakeRecord) {
   if (!record.report && !running.has(record.id)) {
     running.add(record.id);
+    record.paymentStatus = 'analyzing';
+    await saveIntake(record).catch(() => undefined);
     try {
       const images = await intakeImages(record.id);
       const report = await runModelAnalysis({
@@ -313,6 +375,7 @@ export async function GET(request: Request) {
         measures: (Array.isArray(record.measures) ? record.measures : []) as MeasureRow[],
       });
       record.report = report;
+      record.paymentStatus = 'paid';
       try {
         record.emailSent = await sendReport(record, report, originOf(request));
       } catch {
@@ -320,6 +383,8 @@ export async function GET(request: Request) {
       }
       await saveIntake(record);
     } catch (error) {
+      record.paymentStatus = 'paid';
+      await saveIntake(record).catch(() => undefined);
       running.delete(record.id);
       return json({ id: record.id, status: 'paid', error: error instanceof Error ? error.message : 'De analyse is niet gelukt.' }, 502);
     }
@@ -365,23 +430,41 @@ export async function POST(request: Request) {
     }
     const images = Array.isArray(body.images) ? body.images.filter((src) => typeof src === 'string' && src.startsWith('data:image/')) : [];
     if (images.length !== 3) return json({ error: 'De foto’s ontbreken.' }, 400);
-    const record = {
-      id: paymentId,
+    let existing: IntakeRecord | null = null;
+    if (paymentId) {
+      try {
+        existing = await readIntake(paymentId);
+      } catch {
+        existing = null;
+      }
+    }
+    const record: IntakeRecord = existing || {
+      id: randomUUID(),
       createdAt: new Date().toISOString(),
-      firstName: String(body.firstName || '').trim(),
-      lastName: String(body.lastName || '').trim(),
-      email: String(body.email || '').trim(),
-      gender: String(body.gender || ''),
-      ageGroup: body.ageGroup === 'child' ? 'child' as const : 'adult' as const,
-      heightCm: body.heightCm == null ? null : Number(body.heightCm),
-      childAge: body.childAge == null ? null : Number(body.childAge),
-      paymentId,
-      paymentStatus: 'paid',
+      firstName: '',
+      lastName: '',
+      email: '',
+      gender: '',
+      ageGroup: 'adult',
+      heightCm: null,
+      childAge: null,
+      paymentId: '',
+      paymentStatus: 'open',
       checkout: '',
       emailSent: false,
-      measures: Array.isArray(body.measures) ? body.measures : [],
+      measures: [],
       report: null,
     };
+    record.firstName = String(body.firstName || record.firstName || '').trim();
+    record.lastName = String(body.lastName || record.lastName || '').trim();
+    record.email = String(body.email || record.email || '').trim();
+    record.gender = String(body.gender || record.gender || '');
+    record.ageGroup = body.ageGroup === 'child' ? 'child' : body.ageGroup === 'adult' ? 'adult' : record.ageGroup;
+    record.heightCm = body.heightCm == null ? record.heightCm : Number(body.heightCm);
+    record.childAge = body.childAge == null ? record.childAge : Number(body.childAge);
+    record.paymentId = paymentId || record.paymentId;
+    record.paymentStatus = 'paid';
+    if (Array.isArray(body.measures) && body.measures.length) record.measures = body.measures;
     try {
       const report = await runModelAnalysis({
         ageGroup: record.ageGroup,
@@ -391,12 +474,14 @@ export async function POST(request: Request) {
         images,
         measures: record.measures as MeasureRow[],
       });
+      record.report = report;
       try {
         record.emailSent = await sendReport(record, report, originOf(request));
       } catch {
         record.emailSent = false;
       }
-      return json({ status: 'paid', report, emailSent: record.emailSent });
+      await saveIntake(record, images);
+      return json({ id: record.id, status: 'paid', report, emailSent: record.emailSent });
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'De analyse is niet gelukt.' }, 502);
     }
@@ -423,9 +508,6 @@ export async function POST(request: Request) {
     return json({ error: 'Drie foto’s zijn nodig.' }, 400);
   }
 
-  if (!(await mollieKey())) {
-    return json({ error: 'De betaling van € 4,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
-  }
   const record: IntakeRecord = {
     id: randomUUID(),
     createdAt: new Date().toISOString(),
@@ -444,9 +526,19 @@ export async function POST(request: Request) {
     report: null,
   };
   const payment = await mollieCreate(record, originOf(request));
+  if (payment && !('error' in payment)) {
+    record.paymentId = payment.id;
+    record.checkout = payment.checkout;
+    record.paymentStatus = 'open';
+  }
+  try {
+    await saveIntake(record, images);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : 'De analyse kon niet worden bewaard.' }, 502);
+  }
   if (payment && 'error' in payment) return json({ error: payment.error }, 502);
   if (!payment) {
     return json({ error: 'De betaling van € 4,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
   }
-  return json({ id: payment.id, qr: payment.qr, checkout: payment.checkout, status: 'open', price: PRICE });
+  return json({ id: record.id, paymentId: payment.id, qr: payment.qr, checkout: payment.checkout, status: 'open', price: PRICE });
 }

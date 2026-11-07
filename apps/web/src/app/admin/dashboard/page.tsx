@@ -3,32 +3,42 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import {
-  ADMIN_DASHBOARD_ITEM,
-  ADMIN_NAV_SECTIONS,
-  filterNavSections,
-  type AdminNavIconId,
-  type AdminNavLeaf,
-} from '@/app/admin/admin-nav';
+import { ADMIN_NAV_SECTIONS, filterNavSections, type AdminNavIconId, type AdminNavLeaf, type AdminNavSection } from '@/app/admin/admin-nav';
 import { AdminNavIcon } from '@/app/admin/AdminSidebarNav';
+import { useAdminNavSections } from '@/app/admin/use-admin-nav';
 
 type DashboardQuickLink = AdminNavLeaf & { sectionLabel?: string; sectionIcon?: AdminNavIconId };
 
+function mergeSections(primary: AdminNavSection[], extra: AdminNavSection[]) {
+  const sections = primary.map((sec) => ({ ...sec, items: [...sec.items] }));
+  for (const sec of extra) {
+    const known = new Set(sections.flatMap((item) => item.items.map((leaf) => leaf.href)));
+    const fresh = sec.items.filter((leaf) => !known.has(leaf.href));
+    if (!fresh.length) continue;
+    const target = sections.find((item) => item.id === sec.id);
+    if (target) target.items.push(...fresh);
+    else sections.push({ ...sec, items: fresh });
+  }
+  return sections;
+}
+
 export default function AdminDashboardPage() {
   const { can } = useAuth();
-  const sections = useMemo(() => filterNavSections(ADMIN_NAV_SECTIONS, can), [can]);
+  const { sections: menuSections } = useAdminNavSections(can);
+  const sections = useMemo(
+    () => mergeSections(menuSections, filterNavSections(ADMIN_NAV_SECTIONS, can)),
+    [menuSections, can],
+  );
 
   const allLinks: DashboardQuickLink[] = useMemo(
-    () => [
-      { ...ADMIN_DASHBOARD_ITEM },
-      ...sections.flatMap((s) =>
+    () =>
+      sections.flatMap((s) =>
         s.items.map((it) => ({
           ...it,
           sectionLabel: s.label,
           sectionIcon: s.icon,
         })),
       ),
-    ],
     [sections],
   );
 
