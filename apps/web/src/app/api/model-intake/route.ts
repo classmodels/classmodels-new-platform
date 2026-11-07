@@ -501,31 +501,7 @@ function originOf(request: Request) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   if (url.searchParams.get('remind') === '1') {
-    const rows = await listIntakes();
-    const fromMollie = await molliePayments();
-    const known = new Set(rows.flatMap((row) => [row.id, row.paymentId].filter(Boolean)));
-    for (const row of fromMollie) {
-      if (known.has(row.id) || known.has(row.paymentId)) continue;
-      rows.push(row);
-    }
-    let sent = 0;
-    for (const row of rows) {
-      if (!reminderDue(row)) continue;
-      const status = row.paymentId ? await mollieStatus(row.paymentId) : row.paymentStatus;
-      if (status === 'paid') continue;
-      if (status) row.paymentStatus = status;
-      if (!reminderDue(row)) continue;
-      try {
-        const ok = await sendReminder(row, 'https://www.class-models.be');
-        if (!ok) continue;
-        await markReminder(row, '');
-        sent += 1;
-      } catch {
-        /* volgende kandidaat */
-      }
-      if (sent >= 8) break;
-    }
-    return json({ sent });
+    return json({ sent: 0 });
   }
   const photo = url.searchParams.get('photo');
   const slot = url.searchParams.get('slot');
@@ -561,15 +537,6 @@ export async function GET(request: Request) {
           await saveIntake(row).catch(() => undefined);
         }),
     );
-    const waiting = rows.filter((row) => reminderDue(row)).slice(0, 8);
-    for (const row of waiting) {
-      try {
-        const sent = await sendReminder(row, originOf(request));
-        if (sent) await markReminder(row, auth);
-      } catch {
-        /* een mislukte herinnering blokkeert de lijst niet */
-      }
-    }
     const money = await mollieBalance();
     return json({
       settings: {
@@ -610,7 +577,6 @@ export async function GET(request: Request) {
         await saveIntake(linked);
       }
       if (linked.paymentStatus !== 'paid' && linked.paymentStatus !== 'analyzing') {
-        await maybeRemind(linked, originOf(request)).catch(() => undefined);
         const qr = linked.checkout ? await qrDataUrl(linked.checkout) : '';
         return json(openView(linked, qr));
       }
@@ -634,7 +600,6 @@ export async function GET(request: Request) {
     await saveIntake(record);
   }
   if (record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing') {
-    await maybeRemind(record, originOf(request)).catch(() => undefined);
     const qr = record.checkout ? await qrDataUrl(record.checkout) : '';
     return json(openView(record, qr));
   }

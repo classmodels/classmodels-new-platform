@@ -7,17 +7,7 @@ export class ModelIntakeReminderScheduler implements OnModuleInit, OnModuleDestr
   private timer: ReturnType<typeof setInterval> | null = null;
 
   onModuleInit() {
-    const tick = () => {
-      void fetch('https://www.class-models.be/api/model-intake?remind=1', { cache: 'no-store' })
-        .then(async (res) => {
-          if (!res.ok) this.log.warn(`Modelanalyse-herinnering: site antwoordde ${res.status}`);
-        })
-        .catch((error: unknown) => {
-          this.log.warn(`Modelanalyse-herinnering niet bereikt: ${error instanceof Error ? error.message : 'fout'}`);
-        });
-    };
-    tick();
-    this.timer = setInterval(tick, 60_000);
+    this.log.log('Modelanalyse-herinnering staat uit.');
   }
 
   onModuleDestroy() {
