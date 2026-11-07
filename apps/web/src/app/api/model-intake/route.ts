@@ -121,7 +121,7 @@ function intakeFromPayment(payment: MolliePayment): IntakeRecord | null {
     emailSent: false,
     measures: [],
     report: null,
-    reminderSent: meta.reminderSent === '1',
+    reminderSent: meta.reminderV === '2',
   };
 }
 
@@ -335,11 +335,29 @@ async function sendReport(record: IntakeRecord, report: ModelReport, origin: str
   return true;
 }
 
-function mailButton(href: string, label: string, filled: boolean) {
-  const style = filled
-    ? 'display:inline-block;background:#191919;color:#f7f4ed;border:1px solid #191919;'
-    : 'display:inline-block;background:#f7f4ed;color:#191919;border:1px solid #191919;';
-  return `<p style="margin:0 0 10px;"><a href="${esc(href)}" style="${style}font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:0.4px;text-decoration:none;padding:14px 22px;">${esc(label)}</a></p>`;
+function fullButton(href: string, label: string, background: string, color: string) {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0;">
+    <tr>
+      <td align="center" bgcolor="${background}" style="background-color:${background};border-radius:6px;">
+        <a href="${esc(href)}" style="display:block;width:100%;padding:16px 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:22px;font-weight:bold;color:${color};text-decoration:none;text-align:center;">${esc(label)}</a>
+      </td>
+    </tr>
+  </table>`;
+}
+
+function choiceBlock(resume: string, visit: string) {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:8px 0 18px;border:1px solid #e3d9c8;background:#fbfaf7;">
+    <tr><td style="padding:22px 18px;">
+      <p style="margin:0 0 6px;text-align:center;color:#191919;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:24px;font-weight:bold;">Uw modelanalyse staat nog open</p>
+      <p style="margin:0 0 16px;text-align:center;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;">Ontdek uw sterke punten en mogelijke modelrichtingen.</p>
+      ${fullButton(resume, 'Mijn modelanalyse afronden – € 4,99', '#d4af6a', '#120f0a')}
+      <p style="margin:10px 0 0;text-align:center;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;">Terugbetaald bij het nakomen van uw afspraak.</p>
+      <div style="border-top:1px solid #e3d9c8;margin:22px 0;line-height:0;font-size:0;">&nbsp;</div>
+      <p style="margin:0 0 6px;text-align:center;color:#191919;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:24px;font-weight:bold;">Of liever meteen kennismaken?</p>
+      <p style="margin:0 0 16px;text-align:center;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;">Gratis testshoot en intakegesprek, zonder verplichtingen.</p>
+      ${fullButton(visit, 'Gratis online afspraak maken', '#191919', '#d4af6a')}
+    </td></tr>
+  </table>`;
 }
 
 function reminderMail(record: IntakeRecord, origin: string) {
@@ -373,7 +391,7 @@ function reminderMail(record: IntakeRecord, origin: string) {
     ${mailParagraph('Het mooie is dat u dit bedrag volledig terugkrijgt wanneer u uw afspraak bij Class-Models nakomt.')}
     ${mailParagraph('Uw analyse is daardoor, na terugbetaling tijdens uw afspraak, uiteindelijk kosteloos.')}
     ${mailParagraph('Tijdens deze persoonlijke kennismaking bespreken we uw profiel, uw analyse en de eventuele mogelijkheden binnen de modellenwereld.')}
-    ${mailButton(resume, 'Mijn modelanalyse afronden – € 4,99', true)}
+    ${choiceBlock(resume, visit)}
     ${mailRule()}
     ${mailHeading('Liever meteen persoonlijk kennismaken? Dat kan ook')}
     ${mailParagraph('Misschien wilt u liever rechtstreeks met ons kennismaken zonder eerst een online modelanalyse te laten uitvoeren. Ook dat is perfect mogelijk.')}
@@ -381,7 +399,6 @@ function reminderMail(record: IntakeRecord, origin: string) {
     ${mailParagraph('Daarom nodigen we u graag uit voor een gratis testshoot en persoonlijk intakegesprek in ons modellenbureau in Hulshout.')}
     ${mailParagraph('Tijdens deze afspraak maakt u persoonlijk kennis met Class-Models, ontdekt u hoe het voelt om voor de camera te staan, bespreken we uw uitstraling en eventuele mogelijkheden als model, en krijgt u uitleg over onze werking en de verschillende soorten modellenopdrachten.')}
     ${mailParagraph('De kennismaking en testshoot zijn volledig gratis, vrijblijvend en zonder enige verplichting.')}
-    ${mailButton(visit, 'Gratis online afspraak maken', false)}
     ${mailRule()}
     ${mailHeading('Misschien heeft u meer mogelijkheden dan u zelf denkt')}
     ${mailParagraph('Veel mensen denken dat modellenwerk alleen is weggelegd voor jonge mensen met perfecte maten. De werkelijkheid is veel veelzijdiger.')}
@@ -445,7 +462,7 @@ async function markReminder(record: IntakeRecord, token: string) {
       headers: { Authorization: `Bearer ${key}` },
     });
     const payment = await current.json().catch(() => ({}));
-    const metadata = { ...(payment?.metadata || {}), reminderSent: '1' };
+    const metadata = { ...(payment?.metadata || {}), reminderSent: '1', reminderV: '2' };
     await fetch(`https://api.mollie.com/v2/payments/${record.paymentId}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -456,8 +473,25 @@ async function markReminder(record: IntakeRecord, token: string) {
   record.reminderSent = true;
 }
 
+const REMIND_AFTER_MS = 10 * 60 * 1000;
+
 function unfinished(record: IntakeRecord) {
   return record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing' && !record.report;
+}
+
+function reminderDue(record: IntakeRecord) {
+  if (!unfinished(record) || record.reminderSent) return false;
+  const created = Date.parse(record.createdAt);
+  return Number.isFinite(created) && Date.now() - created >= REMIND_AFTER_MS;
+}
+
+async function maybeRemind(record: IntakeRecord, origin: string) {
+  if (!unfinished(record) || record.reminderSent) return;
+  const created = Date.parse(record.createdAt);
+  if (!Number.isFinite(created) || Date.now() - created < REMIND_AFTER_MS) return;
+  if (!reminderDue(record)) return;
+  const sent = await sendReminder(record, origin);
+  if (sent) await markReminder(record, '');
 }
 
 function originOf(request: Request) {
@@ -466,6 +500,33 @@ function originOf(request: Request) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  if (url.searchParams.get('remind') === '1') {
+    const rows = await listIntakes();
+    const fromMollie = await molliePayments();
+    const known = new Set(rows.flatMap((row) => [row.id, row.paymentId].filter(Boolean)));
+    for (const row of fromMollie) {
+      if (known.has(row.id) || known.has(row.paymentId)) continue;
+      rows.push(row);
+    }
+    let sent = 0;
+    for (const row of rows) {
+      if (!reminderDue(row)) continue;
+      const status = row.paymentId ? await mollieStatus(row.paymentId) : row.paymentStatus;
+      if (status === 'paid') continue;
+      if (status) row.paymentStatus = status;
+      if (!reminderDue(row)) continue;
+      try {
+        const ok = await sendReminder(row, 'https://www.class-models.be');
+        if (!ok) continue;
+        await markReminder(row, '');
+        sent += 1;
+      } catch {
+        /* volgende kandidaat */
+      }
+      if (sent >= 8) break;
+    }
+    return json({ sent });
+  }
   const photo = url.searchParams.get('photo');
   const slot = url.searchParams.get('slot');
   if (photo && slot) {
@@ -500,10 +561,7 @@ export async function GET(request: Request) {
           await saveIntake(row).catch(() => undefined);
         }),
     );
-    const reminded = new Set(settings.remindedPaymentIds || []);
-    const waiting = rows
-      .filter((row) => unfinished(row) && !row.reminderSent && !reminded.has(row.paymentId || row.id) && !reminded.has(row.id))
-      .slice(0, 8);
+    const waiting = rows.filter((row) => reminderDue(row)).slice(0, 8);
     for (const row of waiting) {
       try {
         const sent = await sendReminder(row, originOf(request));
@@ -552,6 +610,7 @@ export async function GET(request: Request) {
         await saveIntake(linked);
       }
       if (linked.paymentStatus !== 'paid' && linked.paymentStatus !== 'analyzing') {
+        await maybeRemind(linked, originOf(request)).catch(() => undefined);
         const qr = linked.checkout ? await qrDataUrl(linked.checkout) : '';
         return json(openView(linked, qr));
       }
@@ -575,6 +634,7 @@ export async function GET(request: Request) {
     await saveIntake(record);
   }
   if (record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing') {
+    await maybeRemind(record, originOf(request)).catch(() => undefined);
     const qr = record.checkout ? await qrDataUrl(record.checkout) : '';
     return json(openView(record, qr));
   }
@@ -765,14 +825,6 @@ export async function POST(request: Request) {
   if (payment && 'error' in payment) return json({ error: payment.error }, 502);
   if (!payment) {
     return json({ error: 'De betaling van € 4,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
-  }
-  if (!record.reminderSent) {
-    try {
-      const sent = await sendReminder(record, originOf(request));
-      if (sent) await markReminder(record, auth);
-    } catch {
-      /* de betaling blijft beschikbaar als de mail vertraagt */
-    }
   }
   return json({ id: record.id, paymentId: payment.id, qr: payment.qr, checkout: payment.checkout, status: 'open', price: PRICE });
 }

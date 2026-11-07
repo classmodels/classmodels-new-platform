@@ -22,6 +22,7 @@ import { PluginsModule } from './plugins/plugins.module';
 import { PartnersModule } from './partners/partners.module';
 import { ModeshowTicketsModule } from './modeshow-tickets/modeshow-tickets.module';
 import { OpenModellendagModule } from './open-modellendag/open-modellendag.module';
+import { ModelIntakeReminderScheduler } from './model-intake-reminder.scheduler';
 
 @Module({
   imports: [
@@ -49,5 +50,6 @@ import { OpenModellendagModule } from './open-modellendag/open-modellendag.modul
     ModeshowTicketsModule,
     OpenModellendagModule,
   ],
+  providers: [ModelIntakeReminderScheduler],
 })
 export class AppModule {}
