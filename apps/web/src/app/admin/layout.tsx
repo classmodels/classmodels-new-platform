@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { AdminSectionTabs } from '@/app/admin/AdminSectionTabs';
 import { AdminSidebarNav } from '@/app/admin/AdminSidebarNav';
 import { MobileAppBar } from '@/components/MobileAppBar';
 
@@ -90,7 +91,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <AdminSidebarNav pathname={pathname} can={can} />
         </aside>
         <div className="min-w-0 flex-1 overflow-auto">
-          <div className="mx-auto w-full max-w-page px-3 py-4 md:px-6 md:py-8">{children}</div>
+          <div className="mx-auto w-full max-w-page px-3 py-4 md:px-6 md:py-8">
+            <AdminSectionTabs pathname={pathname} can={can} />
+            {children}
+          </div>
         </div>
       </div>
     </div>

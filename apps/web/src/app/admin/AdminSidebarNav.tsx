@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   isAdminNavItemActive,
   sectionContainsPath,
@@ -89,6 +89,12 @@ export function AdminSidebarNav({ pathname, can }: Props) {
   const { dashboard, sections } = useAdminNavSections(can);
 
   const [openIds, setOpenIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    const id = sections.find((sec) => sectionContainsPath(sec, pathname))?.id;
+    if (!id) return;
+    setOpenIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, [pathname, sections]);
 
   const toggle = (id: string) => {
     setOpenIds((prev) => {

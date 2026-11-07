@@ -945,7 +945,7 @@ export function ModelIntakeSection() {
       const images = await Promise.all((['full', 'face', 'side'] as Kind[]).map((kind) => dataUrl(shots[kind]!.url)));
       const res = await fetch('/api/model-intake', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           firstName,
           lastName,
@@ -1004,6 +1004,13 @@ export function ModelIntakeSection() {
         if (data.qr || data.checkout) {
           setPay((prev) => (prev ? { ...prev, qr: data.qr || prev.qr, checkout: data.checkout || prev.checkout, emailSent: data.emailSent } : prev));
         }
+        if (data.firstName) setFirstName((value) => value || data.firstName);
+        if (data.lastName) setLastName((value) => value || data.lastName);
+        if (data.email) setEmail((value) => value || data.email);
+        if (data.gender === 'women' || data.gender === 'men') setGender((value) => value || data.gender);
+        if (data.ageGroup === 'adult' || data.ageGroup === 'child') setAgeGroup((value) => value || data.ageGroup);
+        if (data.heightCm) setHeightCm((value) => value || String(data.heightCm));
+        if (data.childAge) setChildAge((value) => value || String(data.childAge));
         if (data.error) setError(data.error);
         if ((data.status === 'paid' || data.pending) && !data.report) {
           if (!paidAt) paidAt = Date.now();

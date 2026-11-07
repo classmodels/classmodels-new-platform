@@ -10,6 +10,8 @@ import {
   mollieKey,
   readIntake,
   readSettings,
+  rememberAdminToken,
+  rememberPaymentReminder,
   saveIntake,
   saveLiveSettings,
   type IntakeRecord,
@@ -119,6 +121,7 @@ function intakeFromPayment(payment: MolliePayment): IntakeRecord | null {
     emailSent: false,
     measures: [],
     report: null,
+    reminderSent: meta.reminderSent === '1',
   };
 }
 
@@ -332,6 +335,131 @@ async function sendReport(record: IntakeRecord, report: ModelReport, origin: str
   return true;
 }
 
+function mailButton(href: string, label: string, filled: boolean) {
+  const style = filled
+    ? 'display:inline-block;background:#191919;color:#f7f4ed;border:1px solid #191919;'
+    : 'display:inline-block;background:#f7f4ed;color:#191919;border:1px solid #191919;';
+  return `<p style="margin:0 0 10px;"><a href="${esc(href)}" style="${style}font-family:Arial,Helvetica,sans-serif;font-size:13px;letter-spacing:0.4px;text-decoration:none;padding:14px 22px;">${esc(label)}</a></p>`;
+}
+
+function reminderMail(record: IntakeRecord, origin: string) {
+  const name = record.firstName.trim();
+  const resume = `${origin.replace(/\/$/, '')}/gasten/model-worden?intake=${encodeURIComponent(record.id)}#profiel`;
+  const visit = 'https://www.class-models.be/gasten/model-worden';
+  const body = `
+    <p style="margin:0 0 6px;color:#8a7340;font-family:Arial,Helvetica,sans-serif;font-size:11px;letter-spacing:1.8px;text-transform:uppercase;">Modelanalyse · Class-Models</p>
+    <h1 style="margin:0 0 16px;color:#191919;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:36px;font-weight:normal;">Uw modelanalyse wacht nog op u</h1>
+    ${mailParagraph(name ? `Beste ${name},` : 'Beste,')}
+    ${mailParagraph('U heeft onlangs de eerste stap gezet om te ontdekken welke mogelijkheden u heeft als model bij Class-Models.')}
+    ${mailParagraph('We hebben gemerkt dat uw modelanalyse nog niet volledig werd afgerond en dat de bijbehorende betaling van € 4,99 nog niet werd voltooid.')}
+    ${mailParagraph('Geen probleem. U kunt uw analyse alsnog afronden en ontdekken welke modelrichtingen mogelijk bij uw profiel aansluiten.')}
+    ${mailRule()}
+    ${mailHeading('Waarom uw modelanalyse afronden?')}
+    ${mailParagraph('Niet iedereen hoeft de klassieke maten of het typische uiterlijk van een fotomodel te hebben. In de modellenwereld zijn juist verschillende gezichten, leeftijden, lichaamsbouw en persoonlijke uitstralingen interessant.')}
+    ${mailParagraph('Maar welke mogelijkheden passen het beste bij u?')}
+    ${mailParagraph('Met onze persoonlijke modelanalyse krijgt u een eerste, gestructureerde beoordeling van uw profiel, op basis van de aangeleverde foto’s.')}
+    ${mailParagraph('U krijgt onder andere inzicht in:')}
+    <ul style="margin:0 0 12px;padding-left:18px;color:#262420;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:25px;">
+      <li><strong>Uw uitstraling en presentatie:</strong> welke kenmerken vallen op?</li>
+      <li><strong>Uw gelaatskenmerken en lichaamsverhoudingen:</strong> hoe worden deze op basis van uw foto’s beoordeeld?</li>
+      <li><strong>Uw mogelijkheden binnen verschillende modelrichtingen:</strong> zoals reclame, lifestyle, fashion, beauty, e-commerce en modeshows.</li>
+      <li><strong>Uw sterke punten en aandachtspunten:</strong> welke kenmerken kunt u verder ontwikkelen?</li>
+      <li><strong>Een algemene profielindex:</strong> een eerste indicatie van hoe uw profiel aansluit bij verschillende soorten modellenwerk.</li>
+    </ul>
+    ${mailParagraph('Zo komt u beter voorbereid naar een persoonlijke kennismaking bij Class-Models en hebben we meteen een concreet vertrekpunt om uw mogelijkheden samen te bespreken.')}
+    ${mailRule()}
+    ${mailHeading('Uw analyse kost slechts € 4,99 – en dat bedrag krijgt u terug')}
+    ${mailParagraph('Voor het afronden van uw modelanalyse betaalt u eenmalig € 4,99.')}
+    ${mailParagraph('Het mooie is dat u dit bedrag volledig terugkrijgt wanneer u uw afspraak bij Class-Models nakomt.')}
+    ${mailParagraph('Uw analyse is daardoor, na terugbetaling tijdens uw afspraak, uiteindelijk kosteloos.')}
+    ${mailParagraph('Tijdens deze persoonlijke kennismaking bespreken we uw profiel, uw analyse en de eventuele mogelijkheden binnen de modellenwereld.')}
+    ${mailButton(resume, 'Mijn modelanalyse afronden – € 4,99', true)}
+    ${mailRule()}
+    ${mailHeading('Liever meteen persoonlijk kennismaken? Dat kan ook')}
+    ${mailParagraph('Misschien wilt u liever rechtstreeks met ons kennismaken zonder eerst een online modelanalyse te laten uitvoeren. Ook dat is perfect mogelijk.')}
+    ${mailParagraph('Bij Class-Models geloven we dat een foto niet alles vertelt. Uw persoonlijkheid, natuurlijke uitstraling en de manier waarop u voor de camera staat, kunnen minstens zo belangrijk zijn.')}
+    ${mailParagraph('Daarom nodigen we u graag uit voor een gratis testshoot en persoonlijk intakegesprek in ons modellenbureau in Hulshout.')}
+    ${mailParagraph('Tijdens deze afspraak maakt u persoonlijk kennis met Class-Models, ontdekt u hoe het voelt om voor de camera te staan, bespreken we uw uitstraling en eventuele mogelijkheden als model, en krijgt u uitleg over onze werking en de verschillende soorten modellenopdrachten.')}
+    ${mailParagraph('De kennismaking en testshoot zijn volledig gratis, vrijblijvend en zonder enige verplichting.')}
+    ${mailButton(visit, 'Gratis online afspraak maken', false)}
+    ${mailRule()}
+    ${mailHeading('Misschien heeft u meer mogelijkheden dan u zelf denkt')}
+    ${mailParagraph('Veel mensen denken dat modellenwerk alleen is weggelegd voor jonge mensen met perfecte maten. De werkelijkheid is veel veelzijdiger.')}
+    ${mailParagraph('Merken, winkels en reclamebureaus zoeken ook natuurlijke, herkenbare en authentieke gezichten van uiteenlopende leeftijden en lichaamsbouw.')}
+    ${mailParagraph('Misschien past uw uitstraling bij een bepaalde vorm van modellenwerk. Misschien ontdekt u mogelijkheden waar u zelf nog nooit aan gedacht heeft.')}
+    ${mailParagraph('Geef uzelf de kans om dat te ontdekken.')}
+    ${mailParagraph('Of u nu kiest voor een uitgebreide eerste modelanalyse of liever rechtstreeks een gratis afspraak maakt: bij Class-Models helpen we u graag om die eerste stap te zetten.')}
+    ${mailParagraph('Met vriendelijke groeten,')}
+    <p style="margin:0 0 12px;color:#262420;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:24px;"><strong>Het team van Class-Models</strong><br>Professioneel modellenbureau<br>Provinciebaan 3, 2235 Hulshout<br><a href="https://www.class-models.be/" style="color:#8a7340;">www.class-models.be</a><br><a href="mailto:info@class-models.be" style="color:#8a7340;">info@class-models.be</a></p>
+    <p style="margin:18px 0 0;color:#6f6a62;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:19px;">Deze herinnering ontvangt u omdat u een modelanalyse gestart heeft die nog niet volledig werd afgerond. Een analyse is een voorlopige beoordeling en biedt geen garantie op modellenopdrachten.</p>
+  `;
+  const text = [
+    name ? `Beste ${name},` : 'Beste,',
+    '',
+    'Uw modelanalyse is nog niet afgerond. De betaling van € 4,99 is nog niet voltooid.',
+    'U kunt de analyse alsnog afronden. Het bedrag krijgt u terug wanneer u uw afspraak nakomt.',
+    resume,
+    '',
+    'Liever meteen kennismaken? De testshoot en het intakegesprek zijn gratis en vrijblijvend.',
+    visit,
+    '',
+    'Met vriendelijke groeten,',
+    'Het team van Class-Models',
+    'Provinciebaan 3, 2235 Hulshout',
+    'www.class-models.be',
+    'info@class-models.be',
+  ].join('\n');
+  return {
+    html: buildClassModelsEmailDocument(body, { title: 'Uw modelanalyse wacht nog op u' }),
+    text,
+  };
+}
+
+async function sendReminder(record: IntakeRecord, origin: string) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(record.email)) return false;
+  const settings = await readSettings();
+  if (!settings.smtpHost || !settings.smtpFrom) return false;
+  const nodemailer = await import('nodemailer');
+  const transport = nodemailer.createTransport({
+    host: settings.smtpHost,
+    port: settings.smtpPort || 587,
+    secure: settings.smtpPort === 465,
+    auth: settings.smtpUser ? { user: settings.smtpUser, pass: settings.smtpPass } : undefined,
+  });
+  const mail = reminderMail(record, origin);
+  await transport.sendMail({
+    from: settings.smtpFrom,
+    to: record.email,
+    bcc: OFFICE_COPY,
+    subject: 'Uw modelanalyse wacht nog op u',
+    text: mail.text,
+    html: mail.html,
+  });
+  return true;
+}
+
+async function markReminder(record: IntakeRecord, token: string) {
+  const key = await mollieKey();
+  if (key && record.paymentId) {
+    const current = await fetch(`https://api.mollie.com/v2/payments/${record.paymentId}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    const payment = await current.json().catch(() => ({}));
+    const metadata = { ...(payment?.metadata || {}), reminderSent: '1' };
+    await fetch(`https://api.mollie.com/v2/payments/${record.paymentId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ metadata }),
+    }).catch(() => undefined);
+  }
+  if (token) await rememberPaymentReminder(record.paymentId || record.id, token).catch(() => undefined);
+  record.reminderSent = true;
+}
+
+function unfinished(record: IntakeRecord) {
+  return record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing' && !record.report;
+}
+
 function originOf(request: Request) {
   return request.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'https://www.class-models.be';
 }
@@ -348,6 +476,8 @@ export async function GET(request: Request) {
   }
   if (url.searchParams.get('admin') === '1') {
     if (!(await isAdmin(request))) return json({ error: 'Geen toegang.' }, 401);
+    const auth = request.headers.get('authorization') || '';
+    await rememberAdminToken(auth).catch(() => undefined);
     const settings = await readSettings();
     const rows = await listIntakes();
     const fromMollie = await molliePayments();
@@ -370,6 +500,18 @@ export async function GET(request: Request) {
           await saveIntake(row).catch(() => undefined);
         }),
     );
+    const reminded = new Set(settings.remindedPaymentIds || []);
+    const waiting = rows
+      .filter((row) => unfinished(row) && !row.reminderSent && !reminded.has(row.paymentId || row.id) && !reminded.has(row.id))
+      .slice(0, 8);
+    for (const row of waiting) {
+      try {
+        const sent = await sendReminder(row, originOf(request));
+        if (sent) await markReminder(row, auth);
+      } catch {
+        /* een mislukte herinnering blokkeert de lijst niet */
+      }
+    }
     const money = await mollieBalance();
     return json({
       settings: {
@@ -411,7 +553,7 @@ export async function GET(request: Request) {
       }
       if (linked.paymentStatus !== 'paid' && linked.paymentStatus !== 'analyzing') {
         const qr = linked.checkout ? await qrDataUrl(linked.checkout) : '';
-        return json({ id: linked.id, status: linked.paymentStatus || 'open', qr, checkout: linked.checkout });
+        return json(openView(linked, qr));
       }
       return finishPaid(request, linked);
     } catch {
@@ -434,7 +576,7 @@ export async function GET(request: Request) {
   }
   if (record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing') {
     const qr = record.checkout ? await qrDataUrl(record.checkout) : '';
-    return json({ id: record.id, status: record.paymentStatus || 'open', qr, checkout: record.checkout });
+    return json(openView(record, qr));
   }
   return finishPaid(request, record);
 }
@@ -560,6 +702,8 @@ export async function POST(request: Request) {
       } catch {
         record.emailSent = false;
       }
+      const auth = request.headers.get('authorization') || '';
+      if (auth && (await isAdmin(request))) await rememberAdminToken(auth).catch(() => undefined);
       await saveIntake(record, images);
       return json({ id: record.id, status: 'paid', report, emailSent: record.emailSent });
     } catch (error) {
@@ -611,6 +755,8 @@ export async function POST(request: Request) {
     record.checkout = payment.checkout;
     record.paymentStatus = 'open';
   }
+  const auth = request.headers.get('authorization') || '';
+  if (auth && (await isAdmin(request))) await rememberAdminToken(auth).catch(() => undefined);
   try {
     await saveIntake(record, images);
   } catch (error) {
@@ -620,5 +766,29 @@ export async function POST(request: Request) {
   if (!payment) {
     return json({ error: 'De betaling van € 4,99 is nog niet gekoppeld. Vul in de backsite de Mollie-sleutel in.' }, 503);
   }
+  if (!record.reminderSent) {
+    try {
+      const sent = await sendReminder(record, originOf(request));
+      if (sent) await markReminder(record, auth);
+    } catch {
+      /* de betaling blijft beschikbaar als de mail vertraagt */
+    }
+  }
   return json({ id: record.id, paymentId: payment.id, qr: payment.qr, checkout: payment.checkout, status: 'open', price: PRICE });
+}
+
+function openView(record: IntakeRecord, qr: string) {
+  return {
+    id: record.id,
+    status: record.paymentStatus || 'open',
+    qr,
+    checkout: record.checkout,
+    firstName: record.firstName,
+    lastName: record.lastName,
+    email: record.email,
+    gender: record.gender,
+    ageGroup: record.ageGroup,
+    heightCm: record.heightCm,
+    childAge: record.childAge,
+  };
 }

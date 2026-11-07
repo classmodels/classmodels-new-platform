@@ -13,6 +13,8 @@ export type IntakeSettings = {
   smtpUser: string;
   smtpPass: string;
   smtpFrom: string;
+  archiveToken: string;
+  remindedPaymentIds: string[];
 };
 
 export type IntakeRecord = {
@@ -31,6 +33,8 @@ export type IntakeRecord = {
   emailSent: boolean;
   measures: unknown[];
   report: unknown | null;
+  photoKeys?: Partial<Record<'full' | 'face' | 'side', string>>;
+  reminderSent?: boolean;
 };
 
 const EMPTY: IntakeSettings = {
@@ -41,6 +45,8 @@ const EMPTY: IntakeSettings = {
   smtpUser: '',
   smtpPass: '',
   smtpFrom: '',
+  archiveToken: '',
+  remindedPaymentIds: [],
 };
 
 const SLOTS = ['full', 'face', 'side'] as const;
@@ -63,6 +69,10 @@ function runtimeHeaders(json = false): Record<string, string> {
 
 function pickText(primary: string, secondary: string, third: string) {
   return primary.trim() || secondary.trim() || third.trim();
+}
+
+function idList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map((item) => String(item || '').trim()).filter(Boolean) : [];
 }
 
 function seal(value: string) {
@@ -134,6 +144,8 @@ export async function saveLiveSettings(token: string, patch: Partial<IntakeSetti
     smtpUser: patch.smtpUser == null ? prev.smtpUser : String(patch.smtpUser).trim(),
     smtpFrom: patch.smtpFrom == null ? prev.smtpFrom : String(patch.smtpFrom).trim(),
     smtpPort: Number(patch.smtpPort) || prev.smtpPort || 587,
+    archiveToken: prev.archiveToken,
+    remindedPaymentIds: prev.remindedPaymentIds,
   };
   await saveSettingsEverywhere(token, next);
 }
@@ -203,6 +215,10 @@ export async function readSettings(): Promise<IntakeSettings> {
     smtpUser: pickText(a.smtpUser, b.smtpUser, local.smtpUser),
     smtpFrom: pickText(a.smtpFrom, b.smtpFrom, local.smtpFrom),
     smtpPort: Number(a.smtpHost ? a.smtpPort : b.smtpHost ? b.smtpPort : local.smtpPort) || 587,
+    archiveToken: pickText(a.archiveToken, b.archiveToken, local.archiveToken),
+    remindedPaymentIds: [idList(a.remindedPaymentIds), idList(b.remindedPaymentIds), idList(local.remindedPaymentIds)].sort(
+      (left, right) => right.length - left.length,
+    )[0] || [],
   };
 }
 
@@ -251,6 +267,8 @@ function asRecord(raw: Partial<IntakeRecord> | null | undefined): IntakeRecord |
     emailSent: Boolean(raw.emailSent),
     measures: Array.isArray(raw.measures) ? raw.measures : [],
     report: raw.report ?? null,
+    photoKeys: raw.photoKeys && typeof raw.photoKeys === 'object' ? raw.photoKeys : undefined,
+    reminderSent: Boolean(raw.reminderSent),
   };
 }
 
@@ -304,6 +322,112 @@ async function writeLocal(record: IntakeRecord, images?: string[]) {
   await writeFile(path.join(folder, 'intake.json'), JSON.stringify(record));
 }
 
+const DOSSIER_PREFIX = 'cm.internal.intake.';
+let archiveCache: { at: number; rows: IntakeRecord[] } | null = null;
+
+function bearer(token: string) {
+  return token.toLowerCase().startsWith('bearer ') ? token : `Bearer ${token}`;
+}
+
+export async function rememberAdminToken(token: string) {
+  const auth = bearer(token);
+  const remote = await remoteSettings();
+  if (!remote?.mollieKey && !remote?.smtpHost) return;
+  if (remote.archiveToken === auth) return;
+  await saveContentSettings(auth, { ...remote, archiveToken: auth });
+}
+
+export async function rememberPaymentReminder(paymentId: string, token: string) {
+  const id = paymentId.trim();
+  const auth = bearer(token);
+  if (!id) return;
+  const remote = await remoteSettings();
+  if (!remote) return;
+  const ids = new Set(idList(remote.remindedPaymentIds));
+  if (ids.has(id)) return;
+  ids.add(id);
+  await saveContentSettings(auth, { ...remote, remindedPaymentIds: [...ids] });
+}
+
+async function listArchived() {
+  if (archiveCache && Date.now() - archiveCache.at < 8000) return archiveCache.rows;
+  try {
+    const res = await fetch(`${LIVE_API}/content/strings?locale=en`, { cache: 'no-store' });
+    if (!res.ok) return [] as IntakeRecord[];
+    const rows = (await res.json()) as Array<{ key?: string; value?: string }>;
+    const parsed = rows
+      .filter((row) => String(row.key || '').startsWith(DOSSIER_PREFIX) && row.value)
+      .map((row) => {
+        try {
+          return asRecord(JSON.parse(open(String(row.value))) as IntakeRecord);
+        } catch {
+          return null;
+        }
+      })
+      .filter((row): row is IntakeRecord => Boolean(row));
+    archiveCache = { at: Date.now(), rows: parsed };
+    return parsed;
+  } catch {
+    return [] as IntakeRecord[];
+  }
+}
+
+async function writeDossier(token: string, record: IntakeRecord) {
+  const headers = { Authorization: bearer(token), 'Content-Type': 'application/json' };
+  const key = `${DOSSIER_PREFIX}${record.id}`;
+  const value = seal(JSON.stringify(record));
+  let res = await fetch(`${LIVE_API}/content/strings`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ key, value, locale: 'en' }),
+  });
+  if (res.status === 404) {
+    res = await fetch(`${LIVE_API}/content/strings`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ key, value, locale: 'en' }),
+    });
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || data.error || 'Dossier opslaan mislukt.');
+  }
+  archiveCache = null;
+}
+
+async function uploadPhotos(token: string, id: string, images: string[]) {
+  const keys: Partial<Record<(typeof SLOTS)[number], string>> = {};
+  for (let i = 0; i < SLOTS.length; i += 1) {
+    const src = images[i];
+    if (!src) continue;
+    const match = src.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+    if (!match) continue;
+    const bytes = Buffer.from(match[2], 'base64');
+    const form = new FormData();
+    form.set('file', new Blob([new Uint8Array(bytes)], { type: match[1] }), `${SLOTS[i]}.jpg`);
+    const res = await fetch(`${LIVE_API}/media/upload?fileLabel=${encodeURIComponent(`modelanalyse-${id}-${SLOTS[i]}`)}`, {
+      method: 'POST',
+      headers: { Authorization: bearer(token) },
+      body: form,
+    });
+    if (!res.ok) continue;
+    const data = (await res.json().catch(() => ({}))) as { webpKey?: string; storageKey?: string };
+    const file = String(data.webpKey || data.storageKey || '').trim();
+    if (file) keys[SLOTS[i]] = file.split('/').pop() || file;
+  }
+  return keys;
+}
+
+async function archiveDossier(record: IntakeRecord, images?: string[]) {
+  const token = (await readSettings()).archiveToken.trim();
+  if (!token) return;
+  if (images?.length && !record.photoKeys?.full) {
+    const keys = await uploadPhotos(token, record.id, images);
+    if (Object.keys(keys).length) record.photoKeys = { ...record.photoKeys, ...keys };
+  }
+  await writeDossier(token, record);
+}
+
 export async function saveIntake(record: IntakeRecord, images?: string[]) {
   let remoteOk = false;
   let localOk = false;
@@ -319,6 +443,12 @@ export async function saveIntake(record: IntakeRecord, images?: string[]) {
     localOk = true;
   } catch {
     localOk = false;
+  }
+  try {
+    await archiveDossier(record, images);
+    remoteOk = true;
+  } catch (error) {
+    if (!remoteError) remoteError = error instanceof Error ? error : new Error('Dossier opslaan mislukt.');
   }
   if (!remoteOk && !localOk) {
     console.error('[model-intake] dossier niet bewaard', remoteError?.message || 'opslaan mislukt');
@@ -350,16 +480,23 @@ async function readLocal(id: string) {
   return asRecord(raw);
 }
 
+async function archivedIntake(id: string) {
+  const rows = await listArchived();
+  return rows.find((row) => row.id === id || row.paymentId === id) || null;
+}
+
 export async function readIntake(id: string) {
-  if (id.startsWith('tr_')) {
+  if (!id.startsWith('tr_')) {
+    const remote = asRecord(await remoteJson<IntakeRecord>(`/model-intake/runtime/${encodeURIComponent(id)}`));
+    if (remote) return remote;
+    const local = await readLocal(id).catch(() => null);
+    if (local) return local;
+  } else {
     const row = asRecord(await remoteJson<IntakeRecord>(`/model-intake/runtime/by-payment/${encodeURIComponent(id)}`));
     if (row) return row;
-    throw new Error('niet gevonden');
   }
-  const remote = asRecord(await remoteJson<IntakeRecord>(`/model-intake/runtime/${encodeURIComponent(id)}`));
-  if (remote) return remote;
-  const local = await readLocal(id).catch(() => null);
-  if (local) return local;
+  const archived = await archivedIntake(id);
+  if (archived) return archived;
   throw new Error('niet gevonden');
 }
 
@@ -390,6 +527,19 @@ export async function intakeImages(id: string) {
 
 export async function intakePhoto(id: string, slot: string) {
   if (!SLOTS.includes(slot as (typeof SLOTS)[number])) throw new Error('foto');
+  const saved = await archivedIntake(id).catch(() => null);
+  const file = saved?.photoKeys?.[slot as (typeof SLOTS)[number]];
+  if (file) {
+    try {
+      const res = await fetch(`${LIVE_API}/media/public/${encodeURIComponent(file)}`, { cache: 'no-store' });
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length) return { mime: res.headers.get('content-type') || 'image/jpeg', buf };
+      }
+    } catch {
+      /* verder zoeken */
+    }
+  }
   try {
     const res = await fetch(`${LIVE_API}/model-intake/runtime/${encodeURIComponent(id)}/photo/${slot}`, {
       headers: runtimeHeaders(),
@@ -426,10 +576,21 @@ async function listLocal(): Promise<IntakeRecord[]> {
   }
 }
 
+function preferIntake(current: IntakeRecord, next: IntakeRecord) {
+  const currentScore = (current.report ? 4 : 0) + (current.photoKeys?.full ? 2 : 0) + (current.email ? 1 : 0);
+  const nextScore = (next.report ? 4 : 0) + (next.photoKeys?.full ? 2 : 0) + (next.email ? 1 : 0);
+  return nextScore > currentScore ? next : current;
+}
+
 export async function listIntakes() {
   const remoteRaw = await remoteJson<IntakeRecord[]>('/model-intake/runtime');
   const remote = (remoteRaw || []).map((row) => asRecord(row)).filter((row): row is IntakeRecord => Boolean(row));
   const local = await listLocal();
-  const seen = new Set(remote.map((row) => row.id));
-  return [...remote, ...local.filter((row) => !seen.has(row.id))].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const archived = await listArchived();
+  const byId = new Map<string, IntakeRecord>();
+  for (const row of [...remote, ...local, ...archived]) {
+    const prev = byId.get(row.id);
+    byId.set(row.id, prev ? preferIntake(prev, row) : row);
+  }
+  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
