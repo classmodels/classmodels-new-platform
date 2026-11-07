@@ -60,7 +60,17 @@ async function mollieCreate(record: IntakeRecord, origin: string) {
     description: `Class-Models modelanalyse € ${PRICE_LABEL} — ${record.firstName} ${record.lastName}`.slice(0, 255),
     redirectUrl: `${origin}/gasten/model-worden?intake=${record.id}#profiel`,
     locale: 'nl_BE',
-    metadata: { intakeId: record.id, email: record.email },
+    metadata: {
+      kind: 'model-analyse',
+      intakeId: record.id,
+      email: record.email,
+      firstName: record.firstName,
+      lastName: record.lastName,
+      gender: record.gender,
+      ageGroup: record.ageGroup,
+      heightCm: record.heightCm == null ? '' : String(record.heightCm),
+      childAge: record.childAge == null ? '' : String(record.childAge),
+    },
   };
   let made = await molliePost(key, { ...base, method: 'bancontact' });
   if (!made.ok) made = await molliePost(key, base);
@@ -73,6 +83,65 @@ async function mollieCreate(record: IntakeRecord, origin: string) {
   const checkout = payment?._links?.checkout?.href || full?._links?.checkout?.href || '';
   const qr = full?.details?.qrCode?.src || (checkout ? await qrDataUrl(checkout) : '');
   return { id: payment.id as string, checkout, qr };
+}
+
+type MolliePayment = {
+  id?: string;
+  status?: string;
+  description?: string;
+  createdAt?: string;
+  metadata?: Record<string, string>;
+  _links?: { checkout?: { href?: string } };
+};
+
+function intakeFromPayment(payment: MolliePayment): IntakeRecord | null {
+  const meta = payment.metadata || {};
+  const description = String(payment.description || '');
+  const ours = meta.kind === 'model-analyse' || /modelanalyse/i.test(description);
+  if (!ours || !payment.id) return null;
+  const named = description.split('—')[1]?.trim() || '';
+  const [guessFirst, ...guessRest] = named.split(/\s+/).filter(Boolean);
+  const height = Number(meta.heightCm);
+  const childAge = Number(meta.childAge);
+  return {
+    id: String(meta.intakeId || payment.id),
+    createdAt: payment.createdAt || new Date().toISOString(),
+    firstName: meta.firstName || guessFirst || '',
+    lastName: meta.lastName || guessRest.join(' '),
+    email: meta.email || '',
+    gender: meta.gender || '',
+    ageGroup: meta.ageGroup === 'child' ? 'child' : 'adult',
+    heightCm: Number.isFinite(height) && height > 0 ? height : null,
+    childAge: Number.isFinite(childAge) && childAge > 0 ? childAge : null,
+    paymentId: payment.id,
+    paymentStatus: payment.status || 'open',
+    checkout: payment._links?.checkout?.href || '',
+    emailSent: false,
+    measures: [],
+    report: null,
+  };
+}
+
+async function molliePayments() {
+  const key = await mollieKey();
+  if (!key) return [] as IntakeRecord[];
+  try {
+    const res = await fetch('https://api.mollie.com/v2/payments?limit=250', {
+      headers: { Authorization: `Bearer ${key}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const payments = (data?._embedded?.payments || []) as MolliePayment[];
+    return payments.map(intakeFromPayment).filter((row): row is IntakeRecord => Boolean(row));
+  } catch {
+    return [];
+  }
+}
+
+async function findMollieIntake(id: string) {
+  const rows = await molliePayments();
+  return rows.find((row) => row.id === id || row.paymentId === id) || null;
 }
 
 async function mollieStatus(paymentId: string) {
@@ -281,6 +350,15 @@ export async function GET(request: Request) {
     if (!(await isAdmin(request))) return json({ error: 'Geen toegang.' }, 401);
     const settings = await readSettings();
     const rows = await listIntakes();
+    const fromMollie = await molliePayments();
+    const known = new Set(rows.flatMap((row) => [row.id, row.paymentId].filter(Boolean)));
+    for (const row of fromMollie) {
+      if (known.has(row.id) || known.has(row.paymentId)) continue;
+      rows.push(row);
+      known.add(row.id);
+      known.add(row.paymentId);
+    }
+    rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     await Promise.all(
       rows
         .filter((row) => row.paymentId && row.paymentStatus !== 'paid' && row.paymentStatus !== 'analyzing')
@@ -345,7 +423,9 @@ export async function GET(request: Request) {
   try {
     record = await readIntake(id);
   } catch {
-    return json({ error: 'Deze analyse is niet gevonden.' }, 404);
+    const viaMollie = await findMollieIntake(id);
+    if (!viaMollie) return json({ error: 'Deze analyse is niet gevonden.' }, 404);
+    record = viaMollie;
   }
   if (record.paymentId && record.paymentStatus !== 'paid' && record.paymentStatus !== 'analyzing') {
     const status = await mollieStatus(record.paymentId);

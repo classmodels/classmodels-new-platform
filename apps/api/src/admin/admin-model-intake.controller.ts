@@ -66,6 +66,7 @@ function toRecord(row: IntakeRow) {
   };
 }
 
+/** Dossiers van de modelanalyse, inclusief wie wel begon en nog niet betaalde. */
 @Controller()
 export class AdminModelIntakeController {
   constructor(private readonly prisma: PrismaService) {}

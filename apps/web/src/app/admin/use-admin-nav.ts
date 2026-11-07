@@ -22,6 +22,8 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
         items: [
           { href: '/admin/portalen', label: t('admin.portalen') },
           { href: '/admin/content', label: t('admin.siteTexts'), permission: 'content.strings.write' },
+          { href: '/admin/content/paginas', label: "Pagina's (foto & video)", permission: 'content.strings.write' },
+          { href: '/admin/content/downloads', label: 'Portaal-downloads', permission: 'content.strings.write' },
           { href: '/admin/menus', label: t('admin.menus'), permission: 'admin.menus.read' },
         ],
       },
@@ -59,9 +61,9 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
         label: 'Modellenanalyses',
         icon: 'clipboard',
         items: [
-          { href: '/admin/model-analyse', label: 'Sleutels', permission: 'admin.users.read' },
-          { href: '/admin/model-analyse/open', label: 'Begonnen, niet betaald', permission: 'admin.users.read' },
-          { href: '/admin/model-analyse/betaald', label: 'Afgewerkte analyses', permission: 'admin.users.read' },
+          { href: '/admin/model-analyse', label: 'Instellingen', permission: 'admin.users.read' },
+          { href: '/admin/model-analyse/open', label: 'Niet afgewerkt', permission: 'admin.users.read' },
+          { href: '/admin/model-analyse/betaald', label: 'Afgewerkt', permission: 'admin.users.read' },
         ],
       },
       {
@@ -71,6 +73,7 @@ export function useAdminNavSections(can: (permission: string) => boolean) {
         items: [
           { href: '/admin/media', label: t('admin.mediaLibrary'), permission: 'admin.media.read' },
           { href: '/admin/portfolio-levering', label: 'Portfolio-levering', permission: 'admin.media.read' },
+          { href: '/admin/partners', label: 'Partnerlogo’s', permission: 'admin.partners.read' },
           { href: '/admin/reviews', label: t('admin.reviews'), permission: 'admin.reviews.read' },
           { href: '/admin/testshoot', label: t('admin.testshoot'), permission: 'admin.testshoot.read' },
         ],

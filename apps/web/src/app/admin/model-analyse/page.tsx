@@ -1,8 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
+
+const FILLED = '••••••••••••';
 
 type Balance = { available: string; pending: string; currency: string };
 
@@ -48,6 +49,9 @@ export default function AdminModelAnalysePage() {
     setSettings(data.settings);
     setForm((prev) => ({
       ...prev,
+      openaiKey: data.settings?.hasOpenai ? FILLED : '',
+      mollieKey: data.settings?.hasMollie ? FILLED : '',
+      smtpPass: data.settings?.hasSmtpPass ? FILLED : '',
       smtpHost: data.settings?.smtpHost || '',
       smtpPort: String(data.settings?.smtpPort || 587),
       smtpUser: data.settings?.smtpUser || '',
@@ -71,14 +75,26 @@ export default function AdminModelAnalysePage() {
       const res = await fetch('/api/model-intake', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'settings', ...form, smtpPort: Number(form.smtpPort) || 587 }),
+        body: JSON.stringify({
+          action: 'settings',
+          ...form,
+          openaiKey: form.openaiKey === FILLED ? '' : form.openaiKey,
+          mollieKey: form.mollieKey === FILLED ? '' : form.mollieKey,
+          smtpPass: form.smtpPass === FILLED ? '' : form.smtpPass,
+          smtpPort: Number(form.smtpPort) || 587,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setErr(data.message || data.error || 'Opslaan mislukt');
         return;
       }
-      setForm((prev) => ({ ...prev, openaiKey: '', mollieKey: '', smtpPass: '' }));
+      setForm((prev) => ({
+        ...prev,
+        openaiKey: settings?.hasOpenai ? FILLED : '',
+        mollieKey: settings?.hasMollie ? FILLED : '',
+        smtpPass: settings?.hasSmtpPass ? FILLED : '',
+      }));
       setMsg('Bewaard.');
       await load();
     } catch {
@@ -89,23 +105,11 @@ export default function AdminModelAnalysePage() {
   const balance = settings?.mollieBalance;
 
   return (
-    <div className="space-y-6 p-4 text-sm">
-      <h1 className="text-xl font-semibold">Modellenanalyses</h1>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Link href="/admin/model-analyse/open" className="rounded-md border border-line bg-white px-4 py-3 shadow-sm hover:border-burgundy/40">
-          <span className="block font-medium">Begonnen, niet betaald</span>
-          <span className="mt-1 block text-xs text-muted">E-mailadressen en status niet afgewerkt</span>
-        </Link>
-        <Link href="/admin/model-analyse/betaald" className="rounded-md border border-line bg-white px-4 py-3 shadow-sm hover:border-burgundy/40">
-          <span className="block font-medium">Afgewerkte analyses</span>
-          <span className="mt-1 block text-xs text-muted">Volledige analyse, maten en foto’s</span>
-        </Link>
-      </div>
-      <form onSubmit={save} className="space-y-3 rounded-md border border-line bg-white p-4 shadow-sm">
+    <form onSubmit={save} className="space-y-3 rounded-md border border-line bg-white p-4 text-sm shadow-sm">
         <Status on={Boolean(settings?.hasOpenai)} label="OpenAI-sleutel" />
         <label className="block">
-          <span className="text-xs text-muted">{settings?.hasOpenai ? 'Nieuwe OpenAI-sleutel (leeg laten om de actieve te houden)' : 'OpenAI-sleutel'}</span>
-          <input className="mt-1 w-full border border-line px-2 py-2" type="password" autoComplete="off" value={form.openaiKey} onChange={(e) => setForm({ ...form, openaiKey: e.target.value })} />
+          <span className="text-xs text-muted">OpenAI-sleutel</span>
+          <input className="mt-1 w-full border border-line px-2 py-2 tracking-[0.3em]" type="password" autoComplete="off" value={form.openaiKey} onChange={(e) => setForm({ ...form, openaiKey: e.target.value })} />
         </label>
         <Status on={Boolean(settings?.hasMollie)} label="Mollie-sleutel" />
         {settings?.hasMollie && balance ? (
@@ -118,8 +122,8 @@ export default function AdminModelAnalysePage() {
           <p className="text-xs text-muted">{settings.mollieBalanceError}</p>
         ) : null}
         <label className="block">
-          <span className="text-xs text-muted">{settings?.hasMollie ? 'Nieuwe Mollie-sleutel (leeg laten om de actieve te houden)' : 'Mollie-sleutel voor € 4,99'}</span>
-          <input className="mt-1 w-full border border-line px-2 py-2" type="password" autoComplete="off" value={form.mollieKey} onChange={(e) => setForm({ ...form, mollieKey: e.target.value })} />
+          <span className="text-xs text-muted">Mollie-sleutel</span>
+          <input className="mt-1 w-full border border-line px-2 py-2 tracking-[0.3em]" type="password" autoComplete="off" value={form.mollieKey} onChange={(e) => setForm({ ...form, mollieKey: e.target.value })} />
         </label>
         <label className="block">
           <span className="text-xs text-muted">SMTP-host</span>
@@ -135,8 +139,8 @@ export default function AdminModelAnalysePage() {
         </label>
         <Status on={Boolean(settings?.hasSmtpPass)} label="SMTP-wachtwoord" />
         <label className="block">
-          <span className="text-xs text-muted">{settings?.hasSmtpPass ? 'Nieuw SMTP-wachtwoord (leeg laten om het actieve te houden)' : 'SMTP-wachtwoord'}</span>
-          <input className="mt-1 w-full border border-line px-2 py-2" type="password" autoComplete="off" value={form.smtpPass} onChange={(e) => setForm({ ...form, smtpPass: e.target.value })} />
+          <span className="text-xs text-muted">SMTP-wachtwoord</span>
+          <input className="mt-1 w-full border border-line px-2 py-2 tracking-[0.3em]" type="password" autoComplete="off" value={form.smtpPass} onChange={(e) => setForm({ ...form, smtpPass: e.target.value })} />
         </label>
         <label className="block">
           <span className="text-xs text-muted">Afzender</span>
@@ -145,7 +149,6 @@ export default function AdminModelAnalysePage() {
         <button className="border border-line bg-zinc-900 px-4 py-2 text-white" type="submit">Bewaren</button>
         {msg ? <p>{msg}</p> : null}
         {err ? <p className="text-red-700">{err}</p> : null}
-      </form>
-    </div>
+    </form>
   );
 }

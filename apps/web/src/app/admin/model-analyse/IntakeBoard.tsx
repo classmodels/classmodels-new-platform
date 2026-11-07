@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import type { ModelReport } from '@/lib/model-analyse';
 
@@ -109,61 +109,78 @@ export function IntakeBoard({ mode }: { mode: 'open' | 'paid' }) {
   }
 
   return (
-    <div className="space-y-4 p-4 text-sm">
-      <h1 className="text-xl font-semibold">{mode === 'open' ? 'Begonnen, niet betaald' : 'Afgewerkte analyses'}</h1>
-      <p className="max-w-2xl text-muted">
-        {mode === 'open'
-          ? 'Iemand is de analyse begonnen en heeft nog niet betaald. De status blijft niet afgewerkt.'
-          : 'Betaalde analyses. Open een dossier voor de volledige tekst en de foto’s.'}
-      </p>
-      {err ? <p className="text-red-700">{err}</p> : null}
-      {rows.map((row) => {
-        const label = statusLabel(row);
-        const shots = photos[row.id] || {};
-        const show = mode === 'paid' && openId === row.id;
-        return (
-          <article key={row.id} className="rounded-md border border-line bg-white p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold">{row.firstName} {row.lastName}</p>
-                <p className="mt-1">
-                  <a className="text-burgundy underline" href={`mailto:${row.email}`}>{row.email}</a>
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  {new Date(row.createdAt).toLocaleString('nl-BE')} · {person(row)}
-                  {mode === 'paid' ? ` · mail ${row.emailSent ? 'verstuurd' : 'niet verstuurd'}` : ` · Mollie: ${row.paymentStatus || 'open'}`}
-                </p>
-              </div>
-              <span className={`rounded px-2 py-1 text-xs font-semibold ${label === 'Afgewerkt' ? 'bg-emerald-100 text-emerald-800' : label === 'Niet afgewerkt' ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900'}`}>
-                {label}
-              </span>
-            </div>
-            <div className="mt-3 flex gap-2">
-              {PHOTO.map(([slot, name]) =>
-                shots[slot] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img key={slot} src={shots[slot]} alt={name} title={name} className="h-28 w-20 rounded object-cover" />
-                ) : null,
-              )}
-            </div>
-            {mode === 'paid' ? (
-              <div className="mt-3">
-                {row.report ? (
-                  <button className="border border-line px-3 py-1.5" type="button" onClick={() => setOpenId(show ? '' : row.id)}>
-                    {show ? 'Analyse sluiten' : 'Volledige analyse'}
-                  </button>
-                ) : (
-                  <button className="border border-line bg-zinc-900 px-3 py-1.5 text-white disabled:opacity-60" type="button" disabled={busyId === row.id} onClick={() => void fetchReport(row)}>
-                    {busyId === row.id ? 'Bezig…' : 'Volledige analyse ophalen'}
-                  </button>
-                )}
-              </div>
-            ) : null}
-            {show && row.report ? <Report report={row.report} /> : null}
-          </article>
-        );
-      })}
-      {!rows.length ? <p className="text-muted">{mode === 'open' ? 'Geen begonnen analyses.' : 'Nog geen betaalde analyses.'}</p> : null}
+    <div className="text-sm">
+      <p className="mb-3 text-muted">{rows.length} {mode === 'open' ? 'niet afgewerkt' : 'afgewerkt'}</p>
+      {err ? <p className="mb-3 text-red-700">{err}</p> : null}
+      <div className="overflow-x-auto rounded-md border border-line bg-white">
+        <table className="w-full min-w-[720px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-line bg-zinc-50 text-[11px] uppercase tracking-wide text-muted">
+              <th className="px-3 py-2 font-medium">Datum</th>
+              <th className="px-3 py-2 font-medium">Naam</th>
+              <th className="px-3 py-2 font-medium">E-mail</th>
+              <th className="px-3 py-2 font-medium">Profiel</th>
+              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">Foto’s</th>
+              {mode === 'paid' ? <th className="px-3 py-2 font-medium">Dossier</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const label = statusLabel(row);
+              const shots = photos[row.id] || {};
+              const show = mode === 'paid' && openId === row.id;
+              return (
+                <Fragment key={row.id}>
+                  <tr className="border-b border-line align-middle">
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-muted">{new Date(row.createdAt).toLocaleString('nl-BE')}</td>
+                    <td className="px-3 py-2 font-medium">{row.firstName} {row.lastName}</td>
+                    <td className="px-3 py-2"><a className="text-ink underline" href={`mailto:${row.email}`}>{row.email}</a></td>
+                    <td className="px-3 py-2 text-xs text-muted">{person(row)}</td>
+                    <td className="px-3 py-2">
+                      <span className={`inline-block rounded px-2 py-0.5 text-[11px] font-semibold ${label === 'Afgewerkt' ? 'bg-emerald-100 text-emerald-800' : label === 'Niet afgewerkt' ? 'bg-amber-100 text-amber-900' : 'bg-sky-100 text-sky-900'}`}>
+                        {label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1">
+                        {PHOTO.map(([slot, name]) =>
+                          shots[slot] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={slot} src={shots[slot]} alt={name} title={name} className="h-10 w-8 rounded object-cover" />
+                          ) : null,
+                        )}
+                      </div>
+                    </td>
+                    {mode === 'paid' ? (
+                      <td className="px-3 py-2">
+                        {row.report ? (
+                          <button className="text-xs font-medium underline" type="button" onClick={() => setOpenId(show ? '' : row.id)}>
+                            {show ? 'Sluiten' : 'Openen'}
+                          </button>
+                        ) : (
+                          <button className="text-xs font-medium underline disabled:opacity-60" type="button" disabled={busyId === row.id} onClick={() => void fetchReport(row)}>
+                            {busyId === row.id ? 'Bezig…' : 'Ophalen'}
+                          </button>
+                        )}
+                        <span className="mt-1 block text-[11px] text-muted">Mail {row.emailSent ? 'verstuurd' : 'niet verstuurd'}</span>
+                      </td>
+                    ) : null}
+                  </tr>
+                  {show && row.report ? (
+                    <tr className="border-b border-line bg-zinc-50">
+                      <td className="px-3 py-4" colSpan={7}>
+                        <Report report={row.report} />
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+        {!rows.length ? <p className="px-3 py-6 text-muted">Geen dossiers.</p> : null}
+      </div>
     </div>
   );
 }
