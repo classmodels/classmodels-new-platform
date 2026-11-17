@@ -16,6 +16,13 @@
   width: min(1100px, 92vw);
   margin: 0 auto;
 }
+.gts-only {
+  width: min(520px, 92vw);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .gts-open {
   display: grid;
   grid-template-columns: minmax(0, 1.12fr) minmax(280px, 0.78fr);
