@@ -7,20 +7,26 @@
     linear-gradient(180deg, #0a0908 0%, #12100e 45%, #0a0908 100%);
   color: var(--gts-ink);
   min-height: 100dvh;
-  padding-bottom: 36px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  padding: 20px 16px 32px;
 }
 .gts-hero {
-  padding: 20px 0 28px;
+  width: min(480px, 100%);
+  margin: 0 auto;
+  padding: 0;
 }
 .gts-wrap {
   width: min(1100px, 92vw);
   margin: 0 auto;
 }
 .gts-only {
-  width: min(520px, 92vw);
+  width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 16px;
 }
 .gts-open {
@@ -248,10 +254,11 @@
   }
   .gts-poster {
     max-width: none;
-    margin: 0;
+    margin: 0 auto;
   }
   .gts-hero {
-    padding: 12px 0 8px;
+    width: min(440px, 100%);
+    padding: 0;
   }
   .gts-wrap {
     width: min(100%, 94vw);

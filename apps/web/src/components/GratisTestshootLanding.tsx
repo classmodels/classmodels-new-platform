@@ -38,16 +38,15 @@ export function goToGratisTestshootAgenda(push: (href: string) => void) {
   goToGuestAgenda(push, 'gratis-fotoshoot');
 }
 
-export function GratisTestshootLanding({ campaign }: { campaign?: HomeCampaign | null }) {
+export function GratisTestshootLanding({ campaign: _campaign }: { campaign?: HomeCampaign | null }) {
   const router = useRouter();
-  const slug = campaign?.slug || 'gratis-fotoshoot';
-  const go = () => goToGuestAgenda((href) => router.push(href), slug);
+  const go = () => router.push('/?site=1');
 
   return (
     <div className="gts-root">
       <section className="gts-hero">
         <div className="gts-only">
-          <button type="button" className="gts-poster" onClick={go} aria-label="Plan je gratis testshoot">
+          <button type="button" className="gts-poster" onClick={go} aria-label="Verder naar de site">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={POSTER}
@@ -60,7 +59,7 @@ export function GratisTestshootLanding({ campaign }: { campaign?: HomeCampaign |
             />
           </button>
           <button type="button" className="gts-go" onClick={go}>
-            Plan je gratis testshoot
+            Verder naar de site
           </button>
         </div>
       </section>

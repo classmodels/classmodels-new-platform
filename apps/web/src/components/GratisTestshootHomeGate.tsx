@@ -7,14 +7,13 @@ import { useAuth } from '@/context/auth-context';
 import { getApiBase } from '@/lib/api';
 
 /**
- * Beginpagina toont de gepubliceerde campagne (gsm + desktop),
- * alleen voor bezoekers die niet ingelogd zijn, en niet als iemand
- * al naar een portaal of de agenda gaat (?m= / ?book=).
+ * Niet ingelogd: eerst de poster. Die vervangt de beginpagina niet.
+ * Verder naar de site (?site=1), een portaal of de agenda toont de gewone pagina.
  */
 export function GratisTestshootHomeGate({ children }: { children: ReactNode }) {
   const search = useSearchParams();
   const { user, loading } = useAuth();
-  const intoSite = Boolean(search.get('m') || search.get('book'));
+  const intoSite = Boolean(search.get('site') || search.get('m') || search.get('book'));
   const [campaign, setCampaign] = useState<HomeCampaign | null | 'fallback' | undefined>(undefined);
 
   useEffect(() => {
