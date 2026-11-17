@@ -25,18 +25,18 @@ export const metadata: Metadata = OPEN_MODELLENDAG_ENABLED
       },
     }
   : {
-      title: 'Gratis testshoot en intakegesprek',
+      title: 'Gratis testshoot en modelanalyse',
       description:
-        'Modellenwerk? Ontdek het bij Class-Models met een gratis testshoot en een persoonlijk intakegesprek. Iedereen is welkom — ervaring is niet nodig.',
+        'Modellenwerk? Ontdek het bij Class-Models met een gratis testshoot en een digitale modelanalyse ter plaatse. Iedereen is welkom — ervaring is niet nodig.',
       alternates: { canonical: '/' },
       openGraph: {
-        title: 'Gratis testshoot en intakegesprek | Class-Models',
+        title: 'Gratis testshoot en modelanalyse | Class-Models',
         description:
-          'Gewone mensen. Bijzondere uitstraling. Kennismaken met een gratis testshoot en een persoonlijk intakegesprek, zonder verplichtingen.',
+          'Gewone mensen. Bijzondere uitstraling. Gratis testshoot en een volledige digitale modelanalyse ter plaatse, zonder verplichtingen.',
         url: 'https://www.class-models.be',
         locale: 'nl_BE',
         type: 'website',
-        images: [{ url: 'https://www.class-models.be/nieuw/gratis-testshoot-intake.jpg' }],
+        images: [{ url: 'https://www.class-models.be/nieuw/ontdek-modellenwerk.jpg' }],
       },
     };
 

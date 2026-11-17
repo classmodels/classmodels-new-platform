@@ -55,13 +55,13 @@ export const GUEST_SIMPLE_FUNNEL = {
   steps: [
     {
       n: '01',
-      title: 'Maak eerst een analyse',
-      body: 'Begin met een analyse van jezelf als model. Drie foto’s zijn genoeg.',
+      title: 'Plan je testshoot',
+      body: 'Kies een moment in Hulshout. De testshoot en het intakegesprek zijn gratis en vrijblijvend.',
     },
     {
       n: '02',
-      title: 'Bekijk jouw mogelijkheden',
-      body: 'Je krijgt een uitgebreide analyse van de modelrichtingen waarvoor je in aanmerking komt.',
+      title: 'Foto’s ter plaatse',
+      body: 'Tijdens de testshoot maken we de foto’s. De modelanalyse gebeurt daar, op basis van die beelden.',
     },
     {
       n: '03',

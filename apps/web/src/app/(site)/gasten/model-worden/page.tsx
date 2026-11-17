@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { NieuwShell } from '@/components/nieuw/NieuwShell';
 import { GuestSignupWizard } from '@/components/guest-portal/GuestSignupWizard';
-import { ModelIntakeSection } from '@/components/guest-portal/ModelIntakeSection';
 import {
   GUEST_SIMPLE_FUNNEL,
 } from '@/components/guest-portal/guest-portal-data';
@@ -48,9 +47,6 @@ export default function ModelWordenPage() {
               <div className="nieuw-hero-actions" style={{ marginTop: 22 }}>
                 <a className="nieuw-btn" href="#inschrijven">
                   {F.primaryCta} →
-                </a>
-                <a className="nieuw-btn nieuw-btn-ghost" href="#profiel">
-                  Profiel & afspraak
                 </a>
                 <a className="nieuw-btn nieuw-btn-ghost" href="#hoe-werkt-het">
                   {F.secondaryCta}
@@ -187,8 +183,6 @@ export default function ModelWordenPage() {
           </div>
         </div>
       </section>
-
-      <ModelIntakeSection />
 
       {/* Enige inschrijf-actie — twee kolommen + stapsgewijze wizard */}
       <section

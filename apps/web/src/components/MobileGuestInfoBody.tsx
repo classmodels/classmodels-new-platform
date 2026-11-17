@@ -11,8 +11,6 @@ import {
   WAAROM_CHECKLIST,
 } from '@/components/guest-portal/guest-portal-data';
 import { getApiBase } from '@/lib/api';
-import { ModelIntakeSection } from '@/components/guest-portal/ModelIntakeSection';
-
 const CARD = '#1b1a1a';
 const LINE = 'rgba(214, 202, 182, 0.12)';
 const TEXT = '#ece6da';
@@ -125,11 +123,6 @@ export function MobileGuestInfoBody({ infoKey }: { infoKey: MobileInfoKey }) {
           </ul>
           <BookBtn href="/?m=guest&book=inschrijven" label="Plan je kennismaking →" />
         </Card>
-        {infoKey === 'model-worden' ? (
-          <div className="nieuw-root nieuw-root--app-mobile-page" style={{ minHeight: 0, background: 'transparent' }}>
-            <ModelIntakeSection />
-          </div>
-        ) : null}
       </div>
     );
   }
