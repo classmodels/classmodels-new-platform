@@ -40,25 +40,28 @@ export function goToGratisTestshootAgenda(push: (href: string) => void) {
 
 export function GratisTestshootLanding({ campaign: _campaign }: { campaign?: HomeCampaign | null }) {
   const router = useRouter();
-  const go = () => router.push('/?site=1');
+  const plan = () => goToGratisTestshootAgenda((href) => router.push(href));
+  const site = () => router.push('/?site=1');
 
   return (
     <div className="gts-root">
       <section className="gts-hero">
         <div className="gts-only">
-          <button type="button" className="gts-poster" onClick={go} aria-label="Verder naar de site">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={POSTER}
-              alt="Class-Models. Ontdek of modellenwerk iets voor jou is."
-              width={819}
-              height={1024}
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-            />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="gts-poster"
+            src={POSTER}
+            alt="Class-Models. Ontdek of modellenwerk iets voor jou is."
+            width={819}
+            height={1024}
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+          />
+          <button type="button" className="gts-go" onClick={plan}>
+            Plan je gratis testshoot en fotoanalyse
           </button>
-          <button type="button" className="gts-go" onClick={go}>
+          <button type="button" className="gts-go gts-go-site" onClick={site}>
             Verder naar de site
           </button>
         </div>
