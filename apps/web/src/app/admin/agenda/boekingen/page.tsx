@@ -406,7 +406,7 @@ export default function AdminAgendaBoekingenPage() {
     }
     if (detail.phone?.trim()) {
       if (!normalizeAgendaMobileNational(detail.phone)) {
-        setDetailErr('GSM moet een Belgisch nummer zijn (bv. 0498720371 of +32 498 72 03 71).');
+        setDetailErr('GSM moet een Belgisch of Nederlands nummer zijn (bv. 0498720371, 0612345678, +32… of +31…).');
         return;
       }
     }

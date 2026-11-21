@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getApiBase } from '@/lib/api';
 import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
-import { resolveAgendaBookPath } from '@/lib/agenda-phone';
+import { agendaMobileError, resolveAgendaBookPath } from '@/lib/agenda-phone';
 
 type SlotDto = {
   id: string;
@@ -304,11 +304,13 @@ export function GuestSignupWizard() {
     if (!houseNr.trim()) return 'Vul je huisnummer in.';
     if (!lastName.trim()) return 'Vul je naam in.';
     if (!firstName.trim()) return 'Vul je voornaam in.';
-    if (!phone.trim()) return 'Vul je gsm-nummer in.';
+    const phoneErr = agendaMobileError(phone, 'GSM');
+    if (phoneErr) return phoneErr;
     if (ageFromBirthYear(birthYear) === null) return 'Vul een geldig geboortejaar in.';
     if (needsParent) {
       if (!parentName.trim()) return 'Vul de naam van de ouder in.';
-      if (!parentPhone.trim()) return 'Vul het telefoonnummer van de ouder in.';
+      const parentErr = agendaMobileError(parentPhone, 'GSM van de ouder');
+      if (parentErr) return parentErr;
     }
     return null;
   };

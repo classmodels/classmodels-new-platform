@@ -1,22 +1,22 @@
-/** Client-side: Belgisch gsm → nationaal `0xxxxxxxxx` (zelfde logica als API). */
+/** Client-side: Belgisch of Nederlands gsm → nationaal `0xxxxxxxxx` (zelfde logica als API). */
 export function normalizeAgendaMobileNational(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
   let d = raw.replace(/\s+/g, '').replace(/[^\d+]/g, '');
   if (d.startsWith('00')) d = d.slice(2);
   if (d.startsWith('+')) d = d.slice(1);
-  if (d.startsWith('32') && d.length >= 11) {
+  if ((d.startsWith('32') || d.startsWith('31')) && d.length >= 11) {
     d = `0${d.slice(2)}`;
   }
   d = d.replace(/\D/g, '');
   if (d.length === 10 && d.startsWith('0')) return d;
-  if (d.length === 9 && d.startsWith('4')) return `0${d}`;
+  if (d.length === 9 && (d.startsWith('4') || d.startsWith('6'))) return `0${d}`;
   return null;
 }
 
 export function agendaMobileError(raw: string | null | undefined, label = 'GSM'): string | null {
   if (!raw?.trim()) return `${label} is verplicht.`;
   if (!normalizeAgendaMobileNational(raw)) {
-    return `${label} moet een Belgisch gsm-nummer zijn (bv. 0498720371 of +32 498 72 03 71).`;
+    return `${label} moet een Belgisch of Nederlands gsm-nummer zijn (bv. 0498720371, 0612345678, +32… of +31…).`;
   }
   return null;
 }
@@ -160,7 +160,7 @@ export function agendaFieldDisplayLabel(fieldKey: string, label: string): string
 
 export function agendaFieldPlaceholder(fieldKey: string, placeholder?: string): string {
   const k = fieldKey.toLowerCase();
-  if (k === 'telefoon' || k === 'phone' || k === 'gsm') return placeholder || '0498720371';
+  if (k === 'telefoon' || k === 'phone' || k === 'gsm') return placeholder || '0498720371 of 0612345678';
   if (k === 'nr' || k === 'huisnummer') return placeholder || 'Huisnr.';
   if (k === 'geboortedatum' || k === 'birthdate' || k === 'birth_date') return 'dd/mm/jjjj';
   return placeholder ?? '';

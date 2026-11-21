@@ -123,13 +123,16 @@ export function templateAppliesToCalendar(templateSlugsRaw: unknown, calendarSlu
   return templateAppliesToBooking(templateSlugsRaw, calendarSlug, null);
 }
 
-/** Belgische GSM → E.164 +32… voor BulkSMS. */
+/** Belgische of Nederlandse GSM → E.164 (+32… / +31…) voor BulkSMS. */
 export function normalizeBelgiumMsisdn(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
   let d = raw.replace(/\s+/g, '').replace(/[^\d+]/g, '');
   if (d.startsWith('00')) d = `+${d.slice(2)}`;
-  if (d.startsWith('0') && d.length >= 9) d = `+32${d.slice(1)}`;
-  if (d.startsWith('32') && !d.startsWith('+')) d = `+${d}`;
+  if (d.startsWith('0') && d.length >= 9) {
+    const cc = d.startsWith('06') ? '31' : '32';
+    d = `+${cc}${d.slice(1)}`;
+  }
+  if ((d.startsWith('32') || d.startsWith('31')) && !d.startsWith('+')) d = `+${d}`;
   if (!d.startsWith('+')) return null;
   if (!/^\+[1-9]\d{7,14}$/.test(d)) return null;
   return d;
