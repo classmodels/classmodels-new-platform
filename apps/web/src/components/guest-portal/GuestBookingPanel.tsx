@@ -25,7 +25,7 @@ import {
   birthDateFieldDisplay,
   isBirthDateFieldKey,
   isBirthDateInputEmpty,
-  normalizeAgendaMobileNational,
+  normalizeAgendaMobileE164,
   normalizeIsoBirthDateClient,
   resolveAgendaBookPath,
 } from '@/lib/agenda-phone';
@@ -572,7 +572,7 @@ export function GuestBookingPanel({
         'telefoon';
       if (textPayload[phoneKeySubmit] || textPayload.telefoon) {
         const raw = (textPayload[phoneKeySubmit] || textPayload.telefoon || '').trim();
-        const norm = normalizeAgendaMobileNational(raw);
+        const norm = normalizeAgendaMobileE164(raw);
         if (norm) {
           textPayload[phoneKeySubmit] = norm;
           textPayload.telefoon = norm;

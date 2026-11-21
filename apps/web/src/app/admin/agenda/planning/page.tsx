@@ -516,7 +516,7 @@ export default function AdminAgendaPlanningPage() {
     }
     if (detail.phone?.trim()) {
       if (!normalizeAgendaMobileNational(detail.phone)) {
-        setDetailErr('GSM moet een Belgisch of Nederlands nummer zijn (bv. 0498720371, 0612345678, +32… of +31…).');
+        setDetailErr('GSM moet een Belgisch, Nederlands of Frans nummer zijn (bv. 0498720371, 0612345678, 0712345678, +32…, +31… of +33…).');
         return;
       }
     }

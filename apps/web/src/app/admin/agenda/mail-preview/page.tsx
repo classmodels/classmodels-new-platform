@@ -969,7 +969,7 @@ export default function AdminAgendaMailSmsPage() {
       {tab === 'sms' ? (
         <form onSubmit={saveBulksms} className="max-w-lg space-y-4 rounded-md border border-line bg-white p-4 shadow-sm">
           <p className="text-sm text-muted">
-            Belgische nummers gaan als +32… en Nederlandse als +31… naar BulkSMS. SMS wordt <strong>alleen</strong> verstuurd
+            Belgische nummers gaan als +32…, Nederlandse als +31… en Franse als +33… naar BulkSMS. SMS wordt <strong>alleen</strong> verstuurd
             als er een <strong>actief SMS-sjabloon</strong> is (tab &quot;E-mail / SMS sjablonen&quot;). U kunt ook{' '}
             <code className="rounded bg-zinc-100 px-1">BULKSMS_USERNAME</code> /{' '}
             <code className="rounded bg-zinc-100 px-1">BULKSMS_PASSWORD</code> in de server-env zetten.

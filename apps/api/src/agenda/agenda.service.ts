@@ -1558,7 +1558,7 @@ export class AgendaService implements OnModuleInit {
     } else if (webGuest) {
       // Gastenformulier: GSM is altijd verplicht (ook als fieldKey/label afwijkt).
       throw new BadRequestException(
-        'GSM is verplicht — vul een Belgisch of Nederlands nummer in (bv. 0498720371 of 0612345678), niet in het veld Nr. (huisnummer).',
+        'GSM is verplicht — vul een Belgisch, Nederlands of Frans nummer in (bv. 0498720371, 0612345678 of 0712345678), niet in het veld Nr. (huisnummer).',
       );
     }
 

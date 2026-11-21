@@ -1,22 +1,40 @@
-/** Client-side: Belgisch of Nederlands gsm → nationaal `0xxxxxxxxx` (zelfde logica als API). */
+/** Client-side: Belgisch, Nederlands of Frans gsm → nationaal `0xxxxxxxxx` (zelfde logica als API). */
 export function normalizeAgendaMobileNational(raw: string | null | undefined): string | null {
   if (!raw?.trim()) return null;
   let d = raw.replace(/\s+/g, '').replace(/[^\d+]/g, '');
   if (d.startsWith('00')) d = d.slice(2);
   if (d.startsWith('+')) d = d.slice(1);
-  if ((d.startsWith('32') || d.startsWith('31')) && d.length >= 11) {
+  if ((d.startsWith('32') || d.startsWith('31') || d.startsWith('33')) && d.length >= 11) {
     d = `0${d.slice(2)}`;
   }
   d = d.replace(/\D/g, '');
   if (d.length === 10 && d.startsWith('0')) return d;
-  if (d.length === 9 && (d.startsWith('4') || d.startsWith('6'))) return `0${d}`;
+  if (d.length === 9 && (d.startsWith('4') || d.startsWith('6') || d.startsWith('7'))) return `0${d}`;
   return null;
+}
+
+/** Voor versturen/opslaan: E.164 zodat +33 / +31 / +32 behouden blijft. */
+export function normalizeAgendaMobileE164(raw: string | null | undefined): string | null {
+  const national = normalizeAgendaMobileNational(raw);
+  if (!national) return null;
+  let d = String(raw || '')
+    .replace(/\s+/g, '')
+    .replace(/[^\d+]/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  if (d.startsWith('+')) d = d.slice(1);
+  const rest = national.slice(1);
+  if (d.startsWith('33')) return `+33${rest}`;
+  if (d.startsWith('31')) return `+31${rest}`;
+  if (d.startsWith('32')) return `+32${rest}`;
+  if (national.startsWith('07')) return `+33${rest}`;
+  if (national.startsWith('06')) return `+31${rest}`;
+  return `+32${rest}`;
 }
 
 export function agendaMobileError(raw: string | null | undefined, label = 'GSM'): string | null {
   if (!raw?.trim()) return `${label} is verplicht.`;
   if (!normalizeAgendaMobileNational(raw)) {
-    return `${label} moet een Belgisch of Nederlands gsm-nummer zijn (bv. 0498720371, 0612345678, +32… of +31…).`;
+    return `${label} moet een Belgisch, Nederlands of Frans gsm-nummer zijn (bv. 0498720371, 0612345678, 0712345678, +32…, +31… of +33…).`;
   }
   return null;
 }
@@ -160,7 +178,7 @@ export function agendaFieldDisplayLabel(fieldKey: string, label: string): string
 
 export function agendaFieldPlaceholder(fieldKey: string, placeholder?: string): string {
   const k = fieldKey.toLowerCase();
-  if (k === 'telefoon' || k === 'phone' || k === 'gsm') return placeholder || '0498720371 of 0612345678';
+  if (k === 'telefoon' || k === 'phone' || k === 'gsm') return placeholder || '0498…, 06… of 07…';
   if (k === 'nr' || k === 'huisnummer') return placeholder || 'Huisnr.';
   if (k === 'geboortedatum' || k === 'birthdate' || k === 'birth_date') return 'dd/mm/jjjj';
   return placeholder ?? '';
