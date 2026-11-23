@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getApiBase } from '@/lib/api';
 import { ymdEuropeBrussels } from '@/lib/agenda-brussels';
-import { agendaMobileError, normalizeAgendaMobileE164, resolveAgendaBookPath } from '@/lib/agenda-phone';
+import { agendaMobileError, normalizeAgendaMobileNational, resolveAgendaBookPath } from '@/lib/agenda-phone';
 
 type SlotDto = {
   id: string;
@@ -372,7 +372,7 @@ export function GuestSignupWizard() {
         familienaam: lastName.trim(),
         achternaam: lastName.trim(),
         email: email.trim(),
-        telefoon: normalizeAgendaMobileE164(phone) || phone.trim(),
+        telefoon: normalizeAgendaMobileNational(phone) || phone.trim(),
         postcode: postcode.trim(),
         gemeente: city.trim(),
         straat: street.trim(),
@@ -394,7 +394,7 @@ export function GuestSignupWizard() {
       if (needsParent) {
         fieldPayload.ouder_aanwezig = 'ja';
         fieldPayload.ouder_naam = parentName.trim();
-        fieldPayload.ouder_gsm = normalizeAgendaMobileE164(parentPhone) || parentPhone.trim();
+        fieldPayload.ouder_gsm = normalizeAgendaMobileNational(parentPhone) || parentPhone.trim();
       }
 
       const known = new Set(fields.map((f) => f.fieldKey));

@@ -25,7 +25,7 @@ import {
   birthDateFieldDisplay,
   isBirthDateFieldKey,
   isBirthDateInputEmpty,
-  normalizeAgendaMobileE164,
+  normalizeAgendaMobileNational,
   normalizeIsoBirthDateClient,
   resolveAgendaBookPath,
 } from '@/lib/agenda-phone';
@@ -572,7 +572,8 @@ export function GuestBookingPanel({
         'telefoon';
       if (textPayload[phoneKeySubmit] || textPayload.telefoon) {
         const raw = (textPayload[phoneKeySubmit] || textPayload.telefoon || '').trim();
-        const norm = normalizeAgendaMobileE164(raw);
+        // Nationaal 0… versturen: live API (Combell) herkent +31/+33 nog niet, wel 06…/07….
+        const norm = normalizeAgendaMobileNational(raw);
         if (norm) {
           textPayload[phoneKeySubmit] = norm;
           textPayload.telefoon = norm;
