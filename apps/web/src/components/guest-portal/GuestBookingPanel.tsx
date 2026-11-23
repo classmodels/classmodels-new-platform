@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/context/auth-context';
 import { getApiBase } from '@/lib/api';
 import {
   GUEST_MINOR_PARENT_FIELD_KEYS,
@@ -144,6 +145,7 @@ export function GuestBookingPanel({
   /** Extra fieldsJson (bv. pakket) — niet getoond in het formulier. */
   extraFields?: Record<string, string>;
 }) {
+  const { user } = useAuth();
   const isMobile = useIsMobile() === true;
   const daysPerPage = isMobile ? DAYS_PER_PAGE_MOBILE : DAYS_PER_PAGE_DESKTOP;
 
@@ -380,7 +382,24 @@ export function GuestBookingPanel({
       try {
         const fd = new FormData();
         fd.append('slotId', pickedSlotId);
-        fd.append('fields', '{}');
+        // Stuur gsm nationaal mee: live Combell-API faalt op 0031…/+31… uit het profiel.
+        const sheet = user?.modelSheet && typeof user.modelSheet === 'object' ? user.modelSheet : null;
+        const sheetGsm =
+          sheet && typeof (sheet as { gsmModel?: unknown }).gsmModel === 'string'
+            ? String((sheet as { gsmModel?: string }).gsmModel)
+            : '';
+        const rawPhone = String(user?.phone || sheetGsm || '').trim();
+        const national = normalizeAgendaMobileNational(rawPhone);
+        const fields: Record<string, string> = { ...(extraFields ?? {}) };
+        if (national) fields.telefoon = national;
+        if (user?.firstName?.trim()) fields.voornaam = user.firstName.trim();
+        if (user?.lastName?.trim()) {
+          fields.familienaam = user.lastName.trim();
+          fields.achternaam = user.lastName.trim();
+          fields.naam = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+        }
+        if (user?.email?.trim()) fields.email = user.email.trim();
+        fd.append('fields', JSON.stringify(fields));
         const path = resolveAgendaBookPath(bookUrl, authToken);
         const url = `${getApiBase()}${path.startsWith('/') ? path : `/${path}`}`;
         const headers: HeadersInit = {};
@@ -415,7 +434,7 @@ export function GuestBookingPanel({
         setBusy(false);
       }
     },
-    [authToken, bookUrl, loadData, onBookingSuccess, showAlert],
+    [authToken, bookUrl, extraFields, loadData, onBookingSuccess, showAlert, user],
   );
 
   const isSlotOccupied = (s: SlotDto) =>

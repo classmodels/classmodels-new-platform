@@ -1535,8 +1535,14 @@ export class AgendaService implements OnModuleInit {
           fieldsJson.email = u.email;
         }
         if (!phone && u.phone) {
-          phone = u.phone;
-          fieldsJson.telefoon = u.phone.replace(/\D/g, '');
+          try {
+            const digits = assertAgendaMobile10Digits(u.phone, 'GSM');
+            phone = digits;
+            fieldsJson.telefoon = digits;
+          } catch {
+            phone = u.phone;
+            fieldsJson.telefoon = u.phone;
+          }
         }
         if (!name) name = [firstname, lastname].filter(Boolean).join(' ').trim();
       }
