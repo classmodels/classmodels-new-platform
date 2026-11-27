@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0a0a0a">
+<title>Modelprofiel — Class-Models</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap">
+<style>
+:root{--bg:#0a0a0a;--card:#141414;--ink:#eae9e6;--muted:#8c8a86;--gold:#d4af6a;--line:rgba(255,255,255,.12)}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse 70% 40% at 90% 0%,rgba(212,175,106,.08),transparent 50%),var(--bg);color:var(--ink);font:15px/1.55 Inter,sans-serif}
+a{color:var(--gold);text-decoration:none}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 6vw;border-bottom:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:12px;color:var(--ink);font-family:Montserrat,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.logo b{font-size:18px}
+.logo span{font-size:13px;font-weight:600}
+.logo small{display:block;font-size:8px;letter-spacing:.22em;color:var(--muted);margin-top:3px}
+.logo i{width:1px;height:28px;background:var(--gold);display:block}
+header a.book{font-size:11px;letter-spacing:.14em;text-transform:uppercase;border:1px solid rgba(212,175,106,.45);padding:10px 14px}
+main{width:min(1080px,92vw);margin:0 auto;padding:34px 0 80px}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:36px;align-items:start}
+h1{font-family:Montserrat,sans-serif;font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:clamp(34px,5vw,58px);line-height:1.05;margin:10px 0}
+h1 em{font-style:normal;color:var(--gold)}
+.kicker{color:var(--gold);font-size:11px;font-weight:700;letter-spacing:.28em;text-transform:uppercase}
+.lead{color:#c8c4bc;max-width:540px}
+.note{border:1px solid rgba(212,175,106,.4);background:#17140f;padding:16px 18px;margin:22px 0}
+.note strong{color:var(--gold);font-weight:600}
+form,section.panel{background:var(--card);border:1px solid var(--line);padding:22px}
+label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:14px 0 0}
+input,select{width:100%;margin-top:6px;background:#0e0e0e;color:var(--ink);border:1px solid var(--line);padding:13px 12px;font:inherit;border-radius:0}
+input:focus,select:focus{outline:none;border-color:var(--gold)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+.slot{position:relative;min-height:148px;border:1px dashed rgba(212,175,106,.45);background:#101010;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:10px;cursor:pointer;gap:6px}
+.slot input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.slot b{font-weight:600;font-size:13px}
+.slot span{font-size:11px;color:var(--muted)}
+.slot img{width:100%;height:120px;object-fit:cover;display:none}
+.slot.ready img{display:block}
+.slot.ready span,.slot.ready b{display:none}
+button{font:inherit;cursor:pointer}
+.pay{width:100%;margin-top:18px;background:var(--gold);color:#1a140b;border:0;padding:16px;font-family:Montserrat,sans-serif;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.pay:disabled{opacity:.45;cursor:default}
+.side{position:sticky;top:18px}
+.price{font-family:Montserrat,sans-serif;font-size:42px;margin:8px 0}
+.side ul{margin:0;padding:0;list-style:none}
+.side li{padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.err{color:#e7b2a4;font-size:13px;min-height:18px}
+.hidden{display:none}
+.qr{background:#fff;padding:12px;width:min(280px,70vw);margin:12px auto}
+.qr img{width:100%;display:block}
+.mail{white-space:pre-wrap;font-size:14px;line-height:1.7;color:#ddd9d2}
+.center{text-align:center}
+footer{border-top:1px solid var(--line);padding:18px 6vw;color:var(--muted);font-size:11px;letter-spacing:.12em;text-transform:uppercase;display:flex;justify-content:space-between;gap:12px}
+@media(max-width:800px){
+  header{padding:14px 5vw}
+  header a.book{display:none}
+  .grid,.row,.photos{grid-template-columns:1fr}
+  .photos{grid-template-columns:1fr}
+  .slot{min-height:92px;flex-direction:row;justify-content:flex-start;padding-left:16px}
+  .slot img{width:72px;height:72px}
+  main{padding-top:22px}
+  .side{position:static}
+  footer{display:block;line-height:1.8}
+}
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="https://www.class-models.be/gasten/model-worden">
+    <b>CM</b><i></i>
+    <span>Class-Models<small>Toegankelijk. Eerlijk. Professioneel.</small></span>
+  </a>
+  <a class="book" href="https://www.class-models.be/gasten/model-worden">Afspraak boeken</a>
+</header>
+<main>
+  <div class="grid">
+    <div>
+      <div class="kicker">Model worden</div>
+      <h1>Jouw profiel.<br><em>€4,99.</em></h1>
+      <p class="lead">Drie foto’s, een paar gegevens, en je krijgt een uitgebreid profiel in je mailbox. Een afspraak maken om model te worden blijft zoals het is.</p>
+      <div class="note" id="intro">
+        <strong>€4,99 krijg je terug</strong> zodra je een kennismaking boekt. Zo houden we de agenda vrij voor mensen die echt willen komen, en krijg jij toch al een profiel.
+      </div>
+      <form id="form">
+        <div class="row">
+          <label>Naam<input name="name" required autocomplete="name"></label>
+          <label>Gsm<input name="phone" required inputmode="tel" autocomplete="tel" placeholder="04…"></label>
+        </div>
+        <label>E-mail<input name="email" type="email" required autocomplete="email"></label>
+        <div class="row">
+          <label>Man / vrouw
+            <select name="gender" required>
+              <option value="">Kies</option>
+              <option value="women">Vrouw</option>
+              <option value="men">Man</option>
+            </select>
+          </label>
+          <label>Lengte in cm<input name="height" type="number" min="100" max="240" required inputmode="numeric" placeholder="178"></label>
+        </div>
+        <div class="photos">
+          <label class="slot">Lichaam<span>Van hoofd tot voeten</span><img alt=""><input type="file" accept="image/*" data-slot="0" required></label>
+          <label class="slot">Gezicht<span>Recht van voren</span><img alt=""><input type="file" accept="image/*" data-slot="1" required></label>
+          <label class="slot">Zijaan<span>Profiel</span><img alt=""><input type="file" accept="image/*" data-slot="2" required></label>
+        </div>
+        <p class="err" id="err"></p>
+        <button class="pay" type="submit">Profiel opstellen · €4,99</button>
+      </form>
+      <section class="panel hidden" id="pay">
+        <div class="kicker">Betalen</div>
+        <p>Scan de QR-code met je bankapp. Het bedrag is <strong>€4,99</strong>.</p>
+        <div class="qr"><img id="qr" alt="QR-code om te betalen"></div>
+        <p class="center"><a id="checkout" href="#">Of open de betaalpagina</a></p>
+        <p class="center" id="testline"></p>
+        <button class="pay" id="done" type="button">Ik heb betaald</button>
+        <p class="err" id="payerr"></p>
+      </section>
+      <section class="panel hidden" id="donebox">
+        <div class="kicker">Je rapport</div>
+        <p id="sent"></p>
+        <div class="mail" id="mail"></div>
+        <a class="pay" style="display:block;text-align:center;margin-top:18px" href="https://www.class-models.be/gasten/model-worden">Afspraak boeken — €4,99 terug</a>
+      </section>
+    </div>
+    <aside class="side panel">
+      <div class="kicker">Wat je krijgt</div>
+      <div class="price">€4,99</div>
+      <ul>
+        <li>Drie eigen foto’s</li>
+        <li>Uitgebreid profiel per mail</li>
+        <li>Afspraak boeken blijft mogelijk</li>
+        <li>Bedrag terug bij een geboekte afspraak</li>
+      </ul>
+    </aside>
+  </div>
+</main>
+<footer><span>Class-Models</span><span>Modelprofiel</span></footer>
+<script>
+const photos = [null, null, null];
+const form = document.getElementById('form');
+const err = document.getElementById('err');
+function resize(file){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 1200 / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', .82));
+    };
+    img.onerror = () => reject(new Error('foto'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+document.querySelectorAll('input[type=file]').forEach((input) => {
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    const slot = input.closest('.slot');
+    try {
+      photos[Number(input.dataset.slot)] = await resize(file);
+      slot.classList.add('ready');
+      slot.querySelector('img').src = photos[Number(input.dataset.slot)];
+      err.textContent = '';
+    } catch {
+      err.textContent = 'Deze foto kon niet worden gelezen.';
+    }
+  });
+});
+async function api(action, payload){
+  const res = await fetch('/api/modelprofiel?action=' + action, {
+    method: action === 'status' ? 'GET' : 'POST',
+    headers: action === 'status' ? {} : { 'content-type': 'application/json' },
+    body: action === 'status' ? undefined : JSON.stringify(payload || {})
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Er ging iets mis.');
+  return data;
+}
+function showReport(data){
+  document.getElementById('pay').classList.add('hidden');
+  document.getElementById('form').classList.add('hidden');
+  document.getElementById('intro').classList.add('hidden');
+  document.getElementById('donebox').classList.remove('hidden');
+  document.getElementById('sent').textContent = 'Dit rapport is voor ' + data.email + '. Boek je een afspraak, dan krijg je €4,99 terug.';
+  document.getElementById('mail').textContent = data.report || '';
+}
+form.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  err.textContent = '';
+  if (photos.some((p) => !p)) { err.textContent = 'Voeg de drie foto’s toe.'; return; }
+  const data = Object.fromEntries(new FormData(form));
+  const button = form.querySelector('button');
+  button.disabled = true;
+  try {
+    const pay = await api('start', { ...data, photos });
+    form.classList.add('hidden');
+    document.getElementById('pay').classList.remove('hidden');
+    document.getElementById('qr').src = pay.qr;
+    document.getElementById('checkout').href = pay.checkout;
+    document.getElementById('done').dataset.id = pay.id;
+    document.getElementById('testline').textContent = pay.test ? 'Testbetaling op deze computer. Op de site met Mollie opent dezelfde QR je bankapp.' : '';
+    if (!pay.test) poll(pay.id);
+  } catch (e) {
+    err.textContent = e.message;
+    button.disabled = false;
+  }
+});
+async function poll(id){
+  for (let i = 0; i < 40; i++) {
+    const data = await fetch('/api/modelprofiel?action=status&id=' + encodeURIComponent(id)).then((r) => r.json());
+    if (data.paid) { showReport(data); return; }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+}
+document.getElementById('done').onclick = async () => {
+  const id = document.getElementById('done').dataset.id;
+  document.getElementById('payerr').textContent = '';
+  try {
+    await api('bevestig&id=' + encodeURIComponent(id), { id });
+    const data = await fetch('/api/modelprofiel?action=status&id=' + encodeURIComponent(id)).then((r) => r.json());
+    showReport(data);
+  } catch (e) {
+    document.getElementById('payerr').textContent = e.message;
+  }
+};
+const order = new URLSearchParams(location.search).get('order');
+if (order) {
+  document.getElementById('form').classList.add('hidden');
+  document.getElementById('pay').classList.remove('hidden');
+  poll(order);
+}
+</script>
+</body>
+</html>
